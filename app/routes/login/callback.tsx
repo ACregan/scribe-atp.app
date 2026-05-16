@@ -4,6 +4,8 @@ import type { Route } from "./+types/callback";
 
 const tokenUrl = "https://bsky.social/oauth/token";
 
+export const handle = { hydrate: false };
+
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "BlueSky OAuth Callback" },

@@ -12,6 +12,10 @@ FROM node:20-alpine AS build-env
 COPY . /app/
 COPY --from=development-dependencies-env /app/node_modules /app/node_modules
 WORKDIR /app
+ARG VITE_BSKY_CLIENT_ID
+ARG VITE_BSKY_REDIRECT_URI
+ENV VITE_BSKY_CLIENT_ID=$VITE_BSKY_CLIENT_ID
+ENV VITE_BSKY_REDIRECT_URI=$VITE_BSKY_REDIRECT_URI
 RUN npm run build
 
 FROM node:20-alpine

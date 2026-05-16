@@ -5,12 +5,14 @@ const BSkyAuthorizeUrl = "https://bsky.social/oauth/authorize";
 const defaultScopes = ["app.bsky.read", "app.bsky.write"];
 
 function generateRandomString(length: number) {
+  if (typeof crypto === "undefined") return "";
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
   return Array.from(array, (byte) => (byte % 36).toString(36)).join("");
 }
 
 function base64UrlEncode(buffer: ArrayBuffer) {
+  if (typeof btoa === "undefined") return "";
   const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
@@ -20,6 +22,8 @@ async function createCodeChallenge(codeVerifier: string) {
   const digest = await crypto.subtle.digest("SHA-256", data);
   return base64UrlEncode(digest);
 }
+
+export const handle = { hydrate: false };
 
 export function meta({}: Route.MetaArgs) {
   return [
