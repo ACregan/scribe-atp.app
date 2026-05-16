@@ -1,0 +1,7 @@
+{
+  "client_id": "https://scribe-atp.app",
+  "client_name": "Scribe-ATP.app",
+  "redirect_uris": ["https://scribe-atp.app"],
+  "scope": "transition:read write",
+  "application_type": "web"
+}
