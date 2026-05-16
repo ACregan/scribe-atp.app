@@ -1,10 +1,7 @@
-import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, redirect } from "react-router";
 import type { Route } from "./+types/callback";
 
 const tokenUrl = "https://bsky.social/oauth/token";
-
-export const handle = { hydrate: false };
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -16,108 +13,102 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export default function BskyCallback() {
-  const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading",
+export async function loader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+
+  if (!code || !state) {
+    throw new Response("Missing authorization code or state", { status: 400 });
+  }
+
+  // Get stored values from cookies
+  const cookieHeader = request.headers.get("cookie");
+  const cookies = new Map(
+    (cookieHeader || "").split(";").map((c) => {
+      const [key, value] = c.trim().split("=");
+      return [key, value];
+    }),
   );
-  const [message, setMessage] = useState("Completing BlueSky login...");
 
-  useEffect(() => {
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    const storedState = sessionStorage.getItem("bsky_oauth_state");
-    const codeVerifier = sessionStorage.getItem("bsky_oauth_code_verifier");
-    const redirectUri =
-      sessionStorage.getItem("bsky_oauth_redirect_uri") ??
-      `${window.location.origin}/login/callback`;
-    const clientId = import.meta.env.VITE_BSKY_CLIENT_ID ?? "";
+  const storedState = cookies.get("bsky_state");
+  const codeVerifier = cookies.get("bsky_code_verifier");
 
-    if (!code) {
-      setStatus("error");
-      setMessage("Missing authorization code in the callback URL.");
-      return;
+  if (!storedState || state !== storedState) {
+    throw new Response("OAuth state mismatch. Please retry logging in.", {
+      status: 400,
+    });
+  }
+
+  if (!codeVerifier) {
+    throw new Response(
+      "Missing PKCE verifier. Please start the login flow again.",
+      {
+        status: 400,
+      },
+    );
+  }
+
+  const clientId = process.env.VITE_BSKY_CLIENT_ID;
+  if (!clientId) {
+    throw new Response("Missing VITE_BSKY_CLIENT_ID", { status: 500 });
+  }
+
+  const redirectUri =
+    process.env.VITE_BSKY_REDIRECT_URI ||
+    `${new URL(request.url).origin}/login/callback`;
+
+  try {
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      client_id: clientId,
+      code_verifier: codeVerifier,
+    });
+
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorMessage =
+        data?.error_description || data?.error || "Token exchange failed";
+      throw new Error(errorMessage);
     }
 
-    if (!state || !storedState || state !== storedState) {
-      setStatus("error");
-      setMessage("OAuth state mismatch. Please retry logging in.");
-      return;
-    }
+    // Set session cookie with auth token
+    const sessionCookie = `bsky_auth=${encodeURIComponent(JSON.stringify(data))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`;
+    const clearCookies = [
+      "bsky_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+      "bsky_code_verifier=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+    ];
 
-    if (!codeVerifier) {
-      setStatus("error");
-      setMessage("Missing PKCE verifier. Please start the login flow again.");
-      return;
-    }
+    const responseHeaders = new Headers();
+    responseHeaders.append("Set-Cookie", sessionCookie);
+    clearCookies.forEach((cookie) => {
+      responseHeaders.append("Set-Cookie", cookie);
+    });
 
-    if (!clientId) {
-      setStatus("error");
-      setMessage(
-        "Missing VITE_BSKY_CLIENT_ID. Cannot exchange authorization code.",
-      );
-      return;
-    }
+    return redirect("/", {
+      headers: responseHeaders,
+    });
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : "Unable to complete login";
+    throw new Response(errorMessage, { status: 401 });
+  }
+}
 
-    async function exchangeToken() {
-      try {
-        const body = new URLSearchParams({
-          grant_type: "authorization_code",
-          code: code ?? "",
-          redirect_uri: redirectUri,
-          client_id: clientId,
-          code_verifier: codeVerifier ?? "",
-        });
-
-        const response = await fetch(tokenUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: body.toString(),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error_description ||
-              data?.error ||
-              "BlueSky token exchange failed.",
-          );
-        }
-
-        sessionStorage.removeItem("bsky_oauth_state");
-        sessionStorage.removeItem("bsky_oauth_code_verifier");
-        sessionStorage.setItem("bsky_auth", JSON.stringify(data));
-
-        setStatus("success");
-        setMessage("BlueSky login completed successfully.");
-      } catch (err) {
-        setStatus("error");
-        setMessage(
-          err instanceof Error ? err.message : "Unable to complete login.",
-        );
-      }
-    }
-
-    exchangeToken();
-  }, [searchParams]);
-
+export default function BskyCallback() {
   return (
     <main style={{ padding: "2rem", maxWidth: 640, margin: "0 auto" }}>
       <h1>BlueSky OAuth Callback</h1>
-      <p>{message}</p>
-      {status === "success" ? (
-        <p>
-          Your BlueSky session has been stored locally. Go back to the{" "}
-          <Link to="/">home page</Link>.
-        </p>
-      ) : (
-        <p>
-          {status === "loading"
-            ? "Please wait while we complete the login flow."
-            : "If this error persists, return to the login page and try again."}
-        </p>
-      )}
+      <p>Processing your login...</p>
     </main>
   );
 }
