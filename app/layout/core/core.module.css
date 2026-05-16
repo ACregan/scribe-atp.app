@@ -1,0 +1,23 @@
+.coreLayout_container {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 10rem 1fr auto;
+  gap: 0px 0px;
+  grid-template-areas:
+    "header"
+    "main"
+    "footer";
+  min-height: 100vh;
+}
+.coreLayout_container > header {
+  height: 10rem;
+  grid-area: header;
+}
+.coreLayout_container > main {
+  height: auto;
+  grid-area: main;
+}
+.coreLayout_container > footer {
+  height: 20rem;
+  grid-area: footer;
+}
