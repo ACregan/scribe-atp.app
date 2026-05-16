@@ -8,5 +8,10 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  return <h1>Home Page</h1>;
+  return (
+    <>
+      <h1>Home Page</h1>
+      <p>User is NOT Authenticated</p>
+    </>
+  );
 }
