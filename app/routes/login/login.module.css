@@ -1,4 +1,5 @@
 .loginContainer {
+  min-width: 40rem;
 }
 
 .loginForm {

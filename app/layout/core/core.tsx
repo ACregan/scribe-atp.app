@@ -74,7 +74,10 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
         {isAuthenticated ? (
           <div className={styles.right}>
             <div className={styles.userProfile}>
-              <span className={styles.userName}>{displayName ?? handle}</span>
+              <div className={styles.userName}>
+                <span className={styles.displayName}>{displayName}</span>
+                <span className={styles.handle}>@{handle}</span>
+              </div>
               {avatar && (
                 <img
                   src={avatar}

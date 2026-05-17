@@ -50,9 +50,18 @@
 .userProfile {
   display: flex;
   align-items: center;
-  flex-direction: column;
+  flex-direction: row;
 }
-.userProfile > span.userName {
+.userProfile > .userName {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+.userProfile > .userName > span.displayName {
+  font-size: 1.6rem;
+  margin-right: 1rem;
+}
+.userProfile > .userName > span.handle {
   font-size: 1.1rem;
   margin-right: 1rem;
 }
