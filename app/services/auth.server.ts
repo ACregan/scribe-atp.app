@@ -43,7 +43,7 @@ export const oauthClient = new NodeOAuthClient({
     client_id: clientId,
     client_uri: isProduction ? publicUrl : "http://localhost",
     redirect_uris: [redirectUri],
-    scope: "atproto",
+    scope: "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete",
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
     token_endpoint_auth_method: "none",

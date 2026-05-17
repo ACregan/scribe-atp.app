@@ -42,7 +42,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   try {
     const authUrl = await oauthClient.authorize(cleanHandle, {
-      scope: "atproto",
+      scope: "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete",
     });
     return redirect(authUrl.toString());
   } catch (err) {
