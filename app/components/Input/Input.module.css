@@ -20,7 +20,7 @@
   box-sizing: border-box;
 }
 .input:focus {
-  outline: 2px solid var(#0070f3);
+  outline: 2px solid var(--blue);
   outline-offset: 1px;
 }
 
