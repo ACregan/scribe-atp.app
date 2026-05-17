@@ -25,15 +25,19 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 ## Routes
 
 ```
-/                        home        — auth status display
-/login                   login       — Bluesky OAuth entry point (or dev bypass)
-/auth/callback           callback    — OAuth redirect handler, sets session cookie
-/article/create          create      — write a new article to the PDS
-/article/list            list        — list all articles from the PDS
-/article/edit/:rkey      edit        — edit an existing article (rkey = url slug)
+/                            home        — auth status display
+/login                       login       — Bluesky OAuth entry point (or dev bypass)
+/logout                      logout      — destroys session cookie, redirects to /login
+/auth/callback               callback    — OAuth redirect handler, sets session cookie
+/article/create              create      — write a new article to the PDS
+/article/list                list        — list all articles from the PDS
+/article/view/:articleUrl    view        — read-only display of a single article
+/article/edit/:articleUrl    edit        — edit an existing article (articleUrl = url slug)
 ```
 
-All routes sit under a shared layout at `app/layout/core/core.tsx`.
+All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header.
+
+Article routes (`/article/*`) are additionally wrapped by a protected layout at `app/layout/protected/protected.tsx` which redirects unauthenticated requests to `/login` before any route loader runs.
 
 Route types are auto-generated — run `npx react-router typegen` after adding a route to `routes.ts`, or they will be generated on the next `dev`/`build`.
 
@@ -57,7 +61,7 @@ All auth logic lives in **`app/services/auth.server.ts`** (server-only, never im
 
 Stored fields: `did` (string), `handle` (string).
 
-Use `getAuthSession(request)` in any loader/action to read auth state.
+Use `getAuthSession(request)` in any loader/action to read auth state. Use `requireAuth(request)` in loaders/actions that require authentication — it throws a redirect to `/login` if the session is missing, and returns `{ did, handle }` (non-optional) on success.
 
 ### Dev bypass (default in development)
 
@@ -163,6 +167,15 @@ await agent.com.atproto.repo.getRecord({ ... });
 ```
 
 `getAtpAgent` will throw if the session is not found (e.g. after a server restart). Handle this by catching and redirecting to `/login`.
+
+## Components
+
+Reusable UI components live in `app/components/`. Each has a co-located CSS module.
+
+| Component | Path | Props |
+|---|---|---|
+| `Input` | `app/components/Input/Input.tsx` | All `<input>` HTML attrs + `label?: string`, `error?: string` |
+| `Button` | `app/components/Button/Button.tsx` | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) |
 
 ## Client metadata (production)
 

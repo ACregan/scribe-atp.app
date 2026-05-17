@@ -1,5 +1,5 @@
 import type { Route } from "./+types/core";
-import { Form, Link, Outlet } from "react-router";
+import { Form, Link, Outlet, useLocation } from "react-router";
 import { getAuthSession, useRealOAuth } from "~/services/auth.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
@@ -49,6 +49,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function CoreLayout({ loaderData }: Route.ComponentProps) {
   const { isAuthenticated, displayName, avatar, handle } = loaderData;
   console.log("core loaderData", loaderData);
+  const location = useLocation();
+
   return (
     <div className={styles.coreLayout_container}>
       <header>
@@ -84,13 +86,13 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
               </Button>
             </Form>
           </div>
-        ) : (
+        ) : location.pathname !== "/login" ? (
           <Link to="/login">
             <Button type="button" variant="primary">
               LOGIN
             </Button>
           </Link>
-        )}
+        ) : null}
       </header>
       <main>
         <Outlet />
