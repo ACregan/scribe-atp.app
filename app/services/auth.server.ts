@@ -10,14 +10,19 @@ if (!process.env.SESSION_SECRET) {
 }
 
 const isProduction = process.env.NODE_ENV === "production";
+// Set DEV_USE_REAL_OAUTH=true in .env when you need to test real AT Protocol
+// calls locally. Requires PUBLIC_URL to be set to a tunnel URL (e.g. cloudflared).
+export const useRealOAuth =
+  isProduction || process.env.DEV_USE_REAL_OAUTH === "true";
+
 const publicUrl = process.env.PUBLIC_URL ?? "https://scribe-atp.app";
 const devPort = process.env.DEV_PORT ?? "5173";
 
-const clientId = isProduction
+const clientId = useRealOAuth
   ? `${publicUrl}/client-metadata.json`
   : "http://localhost";
 
-const redirectUri = isProduction
+const redirectUri = useRealOAuth
   ? `${publicUrl}/auth/callback`
   : `http://127.0.0.1:${devPort}/auth/callback`;
 
