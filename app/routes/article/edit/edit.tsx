@@ -21,6 +21,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       rkey: params.rkey,
       title: "Dev mode article",
       content: "Dev mode content",
+      url: params.rkey,
+      splashImageUrl: "",
       cid: "dev-cid",
     };
   }
@@ -36,6 +38,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     rkey: params.rkey,
     title: String(result.data.value.title ?? ""),
     content: String(result.data.value.content ?? ""),
+    url: String(result.data.value.url ?? params.rkey),
+    splashImageUrl: String(result.data.value.splashImageUrl ?? ""),
     cid: result.data.cid ?? null,
   };
 }
@@ -47,15 +51,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
+  const splashImageUrl = formData.get("splashImageUrl") as string;
   const cid = formData.get("cid") as string | null;
 
-  if (!title?.trim()) {
-    return { error: "Title is required." };
-  }
+  if (!title?.trim()) return { error: "Title is required." };
 
-  if (!useRealOAuth) {
-    return redirect("/article/list");
-  }
+  if (!useRealOAuth) return redirect("/article/list");
 
   try {
     const agent = await getAtpAgent(did);
@@ -67,6 +68,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         $type: COLLECTION,
         title,
         content,
+        url: params.rkey,
+        splashImageUrl: splashImageUrl?.trim() || undefined,
         createdAt: new Date().toISOString(),
       },
       swapRecord: cid ?? undefined,
@@ -82,7 +85,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function EditArticle({ loaderData, actionData }: Route.ComponentProps) {
-  const { title, content, cid } = loaderData;
+  const { title, content, url, splashImageUrl, cid } = loaderData;
 
   return (
     <div>
@@ -92,6 +95,26 @@ export default function EditArticle({ loaderData, actionData }: Route.ComponentP
         <div>
           <label htmlFor="title">Title</label>
           <input type="text" id="title" name="title" defaultValue={title} />
+        </div>
+        <div>
+          <label htmlFor="url">URL slug</label>
+          <input
+            type="text"
+            id="url"
+            name="url"
+            value={url}
+            readOnly
+            style={{ opacity: 0.6, cursor: "not-allowed" }}
+          />
+        </div>
+        <div>
+          <label htmlFor="splashImageUrl">Splash image URL</label>
+          <input
+            type="text"
+            id="splashImageUrl"
+            name="splashImageUrl"
+            defaultValue={splashImageUrl}
+          />
         </div>
         <div>
           <label htmlFor="content">Content</label>

@@ -12,6 +12,8 @@ type Article = {
   uri: string;
   cid: string;
   title: string;
+  url: string;
+  splashImageUrl: string;
   createdAt: string;
 };
 
@@ -39,6 +41,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       uri: record.uri,
       cid: record.cid,
       title: String(record.value.title ?? "(untitled)"),
+      url: String(record.value.url ?? record.uri.split("/").pop() ?? ""),
+      splashImageUrl: String(record.value.splashImageUrl ?? ""),
       createdAt: String(record.value.createdAt ?? ""),
     }));
 
