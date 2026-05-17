@@ -3,6 +3,7 @@ import {
   type NodeSavedState,
   type NodeSavedSession,
 } from "@atproto/oauth-client-node";
+import { Agent } from "@atproto/api";
 import { createCookieSessionStorage, redirect } from "react-router";
 
 if (!process.env.SESSION_SECRET) {
@@ -103,6 +104,11 @@ export async function createAuthSession(
   return redirect(redirectTo, {
     headers: { "Set-Cookie": await commitSession(session) },
   });
+}
+
+export async function getAtpAgent(did: string) {
+  const session = await oauthClient.restore(did);
+  return new Agent(session);
 }
 
 export async function destroyAuthSession(
