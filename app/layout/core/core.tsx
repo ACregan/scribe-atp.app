@@ -1,10 +1,6 @@
 import type { Route } from "./+types/core";
 import { Form, Link, Outlet } from "react-router";
-import {
-  destroyAuthSession,
-  getAuthSession,
-  useRealOAuth,
-} from "~/services/auth.server";
+import { getAuthSession, useRealOAuth } from "~/services/auth.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
@@ -14,10 +10,6 @@ type BskyProfile = {
   avatar?: string;
   handle?: string;
 };
-
-export async function action({ request }: Route.ActionArgs) {
-  return destroyAuthSession(request, "/login");
-}
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { did, handle, isAuthenticated } = await getAuthSession(request);
@@ -86,7 +78,7 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
                 />
               )}
             </div>
-            <Form method="post">
+            <Form method="post" action="/logout">
               <Button type="submit" variant="danger">
                 LOGOUT
               </Button>

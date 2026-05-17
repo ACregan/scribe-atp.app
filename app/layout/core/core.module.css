@@ -55,15 +55,18 @@
 .userProfile > .userName {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   justify-content: space-around;
 }
 .userProfile > .userName > span.displayName {
   font-size: 1.6rem;
   margin-right: 1rem;
+  font-weight: 600;
 }
 .userProfile > .userName > span.handle {
   font-size: 1.1rem;
   margin-right: 1rem;
+  color: var(--mid-grey);
 }
 .userProfile > img.userAvatar {
   height: 5rem;
