@@ -32,14 +32,25 @@
   font-weight: 300;
   margin: 0;
 }
+
+.right {
+  display: flex;
+  gap: 1rem;
+}
+
 /* USER DEETS */
 .userProfile {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
 }
 .userProfile > img.userAvatar {
   height: 5rem;
   width: 5rem;
+  border-radius: 50%;
 }
 .userProfile > span.userName {
+  font-size: 1.1rem;
 }
 
 .coreLayout_container > main {
@@ -47,6 +58,10 @@
   grid-area: main;
   background: var(--black);
   color: var(--white);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .coreLayout_container > footer {
   grid-area: footer;

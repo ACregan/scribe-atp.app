@@ -1,0 +1,15 @@
+.loginContainer {
+}
+
+.loginForm {
+}
+.loginForm > button {
+  display: flex;
+  align-items: center;
+  justify-self: flex-end;
+}
+.loginForm > button > svg {
+  height: 2rem;
+  width: 2rem;
+  margin-right: 0.5rem;
+}

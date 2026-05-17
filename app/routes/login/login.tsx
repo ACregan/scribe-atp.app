@@ -1,11 +1,15 @@
 import type { Route } from "./+types/login";
 import { Form, useSearchParams } from "react-router";
 import { redirect } from "react-router";
+import { Input } from "~/components/Input/Input";
+import { Button } from "~/components/Button/Button";
 import {
   createAuthSession,
   oauthClient,
   useRealOAuth,
 } from "~/services/auth.server";
+import styles from "./login.module.css";
+import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -36,13 +40,14 @@ export async function action({ request }: Route.ActionArgs) {
     return createAuthSession(
       request,
       { did: `did:dev:${cleanHandle}`, handle: cleanHandle },
-      "/"
+      "/",
     );
   }
 
   try {
     const authUrl = await oauthClient.authorize(cleanHandle, {
-      scope: "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete",
+      scope:
+        "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete",
     });
     return redirect(authUrl.toString());
   } catch (err) {
@@ -56,7 +61,10 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-export default function Login({ loaderData, actionData }: Route.ComponentProps) {
+export default function Login({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
   const [searchParams] = useSearchParams();
   const error =
     actionData?.error ??
@@ -65,23 +73,28 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
       : null);
 
   return (
-    <div>
+    <div className={styles.loginContainer}>
       <h1>Login</h1>
       {loaderData.isBypass && (
         <p style={{ color: "orange" }}>
           Dev mode: OAuth is bypassed. Any handle will be accepted.
         </p>
       )}
-      <Form method="post">
-        <input
+      <Form method="post" className={styles.loginForm}>
+        <Input
+          id="bskyHandle"
           type="text"
           name="bskyHandle"
+          label="Bluesky Handle"
           placeholder="you.bsky.social"
           autoComplete="username"
+          error={error ?? undefined}
         />
-        <button type="submit">Sign in with Bluesky</button>
+        <Button type="submit">
+          <SvgIcon fill="white" name={SvgImageList.SocialBlueSky} />
+          <span>Sign in with Bluesky</span>
+        </Button>
       </Form>
-      {error ? <p style={{ color: "red" }}>{error}</p> : null}
     </div>
   );
 }
