@@ -1,6 +1,10 @@
 import type { Route } from "./+types/list";
 import { Link, redirect } from "react-router";
-import { getAtpAgent, getAuthSession, useRealOAuth } from "~/services/auth.server";
+import {
+  getAtpAgent,
+  getAuthSession,
+  useRealOAuth,
+} from "~/services/auth.server";
 
 const COLLECTION = "app.scribe.article";
 
@@ -55,14 +59,17 @@ export default function ArticleList({ loaderData }: Route.ComponentProps) {
 
       {devMode && (
         <p style={{ color: "orange" }}>
-          Dev mode: no real PDS connected. Save an article in production to see it here.
+          Dev mode: no real PDS connected. Save an article in production to see
+          it here.
         </p>
       )}
 
       {error && <p style={{ color: "red" }}>Error loading articles: {error}</p>}
 
       {articles.length === 0 && !devMode && !error && (
-        <p>No articles yet. <Link to="/article/create">Create one.</Link></p>
+        <p>
+          No articles yet. <Link to="/article/create">Create one.</Link>
+        </p>
       )}
 
       <ul>
@@ -74,6 +81,7 @@ export default function ArticleList({ loaderData }: Route.ComponentProps) {
             )}
             <br />
             <small style={{ fontFamily: "monospace" }}>{article.uri}</small>
+            <Link to={`/article/edit/${article.uri.split("/").pop()}`}>Edit</Link>
           </li>
         ))}
       </ul>

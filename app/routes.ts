@@ -12,5 +12,6 @@ export default [
     route("auth/callback", "./routes/auth/callback.tsx"),
     route("article/create", "./routes/article/create/create.tsx"),
     route("article/list", "./routes/article/list/list.tsx"),
+    route("article/edit/:rkey", "./routes/article/edit/edit.tsx"),
   ]),
 ] satisfies RouteConfig;
