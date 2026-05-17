@@ -7,6 +7,7 @@ import {
 } from "~/services/auth.server";
 
 const COLLECTION = "app.scribe.article";
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Edit Article" }];
@@ -51,29 +52,59 @@ export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
+  const newUrl = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const cid = formData.get("cid") as string | null;
+  const oldRkey = params.rkey;
 
   if (!title?.trim()) return { error: "Title is required." };
+  if (!newUrl?.trim()) return { error: "URL slug is required." };
+  if (!SLUG_RE.test(newUrl))
+    return {
+      error:
+        "URL slug must be lowercase letters, numbers, and hyphens only (e.g. my-article).",
+    };
 
   if (!useRealOAuth) return redirect("/article/list");
 
+  const agent = await getAtpAgent(did);
+  const record = {
+    $type: COLLECTION,
+    title,
+    content,
+    url: newUrl,
+    splashImageUrl: splashImageUrl?.trim() || undefined,
+    createdAt: new Date().toISOString(),
+  };
+
   try {
-    const agent = await getAtpAgent(did);
-    await agent.com.atproto.repo.putRecord({
-      repo: did,
-      collection: COLLECTION,
-      rkey: params.rkey,
-      record: {
-        $type: COLLECTION,
-        title,
-        content,
-        url: params.rkey,
-        splashImageUrl: splashImageUrl?.trim() || undefined,
-        createdAt: new Date().toISOString(),
-      },
-      swapRecord: cid ?? undefined,
-    });
+    if (newUrl !== oldRkey) {
+      // Slug changed — create at new rkey then delete the old one.
+      await agent.com.atproto.repo.createRecord({
+        repo: did,
+        collection: COLLECTION,
+        rkey: newUrl,
+        record,
+      });
+      // Best-effort delete; if this fails the old record is orphaned but the
+      // new one is canonical. The user can clean up from the list page.
+      await agent.com.atproto.repo.deleteRecord({
+        repo: did,
+        collection: COLLECTION,
+        rkey: oldRkey,
+        swapRecord: cid ?? undefined,
+      }).catch((err) => {
+        console.error("Failed to delete old record after rename:", err);
+      });
+    } else {
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: COLLECTION,
+        rkey: oldRkey,
+        record,
+        swapRecord: cid ?? undefined,
+      });
+    }
     return redirect("/article/list");
   } catch (err) {
     console.error("Failed to update article:", err);
@@ -102,9 +133,7 @@ export default function EditArticle({ loaderData, actionData }: Route.ComponentP
             type="text"
             id="url"
             name="url"
-            value={url}
-            readOnly
-            style={{ opacity: 0.6, cursor: "not-allowed" }}
+            defaultValue={url}
           />
         </div>
         <div>
