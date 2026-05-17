@@ -19,10 +19,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   if (!useRealOAuth) {
     return {
-      rkey: params.rkey,
+      rkey: params.articleUrl,
       title: "Dev mode article",
       content: "Dev mode content",
-      url: params.rkey,
+      url: params.articleUrl,
       splashImageUrl: "",
       cid: "dev-cid",
     };
@@ -32,14 +32,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const result = await agent.com.atproto.repo.getRecord({
     repo: did,
     collection: COLLECTION,
-    rkey: params.rkey,
+    rkey: params.articleUrl,
   });
 
   return {
-    rkey: params.rkey,
+    rkey: params.articleUrl,
     title: String(result.data.value.title ?? ""),
     content: String(result.data.value.content ?? ""),
-    url: String(result.data.value.url ?? params.rkey),
+    url: String(result.data.value.url ?? params.articleUrl),
     splashImageUrl: String(result.data.value.splashImageUrl ?? ""),
     cid: result.data.cid ?? null,
   };
@@ -55,7 +55,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const newUrl = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const cid = formData.get("cid") as string | null;
-  const oldRkey = params.rkey;
+  const oldRkey = params.articleUrl;
 
   if (!title?.trim()) return { error: "Title is required." };
   if (!newUrl?.trim()) return { error: "URL slug is required." };

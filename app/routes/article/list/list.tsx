@@ -85,6 +85,8 @@ export default function ArticleList({ loaderData }: Route.ComponentProps) {
             )}
             <br />
             <small style={{ fontFamily: "monospace" }}>{article.uri}</small>
+            <Link to={`/article/view/${article.uri.split("/").pop()}`}>View</Link>
+            {" · "}
             <Link to={`/article/edit/${article.uri.split("/").pop()}`}>Edit</Link>
           </li>
         ))}
