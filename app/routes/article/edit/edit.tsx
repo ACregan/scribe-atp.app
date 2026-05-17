@@ -2,7 +2,7 @@ import type { Route } from "./+types/edit";
 import { Form, redirect } from "react-router";
 import {
   getAtpAgent,
-  getAuthSession,
+  requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
 
@@ -14,8 +14,7 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { did, isAuthenticated } = await getAuthSession(request);
-  if (!isAuthenticated || !did) return redirect("/login");
+  const { did } = await requireAuth(request);
 
   if (!useRealOAuth) {
     return {
@@ -46,8 +45,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const { did, isAuthenticated } = await getAuthSession(request);
-  if (!isAuthenticated || !did) return redirect("/login");
+  const { did } = await requireAuth(request);
 
   const formData = await request.formData();
   const title = formData.get("title") as string;

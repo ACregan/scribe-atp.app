@@ -1,8 +1,8 @@
 import type { Route } from "./+types/create";
-import { Form, redirect } from "react-router";
+import { Form } from "react-router";
 import {
   getAtpAgent,
-  getAuthSession,
+  requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
 
@@ -10,14 +10,12 @@ const COLLECTION = "app.scribe.article";
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { isAuthenticated } = await getAuthSession(request);
-  if (!isAuthenticated) return redirect("/login");
+  await requireAuth(request);
   return null;
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const { did, isAuthenticated } = await getAuthSession(request);
-  if (!isAuthenticated || !did) return redirect("/login");
+  const { did } = await requireAuth(request);
 
   const formData = await request.formData();
   const title = formData.get("title") as string;

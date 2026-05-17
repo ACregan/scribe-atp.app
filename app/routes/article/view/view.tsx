@@ -1,8 +1,8 @@
 import type { Route } from "./+types/view";
-import { Link, redirect } from "react-router";
+import { Link } from "react-router";
 import {
   getAtpAgent,
-  getAuthSession,
+  requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
 
@@ -13,8 +13,7 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { did, isAuthenticated } = await getAuthSession(request);
-  if (!isAuthenticated || !did) return redirect("/login");
+  const { did } = await requireAuth(request);
 
   if (!useRealOAuth) {
     return {

@@ -93,6 +93,14 @@ export async function getAuthSession(request: Request) {
   return { did, handle, isAuthenticated: Boolean(did) };
 }
 
+export async function requireAuth(
+  request: Request
+): Promise<{ did: string; handle: string }> {
+  const { did, handle, isAuthenticated } = await getAuthSession(request);
+  if (!isAuthenticated || !did) throw redirect("/login");
+  return { did, handle: handle ?? did };
+}
+
 export async function createAuthSession(
   request: Request,
   { did, handle }: { did: string; handle: string },
