@@ -7,6 +7,7 @@ import {
 } from "~/services/auth.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
+import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 type BskyProfile = {
   displayName?: string;
@@ -64,12 +65,16 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
             Scribe<span>CMS</span>
           </h4>
           <h6>
-            Powered By <span>@ATprotocol</span>
+            Powered By{" "}
+            <span>
+              <SvgIcon name={SvgImageList.ATProtoLogo} />
+            </span>
           </h6>
         </div>
         {isAuthenticated ? (
           <div className={styles.right}>
             <div className={styles.userProfile}>
+              <span className={styles.userName}>{displayName ?? handle}</span>
               {avatar && (
                 <img
                   src={avatar}
@@ -77,7 +82,6 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
                   className={styles.userAvatar}
                 />
               )}
-              <span className={styles.userName}>{displayName ?? handle}</span>
             </div>
             <Form method="post">
               <Button type="submit" variant="danger">
@@ -86,7 +90,11 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
             </Form>
           </div>
         ) : (
-          <Link to="/login">LOGIN</Link>
+          <Link to="/login">
+            <Button type="button" variant="primary">
+              LOGIN
+            </Button>
+          </Link>
         )}
       </header>
       <main>
