@@ -4,6 +4,7 @@ import { getAuthSession, useRealOAuth } from "~/services/auth.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import AsideMenu from "~/components/AsideMenu/AsideMenu";
 
 type BskyProfile = {
   displayName?: string;
@@ -79,15 +80,6 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
                 />
               )}
             </div>
-            <Form method="post" action="/logout">
-              <Button
-                type="submit"
-                variant="danger"
-                className={styles.exitButton}
-              >
-                <SvgIcon name={SvgImageList.Exit} fill="white" />
-              </Button>
-            </Form>
           </div>
         ) : location.pathname !== "/login" ? (
           <Link to="/login">
@@ -97,7 +89,7 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
           </Link>
         ) : null}
       </header>
-      {isAuthenticated && <aside>MENU</aside>}
+      {isAuthenticated && <AsideMenu />}
       <main>
         <Outlet />
       </main>

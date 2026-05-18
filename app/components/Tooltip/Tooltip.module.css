@@ -17,7 +17,7 @@
 */
 .tooltipBubble {
   position: relative;
-  background: black;
+  background: var(--blue);
   border-radius: 0.4rem;
   padding: 1rem;
   margin: 1.2rem;
@@ -36,7 +36,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-bottom-color: black;
+  border-bottom-color: var(--blue);
   border-top: 0;
   margin-left: -10px;
   margin-top: -10px;
@@ -49,7 +49,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-left-color: black;
+  border-left-color: var(--blue);
   border-right: 0;
   margin-top: -10px;
   margin-right: -10px;
@@ -62,23 +62,24 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-top-color: black;
+  border-top-color: var(--blue);
   border-bottom: 0;
   margin-left: -10px;
   margin-bottom: -10px;
 }
+
 .tooltipBubble.left:after {
   content: "";
   position: absolute;
-  bottom: 0;
-  left: 50%;
+  left: 0;
+  top: 50%;
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-top-color: black;
-  border-bottom: 0;
+  border-right-color: var(--blue);
+  border-left: 0;
+  margin-top: -10px;
   margin-left: -10px;
-  margin-bottom: -10px;
 }
 
 .tooltipBubble.topRight:after {
@@ -89,7 +90,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-bottom-color: black;
+  border-bottom-color: var(--blue);
   border-top: 0;
   border-right: 0;
   margin-left: -10px;
@@ -103,7 +104,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-bottom-color: #000000;
+  border-bottom-color: var(--blue);
   border-top: 0;
   border-left: 0;
   margin-left: -5px;
@@ -118,7 +119,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-top-color: #000000;
+  border-top-color: var(--blue);
   border-bottom: 0;
   border-left: 0;
   margin-left: -5px;
@@ -132,7 +133,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-top-color: #000000;
+  border-top-color: var(--blue);
   border-bottom: 0;
   border-right: 0;
   margin-left: -5px;

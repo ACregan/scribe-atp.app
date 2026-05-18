@@ -91,8 +91,10 @@ export default function Login({
           error={error ?? undefined}
         />
         <Button type="submit">
-          <SvgIcon fill="white" name={SvgImageList.SocialBlueSky} />
-          <span>Sign in with Bluesky</span>
+          <div className={styles.buttonContent}>
+            <SvgIcon fill="white" name={SvgImageList.SocialBlueSky} />
+            <span>Sign in with Bluesky</span>
+          </div>
         </Button>
       </Form>
     </div>
