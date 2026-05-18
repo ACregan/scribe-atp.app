@@ -1,6 +1,6 @@
 .coreLayout_container {
   display: grid;
-  grid-template-columns: 5rem 1fr;
+  grid-template-columns: min-content 1fr;
   grid-template-rows: 8rem 1fr 10rem;
   gap: 0px 0px;
   grid-template-areas:
@@ -84,6 +84,7 @@
 .coreLayout_container > aside {
   grid-area: aside;
   background: var(--blue);
+  width: 5rem;
 }
 
 .coreLayout_container > main {

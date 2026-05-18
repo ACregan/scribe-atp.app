@@ -97,7 +97,7 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
           </Link>
         ) : null}
       </header>
-      <aside>MENU</aside>
+      {isAuthenticated && <aside>MENU</aside>}
       <main>
         <Outlet />
       </main>
