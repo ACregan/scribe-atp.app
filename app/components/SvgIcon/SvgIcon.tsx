@@ -7,6 +7,7 @@ export const SvgImageList = {
   Document: "Document",
   Documents: "Documents",
   Home: "Home",
+  DragHandle: "DragHandle",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -94,6 +95,17 @@ const SvgIcon: React.FC<SVGiconProp> = ({
         <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24">
           <path fill="none" d="M0 0h24v24H0z"></path>
           <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path>
+        </svg>
+      );
+
+    case SvgImageList.DragHandle:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill={fill}
+          viewBox="0 -960 960 960"
+        >
+          <path d="M360-160q-33 0-56.5-23.5T280-240t23.5-56.5T360-320t56.5 23.5T440-240t-23.5 56.5T360-160m240 0q-33 0-56.5-23.5T520-240t23.5-56.5T600-320t56.5 23.5T680-240t-23.5 56.5T600-160M360-400q-33 0-56.5-23.5T280-480t23.5-56.5T360-560t56.5 23.5T440-480t-23.5 56.5T360-400m240 0q-33 0-56.5-23.5T520-480t23.5-56.5T600-560t56.5 23.5T680-480t-23.5 56.5T600-400M360-640q-33 0-56.5-23.5T280-720t23.5-56.5T360-800t56.5 23.5T440-720t-23.5 56.5T360-640m240 0q-33 0-56.5-23.5T520-720t23.5-56.5T600-800t56.5 23.5T680-720t-23.5 56.5T600-640"></path>
         </svg>
       );
 

@@ -1,15 +1,13 @@
 import type { Route } from "./+types/list";
 import { Form, Link, redirect, useFetcher } from "react-router";
-import {
-  getAtpAgent,
-  requireAuth,
-  useRealOAuth,
-} from "~/services/auth.server";
+import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
 import { Input } from "~/components/Input/Input";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { useState } from "react";
+import { ArticleList, ArticleItem } from "~/components/ArticleItem/ArticleItem";
+import styles from "./list.module.css";
 
 const ARTICLE_COLLECTION = "app.scribe.article";
 const GROUP_COLLECTION = "app.scribe.group";
@@ -52,7 +50,8 @@ export async function action({ request }: Route.ActionArgs) {
     if (!title) return { error: "Group title is required." };
 
     const slug = toSlug(title);
-    if (!slug) return { error: "Title must contain at least one letter or number." };
+    if (!slug)
+      return { error: "Title must contain at least one letter or number." };
 
     if (useRealOAuth) {
       const agent = await getAtpAgent(did);
@@ -94,7 +93,57 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
 
   if (!useRealOAuth) {
-    return { articles: [] as Article[], groups: [] as Group[], devMode: true };
+    return {
+      devMode: true,
+      groups: [
+        {
+          uri: "at://did:dev:user/app.scribe.group/engineering",
+          cid: "dev-cid-g1",
+          title: "Engineering",
+          slug: "engineering",
+        },
+        {
+          uri: "at://did:dev:user/app.scribe.group/design",
+          cid: "dev-cid-g2",
+          title: "Design",
+          slug: "design",
+        },
+      ] as Group[],
+      articles: [
+        {
+          uri: "at://did:dev:user/app.scribe.article/hello-world",
+          cid: "dev-cid-1",
+          title: "Hello World",
+          url: "hello-world",
+          splashImageUrl: "",
+          createdAt: new Date("2025-01-01").toISOString(),
+        },
+        {
+          uri: "at://did:dev:user/app.scribe.article/getting-started",
+          cid: "dev-cid-2",
+          title: "Getting Started with AT Protocol",
+          url: "getting-started",
+          splashImageUrl: "",
+          createdAt: new Date("2025-02-14").toISOString(),
+        },
+        {
+          uri: "at://did:dev:user/app.scribe.article/lexical-editor",
+          cid: "dev-cid-3",
+          title: "Building a Rich Text Editor with Lexical",
+          url: "lexical-editor",
+          splashImageUrl: "",
+          createdAt: new Date("2025-03-20").toISOString(),
+        },
+        {
+          uri: "at://did:dev:user/app.scribe.article/sqlite-sessions",
+          cid: "dev-cid-4",
+          title: "Persisting OAuth Sessions with SQLite",
+          url: "sqlite-sessions",
+          splashImageUrl: "",
+          createdAt: new Date("2025-04-05").toISOString(),
+        },
+      ] as Article[],
+    };
   }
 
   try {
@@ -131,7 +180,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { articles, groups, devMode: false };
   } catch (err) {
     console.error("Failed to fetch records from PDS:", err);
-    return { articles: [] as Article[], groups: [] as Group[], devMode: false, error: String(err) };
+    return {
+      articles: [] as Article[],
+      groups: [] as Group[],
+      devMode: false,
+      error: String(err),
+    };
   }
 }
 
@@ -167,76 +221,73 @@ function CreateGroupModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function ArticleList({ loaderData }: Route.ComponentProps) {
+export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
   const { articles, groups, devMode, error } = loaderData;
   const { isOpen, open, close } = useModal();
 
   return (
-    <div>
-      <h1>Articles</h1>
-      <Link to="/article/create">New article</Link>
-      {" · "}
-      <Button type="button" variant="secondary" onClick={open}>
-        Add new group
-      </Button>
+    <div className={styles.pageContainer}>
+      <h1>Articles & Groups</h1>
+      <div className={styles.buttonPanel}>
+        <Link to="/article/create">
+          <Button type="button" variant="secondary">
+            New article
+          </Button>
+        </Link>
+        {" · "}
+        <Button type="button" variant="secondary" onClick={open}>
+          Add new group
+        </Button>
+      </div>
+      <div className={styles.contentContainer}>
+        {error && (
+          <p style={{ color: "red" }}>Error loading articles: {error}</p>
+        )}
+
+        {groups.length > 0 && (
+          <>
+            <h4>Groups</h4>
+            <ul>
+              {groups.map((group) => (
+                <li key={group.uri}>
+                  <strong>{group.title}</strong>
+                  <small
+                    style={{ fontFamily: "monospace", marginLeft: "1rem" }}
+                  >
+                    {group.uri}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {articles.length === 0 && !devMode && !error && (
+          <p>
+            No articles yet. <Link to="/article/create">Create one.</Link>
+          </p>
+        )}
+
+        {articles.length > 0 && (
+          <>
+            <h4>Articles</h4>
+            <ArticleList>
+              {articles.map((article) => (
+                <ArticleItem
+                  uri={article.uri}
+                  title={article.title}
+                  createdAt={article.createdAt}
+                  cid={article.cid}
+                />
+              ))}
+            </ArticleList>
+          </>
+        )}
+      </div>
 
       {devMode && (
-        <p style={{ color: "orange" }}>
-          Dev mode: no real PDS connected. Save an article in production to see
-          it here.
-        </p>
+        <p style={{ color: "orange" }}>Dev mode: no real PDS connected.</p>
       )}
-
-      {error && <p style={{ color: "red" }}>Error loading articles: {error}</p>}
-
-      {groups.length > 0 && (
-        <>
-          <h2>Groups</h2>
-          <ul>
-            {groups.map((group) => (
-              <li key={group.uri}>
-                <strong>{group.title}</strong>
-                <small style={{ fontFamily: "monospace", marginLeft: "1rem" }}>{group.uri}</small>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      {articles.length === 0 && !devMode && !error && (
-        <p>
-          No articles yet. <Link to="/article/create">Create one.</Link>
-        </p>
-      )}
-
-      <ul>
-        {articles.map((article) => (
-          <li key={article.uri}>
-            <strong>{article.title}</strong>
-            {article.createdAt && (
-              <> — {new Date(article.createdAt).toLocaleDateString()}</>
-            )}
-            <br />
-            <small style={{ fontFamily: "monospace" }}>{article.uri}</small>
-            <Link to={`/article/view/${article.uri.split("/").pop()}`}>View</Link>
-            {" · "}
-            <Link to={`/article/edit/${article.uri.split("/").pop()}`}>Edit</Link>
-            {" · "}
-            <Form
-              method="post"
-              style={{ display: "inline" }}
-              onSubmit={(e) => {
-                if (!confirm(`Delete "${article.title}"?`)) e.preventDefault();
-              }}
-            >
-              <input type="hidden" name="_intent" value="deleteArticle" />
-              <input type="hidden" name="rkey" value={article.uri.split("/").pop()} />
-              <input type="hidden" name="cid" value={article.cid} />
-              <Button type="submit" variant="danger">Delete</Button>
-            </Form>
-          </li>
-        ))}
-      </ul>
 
       <Modal
         isOpen={isOpen}

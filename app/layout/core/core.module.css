@@ -1,7 +1,7 @@
 .coreLayout_container {
   display: grid;
   grid-template-columns: min-content 1fr;
-  grid-template-rows: 8rem 1fr 10rem;
+  grid-template-rows: 8rem 1fr 6rem;
   gap: 0px 0px;
   grid-template-areas:
     "header header"
