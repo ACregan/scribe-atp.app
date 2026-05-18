@@ -1,0 +1,21 @@
+.loginContainer {
+  min-width: 40rem;
+}
+
+.loginForm {
+}
+.loginForm > button {
+  display: flex;
+  justify-self: flex-end;
+}
+.loginForm > button > .buttonContent {
+  display: flex;
+  align-items: center;
+  justify-self: flex-end;
+  padding: 1rem;
+}
+.loginForm > button > .buttonContent > svg {
+  height: 2rem;
+  width: 2rem;
+  margin-right: 0.5rem;
+}

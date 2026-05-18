@@ -1,0 +1,82 @@
+/* INTER */
+@font-face {
+  font-family: InterVariable;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../../fonts/Inter/InterVariable.woff2") format("woff2");
+}
+@font-face {
+  font-family: InterVariable;
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../../fonts/Inter/InterVariable-Italic.woff2") format("woff2");
+}
+
+/* TYPOGRAPHY STYLES */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Inter", Arial, Helvetica, sans-serif;
+  font-weight: bold;
+  font-style: normal;
+  line-height: 110%;
+  margin: 1rem 0;
+}
+
+h1 {
+  font-size: 6rem;
+}
+h2 {
+  font-size: 5.5rem;
+}
+h3 {
+  font-size: 5rem;
+}
+h4 {
+  font-size: 4.5rem;
+}
+h5 {
+  font-size: 4rem;
+}
+h6 {
+  font-size: 3.5rem;
+}
+
+.semiBold {
+  font-weight: 500;
+}
+.regular {
+  font-weight: 400;
+}
+.light {
+  font-weight: 300;
+}
+.lighter {
+  font-weight: 200;
+}
+.lightest {
+  font-weight: 100;
+}
+
+body,
+p {
+  font-family: "Inter", Arial, Helvetica, sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.6rem;
+}
+p {
+  line-height: 150%;
+  margin: 1rem 0;
+  padding-bottom: 1rem;
+}
+
+.center-text {
+  text-align: center;
+}

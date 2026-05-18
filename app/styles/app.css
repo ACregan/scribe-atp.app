@@ -1,0 +1,134 @@
+/*  TURNING THIS OFF FOR NOW - It messes with input styles overcomplicating things
+html,
+body {
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+  }
+} */
+
+/* CSS RESET: https://www.joshwcomeau.com/css/custom-css-reset/*/
+
+/* 1. Use a more-intuitive box-sizing model */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 2. Remove default margin */
+* {
+  margin: 0;
+}
+
+body {
+  /* 3. Add accessible line-height */
+  line-height: 1.5;
+  /* 4. Improve text rendering */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 5. Improve media defaults */
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* 6. Inherit fonts for form controls */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+/* 7. Avoid text overflows */
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+/* 8. Improve line wrapping */
+p {
+  text-wrap: pretty;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  text-wrap: balance;
+}
+
+/*
+  9. Create a root stacking context
+*/
+#root,
+#__next {
+  isolation: isolate;
+}
+
+/* 1rem to 10px hack */
+html {
+  font-size: 62.5%; /* equivelent to: font-size: 10px;*/
+}
+body {
+  min-height: 100vh;
+  font-size: 16px;
+  overflow-y: auto;
+}
+
+/* LINK STYLES */
+p a {
+  color: var(--white);
+  text-decoration-color: var(--red);
+}
+
+p a:active,
+p a:hover {
+  color: var(--white);
+  text-decoration-color: var(--red);
+}
+
+/* SELECTION */
+::selection {
+  color: var(--black);
+  background: var(--red);
+}
+
+/* GLOBAL RESPONSIVE STYLES */
+
+/* > 2k */
+@media screen and (min-width: 1921px) {
+  html {
+    font-size: 85%;
+  }
+}
+
+/* > 3k */
+@media screen and (min-width: 2881px) {
+  html {
+    font-size: 125%;
+  }
+}
+/* > 4k */
+@media screen and (min-width: 3841px) {
+  html {
+    font-size: 150%;
+  }
+}
+/* > 5k */
+@media screen and (min-width: 5761px) {
+  html {
+    font-size: 200%;
+  }
+}

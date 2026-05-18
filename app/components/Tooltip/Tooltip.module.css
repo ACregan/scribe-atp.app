@@ -1,0 +1,141 @@
+/* TOOLTIP STYLES*/
+
+.anchoredElement {
+}
+.tooltipElement {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s 0.2s ease-in-out;
+}
+.anchoredElement:hover + .tooltipElement {
+  opacity: 1;
+}
+
+/* TOOLTIP BUBBLE (optional decorative component to be used 
+   as a child of  Tooltip 'anchorContent' prop. 
+*/
+.tooltipBubble {
+  position: relative;
+  background: var(--blue);
+  border-radius: 0.4rem;
+  padding: 1rem;
+  margin: 1.2rem;
+  font-size: 1.2rem;
+  color: white;
+  text-align: center;
+}
+/* note - these top, left, bottom, right classnames refer 
+   to the location of the speech bubble triangle
+*/
+.tooltipBubble.top:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-bottom-color: var(--blue);
+  border-top: 0;
+  margin-left: -10px;
+  margin-top: -10px;
+}
+.tooltipBubble.right:after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-left-color: var(--blue);
+  border-right: 0;
+  margin-top: -10px;
+  margin-right: -10px;
+}
+.tooltipBubble.bottom:after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-top-color: var(--blue);
+  border-bottom: 0;
+  margin-left: -10px;
+  margin-bottom: -10px;
+}
+
+.tooltipBubble.left:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-right-color: var(--blue);
+  border-left: 0;
+  margin-top: -10px;
+  margin-left: -10px;
+}
+
+.tooltipBubble.topRight:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 90%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-bottom-color: var(--blue);
+  border-top: 0;
+  border-right: 0;
+  margin-left: -10px;
+  margin-top: -10px;
+}
+.tooltipBubble.topLeft:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-bottom-color: var(--blue);
+  border-top: 0;
+  border-left: 0;
+  margin-left: -5px;
+  margin-top: -10px;
+}
+
+.tooltipBubble.bottomLeft:after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-top-color: var(--blue);
+  border-bottom: 0;
+  border-left: 0;
+  margin-left: -5px;
+  margin-bottom: -10px;
+}
+.tooltipBubble.bottomRight:after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 90%;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+  border-top-color: var(--blue);
+  border-bottom: 0;
+  border-right: 0;
+  margin-left: -5px;
+  margin-bottom: -10px;
+}

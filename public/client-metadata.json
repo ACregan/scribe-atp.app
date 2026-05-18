@@ -1,0 +1,12 @@
+{
+  "client_id": "https://scribe-atp.app/client-metadata.json",
+  "client_name": "Scribe ATP",
+  "client_uri": "https://scribe-atp.app",
+  "redirect_uris": ["https://scribe-atp.app/auth/callback"],
+  "scope": "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "application_type": "web",
+  "dpop_bound_access_tokens": true
+}

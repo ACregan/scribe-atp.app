@@ -1,0 +1,94 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.editorWrapper {
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  background: var(--white, #fff);
+  color: var(--black, #000);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border, #ccc);
+  background: var(--white, #f9f9f9);
+}
+
+.toolbar button {
+  padding: 0.4rem 0.8rem;
+  font-size: 1.4rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.toolbar button:hover {
+  border-color: var(--border, #ccc);
+  background: var(--white, #eee);
+}
+
+.divider {
+  width: 1px;
+  height: 1.8rem;
+  background: var(--border, #ccc);
+  margin: 0 0.4rem;
+}
+
+.editorInner {
+  position: relative;
+  min-height: 24rem;
+}
+
+.contentEditable {
+  min-height: 24rem;
+  padding: 1.2rem;
+  font-size: 1.6rem;
+  line-height: 1.6;
+  outline: none;
+}
+
+.placeholder {
+  position: absolute;
+  top: 1.2rem;
+  left: 1.2rem;
+  font-size: 1.6rem;
+  color: var(--border, #aaa);
+  pointer-events: none;
+  user-select: none;
+}
+
+.fallback {
+  padding: 0.8rem 1.2rem;
+  font-size: 1.6rem;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.underline {
+  text-decoration: underline;
+}
