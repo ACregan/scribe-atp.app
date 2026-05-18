@@ -1,10 +1,9 @@
 import {
   NodeOAuthClient,
-  type NodeSavedState,
-  type NodeSavedSession,
 } from "@atproto/oauth-client-node";
 import { Agent } from "@atproto/api";
 import { createCookieSessionStorage, redirect } from "react-router";
+import { oauthStateStore, oauthSessionStore } from "~/services/db.server";
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET environment variable is required");
@@ -27,17 +26,10 @@ const redirectUri = useRealOAuth
   ? `${publicUrl}/auth/callback`
   : `http://127.0.0.1:${devPort}/auth/callback`;
 
-// Persist stores across HMR reloads in dev so in-flight OAuth flows survive
 declare global {
-  // eslint-disable-next-line no-var
-  var __oauthStateStore: Map<string, NodeSavedState> | undefined;
-  // eslint-disable-next-line no-var
-  var __oauthSessionStore: Map<string, NodeSavedSession> | undefined;
   // eslint-disable-next-line no-var
   var __oauthLocks: Map<string, Promise<unknown>> | undefined;
 }
-global.__oauthStateStore ??= new Map();
-global.__oauthSessionStore ??= new Map();
 global.__oauthLocks ??= new Map();
 
 function requestLock<T>(key: string, fn: () => T | PromiseLike<T>): Promise<T> {
@@ -63,28 +55,8 @@ export const oauthClient = new NodeOAuthClient({
     application_type: "web",
     dpop_bound_access_tokens: true,
   },
-  stateStore: {
-    get: (key) => Promise.resolve(global.__oauthStateStore!.get(key)),
-    set: (key, val) => {
-      global.__oauthStateStore!.set(key, val);
-      return Promise.resolve();
-    },
-    del: (key) => {
-      global.__oauthStateStore!.delete(key);
-      return Promise.resolve();
-    },
-  },
-  sessionStore: {
-    get: (key) => Promise.resolve(global.__oauthSessionStore!.get(key)),
-    set: (key, val) => {
-      global.__oauthSessionStore!.set(key, val);
-      return Promise.resolve();
-    },
-    del: (key) => {
-      global.__oauthSessionStore!.delete(key);
-      return Promise.resolve();
-    },
-  },
+  stateStore: oauthStateStore,
+  sessionStore: oauthSessionStore,
 });
 
 const { getSession, commitSession, destroySession } =
@@ -128,8 +100,15 @@ export async function createAuthSession(
 }
 
 export async function getAtpAgent(did: string) {
-  const session = await oauthClient.restore(did);
-  return new Agent(session);
+  try {
+    const session = await oauthClient.restore(did);
+    return new Agent(session);
+  } catch (err) {
+    // OAuth session lost (process restart, stale in-memory store, etc.)
+    // Throw a redirect so the user re-authenticates rather than seeing an error.
+    console.error("ATP session lost for", did, "— redirecting to login:", err);
+    throw redirect("/login");
+  }
 }
 
 export async function destroyAuthSession(

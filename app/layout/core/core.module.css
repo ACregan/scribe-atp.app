@@ -1,12 +1,12 @@
 .coreLayout_container {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 5rem 1fr;
   grid-template-rows: 8rem 1fr 10rem;
   gap: 0px 0px;
   grid-template-areas:
-    "header"
-    "main"
-    "footer";
+    "header header"
+    "aside main"
+    "footer footer";
   min-height: 100dvh;
 }
 .coreLayout_container > header {
@@ -40,13 +40,12 @@
 }
 
 /* HEADER Right-aligned container */
-.right {
+.userContainer {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
-
-/* USER DEETS */
+/* HEADER USER DEETS */
 .userProfile {
   display: flex;
   align-items: center;
@@ -79,6 +78,12 @@
 .exitButton > svg {
   height: 4rem;
   width: 4rem;
+}
+
+/* ASIDE Menu container */
+.coreLayout_container > aside {
+  grid-area: aside;
+  background: var(--blue);
 }
 
 .coreLayout_container > main {

@@ -65,7 +65,7 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
           </h6>
         </div>
         {isAuthenticated ? (
-          <div className={styles.right}>
+          <div className={styles.userContainer}>
             <div className={styles.userProfile}>
               <div className={styles.userName}>
                 <span className={styles.displayName}>{displayName}</span>
@@ -97,6 +97,7 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
           </Link>
         ) : null}
       </header>
+      <aside>MENU</aside>
       <main>
         <Outlet />
       </main>

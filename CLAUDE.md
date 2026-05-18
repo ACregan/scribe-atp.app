@@ -9,6 +9,8 @@ An AT Protocol-driven content management system. Authors write and store article
 - **TypeScript** (strict mode)
 - **@atproto/oauth-client-node** — Bluesky OAuth PKCE flow
 - **@atproto/api** — AT Protocol XRPC calls (Agent)
+- **better-sqlite3** — SQLite store for OAuth state/sessions (`data/oauth.db`)
+- **lexical / @lexical/react** — WYSIWYG rich text editor (article content stored as HTML)
 - Production server: `react-router-serve` on port 3008
 
 ## Environment variables
@@ -90,9 +92,14 @@ Access the app via the tunnel URL. The tunnel URL changes on every restart.
 
 ### OAuth client state / session stores
 
-The `NodeOAuthClient` requires `stateStore` and `sessionStore`. These are in-memory `Map`s stored on `global` so they survive Vite HMR reloads. They reset on process restart — any in-flight OAuth flows will fail after a restart and users will need to log in again.
+The `NodeOAuthClient` `stateStore` and `sessionStore` are backed by SQLite via `app/services/db.server.ts`. The database file lives at `data/oauth.db` (gitignored). It is created automatically on first run.
 
-For production with multiple instances, replace these with a shared store (Redis, etc.).
+- **`oauth_session`** — long-lived OAuth tokens, keyed by DID. Survives server restarts.
+- **`oauth_state`** — short-lived PKCE state, keyed by random state string. Rows older than 10 minutes are pruned on startup (left behind when a user starts auth but never completes it).
+
+`getAtpAgent(did)` catches any session-restore failure and throws a redirect to `/login` rather than surfacing an error page.
+
+For production with multiple instances, replace the SQLite store with a shared store (Turso/libSQL, Redis, etc.).
 
 ## AT Protocol patterns
 
@@ -158,7 +165,7 @@ This means a separate read-only frontend (public blog, etc.) can fetch and displ
 ```ts
 import { getAtpAgent } from "~/services/auth.server";
 
-const agent = await getAtpAgent(did); // restores OAuth session from in-memory store
+const agent = await getAtpAgent(did); // restores OAuth session from SQLite; throws redirect("/login") if missing
 await agent.com.atproto.repo.createRecord({ ... });
 await agent.com.atproto.repo.putRecord({ ... });
 await agent.com.atproto.repo.deleteRecord({ ... });
@@ -166,7 +173,7 @@ await agent.com.atproto.repo.listRecords({ ... });
 await agent.com.atproto.repo.getRecord({ ... });
 ```
 
-`getAtpAgent` will throw if the session is not found (e.g. after a server restart). Handle this by catching and redirecting to `/login`.
+`getAtpAgent` automatically redirects to `/login` if the session is missing — callers do not need to handle this error.
 
 ## Components
 
@@ -176,6 +183,7 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 |---|---|---|
 | `Input` | `app/components/Input/Input.tsx` | All `<input>` HTML attrs + `label?: string`, `error?: string` |
 | `Button` | `app/components/Button/Button.tsx` | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) |
+| `RichTextEditor` | `app/components/RichTextEditor/RichTextEditor.tsx` | `name: string`, `label?: string`, `defaultValue?: string` — drop-in for `<textarea>`, outputs HTML into a hidden field on form submit. Client-only (falls back to plain textarea during SSR). |
 
 ## Client metadata (production)
 
