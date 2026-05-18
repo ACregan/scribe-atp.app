@@ -1,5 +1,6 @@
 import type { Route } from "./+types/create";
 import { Form } from "react-router";
+import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import {
   getAtpAgent,
   requireAuth,
@@ -88,10 +89,7 @@ export default function Create({ actionData }: Route.ComponentProps) {
           <label htmlFor="splashImageUrl">Splash image URL</label>
           <input type="text" id="splashImageUrl" name="splashImageUrl" />
         </div>
-        <div>
-          <label htmlFor="content">Content</label>
-          <textarea id="content" name="content" rows={10} cols={80} />
-        </div>
+        <RichTextEditor name="content" label="Content" />
         <button type="submit">Save to PDS</button>
       </Form>
 

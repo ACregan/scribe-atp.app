@@ -55,7 +55,7 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
           {new Date(createdAt).toLocaleDateString()}
         </p>
       )}
-      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{content}</div>
+      <div dangerouslySetInnerHTML={{ __html: content }} />
       <hr />
       <Link to={`/article/edit/${url}`}>Edit</Link>
       {" · "}

@@ -48,7 +48,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function CoreLayout({ loaderData }: Route.ComponentProps) {
   const { isAuthenticated, displayName, avatar, handle } = loaderData;
-  console.log("core loaderData", loaderData);
   const location = useLocation();
 
   return (
@@ -81,8 +80,12 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
               )}
             </div>
             <Form method="post" action="/logout">
-              <Button type="submit" variant="danger">
-                LOGOUT
+              <Button
+                type="submit"
+                variant="danger"
+                className={styles.exitButton}
+              >
+                <SvgIcon name={SvgImageList.Exit} fill="white" />
               </Button>
             </Form>
           </div>

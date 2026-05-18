@@ -11,9 +11,16 @@
   "dependencies": {
     "@atproto/api": "^0.19.18",
     "@atproto/oauth-client-node": "^0.3.17",
+    "@lexical/history": "^0.44.0",
+    "@lexical/html": "^0.44.0",
+    "@lexical/list": "^0.44.0",
+    "@lexical/markdown": "^0.44.0",
+    "@lexical/react": "^0.44.0",
+    "@lexical/rich-text": "^0.44.0",
     "@react-router/node": "7.15.1",
     "@react-router/serve": "7.15.1",
     "isbot": "^5.1.36",
+    "lexical": "^0.44.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router": "7.15.1"

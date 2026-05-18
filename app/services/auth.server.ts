@@ -33,11 +33,24 @@ declare global {
   var __oauthStateStore: Map<string, NodeSavedState> | undefined;
   // eslint-disable-next-line no-var
   var __oauthSessionStore: Map<string, NodeSavedSession> | undefined;
+  // eslint-disable-next-line no-var
+  var __oauthLocks: Map<string, Promise<unknown>> | undefined;
 }
 global.__oauthStateStore ??= new Map();
 global.__oauthSessionStore ??= new Map();
+global.__oauthLocks ??= new Map();
+
+function requestLock<T>(key: string, fn: () => T | PromiseLike<T>): Promise<T> {
+  const current = global.__oauthLocks!.get(key) ?? Promise.resolve();
+  const next = current.then(() => fn()).finally(() => {
+    if (global.__oauthLocks!.get(key) === next) global.__oauthLocks!.delete(key);
+  });
+  global.__oauthLocks!.set(key, next);
+  return next;
+}
 
 export const oauthClient = new NodeOAuthClient({
+  requestLock,
   clientMetadata: {
     client_name: "Scribe ATP",
     client_id: clientId,

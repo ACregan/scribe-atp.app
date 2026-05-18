@@ -1,5 +1,6 @@
 import type { Route } from "./+types/edit";
 import { Form, redirect } from "react-router";
+import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import {
   getAtpAgent,
   requireAuth,
@@ -143,16 +144,7 @@ export default function EditArticle({ loaderData, actionData }: Route.ComponentP
             defaultValue={splashImageUrl}
           />
         </div>
-        <div>
-          <label htmlFor="content">Content</label>
-          <textarea
-            id="content"
-            name="content"
-            rows={10}
-            cols={80}
-            defaultValue={content}
-          />
-        </div>
+        <RichTextEditor name="content" label="Content" defaultValue={content} />
         <button type="submit">Save changes</button>
       </Form>
       {actionData?.error && (
