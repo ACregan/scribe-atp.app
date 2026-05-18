@@ -1,10 +1,11 @@
 import type { Route } from "./+types/list";
-import { Link } from "react-router";
+import { Form, Link, redirect } from "react-router";
 import {
   getAtpAgent,
   requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
+import { Button } from "~/components/Button/Button";
 
 const COLLECTION = "app.scribe.article";
 
@@ -19,6 +20,27 @@ type Article = {
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Articles" }];
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  const { did } = await requireAuth(request);
+  const formData = await request.formData();
+  const rkey = formData.get("rkey") as string;
+  const cid = formData.get("cid") as string | null;
+
+  if (!rkey) return redirect("/article/list");
+
+  if (useRealOAuth) {
+    const agent = await getAtpAgent(did);
+    await agent.com.atproto.repo.deleteRecord({
+      repo: did,
+      collection: COLLECTION,
+      rkey,
+      swapRecord: cid ?? undefined,
+    });
+  }
+
+  return redirect("/article/list");
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -87,6 +109,18 @@ export default function ArticleList({ loaderData }: Route.ComponentProps) {
             <Link to={`/article/view/${article.uri.split("/").pop()}`}>View</Link>
             {" · "}
             <Link to={`/article/edit/${article.uri.split("/").pop()}`}>Edit</Link>
+            {" · "}
+            <Form
+              method="post"
+              style={{ display: "inline" }}
+              onSubmit={(e) => {
+                if (!confirm(`Delete "${article.title}"?`)) e.preventDefault();
+              }}
+            >
+              <input type="hidden" name="rkey" value={article.uri.split("/").pop()} />
+              <input type="hidden" name="cid" value={article.cid} />
+              <Button type="submit" variant="danger">Delete</Button>
+            </Form>
           </li>
         ))}
       </ul>
