@@ -21,15 +21,15 @@
 }
 
 .menuItemLink {
-  height: 4rem;
-  width: 4rem;
+  height: 5rem;
+  width: 5rem;
 }
 
 /* Regular button status */
 .menuItemLink > button {
   cursor: pointer;
-  width: 4rem;
-  height: 4rem;
+  width: 5rem;
+  height: 5rem;
   background: var(--blue);
   border: 0.2rem solid var(--white);
 
@@ -41,8 +41,8 @@
 /* HOVERED Regular button status */
 .menuItemLink > button:hover {
   cursor: pointer;
-  width: 4rem;
-  height: 4rem;
+  width: 5rem;
+  height: 5rem;
   background: var(--blue);
   border: 0.2rem solid var(--white);
   box-shadow:
@@ -56,8 +56,8 @@
 /* Currently active button status */
 .menuItemLink[aria-current="page"] > button {
   cursor: pointer;
-  width: 4rem;
-  height: 4rem;
+  width: 5rem;
+  height: 5rem;
   background: var(--white);
 }
 .menuItemLink[aria-current="page"] > button:hover {
@@ -71,10 +71,10 @@
 /* LOGOUT BUTTON */
 
 .bottomButtonContainer > form > button {
-  height: 4rem;
-  width: 4rem;
+  height: 5rem;
+  width: 5rem;
 }
 .bottomButtonContainer > form > button > svg {
-  height: 4rem;
-  width: 4rem;
+  height: 5rem;
+  width: 5rem;
 }

@@ -84,7 +84,7 @@
 .coreLayout_container > aside {
   grid-area: aside;
   background: var(--blue);
-  width: 5rem;
+  width: 6rem;
 }
 
 .coreLayout_container > main {
