@@ -62,4 +62,27 @@
   padding: 0.2rem;
 
   background: var(--white);
+
+  display: flex;
+  gap: 0.2rem 0;
+  flex-direction: column;
+}
+
+.dropZone {
+  list-style-type: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 6rem;
+  color: var(--mid-grey);
+  font-size: 1.4rem;
+  border: 0.2rem dashed var(--mid-grey);
+  border-radius: 0.6rem;
+  margin: 0.4rem;
+}
+
+.dropZoneOver {
+  border-color: var(--black);
+  background: var(--mid-grey);
+  color: var(--white);
 }

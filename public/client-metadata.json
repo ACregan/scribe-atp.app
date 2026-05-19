@@ -3,7 +3,7 @@
   "client_name": "Scribe ATP",
   "client_uri": "https://scribe-atp.app",
   "redirect_uris": ["https://scribe-atp.app/auth/callback"],
-  "scope": "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete repo:app.scribe.group?action=create repo:app.scribe.group?action=update repo:app.scribe.group?action=delete",
+  "scope": "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete repo:app.scribe.group?action=create repo:app.scribe.group?action=update repo:app.scribe.group?action=delete repo:app.scribe.manifest?action=create repo:app.scribe.manifest?action=update",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none",

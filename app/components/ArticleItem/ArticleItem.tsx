@@ -1,12 +1,15 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import styles from "./ArticleItem.module.css";
 import { Form, Link } from "react-router";
 import { Button } from "../Button/Button";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 import { Modal } from "../Modal/Modal";
 import { useModal } from "../Modal/useModal";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface ArticleItemProps {
+  id: string;
   uri: string;
   title: string;
   createdAt: string;
@@ -14,6 +17,7 @@ interface ArticleItemProps {
 }
 
 const ArticleItem: React.FC<ArticleItemProps> = ({
+  id,
   uri,
   title,
   createdAt,
@@ -21,6 +25,21 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
 }) => {
   const deleteModal = useModal();
   const deleteFormRef = useRef<HTMLFormElement>(null);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+  };
 
   const handleDeleteClick = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -34,8 +53,12 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
 
   return (
     <>
-      <li key={uri} className={styles.articleItem}>
-        <div className={styles.dragHandleContainer}>
+      <li ref={setNodeRef} style={style} className={styles.articleItem}>
+        <div
+          className={styles.dragHandleContainer}
+          {...attributes}
+          {...listeners}
+        >
           <SvgIcon name={SvgImageList.DragHandle} />
         </div>
         <div className={styles.titleContainer}>
@@ -47,12 +70,12 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
         </div>
         <div className={styles.buttonContainer}>
           <Link to={`/article/view/${uri.split("/").pop()}`}>
-            <Button type="submit" variant="primary">
+            <Button type="button" variant="primary">
               View
             </Button>
           </Link>
           <Link to={`/article/edit/${uri.split("/").pop()}`}>
-            <Button type="submit" variant="primary">
+            <Button type="button" variant="primary">
               Edit
             </Button>
           </Link>
