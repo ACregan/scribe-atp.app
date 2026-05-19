@@ -98,3 +98,32 @@ const GroupItem: React.FC<GroupItemProps> = ({
 };
 
 export default GroupItem;
+
+export function GroupItemPreview({
+  title,
+  slug,
+  uri,
+}: {
+  title: string;
+  slug: string;
+  uri: string;
+}) {
+  return (
+    <li className={styles.groupItem}>
+      <div className={styles.handleContainer}>
+        <SvgIcon name={SvgImageList.DragHandle} />
+      </div>
+      <div className={styles.titleContainer}>
+        <strong className={styles.title}>{title}</strong>
+        <span className={styles.slug}>{slug}</span>
+      </div>
+      <div className={styles.uriContainer}>
+        <span className={styles.uri}>{uri}</span>
+      </div>
+      <div className={styles.buttonsContainer} />
+      <div className={styles.groupArticlesContainer}>
+        <ul className={styles.groupArticlesList} />
+      </div>
+    </li>
+  );
+}

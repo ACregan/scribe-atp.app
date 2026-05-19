@@ -117,3 +117,29 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   );
 };
 export default ArticleItem;
+
+export function ArticleItemPreview({
+  title,
+  uri,
+  createdAt,
+}: {
+  title: string;
+  uri: string;
+  createdAt: string;
+}) {
+  return (
+    <li className={styles.articleItem}>
+      <div className={styles.dragHandleContainer}>
+        <SvgIcon name={SvgImageList.DragHandle} />
+      </div>
+      <div className={styles.titleContainer}>
+        <strong>{title}</strong>
+        {createdAt && <span>{new Date(createdAt).toLocaleDateString()}</span>}
+      </div>
+      <div className={styles.information}>
+        <small style={{ fontFamily: "monospace" }}>{uri}</small>
+      </div>
+      <div className={styles.buttonContainer} />
+    </li>
+  );
+}

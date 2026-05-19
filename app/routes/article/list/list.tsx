@@ -5,13 +5,16 @@ import { Button } from "~/components/Button/Button";
 import { Input } from "~/components/Input/Input";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
-import { useState, useRef, useCallback } from "react";
-import ArticleItem from "~/components/ArticleItem/ArticleItem";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { ArticleItemPreview } from "~/components/ArticleItem/ArticleItem";
 import {
   PageContainer,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
-import GroupItem, { type TreeArticle } from "~/components/GroupItem/GroupItem";
+import GroupItem, {
+  GroupItemPreview,
+  type TreeArticle,
+} from "~/components/GroupItem/GroupItem";
 import GroupList from "~/components/GroupList/GroupList";
 import {
   DndContext,
@@ -403,13 +406,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 function CreateGroupModal({ onClose }: { onClose: () => void }) {
   const fetcher = useFetcher<{ error?: string }>();
   const [title, setTitle] = useState("");
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const isPending = fetcher.state !== "idle";
   const serverError = fetcher.data?.error;
 
-  if (fetcher.state === "idle" && fetcher.data && !fetcher.data.error) {
-    onClose();
-  }
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data && !fetcher.data.error) {
+      onCloseRef.current();
+    }
+  }, [fetcher.state, fetcher.data]);
 
   return (
     <fetcher.Form method="post">
@@ -634,22 +641,17 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
 
         <DragOverlay>
           {activeArticle && (
-            <ArticleItem
-              id={activeArticle.id}
+            <ArticleItemPreview
               uri={activeArticle.uri}
-              cid={activeArticle.cid}
               title={activeArticle.title}
               createdAt={activeArticle.createdAt}
             />
           )}
           {activeGroup && activeGroup.id !== "g:root" && (
-            <GroupItem
-              id={activeGroup.id}
+            <GroupItemPreview
               uri={activeGroup.uri}
-              cid={activeGroup.cid}
               title={activeGroup.title}
               slug={activeGroup.slug}
-              articleChildren={activeGroup.children as TreeArticle[]}
             />
           )}
         </DragOverlay>
