@@ -2,7 +2,7 @@ import React from "react";
 import styles from "./GroupItem.module.css";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useDroppable } from "@dnd-kit/core";
+import { useDndContext } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import ArticleItem from "../ArticleItem/ArticleItem";
 
@@ -41,8 +41,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
     isDragging,
   } = useSortable({ id });
 
-  const dropZoneId = `drop:${id}`;
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: dropZoneId });
+  const { over } = useDndContext();
+  const isOver = over?.id === id;
 
   const style: React.CSSProperties = {
     transform: isRoot ? undefined : CSS.Transform.toString(transform),
@@ -72,7 +72,6 @@ const GroupItem: React.FC<GroupItemProps> = ({
       <div className={styles.groupArticlesContainer}>
         <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
           <ul
-            ref={setDropRef}
             className={`${styles.groupArticlesList} ${isOver && articleChildren.length === 0 ? styles.dropZoneOver : ""}`}
           >
             {articleChildren.map((article) => (

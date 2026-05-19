@@ -257,17 +257,22 @@ export async function action({ request }: Route.ActionArgs) {
     if (!manifestJson) return { error: "No manifest data." };
 
     if (useRealOAuth) {
-      const agent = await getAtpAgent(did);
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: MANIFEST_COLLECTION,
-        rkey: MANIFEST_RKEY,
-        record: {
-          $type: MANIFEST_COLLECTION,
-          items: JSON.parse(manifestJson),
-          updatedAt: new Date().toISOString(),
-        },
-      });
+      try {
+        const agent = await getAtpAgent(did);
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: MANIFEST_COLLECTION,
+          rkey: MANIFEST_RKEY,
+          record: {
+            $type: MANIFEST_COLLECTION,
+            items: JSON.parse(manifestJson),
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      } catch (err) {
+        console.error("Failed to save manifest:", err);
+        return { error: `Failed to save order: ${String(err)}` };
+      }
     }
 
     return { ok: true };
@@ -493,7 +498,7 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
       setTree((prev) => {
         const sourceIdx = prev.findIndex((n) => n.id === activeId);
         const overIdx = prev.findIndex((n) => n.id === overId);
-        if (sourceIdx === -1 || overIdx === -1) return prev;
+        if (sourceIdx === -1 || overIdx === -1 || sourceIdx === overIdx) return prev;
         return arrayMove(prev, sourceIdx, overIdx);
       });
       return;
@@ -521,14 +526,14 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
 
       const activeNode = (next[sourceGroupIdx] as TreeGroupNode).children[sourceChildIdx];
 
-      // Drop over empty-group droppable zone "drop:g:{slug}"
-      if (overId.startsWith("drop:g:")) {
-        const targetGroupId = overId.slice(5);
-        const targetGroupIdx = next.findIndex((n) => n.id === targetGroupId);
-        if (targetGroupIdx === -1) return prev;
-        if ((next[targetGroupIdx] as TreeGroupNode).children.some((c) => c.id === activeId)) return prev;
+      // Drop over a group — if it's empty, move the article inside it
+      if (overId.startsWith("g:")) {
+        const targetGroupIdx = next.findIndex((n) => n.id === overId);
+        if (targetGroupIdx === -1 || targetGroupIdx === sourceGroupIdx) return prev;
+        const targetGroup = next[targetGroupIdx] as TreeGroupNode;
+        if (targetGroup.children.length > 0) return prev; // non-empty: wait for article-over-article
         (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
-        (next[targetGroupIdx] as TreeGroupNode).children.push(activeNode);
+        targetGroup.children.push(activeNode);
         return next;
       }
 
@@ -546,14 +551,13 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
         if (overGroupIdx === -1) return prev;
 
         if (sourceGroupIdx === overGroupIdx) {
-          // Reorder within the same group
+          if (sourceChildIdx === overChildIdx) return prev;
           (next[sourceGroupIdx] as TreeGroupNode).children = arrayMove(
             (next[sourceGroupIdx] as TreeGroupNode).children,
             sourceChildIdx,
             overChildIdx
           );
         } else {
-          // Move to a different group
           (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
           (next[overGroupIdx] as TreeGroupNode).children.splice(overChildIdx, 0, activeNode);
         }
