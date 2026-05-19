@@ -32,5 +32,10 @@ const PageContainer: React.FC<PageContainerProps> = ({
     </div>
   );
 };
-
-export default PageContainer;
+interface PageSectionProps {
+  children: React.ReactNode;
+}
+const PageSection: React.FC<PageSectionProps> = ({ children }) => {
+  return <div className={styles.pageSection}>{children}</div>;
+};
+export { PageContainer, PageSection };

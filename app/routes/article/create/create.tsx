@@ -1,6 +1,9 @@
 import type { Route } from "./+types/create";
 import { Form } from "react-router";
-import PageContainer from "~/components/PageContainer/PageContainer";
+import {
+  PageContainer,
+  PageSection,
+} from "~/components/PageContainer/PageContainer";
 import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 
@@ -71,34 +74,43 @@ export default function Create({ actionData }: Route.ComponentProps) {
         title="Create Article"
         bottomButtons={<button type="submit">Save to PDS</button>}
       >
-        <div>
-          <label htmlFor="title">Title</label>
-          <input type="text" id="title" name="title" />
-        </div>
-        <div>
-          <label htmlFor="url">URL slug</label>
-          <input
-            type="text"
-            id="url"
-            name="url"
-            placeholder="my-article-title"
-          />
-        </div>
-        <div>
-          <label htmlFor="splashImageUrl">Splash image URL</label>
-          <input type="text" id="splashImageUrl" name="splashImageUrl" />
-        </div>
-        <RichTextEditor name="content" label="Content" />
+        <PageSection>
+          <div>
+            <label htmlFor="title">Title</label>
+            <input type="text" id="title" name="title" />
+          </div>
+          <div>
+            <label htmlFor="url">URL slug</label>
+            <input
+              type="text"
+              id="url"
+              name="url"
+              placeholder="my-article-title"
+            />
+          </div>
+          <div>
+            <label htmlFor="splashImageUrl">Splash image URL</label>
+            <input type="text" id="splashImageUrl" name="splashImageUrl" />
+          </div>
+        </PageSection>
+
+        <PageSection>
+          <RichTextEditor name="content" label="Content" />
+        </PageSection>
 
         {actionData?.uri && (
-          <p>
-            {actionData.devMode
-              ? `[Dev] "${actionData.title}" would be saved at: ${actionData.uri}`
-              : `"${actionData.title}" saved — AT URI: ${actionData.uri}`}
-          </p>
+          <PageSection>
+            <p>
+              {actionData.devMode
+                ? `[Dev] "${actionData.title}" would be saved at: ${actionData.uri}`
+                : `"${actionData.title}" saved — AT URI: ${actionData.uri}`}
+            </p>
+          </PageSection>
         )}
         {actionData?.error && (
-          <p style={{ color: "red" }}>{actionData.error}</p>
+          <PageSection>
+            <p style={{ color: "red" }}>{actionData.error}</p>
+          </PageSection>
         )}
       </PageContainer>
     </Form>

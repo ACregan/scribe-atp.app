@@ -8,7 +8,10 @@ import { useModal } from "~/components/Modal/useModal";
 import { useState } from "react";
 import { ArticleList, ArticleItem } from "~/components/ArticleItem/ArticleItem";
 import styles from "./list.module.css";
-import PageContainer from "~/components/PageContainer/PageContainer";
+import {
+  PageContainer,
+  PageSection,
+} from "~/components/PageContainer/PageContainer";
 
 const ARTICLE_COLLECTION = "app.scribe.article";
 const GROUP_COLLECTION = "app.scribe.group";
@@ -222,7 +225,7 @@ function CreateGroupModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
+export default function ListView({ loaderData }: Route.ComponentProps) {
   const { articles, groups, devMode, error } = loaderData;
   const { isOpen, open, close } = useModal();
 
@@ -232,13 +235,12 @@ export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
       topButtons={
         <>
           <Link to="/article/create">
-            <Button type="button" variant="secondary">
-              New article
+            <Button type="button" variant="primary">
+              Draft New Article
             </Button>
           </Link>
-          {" · "}
-          <Button type="button" variant="secondary" onClick={open}>
-            Add new group
+          <Button type="button" variant="primary" onClick={open}>
+            Add New Group
           </Button>
         </>
       }
@@ -246,7 +248,7 @@ export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
       {error && <p style={{ color: "red" }}>Error loading articles: {error}</p>}
 
       {groups.length > 0 && (
-        <>
+        <PageSection>
           <h4>Groups</h4>
           <ul>
             {groups.map((group) => (
@@ -258,17 +260,19 @@ export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
               </li>
             ))}
           </ul>
-        </>
+        </PageSection>
       )}
 
       {articles.length === 0 && !devMode && !error && (
-        <p>
-          No articles yet. <Link to="/article/create">Create one.</Link>
-        </p>
+        <PageSection>
+          <p>
+            No articles yet. <Link to="/article/create">Create one.</Link>
+          </p>
+        </PageSection>
       )}
 
       {articles.length > 0 && (
-        <>
+        <PageSection>
           <h4>Articles</h4>
           <ArticleList>
             {articles.map((article) => (
@@ -281,11 +285,13 @@ export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
               />
             ))}
           </ArticleList>
-        </>
+        </PageSection>
       )}
 
       {devMode && (
-        <p style={{ color: "orange" }}>Dev mode: no real PDS connected.</p>
+        <PageSection>
+          <p style={{ color: "orange" }}>Dev mode: no real PDS connected.</p>
+        </PageSection>
       )}
 
       <Modal
