@@ -1,11 +1,13 @@
 /* <PageContainer> component */
 .pageContainer {
   width: 100rem;
-  min-height: calc(100dvh - 8rem - 6rem - 2rem);
+  /* min-height: calc(100dvh - 8rem - 6rem - 2rem); */
+  height: fit-content;
   background-color: var(--white);
   color: var(--black);
   border-radius: 0.6rem;
   box-shadow: 0 0.8rem 3.2rem rgba(0, 0, 0, 0.2);
+  margin: 2rem;
 
   display: grid;
   grid-auto-flow: column;

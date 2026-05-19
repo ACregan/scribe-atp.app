@@ -7,7 +7,7 @@
     "header header"
     "aside main"
     "footer footer";
-  min-height: 100dvh;
+  height: 100dvh;
 }
 .coreLayout_container > header {
   grid-area: header;
@@ -96,7 +96,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow: auto;
 }
 .coreLayout_container > footer {
   grid-area: footer;

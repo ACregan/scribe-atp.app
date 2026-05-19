@@ -13,10 +13,6 @@ interface ArticleItemProps {
   cid: string;
 }
 
-const ArticleList = ({ children }: { children: React.ReactNode }) => {
-  return <ul className={styles.articleList}>{children}</ul>;
-};
-
 const ArticleItem: React.FC<ArticleItemProps> = ({
   uri,
   title,
@@ -80,7 +76,9 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
         onClose={deleteModal.close}
         title="Delete Article"
         footer={
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+          <div
+            style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
+          >
             <Button onClick={deleteModal.close} variant="secondary">
               Cancel
             </Button>
@@ -95,4 +93,4 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
     </>
   );
 };
-export { ArticleList, ArticleItem };
+export default ArticleItem;

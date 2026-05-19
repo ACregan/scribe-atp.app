@@ -6,12 +6,15 @@ import { Input } from "~/components/Input/Input";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { useState } from "react";
-import { ArticleList, ArticleItem } from "~/components/ArticleItem/ArticleItem";
-import styles from "./list.module.css";
+import ArticleItem from "~/components/ArticleItem/ArticleItem";
+import ArticleList from "~/components/ArticleList/ArticleList";
+// import styles from "./list.module.css";
 import {
   PageContainer,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
+import GroupItem from "~/components/GroupItem/GroupItem";
+import GroupList from "~/components/GroupList/GroupList";
 
 const ARTICLE_COLLECTION = "app.scribe.article";
 const GROUP_COLLECTION = "app.scribe.group";
@@ -250,16 +253,17 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
       {groups.length > 0 && (
         <PageSection>
           <h4>Groups</h4>
-          <ul>
+          <GroupList>
             {groups.map((group) => (
-              <li key={group.uri}>
-                <strong>{group.title}</strong>
-                <small style={{ fontFamily: "monospace", marginLeft: "1rem" }}>
-                  {group.uri}
-                </small>
-              </li>
+              <GroupItem
+                key={group.uri}
+                uri={group.uri}
+                cid={group.cid}
+                title={group.title}
+                slug={group.slug}
+              />
             ))}
-          </ul>
+          </GroupList>
         </PageSection>
       )}
 
