@@ -8,6 +8,7 @@ import { useModal } from "~/components/Modal/useModal";
 import { useState } from "react";
 import { ArticleList, ArticleItem } from "~/components/ArticleItem/ArticleItem";
 import styles from "./list.module.css";
+import PageContainer from "~/components/PageContainer/PageContainer";
 
 const ARTICLE_COLLECTION = "app.scribe.article";
 const GROUP_COLLECTION = "app.scribe.group";
@@ -226,64 +227,62 @@ export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
   const { isOpen, open, close } = useModal();
 
   return (
-    <div className={styles.pageContainer}>
-      <h1>Articles & Groups</h1>
-      <div className={styles.buttonPanel}>
-        <Link to="/article/create">
-          <Button type="button" variant="secondary">
-            New article
+    <PageContainer
+      title="Articles & Groups"
+      topButtons={
+        <>
+          <Link to="/article/create">
+            <Button type="button" variant="secondary">
+              New article
+            </Button>
+          </Link>
+          {" · "}
+          <Button type="button" variant="secondary" onClick={open}>
+            Add new group
           </Button>
-        </Link>
-        {" · "}
-        <Button type="button" variant="secondary" onClick={open}>
-          Add new group
-        </Button>
-      </div>
-      <div className={styles.contentContainer}>
-        {error && (
-          <p style={{ color: "red" }}>Error loading articles: {error}</p>
-        )}
+        </>
+      }
+    >
+      {error && <p style={{ color: "red" }}>Error loading articles: {error}</p>}
 
-        {groups.length > 0 && (
-          <>
-            <h4>Groups</h4>
-            <ul>
-              {groups.map((group) => (
-                <li key={group.uri}>
-                  <strong>{group.title}</strong>
-                  <small
-                    style={{ fontFamily: "monospace", marginLeft: "1rem" }}
-                  >
-                    {group.uri}
-                  </small>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+      {groups.length > 0 && (
+        <>
+          <h4>Groups</h4>
+          <ul>
+            {groups.map((group) => (
+              <li key={group.uri}>
+                <strong>{group.title}</strong>
+                <small style={{ fontFamily: "monospace", marginLeft: "1rem" }}>
+                  {group.uri}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
-        {articles.length === 0 && !devMode && !error && (
-          <p>
-            No articles yet. <Link to="/article/create">Create one.</Link>
-          </p>
-        )}
+      {articles.length === 0 && !devMode && !error && (
+        <p>
+          No articles yet. <Link to="/article/create">Create one.</Link>
+        </p>
+      )}
 
-        {articles.length > 0 && (
-          <>
-            <h4>Articles</h4>
-            <ArticleList>
-              {articles.map((article) => (
-                <ArticleItem
-                  uri={article.uri}
-                  title={article.title}
-                  createdAt={article.createdAt}
-                  cid={article.cid}
-                />
-              ))}
-            </ArticleList>
-          </>
-        )}
-      </div>
+      {articles.length > 0 && (
+        <>
+          <h4>Articles</h4>
+          <ArticleList>
+            {articles.map((article) => (
+              <ArticleItem
+                key={article.cid}
+                uri={article.uri}
+                title={article.title}
+                createdAt={article.createdAt}
+                cid={article.cid}
+              />
+            ))}
+          </ArticleList>
+        </>
+      )}
 
       {devMode && (
         <p style={{ color: "orange" }}>Dev mode: no real PDS connected.</p>
@@ -297,6 +296,6 @@ export default function ArticlesListView({ loaderData }: Route.ComponentProps) {
       >
         <CreateGroupModal onClose={close} />
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

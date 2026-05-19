@@ -64,6 +64,7 @@ const AsideMenu = () => {
       <div className={styles.topButtonContainer}>
         {MENU_CONFIG.map((menuItem) => (
           <AsideMenuItem
+            key={menuItem.id}
             id={menuItem.id}
             icon={menuItem.icon}
             label={menuItem.label}

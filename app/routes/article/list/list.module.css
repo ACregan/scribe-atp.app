@@ -1,7 +1,0 @@
-.pageContainer {
-  width: 100rem;
-  min-height: calc(100dvh - 8rem - 6rem - 2rem);
-  background-color: var(--white);
-  color: var(--black);
-  padding: 0 2rem;
-}

@@ -1,0 +1,37 @@
+.pageContainer {
+  width: 100rem;
+  min-height: calc(100dvh - 8rem - 6rem - 2rem);
+  background-color: var(--white);
+  color: var(--black);
+  padding: 0 2rem;
+
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-rows: 1fr;
+  grid-template-columns: 1fr;
+  grid-template-rows: min-content min-content 1fr min-content;
+  /* grid-template-rows: repeat(4, min-content); */
+  gap: 1rem 1rem;
+  grid-template-areas:
+    "PageContainer_Heading"
+    "PageContainer_TopButtons"
+    "PageContainer_Content"
+    "PageContainer_BottomButtons";
+}
+.headingContainer {
+  grid-area: PageContainer_Heading;
+}
+.topButtonPanel {
+  grid-area: PageContainer_TopButtons;
+}
+
+.contentContainer {
+  grid-area: PageContainer_Content;
+}
+
+.bottomButtonPanel {
+  grid-area: PageContainer_BottomButtons;
+  padding-bottom: 2rem;
+  display: flex;
+  justify-content: flex-end;
+}
