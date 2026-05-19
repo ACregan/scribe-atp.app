@@ -96,7 +96,7 @@ function toSlug(title: string): string {
 function buildTree(
   manifest: ManifestItem[],
   articles: Article[],
-  groups: Group[]
+  groups: Group[],
 ): TreeNode[] {
   const articleMap = new Map(articles.map((a) => [a.uri.split("/").pop()!, a]));
   const groupMap = new Map(groups.map((g) => [g.slug, g]));
@@ -200,7 +200,10 @@ function treeToManifest(tree: TreeNode[]): ManifestItem[] {
     if (node.id === "g:root") {
       // ROOT's children serialise as root-level manifest articles
       for (const child of node.children) {
-        result.push({ type: "article", slug: child.id.slice(2) } satisfies ManifestArticleItem);
+        result.push({
+          type: "article",
+          slug: child.id.slice(2),
+        } satisfies ManifestArticleItem);
       }
     } else {
       result.push({
@@ -276,6 +279,28 @@ export async function action({ request }: Route.ActionArgs) {
     }
 
     return { ok: true };
+  }
+
+  if (intent === "deleteGroup") {
+    const rkey = formData.get("rkey") as string;
+    const cid = formData.get("cid") as string | null;
+    if (!rkey) return redirect("/article/list");
+
+    if (useRealOAuth) {
+      try {
+        const agent = await getAtpAgent(did);
+        await agent.com.atproto.repo.deleteRecord({
+          repo: did,
+          collection: GROUP_COLLECTION,
+          rkey,
+          swapRecord: cid ?? undefined,
+        });
+      } catch (err) {
+        console.error("Failed to delete group:", err);
+      }
+    }
+
+    return redirect("/article/list");
   }
 
   // intent === "deleteArticle"
@@ -448,7 +473,7 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
   const { isOpen, open, close } = useModal();
 
   const [tree, setTree] = useState<TreeNode[]>(() =>
-    buildTree(manifest, articles, groups)
+    buildTree(manifest, articles, groups),
   );
   const [activeId, setActiveId] = useState<string | null>(null);
   const previousTreeRef = useRef<TreeNode[]>(tree);
@@ -456,7 +481,7 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
   const isSaving = manifestFetcher.state !== "idle";
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
   const rootIds = tree.map((n) => n.id);
@@ -471,7 +496,7 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
         }
       }
     },
-    [tree]
+    [tree],
   );
 
   const activeArticle = activeId?.startsWith("a:")
@@ -494,11 +519,17 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
 
     // Group dragging: ROOT is fixed, named groups sort among themselves
     if (activeId.startsWith("g:")) {
-      if (activeId === "g:root" || !overId.startsWith("g:") || overId === "g:root") return;
+      if (
+        activeId === "g:root" ||
+        !overId.startsWith("g:") ||
+        overId === "g:root"
+      )
+        return;
       setTree((prev) => {
         const sourceIdx = prev.findIndex((n) => n.id === activeId);
         const overIdx = prev.findIndex((n) => n.id === overId);
-        if (sourceIdx === -1 || overIdx === -1 || sourceIdx === overIdx) return prev;
+        if (sourceIdx === -1 || overIdx === -1 || sourceIdx === overIdx)
+          return prev;
         return arrayMove(prev, sourceIdx, overIdx);
       });
       return;
@@ -509,7 +540,7 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
 
     setTree((prev) => {
       const next = prev.map((n) =>
-        n.kind === "group" ? { ...n, children: [...n.children] } : { ...n }
+        n.kind === "group" ? { ...n, children: [...n.children] } : { ...n },
       ) as TreeNode[];
 
       // Locate the active article
@@ -519,20 +550,30 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
         const node = next[i];
         if (node.kind === "group") {
           const ci = node.children.findIndex((c) => c.id === activeId);
-          if (ci !== -1) { sourceGroupIdx = i; sourceChildIdx = ci; break; }
+          if (ci !== -1) {
+            sourceGroupIdx = i;
+            sourceChildIdx = ci;
+            break;
+          }
         }
       }
       if (sourceGroupIdx === -1) return prev;
 
-      const activeNode = (next[sourceGroupIdx] as TreeGroupNode).children[sourceChildIdx];
+      const activeNode = (next[sourceGroupIdx] as TreeGroupNode).children[
+        sourceChildIdx
+      ];
 
       // Drop over a group — if it's empty, move the article inside it
       if (overId.startsWith("g:")) {
         const targetGroupIdx = next.findIndex((n) => n.id === overId);
-        if (targetGroupIdx === -1 || targetGroupIdx === sourceGroupIdx) return prev;
+        if (targetGroupIdx === -1 || targetGroupIdx === sourceGroupIdx)
+          return prev;
         const targetGroup = next[targetGroupIdx] as TreeGroupNode;
         if (targetGroup.children.length > 0) return prev; // non-empty: wait for article-over-article
-        (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
+        (next[sourceGroupIdx] as TreeGroupNode).children.splice(
+          sourceChildIdx,
+          1,
+        );
         targetGroup.children.push(activeNode);
         return next;
       }
@@ -545,7 +586,11 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
           const node = next[i];
           if (node.kind === "group") {
             const ci = node.children.findIndex((c) => c.id === overId);
-            if (ci !== -1) { overGroupIdx = i; overChildIdx = ci; break; }
+            if (ci !== -1) {
+              overGroupIdx = i;
+              overChildIdx = ci;
+              break;
+            }
           }
         }
         if (overGroupIdx === -1) return prev;
@@ -555,11 +600,18 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
           (next[sourceGroupIdx] as TreeGroupNode).children = arrayMove(
             (next[sourceGroupIdx] as TreeGroupNode).children,
             sourceChildIdx,
-            overChildIdx
+            overChildIdx,
           );
         } else {
-          (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
-          (next[overGroupIdx] as TreeGroupNode).children.splice(overChildIdx, 0, activeNode);
+          (next[sourceGroupIdx] as TreeGroupNode).children.splice(
+            sourceChildIdx,
+            1,
+          );
+          (next[overGroupIdx] as TreeGroupNode).children.splice(
+            overChildIdx,
+            0,
+            activeNode,
+          );
         }
         return next;
       }
@@ -609,7 +661,9 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
     >
       {error && <p style={{ color: "red" }}>Error loading articles: {error}</p>}
       {manifestFetcher.data?.error && (
-        <p style={{ color: "red" }}>Save failed: {manifestFetcher.data.error}</p>
+        <p style={{ color: "red" }}>
+          Save failed: {manifestFetcher.data.error}
+        </p>
       )}
       {manifestFetcher.data?.ok && (
         <p style={{ color: "green" }}>Order saved.</p>

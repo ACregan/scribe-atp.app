@@ -1,5 +1,28 @@
 /* <GroupItem> Component */
 
+.groupItem_root {
+  width: auto;
+  list-style-type: none;
+  padding: 0;
+
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-rows: auto auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: min-content min-content;
+  gap: 0em 0em;
+  grid-template-areas:
+    "GroupItem_root_Heading"
+    "GroupItem_ArticleList ";
+
+  border: 0.2rem solid var(--black);
+  border-radius: 1.2rem;
+  background: var(--mid-grey);
+}
+.titleContainer_root {
+  grid-area: GroupItem_root_Heading;
+}
+
 .groupItem {
   width: auto;
   list-style-type: none;
@@ -48,6 +71,10 @@
 
 .buttonsContainer {
   grid-area: GroupItem_Buttons;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 2rem;
 }
 
 .groupArticlesContainer {
