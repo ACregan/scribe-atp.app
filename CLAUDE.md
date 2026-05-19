@@ -11,6 +11,7 @@ An AT Protocol-driven content management system. Authors write and store article
 - **@atproto/api** — AT Protocol XRPC calls (Agent)
 - **better-sqlite3** — SQLite store for OAuth state/sessions (`data/oauth.db`)
 - **lexical / @lexical/react** (+ @lexical/rich-text, @lexical/history, @lexical/list, @lexical/html) — WYSIWYG rich text editor (article content stored as HTML)
+- **@dnd-kit/core**, **@dnd-kit/sortable**, **@dnd-kit/utilities** — drag-and-drop for article/group reordering on `/article/list`
 - **classnames** — CSS class composition utility
 - Production server: `react-router-serve` on port 3008
 
@@ -161,12 +162,20 @@ This breaks any existing AT URIs pointing to the old rkey.
 }
 ```
 
-Groups and articles are organised via a future `app.scribe.manifest` record (not yet implemented) which will hold the full ordered tree of groups and article slug references. The tree structure uses typed items so articles can appear before, after, or between nested groups:
+Groups and articles are organised via **`app.scribe.manifest`** — rkey `"main"`, a single record per user. The `/article/list` route reads and writes this to persist drag-and-drop ordering. Structure:
 ```ts
-// planned manifest tree item
-{ type: "article", slug: string }
-{ type: "group", slug: string, title: string, children: TreeItem[] }
+{
+  $type: "app.scribe.manifest",
+  items: ManifestItem[],   // ordered flat list
+  updatedAt: string,       // ISO 8601
+}
+
+// ManifestItem union:
+{ type: "article"; slug: string }                                     // root-level article
+{ type: "group"; slug: string; title: string; children: { type: "article"; slug: string }[] }
 ```
+
+The `/article/list` route maintains a **ROOT virtual group** (`id: "g:root"`) in client state that holds all ungrouped articles. ROOT is never draggable and is never written to the manifest — its children serialise as root-level `{ type: "article" }` items. Named groups serialise as `{ type: "group" }` items. Articles not present in the manifest are appended to ROOT; groups not present are appended after the manifest groups.
 
 ### OAuth scopes
 
@@ -178,6 +187,8 @@ repo:app.scribe.article?action=delete
 repo:app.scribe.group?action=create
 repo:app.scribe.group?action=update
 repo:app.scribe.group?action=delete
+repo:app.scribe.manifest?action=create
+repo:app.scribe.manifest?action=update
 ```
 
 Declared in three places — `app/services/auth.server.ts` (clientMetadata), `app/routes/login/login.tsx` (authorize call), and `public/client-metadata.json`. Any new collection needs its own scopes added in all three places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
@@ -221,9 +232,9 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
 | `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`. Also exports `PageSection` (a simple content-dividing wrapper, `children` only) from the same file. |
 | `ArticleList` | `app/components/ArticleList/ArticleList.tsx` | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`. |
-| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `uri`, `title`, `createdAt`, `cid`. Includes View/Edit/Delete buttons and a built-in delete confirmation `Modal`. |
+| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid`. `id` is the dnd-kit sortable id (`a:{slug}`). Includes View/Edit/Delete buttons and a built-in delete confirmation `Modal`. |
 | `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
-| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `uri`, `cid`, `title`, `slug`. Includes a drag handle and a placeholder drop zone for articles — prepared for the drag-and-drop tree implementation. |
+| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri`, `cid`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`. Also exports the `TreeArticle` interface. `id` is the dnd-kit sortable id (`g:{slug}`). `isRoot` disables the drag handle and transform — used for the ROOT virtual group. |
 | `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — home, article list, create article, logout links. Rendered by the core layout. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |

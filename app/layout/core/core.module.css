@@ -17,6 +17,8 @@
   background: var(--white);
   color: var(--black);
   padding: 0 2rem;
+  box-shadow: 0 -20px 6px -20px rgba(0, 0, 0, 0.5) inset;
+  border-bottom: 0.1rem solid var(--mid-grey);
 }
 /* ScribeCMS LOGO */
 .logoContainer > h4 {
@@ -99,6 +101,9 @@
   justify-content: flex-start;
   overflow: auto;
 }
+/* Footer container */
 .coreLayout_container > footer {
   grid-area: footer;
+  box-shadow: 0 20px 6px -20px rgba(0, 0, 0, 0.5) inset;
+  border-top: 0.1rem solid var(--mid-grey);
 }

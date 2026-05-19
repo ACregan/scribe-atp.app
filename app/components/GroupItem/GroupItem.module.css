@@ -55,7 +55,7 @@
 }
 .groupArticlesList {
   width: auto;
-  min-height: 8rem;
+  min-height: 6rem;
   border: 0.2rem solid var(--black);
   border-radius: 0.8rem;
   margin: 1rem;

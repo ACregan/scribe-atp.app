@@ -7,7 +7,6 @@ import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { useState, useRef, useCallback } from "react";
 import ArticleItem from "~/components/ArticleItem/ArticleItem";
-import ArticleList from "~/components/ArticleList/ArticleList";
 import {
   PageContainer,
   PageSection,
@@ -96,14 +95,13 @@ function buildTree(
   articles: Article[],
   groups: Group[]
 ): TreeNode[] {
-  const articleMap = new Map(
-    articles.map((a) => [a.uri.split("/").pop()!, a])
-  );
+  const articleMap = new Map(articles.map((a) => [a.uri.split("/").pop()!, a]));
   const groupMap = new Map(groups.map((g) => [g.slug, g]));
   const placedArticleSlugs = new Set<string>();
   const placedGroupSlugs = new Set<string>();
 
-  const tree: TreeNode[] = [];
+  const rootChildren: TreeArticleNode[] = [];
+  const namedGroups: TreeGroupNode[] = [];
 
   for (const item of manifest) {
     if (item.type === "group") {
@@ -124,7 +122,7 @@ function buildTree(
           createdAt: article.createdAt,
         });
       }
-      tree.push({
+      namedGroups.push({
         kind: "group",
         id: `g:${item.slug}`,
         uri: group.uri,
@@ -134,10 +132,11 @@ function buildTree(
         children,
       });
     } else {
+      // Root-level manifest article → goes into ROOT
       const article = articleMap.get(item.slug);
       if (!article) continue;
       placedArticleSlugs.add(item.slug);
-      tree.push({
+      rootChildren.push({
         kind: "article",
         id: `a:${item.slug}`,
         uri: article.uri,
@@ -148,10 +147,10 @@ function buildTree(
     }
   }
 
-  // Append any groups not in the manifest
+  // Unmanifested named groups
   for (const group of groups) {
     if (!placedGroupSlugs.has(group.slug)) {
-      tree.push({
+      namedGroups.push({
         kind: "group",
         id: `g:${group.slug}`,
         uri: group.uri,
@@ -163,11 +162,11 @@ function buildTree(
     }
   }
 
-  // Append any articles not in the manifest
+  // Unmanifested articles → ROOT
   for (const article of articles) {
     const slug = article.uri.split("/").pop()!;
     if (!placedArticleSlugs.has(slug)) {
-      tree.push({
+      rootChildren.push({
         kind: "article",
         id: `a:${slug}`,
         uri: article.uri,
@@ -178,27 +177,41 @@ function buildTree(
     }
   }
 
-  return tree;
+  const rootGroup: TreeGroupNode = {
+    kind: "group",
+    id: "g:root",
+    uri: "",
+    cid: "",
+    title: "ROOT",
+    slug: "root",
+    children: rootChildren,
+  };
+
+  return [rootGroup, ...namedGroups];
 }
 
 function treeToManifest(tree: TreeNode[]): ManifestItem[] {
-  return tree.map((node) => {
-    if (node.kind === "group") {
-      return {
+  const result: ManifestItem[] = [];
+  for (const node of tree) {
+    if (node.kind !== "group") continue;
+    if (node.id === "g:root") {
+      // ROOT's children serialise as root-level manifest articles
+      for (const child of node.children) {
+        result.push({ type: "article", slug: child.id.slice(2) } satisfies ManifestArticleItem);
+      }
+    } else {
+      result.push({
         type: "group",
         slug: node.slug,
         title: node.title,
         children: node.children.map((c) => ({
           type: "article",
-          slug: c.id.slice(2), // strip "a:"
+          slug: c.id.slice(2),
         })),
-      } satisfies ManifestGroupItem;
+      } satisfies ManifestGroupItem);
     }
-    return {
-      type: "article",
-      slug: node.id.slice(2), // strip "a:"
-    } satisfies ManifestArticleItem;
-  });
+  }
+  return result;
 }
 
 export function meta({}: Route.MetaArgs) {
@@ -427,7 +440,6 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
   );
   const [activeId, setActiveId] = useState<string | null>(null);
   const previousTreeRef = useRef<TreeNode[]>(tree);
-
   const manifestFetcher = useFetcher<{ ok?: boolean; error?: string }>();
   const isSaving = manifestFetcher.state !== "idle";
 
@@ -468,9 +480,9 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
     const overId = String(over.id);
     if (activeId === overId) return;
 
-    // Group dragging: root-level reorder only (groups can't nest)
+    // Group dragging: ROOT is fixed, named groups sort among themselves
     if (activeId.startsWith("g:")) {
-      if (!overId.startsWith("g:")) return;
+      if (activeId === "g:root" || !overId.startsWith("g:") || overId === "g:root") return;
       setTree((prev) => {
         const sourceIdx = prev.findIndex((n) => n.id === activeId);
         const overIdx = prev.findIndex((n) => n.id === overId);
@@ -480,7 +492,7 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
       return;
     }
 
-    // Article dragging
+    // Article dragging — all articles live inside a group (including ROOT)
     if (!activeId.startsWith("a:")) return;
 
     setTree((prev) => {
@@ -488,43 +500,27 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
         n.kind === "group" ? { ...n, children: [...n.children] } : { ...n }
       ) as TreeNode[];
 
-      // Find where the active article currently lives
+      // Locate the active article
       let sourceGroupIdx = -1;
       let sourceChildIdx = -1;
-      let sourceRootIdx = -1;
-
       for (let i = 0; i < next.length; i++) {
         const node = next[i];
-        if (node.kind === "article" && node.id === activeId) {
-          sourceRootIdx = i;
-          break;
-        }
         if (node.kind === "group") {
           const ci = node.children.findIndex((c) => c.id === activeId);
-          if (ci !== -1) {
-            sourceGroupIdx = i;
-            sourceChildIdx = ci;
-            break;
-          }
+          if (ci !== -1) { sourceGroupIdx = i; sourceChildIdx = ci; break; }
         }
       }
+      if (sourceGroupIdx === -1) return prev;
 
-      const activeNode: TreeArticleNode =
-        sourceRootIdx !== -1
-          ? (next[sourceRootIdx] as TreeArticleNode)
-          : (next[sourceGroupIdx] as TreeGroupNode).children[sourceChildIdx];
+      const activeNode = (next[sourceGroupIdx] as TreeGroupNode).children[sourceChildIdx];
 
       // Drop over empty-group droppable zone "drop:g:{slug}"
       if (overId.startsWith("drop:g:")) {
-        const targetGroupId = overId.slice(5); // "g:{slug}"
+        const targetGroupId = overId.slice(5);
         const targetGroupIdx = next.findIndex((n) => n.id === targetGroupId);
         if (targetGroupIdx === -1) return prev;
-        const targetGroup = next[targetGroupIdx] as TreeGroupNode;
-        if (targetGroup.children.some((c) => c.id === activeId)) return prev;
-
-        if (sourceRootIdx !== -1) next.splice(sourceRootIdx, 1);
-        else (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
-
+        if ((next[targetGroupIdx] as TreeGroupNode).children.some((c) => c.id === activeId)) return prev;
+        (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
         (next[targetGroupIdx] as TreeGroupNode).children.push(activeNode);
         return next;
       }
@@ -533,56 +529,28 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
       if (overId.startsWith("a:")) {
         let overGroupIdx = -1;
         let overChildIdx = -1;
-        let overRootIdx = -1;
-
         for (let i = 0; i < next.length; i++) {
           const node = next[i];
-          if (node.kind === "article" && node.id === overId) {
-            overRootIdx = i;
-            break;
-          }
           if (node.kind === "group") {
             const ci = node.children.findIndex((c) => c.id === overId);
-            if (ci !== -1) {
-              overGroupIdx = i;
-              overChildIdx = ci;
-              break;
-            }
+            if (ci !== -1) { overGroupIdx = i; overChildIdx = ci; break; }
           }
         }
+        if (overGroupIdx === -1) return prev;
 
-        // Within the same group
-        if (sourceGroupIdx !== -1 && sourceGroupIdx === overGroupIdx) {
-          const grp = next[sourceGroupIdx] as TreeGroupNode;
-          grp.children = arrayMove(grp.children, sourceChildIdx, overChildIdx);
-          return next;
-        }
-
-        // Root article → into a group
-        if (sourceRootIdx !== -1 && overGroupIdx !== -1) {
-          next.splice(sourceRootIdx, 1);
-          (next[overGroupIdx] as TreeGroupNode).children.splice(overChildIdx, 0, activeNode);
-          return next;
-        }
-
-        // Group child → different group
-        if (sourceGroupIdx !== -1 && overGroupIdx !== -1 && sourceGroupIdx !== overGroupIdx) {
+        if (sourceGroupIdx === overGroupIdx) {
+          // Reorder within the same group
+          (next[sourceGroupIdx] as TreeGroupNode).children = arrayMove(
+            (next[sourceGroupIdx] as TreeGroupNode).children,
+            sourceChildIdx,
+            overChildIdx
+          );
+        } else {
+          // Move to a different group
           (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
           (next[overGroupIdx] as TreeGroupNode).children.splice(overChildIdx, 0, activeNode);
-          return next;
         }
-
-        // Group child → root article position
-        if (sourceGroupIdx !== -1 && overRootIdx !== -1) {
-          (next[sourceGroupIdx] as TreeGroupNode).children.splice(sourceChildIdx, 1);
-          next.splice(overRootIdx, 0, activeNode);
-          return next;
-        }
-
-        // Both at root level
-        if (sourceRootIdx !== -1 && overRootIdx !== -1) {
-          return arrayMove(next, sourceRootIdx, overRootIdx);
-        }
+        return next;
       }
 
       return prev;
@@ -591,7 +559,6 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
 
   function onDragEnd({ over }: DragEndEvent) {
     if (!over) {
-      // Cancelled — revert
       setTree(previousTreeRef.current);
     }
     setActiveId(null);
@@ -645,54 +612,24 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
         onDragEnd={onDragEnd}
       >
         <SortableContext items={rootIds} strategy={verticalListSortingStrategy}>
-          {groups.length > 0 && (
-            <PageSection>
-              <h4>Groups</h4>
-              <GroupList>
-                {tree
-                  .filter((n): n is TreeGroupNode => n.kind === "group")
-                  .map((group) => (
-                    <GroupItem
-                      key={group.id}
-                      id={group.id}
-                      uri={group.uri}
-                      cid={group.cid}
-                      title={group.title}
-                      slug={group.slug}
-                      articleChildren={group.children as TreeArticle[]}
-                    />
-                  ))}
-              </GroupList>
-            </PageSection>
-          )}
-
-          {articles.length === 0 && !devMode && !error && (
-            <PageSection>
-              <p>
-                No articles yet. <Link to="/article/create">Create one.</Link>
-              </p>
-            </PageSection>
-          )}
-
-          {articles.length > 0 && (
-            <PageSection>
-              <h4>Articles</h4>
-              <ArticleList>
-                {tree
-                  .filter((n): n is TreeArticleNode => n.kind === "article")
-                  .map((article) => (
-                    <ArticleItem
-                      key={article.id}
-                      id={article.id}
-                      uri={article.uri}
-                      cid={article.cid}
-                      title={article.title}
-                      createdAt={article.createdAt}
-                    />
-                  ))}
-              </ArticleList>
-            </PageSection>
-          )}
+          <PageSection>
+            <GroupList>
+              {tree
+                .filter((n): n is TreeGroupNode => n.kind === "group")
+                .map((group) => (
+                  <GroupItem
+                    key={group.id}
+                    id={group.id}
+                    uri={group.uri}
+                    cid={group.cid}
+                    title={group.title}
+                    slug={group.slug}
+                    articleChildren={group.children as TreeArticle[]}
+                    isRoot={group.id === "g:root"}
+                  />
+                ))}
+            </GroupList>
+          </PageSection>
         </SortableContext>
 
         <DragOverlay>
@@ -705,7 +642,7 @@ export default function ListView({ loaderData }: Route.ComponentProps) {
               createdAt={activeArticle.createdAt}
             />
           )}
-          {activeGroup && (
+          {activeGroup && activeGroup.id !== "g:root" && (
             <GroupItem
               id={activeGroup.id}
               uri={activeGroup.uri}

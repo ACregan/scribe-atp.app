@@ -21,6 +21,7 @@ interface GroupItemProps {
   title: string;
   slug: string;
   articleChildren: TreeArticle[];
+  isRoot?: boolean;
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
@@ -29,6 +30,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
   title,
   slug,
   articleChildren,
+  isRoot = false,
 }) => {
   const {
     attributes,
@@ -43,8 +45,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: dropZoneId });
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: isRoot ? undefined : CSS.Transform.toString(transform),
+    transition: isRoot ? undefined : transition,
     opacity: isDragging ? 0.4 : undefined,
   };
 
@@ -54,17 +56,17 @@ const GroupItem: React.FC<GroupItemProps> = ({
     <li ref={setSortableRef} style={style} className={styles.groupItem}>
       <div
         className={styles.handleContainer}
-        {...attributes}
-        {...listeners}
+        {...(!isRoot && { ...attributes, ...listeners })}
+        style={isRoot ? { cursor: "default" } : undefined}
       >
-        <SvgIcon name={SvgImageList.DragHandle} />
+        {!isRoot && <SvgIcon name={SvgImageList.DragHandle} />}
       </div>
       <div className={styles.titleContainer}>
         <strong className={styles.title}>{title}</strong>
-        <span className={styles.slug}>{slug}</span>
+        {!isRoot && <span className={styles.slug}>{slug}</span>}
       </div>
       <div className={styles.uriContainer}>
-        <span className={styles.uri}>{uri}</span>
+        {!isRoot && <span className={styles.uri}>{uri}</span>}
       </div>
       <div className={styles.buttonsContainer}></div>
       <div className={styles.groupArticlesContainer}>
