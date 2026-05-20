@@ -37,6 +37,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /article/list                list        — list all articles from the PDS
 /article/view/:articleUrl    view        — read-only display of a single article
 /article/edit/:articleUrl    edit        — edit an existing article (articleUrl = url slug)
+/sites                       sites       — manage sites (in development)
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header.
@@ -157,7 +158,7 @@ This breaks any existing AT URIs pointing to the old rkey.
 {
   $type: "app.scribe.group",
   title: string,
-  children: [],          // reserved for future tree structure
+  children: [],          // unused — structure is managed by the manifest
   createdAt: string,     // ISO 8601
 }
 ```
@@ -176,6 +177,8 @@ Groups and articles are organised via **`app.scribe.manifest`** — rkey `"main"
 ```
 
 The `/article/list` route maintains a **ROOT virtual group** (`id: "g:root"`) in client state that holds all ungrouped articles. ROOT is never draggable and is never written to the manifest — its children serialise as root-level `{ type: "article" }` items. Named groups serialise as `{ type: "group" }` items. Articles not present in the manifest are appended to ROOT; groups not present are appended after the manifest groups.
+
+The list route action handles four intents via the `_intent` form field: `createGroup`, `deleteGroup`, `saveManifest`, `deleteArticle`.
 
 ### OAuth scopes
 
@@ -232,9 +235,9 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
 | `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`. Also exports `PageSection` (a simple content-dividing wrapper, `children` only) from the same file. |
 | `ArticleList` | `app/components/ArticleList/ArticleList.tsx` | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`. |
-| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid`. `id` is the dnd-kit sortable id (`a:{slug}`). Includes View/Edit/Delete buttons and a built-in delete confirmation `Modal`. |
+| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid`. `id` is the dnd-kit sortable id (`a:{slug}`). Includes View/Edit/Delete buttons and a built-in delete confirmation `Modal`. Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
 | `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
-| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri`, `cid`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`. Also exports the `TreeArticle` interface. `id` is the dnd-kit sortable id (`g:{slug}`). `isRoot` disables the drag handle and transform — used for the ROOT virtual group. |
+| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri`, `cid`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`) and the `TreeArticle` interface. `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders a simplified "Orphaned Articles" container with no drag handle or delete button. Named groups include a Delete Group button (disabled when the group has children) with a confirmation modal. |
 | `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — home, article list, create article, logout links. Rendered by the core layout. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |

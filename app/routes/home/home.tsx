@@ -1,8 +1,6 @@
 import type { Route } from "./+types/home";
 import { getAuthSession } from "~/services/auth.server";
-import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
-import { Button } from "~/components/Button/Button";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -33,21 +31,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <p>
         {userName} is {isAuthenticated == false && "NOT"} Authenticated
       </p>
-      {/* <Button onClick={open}>Open Example Modal</Button>
-      <Modal
-        isOpen={isOpen}
-        onClose={close}
-        title="Example Modal"
-        footer={
-          <>
-            <Button variant="secondary" onClick={close}>Cancel</Button>
-            <Button onClick={close}>Proceed</Button>
-          </>
-        }
-      >
-        <p>This is an example of the Modal component rendered via a portal.</p>
-        <p>Click the backdrop, press Escape, or use the buttons below to close it.</p>
-      </Modal> */}
     </>
   );
 }
