@@ -69,23 +69,13 @@ export async function loader({ request }: Route.LoaderArgs) {
           slug: "tech",
           type: "group",
           title: "Technology",
-          children: [
-            {
-              slug: "some-article-slug",
-              type: "article",
-            },
-          ],
+          articles: ["some-article-slug", "some-other-article-slug"],
         },
         {
           slug: "business",
           type: "group",
           title: "Business News",
-          children: [
-            {
-              slug: "some-other-article-slug",
-              type: "article",
-            },
-          ],
+          articles: ["another-article-slug", "yet-another-article-slug"],
         },
       ],
     },
@@ -128,8 +118,10 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
           value={selected}
           onChange={setSelected}
         />
+        {selected && <p>SELECTED ITEM {selected}</p>}
       </PageSection>
 
+      {/* PUT THIS INTO ITS OWN COMPONENT */}
       <Modal
         isOpen={addSiteModal.isOpen}
         onClose={addSiteModal.close}
