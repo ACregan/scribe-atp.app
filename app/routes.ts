@@ -16,6 +16,7 @@ export default [
       route("article/list", "./routes/article/list/list.tsx"),
       route("article/edit/:articleUrl", "./routes/article/edit/edit.tsx"),
       route("article/view/:articleUrl", "./routes/article/view/view.tsx"),
+      route("sites", "./routes/sites/sites.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

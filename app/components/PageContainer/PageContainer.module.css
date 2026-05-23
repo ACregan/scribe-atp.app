@@ -1,0 +1,55 @@
+/* <PageContainer> component */
+.pageContainer {
+  width: 100rem;
+  /* min-height: calc(100dvh - 8rem - 6rem - 2rem); */
+  height: fit-content;
+  background-color: var(--white);
+  color: var(--black);
+  border-radius: 0.6rem;
+  box-shadow: 0 0.8rem 3.2rem rgba(0, 0, 0, 0.2);
+  margin: 2rem;
+
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-rows: 1fr;
+  grid-template-columns: 1fr;
+  grid-template-rows: min-content min-content 1fr min-content;
+  /* grid-template-rows: repeat(4, min-content); */
+
+  grid-template-areas:
+    "PageContainer_Heading"
+    "PageContainer_TopButtons"
+    "PageContainer_Content"
+    "PageContainer_BottomButtons";
+}
+.headingContainer {
+  grid-area: PageContainer_Heading;
+  padding: 0 2rem;
+}
+.topButtonPanel {
+  grid-area: PageContainer_TopButtons;
+  border-top: 0.1rem solid var(--border, #e5e7eb);
+  padding: 1rem 2rem;
+
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.contentContainer {
+  grid-area: PageContainer_Content;
+}
+
+.bottomButtonPanel {
+  grid-area: PageContainer_BottomButtons;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 0.1rem solid var(--border, #e5e7eb);
+  padding: 2rem;
+}
+
+/* <PageSection> component */
+.pageSection {
+  border-top: 0.1rem solid var(--border, #e5e7eb);
+  padding: 1rem 2rem;
+}

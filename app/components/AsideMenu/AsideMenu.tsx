@@ -45,6 +45,12 @@ const MENU_CONFIG: AsideMenuItemProps[] = [
     to: "/",
   },
   {
+    id: "site-management",
+    icon: SvgImageList.Website,
+    label: "Sites",
+    to: "/sites",
+  },
+  {
     id: "article-list",
     icon: SvgImageList.Documents,
     label: "Article List",
@@ -64,6 +70,7 @@ const AsideMenu = () => {
       <div className={styles.topButtonContainer}>
         {MENU_CONFIG.map((menuItem) => (
           <AsideMenuItem
+            key={menuItem.id}
             id={menuItem.id}
             icon={menuItem.icon}
             label={menuItem.label}

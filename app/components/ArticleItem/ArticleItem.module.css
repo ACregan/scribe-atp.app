@@ -1,0 +1,60 @@
+/* <ArticleItem /> Component */
+
+.articleItem {
+  width: auto;
+  list-style-type: none;
+  padding: 0;
+
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-rows: 1fr;
+  grid-template-columns: 4rem 1fr auto;
+  grid-template-rows: 3rem 2rem;
+  gap: 0;
+  grid-template-areas:
+    "Handle Title Buttons"
+    "Handle Info Buttons";
+
+  border: 0.2rem solid var(--black);
+  border-radius: 0.6rem;
+  box-sizing: border-box;
+}
+
+.dragHandleContainer {
+  grid-area: Handle;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: grab;
+}
+.titleContainer {
+  grid-area: Title;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+.titleContainer > strong {
+  font-size: 2.2rem;
+}
+.titleContainer > span {
+  background: var(--mid-grey);
+  color: var(--white);
+  font-size: 1rem;
+  padding: 0.3rem 0.5rem;
+  margin-left: 1rem;
+  border-radius: 0.4rem;
+}
+.information {
+  grid-area: Info;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+.buttonContainer {
+  grid-area: Buttons;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-right: 1rem;
+  gap: 0.5rem;
+}

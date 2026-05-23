@@ -10,7 +10,9 @@ An AT Protocol-driven content management system. Authors write and store article
 - **@atproto/oauth-client-node** — Bluesky OAuth PKCE flow
 - **@atproto/api** — AT Protocol XRPC calls (Agent)
 - **better-sqlite3** — SQLite store for OAuth state/sessions (`data/oauth.db`)
-- **lexical / @lexical/react** — WYSIWYG rich text editor (article content stored as HTML)
+- **lexical / @lexical/react** (+ @lexical/rich-text, @lexical/history, @lexical/list, @lexical/html) — WYSIWYG rich text editor (article content stored as HTML)
+- **@dnd-kit/core**, **@dnd-kit/sortable**, **@dnd-kit/utilities** — drag-and-drop for article/group reordering on `/article/list`
+- **classnames** — CSS class composition utility
 - Production server: `react-router-serve` on port 3008
 
 ## Environment variables
@@ -35,6 +37,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /article/list                list        — list all articles from the PDS
 /article/view/:articleUrl    view        — read-only display of a single article
 /article/edit/:articleUrl    edit        — edit an existing article (articleUrl = url slug)
+/sites                       sites       — manage sites (in development)
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header.
@@ -63,7 +66,16 @@ All auth logic lives in **`app/services/auth.server.ts`** (server-only, never im
 
 Stored fields: `did` (string), `handle` (string).
 
-Use `getAuthSession(request)` in any loader/action to read auth state. Use `requireAuth(request)` in loaders/actions that require authentication — it throws a redirect to `/login` if the session is missing, and returns `{ did, handle }` (non-optional) on success.
+Key exports from `auth.server.ts`:
+
+| Function | Purpose |
+|---|---|
+| `getAuthSession(request)` | Reads session cookie — returns `{ did, handle, isAuthenticated }` (all optional) |
+| `requireAuth(request)` | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional |
+| `getAtpAgent(did)` | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure |
+| `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects |
+| `destroyAuthSession(request, redirectTo)` | Clears session cookie and redirects — used by the `/logout` route |
+| `useRealOAuth` | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true` |
 
 ### Dev bypass (default in development)
 
@@ -95,7 +107,9 @@ Access the app via the tunnel URL. The tunnel URL changes on every restart.
 The `NodeOAuthClient` `stateStore` and `sessionStore` are backed by SQLite via `app/services/db.server.ts`. The database file lives at `data/oauth.db` (gitignored). It is created automatically on first run.
 
 - **`oauth_session`** — long-lived OAuth tokens, keyed by DID. Survives server restarts.
-- **`oauth_state`** — short-lived PKCE state, keyed by random state string. Rows older than 10 minutes are pruned on startup (left behind when a user starts auth but never completes it).
+- **`oauth_state`** — short-lived PKCE state, keyed by random state string. Rows older than 10 minutes are pruned on startup via `pruneStaleState()` (left behind when a user starts auth but never completes it).
+
+The `data/` directory is created automatically on first run (`fs.mkdirSync` with `recursive: true`) — no manual setup needed on deploy.
 
 `getAtpAgent(did)` catches any session-restore failure and throws a redirect to `/login` rather than surfacing an error page.
 
@@ -125,18 +139,46 @@ AT Protocol records cannot be moved to a different rkey in-place. Renaming the s
 
 This breaks any existing AT URIs pointing to the old rkey.
 
-### Record schema
+### Collections
 
+**`app.scribe.article`** — article content, rkey = url slug:
 ```ts
 {
   $type: "app.scribe.article",
   title: string,
-  content: string,
-  url: string,          // same as rkey
+  content: string,       // HTML, produced by the RichTextEditor
+  url: string,           // same as rkey
   splashImageUrl?: string,
-  createdAt: string,    // ISO 8601
+  createdAt: string,     // ISO 8601
 }
 ```
+
+**`app.scribe.group`** — organisational groups, rkey = slug derived from title:
+```ts
+{
+  $type: "app.scribe.group",
+  title: string,
+  children: [],          // unused — structure is managed by the manifest
+  createdAt: string,     // ISO 8601
+}
+```
+
+Groups and articles are organised via **`app.scribe.manifest`** — rkey `"main"`, a single record per user. The `/article/list` route reads and writes this to persist drag-and-drop ordering. Structure:
+```ts
+{
+  $type: "app.scribe.manifest",
+  items: ManifestItem[],   // ordered flat list
+  updatedAt: string,       // ISO 8601
+}
+
+// ManifestItem union:
+{ type: "article"; slug: string }                                     // root-level article
+{ type: "group"; slug: string; title: string; children: { type: "article"; slug: string }[] }
+```
+
+The `/article/list` route maintains a **ROOT virtual group** (`id: "g:root"`) in client state that holds all ungrouped articles. ROOT is never draggable and is never written to the manifest — its children serialise as root-level `{ type: "article" }` items. Named groups serialise as `{ type: "group" }` items. Articles not present in the manifest are appended to ROOT; groups not present are appended after the manifest groups.
+
+The list route action handles four intents via the `_intent` form field: `createGroup`, `deleteGroup`, `saveManifest`, `deleteArticle`.
 
 ### OAuth scopes
 
@@ -145,9 +187,14 @@ atproto
 repo:app.scribe.article?action=create
 repo:app.scribe.article?action=update
 repo:app.scribe.article?action=delete
+repo:app.scribe.group?action=create
+repo:app.scribe.group?action=update
+repo:app.scribe.group?action=delete
+repo:app.scribe.manifest?action=create
+repo:app.scribe.manifest?action=update
 ```
 
-Declared in both `app/services/auth.server.ts` (clientMetadata) and `public/client-metadata.json`. Any new collection added to the app needs its own scopes added in both places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
+Declared in three places — `app/services/auth.server.ts` (clientMetadata), `app/routes/login/login.tsx` (authorize call), and `public/client-metadata.json`. Any new collection needs its own scopes added in all three places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
 
 ### Public read access
 
@@ -184,6 +231,16 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `Input` | `app/components/Input/Input.tsx` | All `<input>` HTML attrs + `label?: string`, `error?: string` |
 | `Button` | `app/components/Button/Button.tsx` | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) |
 | `RichTextEditor` | `app/components/RichTextEditor/RichTextEditor.tsx` | `name: string`, `label?: string`, `defaultValue?: string` — drop-in for `<textarea>`, outputs HTML into a hidden field on form submit. Client-only (falls back to plain textarea during SSR). |
+| `Modal` | `app/components/Modal/Modal.tsx` | `isOpen: boolean`, `onClose: () => void`, `title: string`, `footer?: ReactNode`, `children: ReactNode` — renders via `createPortal` into `document.body`. Closes on Escape key. |
+| `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
+| `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`. Also exports `PageSection` (a simple content-dividing wrapper, `children` only) from the same file. |
+| `ArticleList` | `app/components/ArticleList/ArticleList.tsx` | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`. |
+| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid`. `id` is the dnd-kit sortable id (`a:{slug}`). Includes View/Edit/Delete buttons and a built-in delete confirmation `Modal`. Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
+| `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
+| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri`, `cid`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`) and the `TreeArticle` interface. `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders a simplified "Orphaned Articles" container with no drag handle or delete button. Named groups include a Delete Group button (disabled when the group has children) with a confirmation modal. |
+| `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — home, article list, create article, logout links. Rendered by the core layout. |
+| `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
+| `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
 
 ## Client metadata (production)
 

@@ -1,13 +1,13 @@
 .coreLayout_container {
   display: grid;
   grid-template-columns: min-content 1fr;
-  grid-template-rows: 8rem 1fr 10rem;
+  grid-template-rows: 8rem 1fr 6rem;
   gap: 0px 0px;
   grid-template-areas:
     "header header"
     "aside main"
     "footer footer";
-  min-height: 100dvh;
+  height: 100dvh;
 }
 .coreLayout_container > header {
   grid-area: header;
@@ -17,6 +17,8 @@
   background: var(--white);
   color: var(--black);
   padding: 0 2rem;
+  box-shadow: 0 -20px 6px -20px rgba(0, 0, 0, 0.5) inset;
+  border-bottom: 0.1rem solid var(--mid-grey);
 }
 /* ScribeCMS LOGO */
 .logoContainer > h4 {
@@ -96,8 +98,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow: auto;
 }
+/* Footer container */
 .coreLayout_container > footer {
   grid-area: footer;
+  box-shadow: 0 20px 6px -20px rgba(0, 0, 0, 0.5) inset;
+  border-top: 0.1rem solid var(--mid-grey);
 }

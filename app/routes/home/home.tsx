@@ -1,5 +1,6 @@
 import type { Route } from "./+types/home";
 import { getAuthSession } from "~/services/auth.server";
+import { useModal } from "~/components/Modal/useModal";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -22,6 +23,8 @@ export function HydrateFallback() {
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { userName, isAuthenticated } = loaderData;
+  const { isOpen, open, close } = useModal();
+
   return (
     <>
       <h1>Home Page</h1>
