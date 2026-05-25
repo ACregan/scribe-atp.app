@@ -22,7 +22,7 @@ AN ARTICLE represents an article or document, it comprises of a 'url' (string), 
 
 A SITE is owned by one single OWNER, the data for that site is stored on the OWNERs PDS
 
-A SITE OWNER is solely responsible for the creation and order of GROUPS
+A SITE OWNER is solely responsible for the creation and order of GROUPS within the SITE(s) they own.
 
 A SITE OWNER is solely responsible for assigning ARTICLES to GROUPS
 
