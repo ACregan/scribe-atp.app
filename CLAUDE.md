@@ -206,14 +206,17 @@ repo:app.scribe.group?action=update
 repo:app.scribe.group?action=delete
 repo:app.scribe.manifest?action=create
 repo:app.scribe.manifest?action=update
+repo:app.scribe.manifest?action=delete
 repo:app.scribe.site?action=create
 repo:app.scribe.site?action=update
 repo:app.scribe.site?action=delete
 ```
 
-Declared in two places — `app/services/auth.server.ts` (clientMetadata) and `app/routes/client-metadata.ts`. Any new collection needs its own scopes added in both places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
+The scope list has a single source of truth: `OAUTH_SCOPE` exported from `app/services/auth.server.ts`. It is consumed in three places — `clientMetadata.scope` (same file), `app/routes/client-metadata.ts`, and `app/routes/login/login.tsx` (passed to `oauthClient.authorize()`). **To add a new scope, update `OAUTH_SCOPE` only** — the other two pick it up automatically.
 
-After adding new scopes, a simple logout/login may not be sufficient if Bluesky's authorization server has cached the old `client-metadata.json`. To force a fresh authorization with the new scopes: go to **bsky.app → Settings → Privacy & Security → Authorized Apps → Scribe ATP → Revoke**, then log in again. Revoking invalidates the cached client registration and forces Bluesky to re-fetch `client-metadata.json` on the next login.
+**Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
+
+After adding new scopes, if Bluesky's authorization server has cached the old client metadata, bump the `client_id` version query param in both `auth.server.ts` and `client-metadata.ts`. **Current version: `?v=4`** — increment to `?v=5` next time. Verify the new URL returns correct scopes **before** logging in. To revoke an existing authorization: go to **https://bsky.social/account** → find the app entry → revoke.
 
 ### Public read access
 
@@ -266,7 +269,7 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 
 `/client-metadata.json` is served by `app/routes/client-metadata.ts` — a resource route that generates the JSON dynamically from `PUBLIC_URL` at request time. This means the `client_id` and `redirect_uris` are always correct whether running locally via a tunnel or in production, with no manual file edits needed.
 
-Scopes are declared in two places — `app/services/auth.server.ts` (clientMetadata) and `app/routes/client-metadata.ts`. Any new collection scope must be added to both. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
+Scopes are declared in three places — see the OAuth scopes section above for the full checklist. Any new collection scope must be added to all three. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
 
 ## Key commands
 

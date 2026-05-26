@@ -19,8 +19,24 @@ const publicUrl = process.env.PUBLIC_URL ?? "https://scribe-atp.app";
 const devPort = process.env.DEV_PORT ?? "5173";
 
 const clientId = useRealOAuth
-  ? `${publicUrl}/client-metadata.json?v=3`
+  ? `${publicUrl}/client-metadata.json?v=4`
   : "http://localhost";
+
+export const OAUTH_SCOPE = [
+  "atproto",
+  "repo:app.scribe.article?action=create",
+  "repo:app.scribe.article?action=update",
+  "repo:app.scribe.article?action=delete",
+  "repo:app.scribe.group?action=create",
+  "repo:app.scribe.group?action=update",
+  "repo:app.scribe.group?action=delete",
+  "repo:app.scribe.manifest?action=create",
+  "repo:app.scribe.manifest?action=update",
+  "repo:app.scribe.manifest?action=delete",
+  "repo:app.scribe.site?action=create",
+  "repo:app.scribe.site?action=update",
+  "repo:app.scribe.site?action=delete",
+].join(" ");
 
 const redirectUri = useRealOAuth
   ? `${publicUrl}/auth/callback`
@@ -48,7 +64,7 @@ export const oauthClient = new NodeOAuthClient({
     client_id: clientId,
     client_uri: isProduction ? publicUrl : "http://localhost",
     redirect_uris: [redirectUri],
-    scope: "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete repo:app.scribe.group?action=create repo:app.scribe.group?action=update repo:app.scribe.group?action=delete repo:app.scribe.manifest?action=create repo:app.scribe.manifest?action=update repo:app.scribe.site?action=create repo:app.scribe.site?action=update repo:app.scribe.site?action=delete",
+    scope: OAUTH_SCOPE,
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
     token_endpoint_auth_method: "none",
