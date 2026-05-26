@@ -194,7 +194,7 @@ repo:app.scribe.manifest?action=create
 repo:app.scribe.manifest?action=update
 ```
 
-Declared in three places — `app/services/auth.server.ts` (clientMetadata), `app/routes/login/login.tsx` (authorize call), and `public/client-metadata.json`. Any new collection needs its own scopes added in all three places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
+Declared in two places — `app/services/auth.server.ts` (clientMetadata) and `app/routes/client-metadata.ts`. Any new collection needs its own scopes added in both places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
 
 ### Public read access
 
@@ -243,9 +243,11 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
 
-## Client metadata (production)
+## Client metadata
 
-`public/client-metadata.json` is served as a static file at `/client-metadata.json`. Bluesky fetches this URL when `NODE_ENV=production` to verify the OAuth client. The `client_id` in `auth.server.ts` points to this file. Keep the two in sync.
+`/client-metadata.json` is served by `app/routes/client-metadata.ts` — a resource route that generates the JSON dynamically from `PUBLIC_URL` at request time. This means the `client_id` and `redirect_uris` are always correct whether running locally via a tunnel or in production, with no manual file edits needed.
+
+Scopes are declared in two places — `app/services/auth.server.ts` (clientMetadata) and `app/routes/client-metadata.ts`. Any new collection scope must be added to both. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
 
 ## Key commands
 

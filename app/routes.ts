@@ -6,6 +6,7 @@ import {
 } from "@react-router/dev/routes";
 
 export default [
+  route("client-metadata.json", "./routes/client-metadata.ts"),
   layout("./layout/core/core.tsx", [
     index("./routes/home/home.tsx"),
     route("login", "./routes/login/login.tsx"),
