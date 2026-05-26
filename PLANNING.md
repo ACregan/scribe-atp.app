@@ -44,17 +44,41 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
       "slug": "engineering",
       "title": "Engineering",
       "articles": [
-        "at://did:plc:ownerId/app.scribe.article/my-first-post",
-        "at://did:plc:contributorOneId/app.scribe.article/their-article"
+        {
+          "uri": "at://did:plc:ownerId/app.scribe.article/my-first-post",
+          "title": "My First Post",
+          "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
+          "createdAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "uri": "at://did:plc:contributorOneId/app.scribe.article/their-article",
+          "title": "Their Article",
+          "splashImageUrl": null,
+          "createdAt": "2025-02-01T00:00:00.000Z"
+        }
       ]
     },
     {
       "slug": "design",
       "title": "Design",
-      "articles": ["at://did:plc:ownerId/app.scribe.article/design-principles"]
+      "articles": [
+        {
+          "uri": "at://did:plc:ownerId/app.scribe.article/design-principles",
+          "title": "Design Principles",
+          "splashImageUrl": "https://norobots.blog/images/design-principles.jpg",
+          "createdAt": "2025-03-01T00:00:00.000Z"
+        }
+      ]
     }
   ],
-  "articles": ["at://did:plc:ownerId/app.scribe.article/ungrouped-post"],
+  "articles": [
+    {
+      "uri": "at://did:plc:ownerId/app.scribe.article/ungrouped-post",
+      "title": "Ungrouped Post",
+      "splashImageUrl": null,
+      "createdAt": "2025-04-01T00:00:00.000Z"
+    }
+  ],
   "createdAt": "2025-01-01T00:00:00.000Z",
   "updatedAt": "2025-06-01T12:00:00.000Z"
 }
@@ -63,8 +87,12 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
 Notes:
 
 - `ownerId` is omitted — the owner is whoever's PDS holds this record (their DID is the repo DID)
-- Article references are full AT URIs (`at://did/collection/rkey`) so articles from contributor PDSes can be included alongside owner articles
-- `articles` at the top level holds ungrouped articles (same role as the ROOT virtual group in the current manifest)
+- Article references are objects (not bare AT URIs) containing cached metadata: `uri`, `title`, `splashImageUrl`, `createdAt`
+- `uri` encodes everything needed to identify the article: author DID, collection, and rkey (slug)
+- Cached metadata (`title`, `splashImageUrl`) may go stale if the author edits their article — a sync mechanism will be needed, especially for contributor articles
+- `splashImageUrl` is nullable — not all articles have a splash image
+- `cid` is deliberately excluded — storing it would cause `swapRecord` failures after any edit to the article; fetch it live at the point of deletion
+- `articles` at the top level holds ungrouped articles (same role as the ROOT virtual group in the current list view)
 - `groups` order is significant — it determines display order on the site
 - `updatedAt` is useful for cache invalidation by public readers
 
