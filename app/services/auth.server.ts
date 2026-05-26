@@ -19,7 +19,7 @@ const publicUrl = process.env.PUBLIC_URL ?? "https://scribe-atp.app";
 const devPort = process.env.DEV_PORT ?? "5173";
 
 const clientId = useRealOAuth
-  ? `${publicUrl}/client-metadata.json`
+  ? `${publicUrl}/client-metadata.json?v=2`
   : "http://localhost";
 
 const redirectUri = useRealOAuth
