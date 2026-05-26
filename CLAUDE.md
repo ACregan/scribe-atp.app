@@ -213,6 +213,8 @@ repo:app.scribe.site?action=delete
 
 Declared in two places — `app/services/auth.server.ts` (clientMetadata) and `app/routes/client-metadata.ts`. Any new collection needs its own scopes added in both places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
 
+After adding new scopes, a simple logout/login may not be sufficient if Bluesky's authorization server has cached the old `client-metadata.json`. To force a fresh authorization with the new scopes: go to **bsky.app → Settings → Privacy & Security → Authorized Apps → Scribe ATP → Revoke**, then log in again. Revoking invalidates the cached client registration and forces Bluesky to re-fetch `client-metadata.json` on the next login.
+
 ### Public read access
 
 AT Protocol repositories are **publicly readable without authentication**. Any consumer can call:

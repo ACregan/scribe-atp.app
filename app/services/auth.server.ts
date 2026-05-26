@@ -116,6 +116,14 @@ export async function destroyAuthSession(
   redirectTo: string
 ) {
   const session = await getSession(request.headers.get("Cookie"));
+  const did = session.get("did") as string | undefined;
+
+  // Clear the OAuth session from SQLite so the next login goes through a full
+  // new authorization and gets a fresh access token with current scopes.
+  if (did) {
+    oauthSessionStore.del(did);
+  }
+
   return redirect(redirectTo, {
     headers: { "Set-Cookie": await destroySession(session) },
   });

@@ -31,6 +31,11 @@ export async function loader({}: Route.LoaderArgs) {
       application_type: "web",
       dpop_bound_access_tokens: true,
     }),
-    { headers: { "Content-Type": "application/json" } },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    },
   );
 }
