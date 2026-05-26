@@ -12,6 +12,7 @@ const SCRIBE_COLLECTIONS = [
   "app.scribe.article",
   "app.scribe.group",
   "app.scribe.manifest",
+  "app.scribe.site",
 ];
 
 export function meta({}: Route.MetaArgs) {

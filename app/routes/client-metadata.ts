@@ -10,6 +10,9 @@ const SCOPES = [
   "repo:app.scribe.group?action=delete",
   "repo:app.scribe.manifest?action=create",
   "repo:app.scribe.manifest?action=update",
+  "repo:app.scribe.site?action=create",
+  "repo:app.scribe.site?action=update",
+  "repo:app.scribe.site?action=delete",
 ].join(" ");
 
 export async function loader({}: Route.LoaderArgs) {

@@ -1,6 +1,6 @@
 import React from "react";
 import styles from "./AsideMenu.module.css";
-import { Form, Link, NavLink } from "react-router";
+import { Form, NavLink } from "react-router";
 import Tooltip, { TooltipBubble } from "../Tooltip/Tooltip";
 import type { SvgImageListTypes } from "../SvgIcon/SvgIcon";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
@@ -54,7 +54,7 @@ const MENU_CONFIG: AsideMenuItemProps[] = [
     id: "article-list",
     icon: SvgImageList.Documents,
     label: "Article List",
-    to: "/article/list",
+    to: "/sites",
   },
   {
     id: "create-article",
