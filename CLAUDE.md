@@ -34,7 +34,6 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /logout                        logout     — destroys session cookie, redirects to /login
 /auth/callback                 callback   — OAuth redirect handler, sets session cookie
 /article/create                create     — write a new article to the PDS; multi-select assigns to sites
-/article/list                  list       — all articles from PDS with DnD group/manifest ordering
 /article/list/:siteSlug        site-list  — site-scoped article/group management; reads/writes app.scribe.site
 /article/view/:articleUrl      view       — read-only display of a single article
 /article/edit/:articleUrl      edit       — edit an existing article; multi-select manages site assignment
@@ -190,10 +189,6 @@ Key design decisions for `app.scribe.site`:
 
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
-**`app.scribe.group`** and **`app.scribe.manifest`** — legacy collections used only by the old `/article/list` route. New site-scoped management uses `app.scribe.site` exclusively.
-
-The old `/article/list` route action handles four intents: `createGroup`, `deleteGroup`, `saveManifest`, `deleteArticle`.
-
 ### OAuth scopes
 
 ```
@@ -201,12 +196,6 @@ atproto
 repo:app.scribe.article?action=create
 repo:app.scribe.article?action=update
 repo:app.scribe.article?action=delete
-repo:app.scribe.group?action=create
-repo:app.scribe.group?action=update
-repo:app.scribe.group?action=delete
-repo:app.scribe.manifest?action=create
-repo:app.scribe.manifest?action=update
-repo:app.scribe.manifest?action=delete
 repo:app.scribe.site?action=create
 repo:app.scribe.site?action=update
 repo:app.scribe.site?action=delete
@@ -214,9 +203,7 @@ repo:app.scribe.site?action=delete
 
 The scope list has a single source of truth: `OAUTH_SCOPE` exported from `app/services/auth.server.ts`. It is consumed in three places — `clientMetadata.scope` (same file), `app/routes/client-metadata.ts`, and `app/routes/login/login.tsx` (passed to `oauthClient.authorize()`). **To add a new scope, update `OAUTH_SCOPE` only** — the other two pick it up automatically.
 
-**Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
-
-After adding new scopes, if Bluesky's authorization server has cached the old client metadata, bump the `client_id` version query param in both `auth.server.ts` and `client-metadata.ts`. **Current version: `?v=4`** — increment to `?v=5` next time. Verify the new URL returns correct scopes **before** logging in. To revoke an existing authorization: go to **https://bsky.social/account** → find the app entry → revoke.
+**Users must re-authenticate after a scope change** — existing sessions do not gain new scopes. To revoke an existing authorization: go to **https://bsky.social/account** → find the app entry → revoke.
 
 ### Public read access
 

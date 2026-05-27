@@ -7,6 +7,6 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   server: {
-    allowedHosts: ["cotton-edition-eng-ending.trycloudflare.com"],
+    allowedHosts: ["year-gmbh-livestock-bedroom.trycloudflare.com"],
   },
 });

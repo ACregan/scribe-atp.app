@@ -6,7 +6,7 @@ export async function loader({}: Route.LoaderArgs) {
 
   return new Response(
     JSON.stringify({
-      client_id: `${publicUrl}/client-metadata.json?v=4`,
+      client_id: `${publicUrl}/client-metadata.json`,
       client_name: "Scribe ATP",
       client_uri: publicUrl,
       redirect_uris: [`${publicUrl}/auth/callback`],

@@ -54,7 +54,7 @@ const MENU_CONFIG: AsideMenuItemProps[] = [
     id: "article-list",
     icon: SvgImageList.Documents,
     label: "Article List",
-    to: "/sites",
+    to: "/article/list",
   },
   {
     id: "create-article",

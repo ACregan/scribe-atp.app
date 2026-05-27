@@ -15,7 +15,10 @@ export default [
     layout("./layout/protected/protected.tsx", [
       route("article/create", "./routes/article/create/create.tsx"),
       route("article/list", "./routes/article/list/list.tsx"),
-      route("article/list/:siteSlug", "./routes/article/site-list/site-list.tsx"),
+      route(
+        "article/list/:siteSlug",
+        "./routes/article/site-list/site-list.tsx",
+      ),
       route("article/edit/:articleUrl", "./routes/article/edit/edit.tsx"),
       route("article/view/:articleUrl", "./routes/article/view/view.tsx"),
       route("sites", "./routes/sites/sites.tsx"),

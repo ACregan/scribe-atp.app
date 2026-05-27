@@ -19,7 +19,7 @@ const publicUrl = process.env.PUBLIC_URL ?? "https://scribe-atp.app";
 const devPort = process.env.DEV_PORT ?? "5173";
 
 const clientId = useRealOAuth
-  ? `${publicUrl}/client-metadata.json?v=4`
+  ? `${publicUrl}/client-metadata.json`
   : "http://localhost";
 
 export const OAUTH_SCOPE = [
@@ -27,12 +27,6 @@ export const OAUTH_SCOPE = [
   "repo:app.scribe.article?action=create",
   "repo:app.scribe.article?action=update",
   "repo:app.scribe.article?action=delete",
-  "repo:app.scribe.group?action=create",
-  "repo:app.scribe.group?action=update",
-  "repo:app.scribe.group?action=delete",
-  "repo:app.scribe.manifest?action=create",
-  "repo:app.scribe.manifest?action=update",
-  "repo:app.scribe.manifest?action=delete",
   "repo:app.scribe.site?action=create",
   "repo:app.scribe.site?action=update",
   "repo:app.scribe.site?action=delete",
