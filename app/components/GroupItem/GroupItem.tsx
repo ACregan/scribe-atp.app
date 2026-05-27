@@ -17,19 +17,20 @@ import { Form } from "react-router";
 export interface TreeArticle {
   id: string;
   uri: string;
-  cid: string;
+  cid?: string;
   title: string;
   createdAt: string;
 }
 
 interface GroupItemProps {
   id: string;
-  uri: string;
-  cid: string;
+  uri?: string;
+  cid?: string;
   title: string;
   slug: string;
   articleChildren: TreeArticle[];
   isRoot?: boolean;
+  articleMode?: "pds" | "site";
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
@@ -40,6 +41,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
   slug,
   articleChildren,
   isRoot = false,
+  articleMode = "pds",
 }) => {
   const {
     attributes,
@@ -78,7 +80,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
     return (
       <li ref={setSortableRef} className={styles.groupItem_root}>
         <div className={styles.titleContainer_root}>
-          <strong className={styles.title}>Orphaned Articles</strong>
+          <strong className={styles.title}>{title}</strong>
         </div>
         <div className={styles.groupArticlesContainer}>
           <SortableContext
@@ -96,6 +98,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   cid={article.cid}
                   title={article.title}
                   createdAt={article.createdAt}
+                  mode={articleMode}
                 />
               ))}
               {articleChildren.length === 0 && (
@@ -122,14 +125,16 @@ const GroupItem: React.FC<GroupItemProps> = ({
           <strong className={styles.title}>{title}</strong>
           <span className={styles.slug}>{slug}</span>
         </div>
-        <div className={styles.uriContainer}>
-          <span className={styles.uri}>{uri}</span>
-        </div>
+        {uri && (
+          <div className={styles.uriContainer}>
+            <span className={styles.uri}>{uri}</span>
+          </div>
+        )}
         <div className={styles.buttonsContainer}>
           <Form ref={deleteFormRef} method="post" onSubmit={handleDeleteClick}>
             <input type="hidden" name="_intent" value="deleteGroup" />
             <input type="hidden" name="rkey" value={slug} />
-            <input type="hidden" name="cid" value={cid} />
+            {cid && <input type="hidden" name="cid" value={cid} />}
             <Button
               type="submit"
               variant="danger"
@@ -160,6 +165,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   cid={article.cid}
                   title={article.title}
                   createdAt={article.createdAt}
+                  mode={articleMode}
                 />
               ))}
               {articleChildren.length === 0 && (
@@ -205,7 +211,7 @@ export function GroupItemPreview({
 }: {
   title: string;
   slug: string;
-  uri: string;
+  uri?: string;
 }) {
   return (
     <li className={styles.groupItem}>
@@ -216,9 +222,11 @@ export function GroupItemPreview({
         <strong className={styles.title}>{title}</strong>
         <span className={styles.slug}>{slug}</span>
       </div>
-      <div className={styles.uriContainer}>
-        <span className={styles.uri}>{uri}</span>
-      </div>
+      {uri && (
+        <div className={styles.uriContainer}>
+          <span className={styles.uri}>{uri}</span>
+        </div>
+      )}
       <div className={styles.buttonsContainer} />
       <div className={styles.groupArticlesContainer}>
         <ul className={styles.groupArticlesList} />

@@ -13,7 +13,8 @@ interface ArticleItemProps {
   uri: string;
   title: string;
   createdAt: string;
-  cid: string;
+  cid?: string;
+  mode?: "pds" | "site";
 }
 
 const ArticleItem: React.FC<ArticleItemProps> = ({
@@ -22,6 +23,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   title,
   createdAt,
   cid,
+  mode = "pds",
 }) => {
   const deleteModal = useModal();
   const deleteFormRef = useRef<HTMLFormElement>(null);
@@ -50,6 +52,13 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
     deleteModal.close();
     deleteFormRef.current?.submit();
   };
+
+  const isSiteMode = mode === "site";
+  const deleteLabel = isSiteMode ? "Remove" : "Delete";
+  const modalTitle = isSiteMode ? "Remove Article" : "Delete Article";
+  const modalBody = isSiteMode
+    ? `Remove "${title}" from this site?`
+    : `Are you sure you want to delete "${title}"?`;
 
   return (
     <>
@@ -85,11 +94,20 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             style={{ display: "inline" }}
             onSubmit={handleDeleteClick}
           >
-            <input type="hidden" name="_intent" value="deleteArticle" />
-            <input type="hidden" name="rkey" value={uri.split("/").pop()} />
-            <input type="hidden" name="cid" value={cid} />
+            {isSiteMode ? (
+              <>
+                <input type="hidden" name="_intent" value="removeArticle" />
+                <input type="hidden" name="uri" value={uri} />
+              </>
+            ) : (
+              <>
+                <input type="hidden" name="_intent" value="deleteArticle" />
+                <input type="hidden" name="rkey" value={uri.split("/").pop()} />
+                {cid && <input type="hidden" name="cid" value={cid} />}
+              </>
+            )}
             <Button type="submit" variant="danger">
-              Delete
+              {deleteLabel}
             </Button>
           </Form>
         </div>
@@ -97,7 +115,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
       <Modal
         isOpen={deleteModal.isOpen}
         onClose={deleteModal.close}
-        title="Delete Article"
+        title={modalTitle}
         footer={
           <div
             style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
@@ -106,12 +124,12 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
               Cancel
             </Button>
             <Button onClick={handleConfirmDelete} variant="danger">
-              Delete
+              {deleteLabel}
             </Button>
           </div>
         }
       >
-        <p>Are you sure you want to delete "{title}"?</p>
+        <p>{modalBody}</p>
       </Modal>
     </>
   );

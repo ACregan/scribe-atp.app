@@ -1,0 +1,41 @@
+.devTools {
+  margin-top: 3rem;
+  padding: 1.6rem;
+  border: 0.2rem dashed var(--red);
+  border-radius: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.devToolsTitle {
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--red);
+  margin: 0;
+}
+
+.nukeList {
+  margin: 0.4rem 0;
+  padding-left: 2rem;
+  font-family: monospace;
+  font-size: 1.4rem;
+}
+
+.nukeSuccess {
+  font-size: 1.4rem;
+  color: green;
+}
+
+.nukeError {
+  font-size: 1.4rem;
+  color: var(--red);
+}
+
+.modalFooter {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

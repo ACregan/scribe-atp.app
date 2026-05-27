@@ -1,0 +1,94 @@
+/* <Select> Component */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+/* Single select */
+
+.select {
+  padding: 0.8rem 1.2rem;
+  font-size: 1.6rem;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  background: var(--white);
+  color: var(--black, #000);
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.selectError {
+  border-color: var(--red);
+}
+
+/* Multi select (checkbox list) */
+
+.checkboxList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  background: var(--white);
+  overflow: hidden;
+}
+
+.checkboxListError {
+  border-color: var(--red);
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1.2rem;
+  font-size: 1.6rem;
+  cursor: pointer;
+}
+
+.checkboxRow:not(:last-child) {
+  border-bottom: 1px solid var(--border, #ccc);
+}
+
+.checkboxRow:hover {
+  background: var(--light-grey, #f5f5f5);
+}
+
+.checkbox {
+  width: 1.6rem;
+  height: 1.6rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--blue);
+}
+
+.empty {
+  padding: 0.8rem 1.2rem;
+  font-size: 1.4rem;
+  color: var(--mid-grey);
+}
+
+/* Shared */
+
+.errorContainer {
+  display: flex;
+  align-items: center;
+  height: 1.8rem;
+}
+
+.error {
+  font-size: 1.2rem;
+  color: var(--red);
+}

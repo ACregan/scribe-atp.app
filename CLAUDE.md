@@ -29,15 +29,17 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 ## Routes
 
 ```
-/                            home        — auth status display
-/login                       login       — Bluesky OAuth entry point (or dev bypass)
-/logout                      logout      — destroys session cookie, redirects to /login
-/auth/callback               callback    — OAuth redirect handler, sets session cookie
-/article/create              create      — write a new article to the PDS
-/article/list                list        — list all articles from the PDS
-/article/view/:articleUrl    view        — read-only display of a single article
-/article/edit/:articleUrl    edit        — edit an existing article (articleUrl = url slug)
-/sites                       sites       — manage sites (in development)
+/                              home       — auth status display
+/login                         login      — Bluesky OAuth entry point (or dev bypass)
+/logout                        logout     — destroys session cookie, redirects to /login
+/auth/callback                 callback   — OAuth redirect handler, sets session cookie
+/article/create                create     — write a new article to the PDS; multi-select assigns to sites
+/article/list                  list       — site picker; links into site-list
+/article/list/:siteSlug        site-list  — site-scoped article/group management; reads/writes app.scribe.site
+/article/view/:articleUrl      view       — read-only display of a single article
+/article/edit/:articleUrl      edit       — edit an existing article; multi-select manages site assignment
+/sites                         sites      — list, create and delete app.scribe.site records
+/site/:siteName/configure      configure  — edit site metadata (title, description, images, url, urlPrefix) — PLANNED
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header.
@@ -153,32 +155,47 @@ This breaks any existing AT URIs pointing to the old rkey.
 }
 ```
 
-**`app.scribe.group`** — organisational groups, rkey = slug derived from title:
+**`app.scribe.site`** — a managed website, rkey = URL-derived slug (e.g. `norobots-blog`):
 ```ts
 {
-  $type: "app.scribe.group",
+  $type: "app.scribe.site",
+  url: string,            // e.g. "norobots.blog" — domain name
   title: string,
-  children: [],          // unused — structure is managed by the manifest
-  createdAt: string,     // ISO 8601
+  urlPrefix: string,      // e.g. "blog" — path prefix; composed URL = url + "/" + urlPrefix
+  description?: string,   // PLANNED — human-readable description of the site
+  splashImageUrl?: string, // PLANNED — hero/banner image
+  logoImageUrl?: string,  // PLANNED — site logo
+  contributors: string[], // DIDs of contributors
+  groups: Array<{         // named groups (order is significant)
+    slug: string,
+    title: string,
+    articles: ArticleRef[],
+  }>,
+  articles: ArticleRef[], // top-level ungrouped articles
+  createdAt: string,
+  updatedAt: string,
 }
-```
 
-Groups and articles are organised via **`app.scribe.manifest`** — rkey `"main"`, a single record per user. The `/article/list` route reads and writes this to persist drag-and-drop ordering. Structure:
-```ts
+// ArticleRef — cached snapshot stored inside the site record:
 {
-  $type: "app.scribe.manifest",
-  items: ManifestItem[],   // ordered flat list
-  updatedAt: string,       // ISO 8601
+  uri: string,           // full AT URI e.g. at://did/app.scribe.article/slug
+  title: string,
+  splashImageUrl: string | null,
+  createdAt: string,
 }
-
-// ManifestItem union:
-{ type: "article"; slug: string }                                     // root-level article
-{ type: "group"; slug: string; title: string; children: { type: "article"; slug: string }[] }
 ```
 
-The `/article/list` route maintains a **ROOT virtual group** (`id: "g:root"`) in client state that holds all ungrouped articles. ROOT is never draggable and is never written to the manifest — its children serialise as root-level `{ type: "article" }` items. Named groups serialise as `{ type: "group" }` items. Articles not present in the manifest are appended to ROOT; groups not present are appended after the manifest groups.
+Key design decisions for `app.scribe.site`:
+- `ownerId` is omitted — the owner is whoever's PDS holds the record (their DID is the repo DID)
+- Article refs are objects (not bare AT URIs) with cached metadata to avoid N+1 fetches
+- `cid` is deliberately excluded from article refs — fetch live at deletion to avoid stale `swapRecord` failures
+- Groups and article order within groups are authoritative — the site record is the manifest
+- `updatedAt` is useful for cache invalidation by public readers
+- Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
 
-The list route action handles four intents via the `_intent` form field: `createGroup`, `deleteGroup`, `saveManifest`, `deleteArticle`.
+The planned `/site/:siteName/configure` route will allow editing site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed.
+
+The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
 ### OAuth scopes
 
@@ -187,14 +204,14 @@ atproto
 repo:app.scribe.article?action=create
 repo:app.scribe.article?action=update
 repo:app.scribe.article?action=delete
-repo:app.scribe.group?action=create
-repo:app.scribe.group?action=update
-repo:app.scribe.group?action=delete
-repo:app.scribe.manifest?action=create
-repo:app.scribe.manifest?action=update
+repo:app.scribe.site?action=create
+repo:app.scribe.site?action=update
+repo:app.scribe.site?action=delete
 ```
 
-Declared in three places — `app/services/auth.server.ts` (clientMetadata), `app/routes/login/login.tsx` (authorize call), and `public/client-metadata.json`. Any new collection needs its own scopes added in all three places. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
+The scope list has a single source of truth: `OAUTH_SCOPE` exported from `app/services/auth.server.ts`. It is consumed in three places — `clientMetadata.scope` (same file), `app/routes/client-metadata.ts`, and `app/routes/login/login.tsx` (passed to `oauthClient.authorize()`). **To add a new scope, update `OAUTH_SCOPE` only** — the other two pick it up automatically.
+
+**Users must re-authenticate after a scope change** — existing sessions do not gain new scopes. To revoke an existing authorization: go to **https://bsky.social/account** → find the app entry → revoke.
 
 ### Public read access
 
@@ -235,16 +252,19 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
 | `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`. Also exports `PageSection` (a simple content-dividing wrapper, `children` only) from the same file. |
 | `ArticleList` | `app/components/ArticleList/ArticleList.tsx` | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`. |
-| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid`. `id` is the dnd-kit sortable id (`a:{slug}`). Includes View/Edit/Delete buttons and a built-in delete confirmation `Modal`. Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
+| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid?`, `mode?: "pds" \| "site"`. `id` is the dnd-kit sortable id (`a:{slug}`). In `"pds"` mode (default): Delete button removes the record from the PDS. In `"site"` mode: Remove button removes the article from the site record only (`_intent=removeArticle, uri`). Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
 | `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
-| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri`, `cid`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`) and the `TreeArticle` interface. `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders a simplified "Orphaned Articles" container with no drag handle or delete button. Named groups include a Delete Group button (disabled when the group has children) with a confirmation modal. |
-| `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — home, article list, create article, logout links. Rendered by the core layout. |
+| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and the `TreeArticle` interface (`cid?` optional). `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has children). `articleMode` is forwarded to each `ArticleItem` child. `uri`/`cid` are omitted for site-embedded groups. |
+| `Select` | `app/components/Select/Select.tsx` | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a checkbox list. Both modes post standard form values under `name`. |
+| `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (links to `/sites`), article list (also links to `/sites` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
 
-## Client metadata (production)
+## Client metadata
 
-`public/client-metadata.json` is served as a static file at `/client-metadata.json`. Bluesky fetches this URL when `NODE_ENV=production` to verify the OAuth client. The `client_id` in `auth.server.ts` points to this file. Keep the two in sync.
+`/client-metadata.json` is served by `app/routes/client-metadata.ts` — a resource route that generates the JSON dynamically from `PUBLIC_URL` at request time. This means the `client_id` and `redirect_uris` are always correct whether running locally via a tunnel or in production, with no manual file edits needed.
+
+Scopes are declared in three places — see the OAuth scopes section above for the full checklist. Any new collection scope must be added to all three. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
 
 ## Key commands
 

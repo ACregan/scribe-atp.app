@@ -7,6 +7,7 @@ import {
   createAuthSession,
   oauthClient,
   useRealOAuth,
+  OAUTH_SCOPE,
 } from "~/services/auth.server";
 import styles from "./login.module.css";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
@@ -46,8 +47,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   try {
     const authUrl = await oauthClient.authorize(cleanHandle, {
-      scope:
-        "atproto repo:app.scribe.article?action=create repo:app.scribe.article?action=update repo:app.scribe.article?action=delete repo:app.scribe.group?action=create repo:app.scribe.group?action=update repo:app.scribe.group?action=delete repo:app.scribe.manifest?action=create repo:app.scribe.manifest?action=update",
+      scope: OAUTH_SCOPE,
     });
     return redirect(authUrl.toString());
   } catch (err) {

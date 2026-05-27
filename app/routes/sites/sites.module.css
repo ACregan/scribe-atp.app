@@ -1,0 +1,67 @@
+.siteList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.siteItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.6rem;
+  background: var(--off-white);
+  border: 0.2rem solid var(--mid-grey);
+  border-radius: 0.8rem;
+}
+
+.siteInfo {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.siteTitle {
+  font-size: 1.6rem;
+}
+
+.siteUrl {
+  font-size: 1.3rem;
+  color: var(--mid-grey);
+  font-family: monospace;
+}
+
+.siteUrlPrefix {
+  font-size: 1.3rem;
+  color: var(--mid-grey);
+  font-family: monospace;
+}
+
+.siteActions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.emptyState {
+  font-size: 1.4rem;
+  color: var(--mid-grey);
+}
+
+.modalFooter {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.deleteWarning {
+  font-size: 1.3rem;
+  color: var(--mid-grey);
+}
+
+.errorMessage {
+  color: var(--red);
+  font-size: 1.3rem;
+  margin-top: 0.8rem;
+}
