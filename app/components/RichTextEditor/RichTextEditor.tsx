@@ -6,91 +6,112 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
+import { CheckListPlugin } from "@lexical/react/LexicalCheckListPlugin";
+import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
+import { registerCodeHighlighting } from "@lexical/code"; // eslint-disable-line @typescript-eslint/no-deprecated
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { ListNode, ListItemNode } from "@lexical/list";
+import { CodeNode, CodeHighlightNode } from "@lexical/code";
+import { LinkNode, AutoLinkNode } from "@lexical/link";
 import {
   $getRoot,
   $insertNodes,
-  FORMAT_TEXT_COMMAND,
-  FORMAT_ELEMENT_COMMAND,
   type EditorState,
   type LexicalEditor,
 } from "lexical";
+import { ToolbarPlugin } from "./ToolbarPlugin";
 import styles from "./RichTextEditor.module.css";
 
-// ── Toolbar ────────────────────────────────────────────────────────────────────
+// ── Nodes registered with the editor ─────────────────────────────────────────
 
-function Toolbar() {
+const EDITOR_NODES = [
+  HeadingNode,
+  QuoteNode,
+  ListNode,
+  ListItemNode,
+  CodeNode,
+  CodeHighlightNode,
+  LinkNode,
+  AutoLinkNode,
+];
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+const theme = {
+  text: {
+    bold: styles.bold,
+    italic: styles.italic,
+    underline: styles.underline,
+    strikethrough: styles.strikethrough,
+    subscript: styles.subscript,
+    superscript: styles.superscript,
+    code: styles.inlineCode,
+    highlight: styles.highlight,
+    underlineStrikethrough: styles.underlineStrikethrough,
+  },
+  heading: {
+    h1: styles.h1,
+    h2: styles.h2,
+    h3: styles.h3,
+    h4: styles.h4,
+    h5: styles.h5,
+    h6: styles.h6,
+  },
+  quote: styles.blockquote,
+  code: styles.codeBlock,
+  codeHighlight: {
+    atrule: styles.codeAtrule,
+    attr: styles.codeAttr,
+    boolean: styles.codeBoolean,
+    builtin: styles.codeBuiltin,
+    cdata: styles.codeCdata,
+    char: styles.codeChar,
+    class: styles.codeClass,
+    "class-name": styles.codeClassName,
+    comment: styles.codeComment,
+    constant: styles.codeConstant,
+    deleted: styles.codeDeleted,
+    doctype: styles.codeDoctype,
+    entity: styles.codeEntity,
+    function: styles.codeFunction,
+    important: styles.codeImportant,
+    inserted: styles.codeInserted,
+    keyword: styles.codeKeyword,
+    namespace: styles.codeNamespace,
+    number: styles.codeNumber,
+    operator: styles.codeOperator,
+    prolog: styles.codeProlog,
+    property: styles.codeProperty,
+    punctuation: styles.codePunctuation,
+    regex: styles.codeRegex,
+    selector: styles.codeSelector,
+    string: styles.codeString,
+    symbol: styles.codeSymbol,
+    tag: styles.codeTag,
+    url: styles.codeUrl,
+    variable: styles.codeVariable,
+  },
+  list: {
+    nested: { listitem: styles.nestedListItem },
+    ol: styles.ol,
+    ul: styles.ul,
+    listitem: styles.listItem,
+    listitemChecked: styles.listItemChecked,
+    listitemUnchecked: styles.listItemUnchecked,
+  },
+  link: styles.link,
+};
+
+// ── Code highlight plugin ─────────────────────────────────────────────────────
+
+function CodeHighlightPlugin() {
   const [editor] = useLexicalComposerContext();
-  return (
-    <div className={styles.toolbar}>
-      <button
-        type="button"
-        title="Bold"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
-        }}
-      >
-        <b>B</b>
-      </button>
-      <button
-        type="button"
-        title="Italic"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
-        }}
-      >
-        <i>I</i>
-      </button>
-      <button
-        type="button"
-        title="Underline"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
-        }}
-      >
-        <u>U</u>
-      </button>
-      <span className={styles.divider} />
-      <button
-        type="button"
-        title="Left align"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left");
-        }}
-      >
-        &#8676;
-      </button>
-      <button
-        type="button"
-        title="Centre align"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center");
-        }}
-      >
-        &#8596;
-      </button>
-      <button
-        type="button"
-        title="Right align"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right");
-        }}
-      >
-        &#8677;
-      </button>
-    </div>
-  );
+  useEffect(() => registerCodeHighlighting(editor), [editor]);
+  return null;
 }
 
-// ── Initial value plugin ───────────────────────────────────────────────────────
+// ── Initial value plugin ──────────────────────────────────────────────────────
 
 function InitialValuePlugin({ html }: { html: string }) {
   const [editor] = useLexicalComposerContext();
@@ -113,7 +134,7 @@ function InitialValuePlugin({ html }: { html: string }) {
   return null;
 }
 
-// ── Hidden textarea sync plugin ────────────────────────────────────────────────
+// ── Hidden field sync ─────────────────────────────────────────────────────────
 
 function HiddenFieldPlugin({
   name,
@@ -125,15 +146,13 @@ function HiddenFieldPlugin({
   const [editor] = useLexicalComposerContext();
 
   function handleChange(state: EditorState, ed: LexicalEditor) {
-    state.read(() => {
-      onChange($generateHtmlFromNodes(ed));
-    });
+    state.read(() => onChange($generateHtmlFromNodes(ed)));
   }
 
   return <OnChangePlugin onChange={handleChange} />;
 }
 
-// ── Public component ───────────────────────────────────────────────────────────
+// ── Public component ──────────────────────────────────────────────────────────
 
 type RichTextEditorProps = {
   name: string;
@@ -141,28 +160,26 @@ type RichTextEditorProps = {
   defaultValue?: string;
 };
 
-const theme = {
-  text: {
-    bold: styles.bold,
-    italic: styles.italic,
-    underline: styles.underline,
-  },
-};
-
-const nodes = [HeadingNode, QuoteNode, ListNode, ListItemNode];
-
-export function RichTextEditor({ name, label, defaultValue = "" }: RichTextEditorProps) {
+export function RichTextEditor({
+  name,
+  label,
+  defaultValue = "",
+}: RichTextEditorProps) {
   const [html, setHtml] = useState(defaultValue);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
-  // SSR / pre-hydration: render a plain textarea so the form still works
   if (!mounted) {
     return (
       <div className={styles.field}>
         {label && <label className={styles.label}>{label}</label>}
-        <textarea name={name} defaultValue={defaultValue} className={styles.fallback} rows={12} />
+        <textarea
+          name={name}
+          defaultValue={defaultValue}
+          className={styles.fallback}
+          rows={12}
+        />
       </div>
     );
   }
@@ -174,26 +191,32 @@ export function RichTextEditor({ name, label, defaultValue = "" }: RichTextEdito
         initialConfig={{
           namespace: name,
           theme,
-          nodes,
+          nodes: EDITOR_NODES,
           onError: (err) => console.error("Lexical error:", err),
         }}
       >
         <div className={styles.editorWrapper}>
-          <Toolbar />
+          <ToolbarPlugin />
           <div className={styles.editorInner}>
             <RichTextPlugin
-              contentEditable={<ContentEditable className={styles.contentEditable} />}
-              placeholder={<div className={styles.placeholder}>Start writing…</div>}
+              contentEditable={
+                <ContentEditable className={styles.contentEditable} />
+              }
+              placeholder={
+                <div className={styles.placeholder}>Start writing…</div>
+              }
               ErrorBoundary={({ children }) => <>{children}</>}
             />
           </div>
         </div>
         <HistoryPlugin />
         <ListPlugin />
+        <CheckListPlugin />
+        <LinkPlugin />
+        <CodeHighlightPlugin />
         <InitialValuePlugin html={defaultValue} />
         <HiddenFieldPlugin name={name} onChange={setHtml} />
       </LexicalComposer>
-      {/* Hidden field carries the HTML content on form submission */}
       <textarea name={name} value={html} onChange={() => {}} hidden readOnly />
     </div>
   );

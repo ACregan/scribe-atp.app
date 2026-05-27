@@ -7,6 +7,6 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   server: {
-    allowedHosts: ["year-gmbh-livestock-bedroom.trycloudflare.com"],
+    allowedHosts: ["slideshow-badly-tribune-relay.trycloudflare.com"],
   },
 });
