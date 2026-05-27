@@ -1,52 +1,129 @@
-.siteList {
+/* ── Tile grid ───────────────────────────────────────────────────────────────── */
+
+.tileGrid {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(28rem, 1fr));
+  gap: 2rem;
+  align-items: start;
+}
+
+/* ── Tile ────────────────────────────────────────────────────────────────────── */
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  border: 0.1rem solid var(--border, #e5e7eb);
+  border-radius: 0.8rem;
+  overflow: hidden;
+  background: var(--white);
+}
+
+/* ── Splash ──────────────────────────────────────────────────────────────────── */
+
+.tileSplash {
+  height: 12rem;
+  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  flex-shrink: 0;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────────── */
+
+.tileBody {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+  padding: 1.6rem;
 }
 
-.siteItem {
+.tileHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1.2rem 1.6rem;
-  background: var(--off-white);
-  border: 0.2rem solid var(--mid-grey);
-  border-radius: 0.8rem;
-}
-
-.siteInfo {
-  display: flex;
-  align-items: baseline;
   gap: 1rem;
 }
 
-.siteTitle {
-  font-size: 1.6rem;
+.tileLogo {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 0.4rem;
+  object-fit: contain;
+  border: 0.1rem solid var(--border, #e5e7eb);
+  flex-shrink: 0;
 }
 
-.siteUrl {
+.tileTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+  color: var(--black);
+}
+
+.tileDescription {
   font-size: 1.3rem;
   color: var(--mid-grey);
-  font-family: monospace;
+  line-height: 1.5;
+  margin: 0;
+  /* clamp to 3 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.siteUrlPrefix {
-  font-size: 1.3rem;
+.tileUrl {
+  font-size: 1.2rem;
+  font-family: monospace;
   color: var(--mid-grey);
-  font-family: monospace;
+  margin-top: auto;
 }
 
-.siteActions {
+/* ── Actions ─────────────────────────────────────────────────────────────────── */
+
+.tileActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.8rem;
+  padding: 1.2rem 1.6rem;
+  border-top: 0.1rem solid var(--border, #e5e7eb);
+  background: var(--off-white);
 }
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
 
 .emptyState {
-  font-size: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 3.2rem;
+  text-align: center;
   color: var(--mid-grey);
+}
+
+.emptyStateHeading {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--black);
+}
+
+.emptyStateBody {
+  font-size: 1.4rem;
+  margin: 0;
+  max-width: 40rem;
+  align-self: center;
+  line-height: 1.6;
+}
+
+/* ── Shared modal / form ─────────────────────────────────────────────────────── */
+
+.siteForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
 }
 
 .modalFooter {
@@ -58,10 +135,11 @@
 .deleteWarning {
   font-size: 1.3rem;
   color: var(--mid-grey);
+  margin-top: 0.8rem;
 }
 
 .errorMessage {
   color: var(--red);
   font-size: 1.3rem;
-  margin-top: 0.8rem;
+  margin-top: 0.4rem;
 }

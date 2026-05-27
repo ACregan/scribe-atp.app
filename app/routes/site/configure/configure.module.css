@@ -1,0 +1,113 @@
+/* ── Form layout ─────────────────────────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+  max-width: 64rem;
+}
+
+/* ── Fieldsets ───────────────────────────────────────────────────────────────── */
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  border: 0.1rem solid var(--border, #e5e7eb);
+  border-radius: 0.6rem;
+  padding: 1.6rem 2rem 2rem;
+  margin: 0;
+}
+
+.legend {
+  font-size: 1.3rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mid-grey);
+  padding: 0 0.4rem;
+}
+
+/* ── Side-by-side domain + prefix ────────────────────────────────────────────── */
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.2rem;
+  align-items: start;
+}
+
+/* ── Description textarea ────────────────────────────────────────────────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.textarea {
+  font-size: 1.4rem;
+  line-height: 1.5;
+  padding: 0.8rem 1rem;
+  border: 0.1rem solid var(--border, #ccc);
+  border-radius: 0.4rem;
+  resize: vertical;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--black);
+}
+
+.textarea:focus {
+  outline: 2px solid var(--blue, #0070f3);
+  outline-offset: 1px;
+}
+
+/* ── Image previews ──────────────────────────────────────────────────────────── */
+
+.preview {
+  width: 100%;
+  max-height: 16rem;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  border: 0.1rem solid var(--border, #e5e7eb);
+}
+
+.logoPreview {
+  width: 6rem;
+  height: 6rem;
+  object-fit: contain;
+  border-radius: 0.4rem;
+  border: 0.1rem solid var(--border, #e5e7eb);
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+}
+
+.cancelLink {
+  font-size: 1.4rem;
+  color: var(--mid-grey);
+  text-decoration: none;
+}
+
+.cancelLink:hover {
+  color: var(--black);
+  text-decoration: underline;
+}
+
+/* ── Error ───────────────────────────────────────────────────────────────────── */
+
+.errorMessage {
+  color: var(--red);
+  font-size: 1.3rem;
+  margin: 0;
+}
