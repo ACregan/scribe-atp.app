@@ -26,8 +26,8 @@ Currently all that is shown is a Bar-shaped div with the Name of the site, the U
 
 Rather than the bar-shaped div, I want each site to be represented by a tile that shows more information, such as:
 
-- [ ] title _(human readable name of site - this is already provisioned in data)_
-- [ ] description _(..of site, content or purpose - NOT YET provisioned)_
+- [x] title _(human readable name of site - this is already provisioned in data)_
+- [ ] description _(... of site, content or purpose - NOT YET provisioned)_
 - [ ] splashImageUrl _(NOT YET provisioned)_
 - [ ] logoImageUrl _(NOT YET provisioned)_
 - [ ] url _(domain name - already provisioned)_

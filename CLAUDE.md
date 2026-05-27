@@ -34,10 +34,12 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /logout                        logout     — destroys session cookie, redirects to /login
 /auth/callback                 callback   — OAuth redirect handler, sets session cookie
 /article/create                create     — write a new article to the PDS; multi-select assigns to sites
+/article/list                  list       — site picker; links into site-list
 /article/list/:siteSlug        site-list  — site-scoped article/group management; reads/writes app.scribe.site
 /article/view/:articleUrl      view       — read-only display of a single article
 /article/edit/:articleUrl      edit       — edit an existing article; multi-select manages site assignment
 /sites                         sites      — list, create and delete app.scribe.site records
+/site/:siteName/configure      configure  — edit site metadata (title, description, images, url, urlPrefix) — PLANNED
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header.
@@ -157,11 +159,14 @@ This breaks any existing AT URIs pointing to the old rkey.
 ```ts
 {
   $type: "app.scribe.site",
-  url: string,           // e.g. "norobots.blog"
+  url: string,            // e.g. "norobots.blog" — domain name
   title: string,
-  urlPrefix: string,     // e.g. "blog"
+  urlPrefix: string,      // e.g. "blog" — path prefix; composed URL = url + "/" + urlPrefix
+  description?: string,   // PLANNED — human-readable description of the site
+  splashImageUrl?: string, // PLANNED — hero/banner image
+  logoImageUrl?: string,  // PLANNED — site logo
   contributors: string[], // DIDs of contributors
-  groups: Array<{        // named groups (order is significant)
+  groups: Array<{         // named groups (order is significant)
     slug: string,
     title: string,
     articles: ArticleRef[],
@@ -186,6 +191,9 @@ Key design decisions for `app.scribe.site`:
 - `cid` is deliberately excluded from article refs — fetch live at deletion to avoid stale `swapRecord` failures
 - Groups and article order within groups are authoritative — the site record is the manifest
 - `updatedAt` is useful for cache invalidation by public readers
+- Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
+
+The planned `/site/:siteName/configure` route will allow editing site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed.
 
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
