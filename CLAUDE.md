@@ -285,6 +285,7 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (links to `/sites`), article list (also links to `/sites` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
+| `SiteTile` | `app/components/SiteTile/SiteTile.tsx` | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Also exports the `SiteData` interface. |
 
 ### RichTextEditor — toolbar
 

@@ -8,29 +8,19 @@ import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
 import { useState, useEffect } from "react";
-import { useFetcher, Link } from "react-router";
+import { useFetcher } from "react-router";
 import styles from "./sites.module.css";
 import {
   getAtpAgent,
   requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
+import { SiteTile, type SiteData } from "~/components/SiteTile/SiteTile";
 
 const SITE_COLLECTION = "app.scribe.site";
 
 // Domain must contain at least one dot, no spaces, valid hostname chars
 const DOMAIN_RE = /^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/;
-
-type SiteRef = {
-  rkey: string;
-  cid: string;
-  title: string;
-  url: string;
-  urlPrefix: string;
-  description?: string;
-  splashImageUrl?: string;
-  logoImageUrl?: string;
-};
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -65,7 +55,7 @@ export async function loader({ request }: Route.LoaderArgs) {
           splashImageUrl: "",
           logoImageUrl: "",
         },
-      ] as SiteRef[],
+      ] as SiteData[],
     };
   }
 
@@ -76,7 +66,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  const sites: SiteRef[] = result.data.records.map((record) => {
+  const sites: SiteData[] = result.data.records.map((record) => {
     const v = record.value as Record<string, unknown>;
     return {
       rkey: record.uri.split("/").pop()!,
@@ -189,19 +179,13 @@ export function HydrateFallback() {
   return <div>Loading…</div>;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function composedUrl(site: SiteRef) {
-  return site.urlPrefix ? `${site.url}/${site.urlPrefix}` : site.url;
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Sites({ loaderData }: Route.ComponentProps) {
   const { sites } = loaderData;
   const addSiteModal = useModal();
   const deleteSiteModal = useModal();
-  const [siteToDelete, setSiteToDelete] = useState<SiteRef | null>(null);
+  const [siteToDelete, setSiteToDelete] = useState<SiteData | null>(null);
 
   const createFetcher = useFetcher<ActionData>();
   const deleteFetcher = useFetcher<ActionData>();
@@ -242,65 +226,15 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
         ) : (
           <ul className={styles.tileGrid}>
             {sites.map((site) => (
-              <li key={site.rkey} className={styles.tile}>
-                {/* Splash */}
-                <div
-                  className={styles.tileSplash}
-                  style={
-                    site.splashImageUrl
-                      ? {
-                          backgroundImage: `url(${site.splashImageUrl})`,
-                          backgroundSize: "cover",
-                          backgroundPosition: "center",
-                        }
-                      : undefined
-                  }
-                />
-
-                {/* Body */}
-                <div className={styles.tileBody}>
-                  <div className={styles.tileHeader}>
-                    {site.logoImageUrl && (
-                      <img
-                        className={styles.tileLogo}
-                        src={site.logoImageUrl}
-                        alt={`${site.title} logo`}
-                      />
-                    )}
-                    <h2 className={styles.tileTitle}>{site.title}</h2>
-                  </div>
-
-                  {site.description && (
-                    <p className={styles.tileDescription}>{site.description}</p>
-                  )}
-
-                  <span className={styles.tileUrl}>{composedUrl(site)}</span>
-                </div>
-
-                {/* Actions */}
-                <div className={styles.tileActions}>
-                  <Link to={`/article/list/${site.rkey}`}>
-                    <Button type="button" variant="secondary">
-                      Manage
-                    </Button>
-                  </Link>
-                  <Link to={`/site/${site.rkey}/configure`}>
-                    <Button type="button" variant="secondary">
-                      Configure
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="danger"
-                    onClick={() => {
-                      setSiteToDelete(site);
-                      deleteSiteModal.open();
-                    }}
-                    disabled={isDeleting}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </li>
+              <SiteTile
+                key={site.rkey}
+                site={site}
+                onDelete={(s) => {
+                  setSiteToDelete(s);
+                  deleteSiteModal.open();
+                }}
+                isDeleting={isDeleting}
+              />
             ))}
           </ul>
         )}
