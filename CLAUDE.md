@@ -10,7 +10,7 @@ An AT Protocol-driven content management system. Authors write and store article
 - **@atproto/oauth-client-node** — Bluesky OAuth PKCE flow
 - **@atproto/api** — AT Protocol XRPC calls (Agent)
 - **better-sqlite3** — SQLite store for OAuth state/sessions (`data/oauth.db`)
-- **lexical / @lexical/react** (+ @lexical/rich-text, @lexical/history, @lexical/list, @lexical/html) — WYSIWYG rich text editor (article content stored as HTML)
+- **lexical / @lexical/react** (+ @lexical/rich-text, @lexical/list, @lexical/code, @lexical/link, @lexical/html, @lexical/selection) — WYSIWYG rich text editor (article content stored as HTML)
 - **@dnd-kit/core**, **@dnd-kit/sortable**, **@dnd-kit/utilities** — drag-and-drop for article/group reordering on `/article/list`
 - **classnames** — CSS class composition utility
 - Production server: `react-router-serve` on port 3008
@@ -55,12 +55,23 @@ All auth logic lives in **`app/services/auth.server.ts`** (server-only, never im
 ### Bluesky OAuth flow (production / `DEV_USE_REAL_OAUTH=true`)
 
 1. User submits their handle on `/login`
-2. `oauthClient.authorize(handle)` sends a PAR request to the user's PDS and returns a redirect URL
+2. `oauthClient.authorize(handle, { scope: OAUTH_SCOPE })` sends a PAR request to the user's PDS and returns a redirect URL
 3. Browser is redirected to the Bluesky authorisation page
 4. On approval, Bluesky redirects to `/auth/callback?code=...&state=...`
 5. `oauthClient.callback(params)` exchanges the code for a session
 6. The user's DID is resolved to a handle via `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile`
 7. DID + handle are stored in a signed `__session` cookie; browser is redirected to `/`
+
+### ⚠️ Critical: scope is set in the authorize() call, not client-metadata
+
+**The `scope` passed to `oauthClient.authorize()` in `login.tsx` is what Bluesky uses for the PAR (Pushed Authorization Request) and what appears on the consent screen.** `clientMetadata.scope` is a secondary fallback that Bluesky may ignore in favour of the per-request scope.
+
+Always pass `OAUTH_SCOPE` explicitly when calling `oauthClient.authorize()`:
+```ts
+const authUrl = await oauthClient.authorize(cleanHandle, { scope: OAUTH_SCOPE });
+```
+
+If scopes seem wrong on the consent screen after a deployment, the bug is almost certainly here, not in `client-metadata.json`. Changing `client-metadata.json` alone will have no effect.
 
 ### Session cookie
 
@@ -76,7 +87,7 @@ Key exports from `auth.server.ts`:
 | `requireAuth(request)` | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional |
 | `getAtpAgent(did)` | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure |
 | `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects |
-| `destroyAuthSession(request, redirectTo)` | Clears session cookie and redirects — used by the `/logout` route |
+| `destroyAuthSession(request, redirectTo)` | Clears `__session` cookie **and** the SQLite `oauth_session` row so re-login triggers a fresh authorization with current scopes — used by the `/logout` route |
 | `useRealOAuth` | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true` |
 
 ### Dev bypass (default in development)
@@ -116,6 +127,8 @@ The `data/` directory is created automatically on first run (`fs.mkdirSync` with
 `getAtpAgent(did)` catches any session-restore failure and throws a redirect to `/login` rather than surfacing an error page.
 
 For production with multiple instances, replace the SQLite store with a shared store (Turso/libSQL, Redis, etc.).
+
+**To inspect/clear the database on the server:** `sqlite3 data/oauth.db` — e.g. `DELETE FROM oauth_session WHERE sub = 'did:plc:xxx';`
 
 ## AT Protocol patterns
 
@@ -197,6 +210,19 @@ The planned `/site/:siteName/configure` route will allow editing site metadata (
 
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
+### Nuke tool
+
+The home page (`/`) contains a developer "Nuke all records" tool. The collections it deletes are defined in `SCRIBE_COLLECTIONS` inside `app/routes/home/home.tsx`:
+
+```ts
+const SCRIBE_COLLECTIONS = [
+  "app.scribe.article",
+  "app.scribe.site",
+];
+```
+
+When adding a new collection, add it here too so nuke keeps working.
+
 ### OAuth scopes
 
 ```
@@ -209,9 +235,9 @@ repo:app.scribe.site?action=update
 repo:app.scribe.site?action=delete
 ```
 
-The scope list has a single source of truth: `OAUTH_SCOPE` exported from `app/services/auth.server.ts`. It is consumed in three places — `clientMetadata.scope` (same file), `app/routes/client-metadata.ts`, and `app/routes/login/login.tsx` (passed to `oauthClient.authorize()`). **To add a new scope, update `OAUTH_SCOPE` only** — the other two pick it up automatically.
+The scope list has **a single source of truth**: `OAUTH_SCOPE` exported from `app/services/auth.server.ts`. It is _consumed_ in three places — `clientMetadata.scope` (same file), `app/routes/client-metadata.ts`, and `app/routes/login/login.tsx` — but **only needs to be edited in one place**. Adding a new scope: update `OAUTH_SCOPE` only.
 
-**Users must re-authenticate after a scope change** — existing sessions do not gain new scopes. To revoke an existing authorization: go to **https://bsky.social/account** → find the app entry → revoke.
+**Users must re-authenticate after a scope change** — existing sessions do not gain new scopes. To revoke an existing authorization: go to **https://bsky.social/account** → find the app entry → revoke. Then log in again to get a fresh token with the updated scopes.
 
 ### Public read access
 
@@ -247,7 +273,7 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 |---|---|---|
 | `Input` | `app/components/Input/Input.tsx` | All `<input>` HTML attrs + `label?: string`, `error?: string` |
 | `Button` | `app/components/Button/Button.tsx` | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) |
-| `RichTextEditor` | `app/components/RichTextEditor/RichTextEditor.tsx` | `name: string`, `label?: string`, `defaultValue?: string` — drop-in for `<textarea>`, outputs HTML into a hidden field on form submit. Client-only (falls back to plain textarea during SSR). |
+| `RichTextEditor` | `app/components/RichTextEditor/RichTextEditor.tsx` | `name: string`, `label?: string`, `defaultValue?: string` — drop-in for `<textarea>`, outputs HTML into a hidden field on form submit. Client-only (falls back to plain textarea during SSR). Toolbar implemented in `ToolbarPlugin.tsx` (see below). |
 | `Modal` | `app/components/Modal/Modal.tsx` | `isOpen: boolean`, `onClose: () => void`, `title: string`, `footer?: ReactNode`, `children: ReactNode` — renders via `createPortal` into `document.body`. Closes on Escape key. |
 | `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
 | `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`. Also exports `PageSection` (a simple content-dividing wrapper, `children` only) from the same file. |
@@ -260,11 +286,40 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
 
+### RichTextEditor — toolbar
+
+The toolbar lives in `app/components/RichTextEditor/ToolbarPlugin.tsx` and is registered as a Lexical plugin inside `RichTextEditor.tsx`. Features, left to right:
+
+| Section | Controls |
+|---|---|
+| History | Undo, Redo |
+| Block type | Dropdown: Normal, H1–H6, Bullet List, Numbered List, Check List, Quote, Code Block |
+| Font | Family `<select>` (Arial / Courier New / Georgia / Times New Roman / Trebuchet MS / Verdana) |
+| Font size | Number input + − / + step buttons |
+| Inline format | **Bold**, *Italic*, Underline |
+| Code / Link | Inline code `</>`, Link 🔗 (shows URL input inline when inserting) |
+| Colour | Text colour swatch (native colour picker), Background colour swatch |
+| Format ▾ | Strikethrough, Subscript, Superscript, Highlight, Lowercase, Uppercase, Capitalise, Clear formatting |
+| Align ▾ | Left, Center, Right, Justify, Start, End, Outdent, Indent |
+| Speech | 🎤 Speech-to-text via Web Speech API (browser-dependent; inserts recognised text at cursor) |
+
+Toolbar buttons use `onMouseDown + e.preventDefault()` (not `onClick`) to avoid stealing editor focus.
+
+All theme classes for Lexical nodes (headings, lists, code highlight tokens, links, text formats) are defined in `RichTextEditor.module.css` and wired into the `theme` object in `RichTextEditor.tsx`.
+
+### RichTextEditor — Lexical v0.44 compatibility notes
+
+- **`$setBlocksType`** is not exported by `@lexical/utils` in v0.44. It is implemented locally in `ToolbarPlugin.tsx`. If upgrading Lexical, check whether it becomes available in `@lexical/utils` and remove the local copy.
+- **`LexicalCodeHighlightPlugin`** does not exist as a named export from `@lexical/react` in v0.44. Code syntax highlighting is registered via `registerCodeHighlighting(editor)` from `@lexical/code` inside a `useEffect` in a small `CodeHighlightPlugin` wrapper defined inline in `RichTextEditor.tsx`. `registerCodeHighlighting` is marked deprecated upstream but is the correct v0.44 approach.
+- **Web Speech API** (`SpeechRecognition`, `SpeechRecognitionEvent`) has no TypeScript lib types. Local interface declarations are provided at the top of `ToolbarPlugin.tsx` — do not add `@types/dom-speech-recognition` unless TS starts complaining about conflicts.
+
 ## Client metadata
 
-`/client-metadata.json` is served by `app/routes/client-metadata.ts` — a resource route that generates the JSON dynamically from `PUBLIC_URL` at request time. This means the `client_id` and `redirect_uris` are always correct whether running locally via a tunnel or in production, with no manual file edits needed.
+`/client-metadata.json` is served by `app/routes/client-metadata.ts` — a resource route that generates the JSON dynamically from `PUBLIC_URL` at request time. This means the `client_id` and `redirect_uris` are always correct whether running locally via a tunnel or in production, with no manual file edits needed. The response includes `Cache-Control: no-store`.
 
-Scopes are declared in three places — see the OAuth scopes section above for the full checklist. Any new collection scope must be added to all three. **Users must re-authenticate after a scope change** — existing sessions do not gain new scopes.
+The `client_id` is a plain URL (`${publicUrl}/client-metadata.json`) with no version query string. Versioning was tried as a cache-busting tactic but turned out to be unnecessary — the real scope issue was in `login.tsx` (see the critical note in the Auth section above).
+
+**To add a new OAuth scope:** update `OAUTH_SCOPE` in `app/services/auth.server.ts` only — `client-metadata.ts` and `login.tsx` consume it automatically. Then ask users to re-authenticate (revoke at https://bsky.social/account and log in again).
 
 ## Key commands
 
