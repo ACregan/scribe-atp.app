@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { Button } from "~/components/Button/Button";
 import styles from "./SiteTile.module.css";
+import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,11 @@ function composedUrl(site: SiteData) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function SiteTile({ site, onDelete, isDeleting = false }: SiteTileProps) {
+export function SiteTile({
+  site,
+  onDelete,
+  isDeleting = false,
+}: SiteTileProps) {
   return (
     <li className={styles.tile}>
       {/* Splash */}
@@ -69,22 +74,33 @@ export function SiteTile({ site, onDelete, isDeleting = false }: SiteTileProps) 
       {/* Actions */}
       <div className={styles.tileActions}>
         <Link to={`/article/list/${site.rkey}`}>
-          <Button type="button" variant="secondary">
+          <Button
+            className={styles.actionButton}
+            type="button"
+            variant="primary"
+          >
             Manage
           </Button>
         </Link>
-        <Link to={`/site/${site.rkey}/configure`}>
-          <Button type="button" variant="secondary">
-            Configure
+        <div className={styles.rightAlignedActionButtons}>
+          <Link to={`/site/${site.rkey}/configure`}>
+            <Button
+              className={styles.actionButton}
+              type="button"
+              variant="secondary"
+            >
+              <SvgIcon name={SvgImageList.Gear} fill="var(--blue)" />
+            </Button>
+          </Link>
+          <Button
+            className={styles.actionButton}
+            variant="danger"
+            onClick={() => onDelete(site)}
+            disabled={isDeleting}
+          >
+            <SvgIcon name={SvgImageList.Trash} fill="white" />
           </Button>
-        </Link>
-        <Button
-          variant="danger"
-          onClick={() => onDelete(site)}
-          disabled={isDeleting}
-        >
-          Delete
-        </Button>
+        </div>
       </div>
     </li>
   );

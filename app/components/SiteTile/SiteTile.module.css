@@ -7,6 +7,7 @@
   border-radius: 0.8rem;
   overflow: hidden;
   background: var(--white);
+  height: stretch;
 }
 
 /* ── Splash ──────────────────────────────────────────────────────────────────── */
@@ -76,8 +77,29 @@
 .tileActions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: 0.8rem;
   padding: 1.2rem 1.6rem;
   border-top: 0.1rem solid var(--border, #e5e7eb);
   background: var(--off-white);
+}
+.tileActions > a {
+  text-decoration: none;
+}
+
+.actionButton {
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.actionButton > svg {
+  height: 2rem;
+  width: 2rem;
+}
+
+.rightAlignedActionButtons {
+  display: flex;
+  gap: 0.8rem;
 }
