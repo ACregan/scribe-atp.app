@@ -1,52 +1,47 @@
-.siteList {
+/* ── Tile grid ───────────────────────────────────────────────────────────────── */
+
+.tileGrid {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(28rem, 1fr));
+  gap: 2rem;
+  align-items: start;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
+
+.emptyState {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-}
-
-.siteItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.2rem 1.6rem;
-  background: var(--off-white);
-  border: 0.2rem solid var(--mid-grey);
-  border-radius: 0.8rem;
-}
-
-.siteInfo {
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-}
-
-.siteTitle {
-  font-size: 1.6rem;
-}
-
-.siteUrl {
-  font-size: 1.3rem;
+  padding: 3.2rem;
+  text-align: center;
   color: var(--mid-grey);
-  font-family: monospace;
 }
 
-.siteUrlPrefix {
-  font-size: 1.3rem;
-  color: var(--mid-grey);
-  font-family: monospace;
+.emptyStateHeading {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--black);
 }
 
-.siteActions {
-  display: flex;
-  gap: 0.8rem;
-}
-
-.emptyState {
+.emptyStateBody {
   font-size: 1.4rem;
-  color: var(--mid-grey);
+  margin: 0;
+  max-width: 40rem;
+  align-self: center;
+  line-height: 1.6;
+}
+
+/* ── Shared modal / form ─────────────────────────────────────────────────────── */
+
+.siteForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
 }
 
 .modalFooter {
@@ -58,10 +53,11 @@
 .deleteWarning {
   font-size: 1.3rem;
   color: var(--mid-grey);
+  margin-top: 0.8rem;
 }
 
 .errorMessage {
   color: var(--red);
   font-size: 1.3rem;
-  margin-top: 0.8rem;
+  margin-top: 0.4rem;
 }

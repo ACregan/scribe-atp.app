@@ -8,23 +8,19 @@ import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
 import { useState, useEffect } from "react";
-import { useFetcher, Link } from "react-router";
+import { useFetcher } from "react-router";
 import styles from "./sites.module.css";
 import {
   getAtpAgent,
   requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
+import { SiteTile, type SiteData } from "~/components/SiteTile/SiteTile";
 
 const SITE_COLLECTION = "app.scribe.site";
 
-type SiteRef = {
-  rkey: string;
-  cid: string;
-  url: string;
-  title: string;
-  urlPrefix: string;
-};
+// Domain must contain at least one dot, no spaces, valid hostname chars
+const DOMAIN_RE = /^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/;
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -41,18 +37,25 @@ export async function loader({ request }: Route.LoaderArgs) {
         {
           rkey: "norobots-blog",
           cid: "dev-cid-s1",
-          url: "norobots.blog",
           title: "NoRobots.blog",
+          url: "norobots.blog",
           urlPrefix: "blog",
+          description:
+            "A personal blog about technology, the open web, and avoiding robots.",
+          splashImageUrl: "",
+          logoImageUrl: "",
         },
         {
           rkey: "perpetualsummer-ltd",
           cid: "dev-cid-s2",
-          url: "perpetualsummer.ltd",
           title: "Perpetual Summer LTD",
+          url: "perpetualsummer.ltd",
           urlPrefix: "articles",
+          description: "",
+          splashImageUrl: "",
+          logoImageUrl: "",
         },
-      ] as SiteRef[],
+      ] as SiteData[],
     };
   }
 
@@ -63,14 +66,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  const sites: SiteRef[] = result.data.records.map((record) => {
-    const value = record.value as Record<string, unknown>;
+  const sites: SiteData[] = result.data.records.map((record) => {
+    const v = record.value as Record<string, unknown>;
     return {
       rkey: record.uri.split("/").pop()!,
       cid: record.cid,
-      url: String(value.url ?? ""),
-      title: String(value.title ?? ""),
-      urlPrefix: String(value.urlPrefix ?? ""),
+      title: String(v.title ?? ""),
+      url: String(v.url ?? ""),
+      urlPrefix: String(v.urlPrefix ?? ""),
+      description: v.description ? String(v.description) : undefined,
+      splashImageUrl: v.splashImageUrl ? String(v.splashImageUrl) : undefined,
+      logoImageUrl: v.logoImageUrl ? String(v.logoImageUrl) : undefined,
     };
   });
 
@@ -85,17 +91,32 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "createSite") {
     const title = (formData.get("title") as string)?.trim();
     const url = (formData.get("url") as string)?.trim().toLowerCase();
-    const urlPrefix =
-      ((formData.get("urlPrefix") as string) ?? "").trim().toLowerCase();
+    const urlPrefix = (
+      (formData.get("urlPrefix") as string) ?? ""
+    ).trim().toLowerCase();
+    const description = (
+      (formData.get("description") as string) ?? ""
+    ).trim();
+    const splashImageUrl = (
+      (formData.get("splashImageUrl") as string) ?? ""
+    ).trim();
+    const logoImageUrl = (
+      (formData.get("logoImageUrl") as string) ?? ""
+    ).trim();
 
     if (!title) return { ok: false, error: "Title is required." };
-    if (!url) return { ok: false, error: "URL is required." };
+    if (!url) return { ok: false, error: "Domain is required." };
+    if (!DOMAIN_RE.test(url))
+      return {
+        ok: false,
+        error: "Domain must be a valid hostname (e.g. myblog.com).",
+      };
 
     const rkey = url.replace(/\./g, "-").replace(/[^a-z0-9-]/g, "");
     if (!rkey)
       return {
         ok: false,
-        error: "URL must contain at least one letter or number.",
+        error: "Domain must contain at least one letter or number.",
       };
 
     if (useRealOAuth) {
@@ -107,9 +128,12 @@ export async function action({ request }: Route.ActionArgs) {
           rkey,
           record: {
             $type: SITE_COLLECTION,
-            url,
             title,
+            url,
             urlPrefix,
+            ...(description && { description }),
+            ...(splashImageUrl && { splashImageUrl }),
+            ...(logoImageUrl && { logoImageUrl }),
             contributors: [],
             groups: [],
             articles: [],
@@ -152,14 +176,16 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export function HydrateFallback() {
-  return <div>Loading...</div>;
+  return <div>Loading…</div>;
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Sites({ loaderData }: Route.ComponentProps) {
   const { sites } = loaderData;
   const addSiteModal = useModal();
   const deleteSiteModal = useModal();
-  const [siteToDelete, setSiteToDelete] = useState<SiteRef | null>(null);
+  const [siteToDelete, setSiteToDelete] = useState<SiteData | null>(null);
 
   const createFetcher = useFetcher<ActionData>();
   const deleteFetcher = useFetcher<ActionData>();
@@ -168,9 +194,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
   const isDeleting = deleteFetcher.state !== "idle";
 
   useEffect(() => {
-    if (createFetcher.data?.ok) {
-      addSiteModal.close();
-    }
+    if (createFetcher.data?.ok) addSiteModal.close();
   }, [createFetcher.data, addSiteModal.close]);
 
   useEffect(() => {
@@ -179,11 +203,6 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
       setSiteToDelete(null);
     }
   }, [deleteFetcher.data, deleteSiteModal.close]);
-
-  const handleDeleteClick = (site: SiteRef) => {
-    setSiteToDelete(site);
-    deleteSiteModal.open();
-  };
 
   return (
     <PageContainer
@@ -196,40 +215,32 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
     >
       <PageSection>
         {sites.length === 0 ? (
-          <p className={styles.emptyState}>
-            No sites yet. Click &ldquo;Add New Site&rdquo; to get started.
-          </p>
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStateHeading}>No sites yet.</p>
+            <p className={styles.emptyStateBody}>
+              Click <strong>Add New Site</strong> to create your first site.
+              Once created you can add articles, organise them into groups, and
+              configure how they appear to readers.
+            </p>
+          </div>
         ) : (
-          <ul className={styles.siteList}>
+          <ul className={styles.tileGrid}>
             {sites.map((site) => (
-              <li key={site.rkey} className={styles.siteItem}>
-                <div className={styles.siteInfo}>
-                  <strong className={styles.siteTitle}>{site.title}</strong>
-                  <span className={styles.siteUrl}>{site.url}</span>
-                  {site.urlPrefix && (
-                    <span className={styles.siteUrlPrefix}>
-                      /{site.urlPrefix}
-                    </span>
-                  )}
-                </div>
-                <div className={styles.siteActions}>
-                  <Link to={`/article/list/${site.rkey}`}>
-                    <Button type="button">Manage</Button>
-                  </Link>
-                  <Button
-                    variant="danger"
-                    onClick={() => handleDeleteClick(site)}
-                    disabled={isDeleting}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </li>
+              <SiteTile
+                key={site.rkey}
+                site={site}
+                onDelete={(s) => {
+                  setSiteToDelete(s);
+                  deleteSiteModal.open();
+                }}
+                isDeleting={isDeleting}
+              />
             ))}
           </ul>
         )}
       </PageSection>
 
+      {/* ── Add Site Modal ─────────────────────────────────────────────────── */}
       <Modal
         isOpen={addSiteModal.isOpen}
         onClose={addSiteModal.close}
@@ -249,24 +260,34 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
           </div>
         }
       >
-        <createFetcher.Form id="add-site-form" method="post">
+        <createFetcher.Form
+          id="add-site-form"
+          method="post"
+          className={styles.siteForm}
+        >
           <input type="hidden" name="_intent" value="createSite" />
-          <Input
-            name="title"
-            label="Title"
-            placeholder="My Blog"
-            required
-          />
+          <Input name="title" label="Title" placeholder="My Blog" required />
           <Input
             name="url"
-            label="URL"
+            label="Domain"
             placeholder="myblog.com"
             required
           />
+          <Input name="urlPrefix" label="URL Prefix" placeholder="blog" />
           <Input
-            name="urlPrefix"
-            label="URL Prefix"
-            placeholder="blog"
+            name="description"
+            label="Description"
+            placeholder="What this site is about…"
+          />
+          <Input
+            name="splashImageUrl"
+            label="Splash Image URL"
+            placeholder="https://…"
+          />
+          <Input
+            name="logoImageUrl"
+            label="Logo Image URL"
+            placeholder="https://…"
           />
           {createFetcher.data?.error && (
             <p className={styles.errorMessage}>{createFetcher.data.error}</p>
@@ -274,6 +295,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
         </createFetcher.Form>
       </Modal>
 
+      {/* ── Delete Site Modal ──────────────────────────────────────────────── */}
       <Modal
         isOpen={deleteSiteModal.isOpen}
         onClose={deleteSiteModal.close}

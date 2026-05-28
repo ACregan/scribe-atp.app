@@ -25,8 +25,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.6rem 2rem;
-  border-radius: 0.6rem;
-  box-shadow: 0 0.8rem 3.2rem rgba(0, 0, 0, 0.2);
+  border-bottom: 0.1rem solid var(--border, #e5e7eb);
   flex-shrink: 0;
 }
 
