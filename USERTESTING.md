@@ -72,10 +72,16 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
 
 - [ ] Style Group Item component, it looks drab and unstyled.
   - [ ] Better background colour
-  - [ ] Put the urlSlug into a neat wrapper and center it inline
+  - [ ] Put the urlSlug into a neat wrapper 'pill' and center it inline
   - [ ] Use the Trash icon instead of DELETE text for consistency
 
 - [ ] SAVE ORDER button behaviour
   - [ ] disabled until the order is not the same as that on the PDS
   - [ ] warn user if they try to navigate away from the page if they have changed the order but not saved it
   - [ ] Improve the `Order Saved` notification, build a Toast component.
+
+###### New Components List
+
+- [ ] Bottom Buttons Portal - the ability to put buttons in the `<footer>` of the main layout
+- [ ] Toast Context Provider and Components
+- [ ] Universal / Site Wide Loading Spinner (or equivelent)
