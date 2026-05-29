@@ -576,11 +576,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     saveFetcher.submit(formData, { method: "post" });
   }
 
-  console.log(site);
-
   const urlAndPrefix = `${site?.url && site.url}${site?.urlPrefix && "/" + site.urlPrefix}`;
-
-  console.log(urlAndPrefix);
 
   return (
     <PageContainer

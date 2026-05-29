@@ -1,17 +1,19 @@
 import type { Route } from "./+types/home";
-import { getAtpAgent, getAuthSession, useRealOAuth } from "~/services/auth.server";
+import {
+  getAtpAgent,
+  getAuthSession,
+  useRealOAuth,
+} from "~/services/auth.server";
 import { useModal } from "~/components/Modal/useModal";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { useFetcher } from "react-router";
 import styles from "./home.module.css";
+import { useToast } from "~/components/Toast/ToastContext";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
-const SCRIBE_COLLECTIONS = [
-  "app.scribe.article",
-  "app.scribe.site",
-];
+const SCRIBE_COLLECTIONS = ["app.scribe.article", "app.scribe.site"];
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -82,7 +84,12 @@ export function HydrateFallback() {
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { userName, isAuthenticated, isDev } = loaderData;
   const nukeModal = useModal();
-  const fetcher = useFetcher<{ ok?: boolean; deleted?: number; devMode?: boolean; error?: string }>();
+  const fetcher = useFetcher<{
+    ok?: boolean;
+    deleted?: number;
+    devMode?: boolean;
+    error?: string;
+  }>();
 
   const isPending = fetcher.state !== "idle";
   const result = fetcher.data;
@@ -92,6 +99,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     fetcher.submit({}, { method: "post" });
   };
 
+  const { addToast } = useToast();
+
   return (
     <>
       <h1>Home Page</h1>
@@ -99,10 +108,53 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         {userName} is {isAuthenticated == false && "NOT"} Authenticated
       </p>
 
+      <button
+        onClick={() =>
+          addToast({
+            heading: "Hello!",
+            content: "This is a test toast.",
+            variant: "primary",
+            expireTimeSeconds: 10,
+          })
+        }
+      >
+        ADD REGULAR TOAST
+      </button>
+
+      <button
+        onClick={() =>
+          addToast({
+            heading: "Hello Again!",
+            content: "This is another test toast.",
+            variant: "secondary",
+            autoExpire: false,
+          })
+        }
+      >
+        ADD ANOTHER TOAST
+      </button>
+
+      <button
+        onClick={() =>
+          addToast({
+            heading: "WARNING!",
+            content: "HOT TOAST!",
+            variant: "danger",
+            autoExpire: false,
+          })
+        }
+      >
+        ADD DANGER TOAST
+      </button>
+
       {isDev && (
         <div className={styles.devTools}>
           <h2 className={styles.devToolsTitle}>Dev Tools</h2>
-          <Button variant="danger" onClick={nukeModal.open} disabled={isPending}>
+          <Button
+            variant="danger"
+            onClick={nukeModal.open}
+            disabled={isPending}
+          >
             {isPending ? "Nuking…" : "Nuke PDS Data"}
           </Button>
           {result?.ok && (
@@ -112,9 +164,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 : `Done. ${result.deleted} record${result.deleted !== 1 ? "s" : ""} deleted.`}
             </p>
           )}
-          {result?.error && (
-            <p className={styles.nukeError}>{result.error}</p>
-          )}
+          {result?.error && <p className={styles.nukeError}>{result.error}</p>}
         </div>
       )}
 

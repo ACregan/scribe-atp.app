@@ -90,6 +90,8 @@
 }
 
 .coreLayout_container > main {
+  position: relative;
+
   height: auto;
   grid-area: main;
   background: var(--black);

@@ -1,0 +1,26 @@
+.toastContainer {
+  position: absolute;
+  bottom: 0;
+  right: 2rem;
+  width: 20rem;
+  height: 1rem;
+
+  background: #ff00ff;
+}
+
+.toast {
+  /* .primaryVariant by default*/
+}
+.toast.secondaryVariant {
+}
+.toast.dangerVariant {
+}
+
+.toastHeader {
+}
+
+.closeButton {
+}
+
+.toastContent {
+}
