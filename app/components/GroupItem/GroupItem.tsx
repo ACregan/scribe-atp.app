@@ -130,10 +130,14 @@ const GroupItem: React.FC<GroupItemProps> = ({
             anchorName={slug}
             anchorPosition="bottom"
             anchorContent={
-              <TooltipBubble pointerLocation="top">
-                <strong>
-                  https://{urlAndPrefix}/{slug}/...
-                </strong>
+              <TooltipBubble pointerLocation="top" variant="secondary">
+                <code>
+                  https://{urlAndPrefix}/
+                  <strong>
+                    <u>{slug}</u>
+                  </strong>
+                  /...
+                </code>
               </TooltipBubble>
             }
           >
@@ -147,18 +151,33 @@ const GroupItem: React.FC<GroupItemProps> = ({
             <input type="hidden" name="_intent" value="deleteGroup" />
             <input type="hidden" name="rkey" value={slug} />
             {cid && <input type="hidden" name="cid" value={cid} />}
-            <Button
-              type="submit"
-              variant="danger"
-              disabled={articleChildren.length !== 0}
-              title={
-                articleChildren.length !== 0
-                  ? "Remove all articles from this group before deleting"
-                  : undefined
+
+            <Tooltip
+              anchorName={`${slug}_deleteButton`}
+              anchorPosition="bottom"
+              anchorContent={
+                <TooltipBubble pointerLocation="top" variant="danger">
+                  DELETE GROUP
+                  {articleChildren.length !== 0 ? (
+                    <>
+                      <br />
+                      Remove or Move all articles before deleting.
+                    </>
+                  ) : (
+                    ""
+                  )}
+                </TooltipBubble>
               }
             >
-              Delete Group
-            </Button>
+              <Button
+                className={styles.deleteGroupButton}
+                type="submit"
+                variant="danger"
+                disabled={articleChildren.length !== 0}
+              >
+                <SvgIcon name={SvgImageList.Trash} fill="var(--white)" />
+              </Button>
+            </Tooltip>
           </Form>
         </div>
         <div className={styles.groupArticlesContainer}>

@@ -75,13 +75,16 @@ const Tooltip: React.FC<TooltipProps> = ({
 interface TooltipBubbleProps {
   children: ReactNode;
   pointerLocation: AnchorPositionTypes;
+  variant?: "primary" | "secondary" | "danger";
 }
 
 export const TooltipBubble: React.FC<TooltipBubbleProps> = ({
   children,
   pointerLocation,
+  variant = "primary",
 }) => {
   const pointerClasses = cx({
+    tooltipBubble: true,
     top: pointerLocation === "top",
     left: pointerLocation === "left",
     bottom: pointerLocation === "bottom",
@@ -93,12 +96,11 @@ export const TooltipBubble: React.FC<TooltipBubbleProps> = ({
       pointerLocation === "bottom left" || pointerLocation === "left bottom",
     bottomRight:
       pointerLocation === "bottom right" || pointerLocation === "right bottom",
+    primaryVariant: variant === "primary",
+    secondaryVariant: variant === "secondary",
+    dangerVariant: variant === "danger",
   });
-  return (
-    <div className={`${styles.tooltipBubble} ${pointerClasses}`}>
-      {children}
-    </div>
-  );
+  return <div className={pointerClasses}>{children}</div>;
 };
 
 export default Tooltip;
