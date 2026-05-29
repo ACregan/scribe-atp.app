@@ -106,4 +106,13 @@
   grid-area: footer;
   box-shadow: 0 20px 6px -20px rgba(0, 0, 0, 0.5) inset;
   border-top: 0.1rem solid var(--mid-grey);
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1rem;
+}
+.coreLayout_container > footer > button {
+  height: 4rem;
+  padding: 0 1rem;
 }

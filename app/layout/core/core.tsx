@@ -93,7 +93,7 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
       <main>
         <Outlet />
       </main>
-      <footer></footer>
+      <footer id="footer-portal-element"></footer>
     </div>
   );
 }

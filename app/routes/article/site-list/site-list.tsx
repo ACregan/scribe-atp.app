@@ -32,6 +32,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { useState, useRef, useEffect } from "react";
+import FooterPortal from "~/components/FooterPortal/FooterPortal";
 
 const SITE_COLLECTION = "app.scribe.site";
 
@@ -594,14 +595,6 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           <Button type="button" variant="primary" onClick={open}>
             Add New Group
           </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? "Saving…" : "Save Order"}
-          </Button>
         </>
       }
     >
@@ -665,6 +658,17 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           <p style={{ color: "orange" }}>Dev mode: no real PDS connected.</p>
         </PageSection>
       )}
+
+      <FooterPortal>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? "Saving…" : "Save Order"}
+        </Button>
+      </FooterPortal>
 
       <Modal
         isOpen={isOpen}
