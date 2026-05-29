@@ -13,6 +13,7 @@ import { Button } from "../Button/Button";
 import { Modal } from "../Modal/Modal";
 import { useModal } from "../Modal/useModal";
 import { Form } from "react-router";
+import Tooltip, { TooltipBubble } from "../Tooltip/Tooltip";
 
 export interface TreeArticle {
   id: string;
@@ -31,17 +32,19 @@ interface GroupItemProps {
   articleChildren: TreeArticle[];
   isRoot?: boolean;
   articleMode?: "pds" | "site";
+  urlAndPrefix?: string;
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
   id,
-  uri,
+  // uri, DEAD PROP?
   cid,
   title,
   slug,
   articleChildren,
   isRoot = false,
   articleMode = "pds",
+  urlAndPrefix,
 }) => {
   const {
     attributes,
@@ -123,13 +126,22 @@ const GroupItem: React.FC<GroupItemProps> = ({
         </div>
         <div className={styles.titleContainer}>
           <strong className={styles.title}>{title}</strong>
-          <span className={styles.slug}>{slug}</span>
+          <Tooltip
+            anchorName={slug}
+            anchorPosition="bottom"
+            anchorContent={
+              <TooltipBubble pointerLocation="top">
+                <strong>
+                  https://{urlAndPrefix}/{slug}/...
+                </strong>
+              </TooltipBubble>
+            }
+          >
+            <span className={styles.slug}>/{slug}</span>
+          </Tooltip>
         </div>
-        {uri && (
-          <div className={styles.uriContainer}>
-            <span className={styles.uri}>{uri}</span>
-          </div>
-        )}
+        {/*<div className={styles.middleContainer}></div> */}
+
         <div className={styles.buttonsContainer}>
           <Form ref={deleteFormRef} method="post" onSubmit={handleDeleteClick}>
             <input type="hidden" name="_intent" value="deleteGroup" />
