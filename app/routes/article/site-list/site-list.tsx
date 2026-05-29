@@ -129,9 +129,10 @@ function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
   return [root, ...named];
 }
 
-function treeToSiteData(
-  tree: TreeGroupNode[],
-): { groups: SiteGroup[]; articles: SiteArticleRef[] } {
+function treeToSiteData(tree: TreeGroupNode[]): {
+  groups: SiteGroup[];
+  articles: SiteArticleRef[];
+} {
   const groups: SiteGroup[] = [];
   const articles: SiteArticleRef[] = [];
 
@@ -443,8 +444,9 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   const [tree, setTree] = useState<TreeGroupNode[]>(() =>
     buildTreeFromSite(site),
   );
-  const [activeArticle, setActiveArticle] =
-    useState<TreeArticleNode | null>(null);
+  const [activeArticle, setActiveArticle] = useState<TreeArticleNode | null>(
+    null,
+  );
   const [activeGroup, setActiveGroup] = useState<TreeGroupNode | null>(null);
   const previousTreeRef = useRef<TreeGroupNode[]>(tree);
   const saveFetcher = useFetcher<{ ok?: boolean; error?: string }>();
@@ -461,9 +463,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     const id = String(active.id);
     if (id.startsWith("a:")) {
       const loc = findArticleLocation(tree, id);
-      setActiveArticle(
-        loc ? tree[loc.groupIdx].children[loc.childIdx] : null,
-      );
+      setActiveArticle(loc ? tree[loc.groupIdx].children[loc.childIdx] : null);
       setActiveGroup(null);
     } else {
       setActiveGroup(
@@ -505,10 +505,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
       if (overId.startsWith("g:")) {
         const targetGroupIdx = prev.findIndex((n) => n.id === overId);
-        if (
-          targetGroupIdx === -1 ||
-          targetGroupIdx === srcLoc.groupIdx
-        )
+        if (targetGroupIdx === -1 || targetGroupIdx === srcLoc.groupIdx)
           return prev;
         if (prev[targetGroupIdx].children.length > 0) return prev;
         return prev.map((group, i) => {
@@ -578,6 +575,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     saveFetcher.submit(formData, { method: "post" });
   }
 
+  console.log(site);
+
+  const urlAndPrefix = `${site?.url && site.url}${site?.urlPrefix && "/" + site.urlPrefix}`;
+
+  console.log(urlAndPrefix);
+
   return (
     <PageContainer
       title={site.title}
@@ -605,9 +608,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       {saveFetcher.data?.error && (
         <p style={{ color: "red" }}>Save failed: {saveFetcher.data.error}</p>
       )}
-      {saveFetcher.data?.ok && (
-        <p style={{ color: "green" }}>Order saved.</p>
-      )}
+      {saveFetcher.data?.ok && <p style={{ color: "green" }}>Order saved.</p>}
 
       <DndContext
         sensors={sensors}
@@ -635,6 +636,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                   }
                   isRoot={group.id === "g:root"}
                   articleMode="site"
+                  urlAndPrefix={urlAndPrefix}
                 />
               ))}
             </GroupList>
@@ -664,7 +666,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         </PageSection>
       )}
 
-      <Modal isOpen={isOpen} onClose={close} title="Add new group" footer={null}>
+      <Modal
+        isOpen={isOpen}
+        onClose={close}
+        title="Add new group"
+        footer={null}
+      >
         <CreateGroupModal onClose={close} />
       </Modal>
     </PageContainer>

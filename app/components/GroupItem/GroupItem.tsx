@@ -13,6 +13,7 @@ import { Button } from "../Button/Button";
 import { Modal } from "../Modal/Modal";
 import { useModal } from "../Modal/useModal";
 import { Form } from "react-router";
+import Tooltip, { TooltipBubble } from "../Tooltip/Tooltip";
 
 export interface TreeArticle {
   id: string;
@@ -31,17 +32,19 @@ interface GroupItemProps {
   articleChildren: TreeArticle[];
   isRoot?: boolean;
   articleMode?: "pds" | "site";
+  urlAndPrefix?: string;
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
   id,
-  uri,
+  // uri, DEAD PROP?
   cid,
   title,
   slug,
   articleChildren,
   isRoot = false,
   articleMode = "pds",
+  urlAndPrefix,
 }) => {
   const {
     attributes,
@@ -123,30 +126,58 @@ const GroupItem: React.FC<GroupItemProps> = ({
         </div>
         <div className={styles.titleContainer}>
           <strong className={styles.title}>{title}</strong>
-          <span className={styles.slug}>{slug}</span>
+          <Tooltip
+            anchorName={slug}
+            anchorPosition="bottom"
+            anchorContent={
+              <TooltipBubble pointerLocation="top" variant="secondary">
+                <code>
+                  https://{urlAndPrefix}/
+                  <strong>
+                    <u>{slug}</u>
+                  </strong>
+                  /...
+                </code>
+              </TooltipBubble>
+            }
+          >
+            <span className={styles.slug}>/{slug}</span>
+          </Tooltip>
         </div>
-        {uri && (
-          <div className={styles.uriContainer}>
-            <span className={styles.uri}>{uri}</span>
-          </div>
-        )}
+        {/*<div className={styles.middleContainer}></div> */}
+
         <div className={styles.buttonsContainer}>
           <Form ref={deleteFormRef} method="post" onSubmit={handleDeleteClick}>
             <input type="hidden" name="_intent" value="deleteGroup" />
             <input type="hidden" name="rkey" value={slug} />
             {cid && <input type="hidden" name="cid" value={cid} />}
-            <Button
-              type="submit"
-              variant="danger"
-              disabled={articleChildren.length !== 0}
-              title={
-                articleChildren.length !== 0
-                  ? "Remove all articles from this group before deleting"
-                  : undefined
+
+            <Tooltip
+              anchorName={`${slug}_deleteButton`}
+              anchorPosition="bottom"
+              anchorContent={
+                <TooltipBubble pointerLocation="top" variant="danger">
+                  DELETE GROUP
+                  {articleChildren.length !== 0 ? (
+                    <>
+                      <br />
+                      Remove or Move all articles before deleting.
+                    </>
+                  ) : (
+                    ""
+                  )}
+                </TooltipBubble>
               }
             >
-              Delete Group
-            </Button>
+              <Button
+                className={styles.deleteGroupButton}
+                type="submit"
+                variant="danger"
+                disabled={articleChildren.length !== 0}
+              >
+                <SvgIcon name={SvgImageList.Trash} fill="var(--white)" />
+              </Button>
+            </Tooltip>
           </Form>
         </div>
         <div className={styles.groupArticlesContainer}>

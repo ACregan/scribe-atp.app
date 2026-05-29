@@ -1,3 +1,10 @@
+/* Variables */
+:root {
+  --danger-background-colour: var(--cinnabar);
+  --secondary-background-colour: var(--white);
+  --secondary-text-colour: var(--blue-ribbon);
+}
+
 /* TOOLTIP STYLES*/
 
 .anchoredElement {
@@ -17,13 +24,23 @@
 */
 .tooltipBubble {
   position: relative;
-  background: var(--blue);
   border-radius: 0.4rem;
   padding: 1rem;
   margin: 1.2rem;
   font-size: 1.2rem;
-  color: white;
   text-align: center;
+}
+.tooltipBubble.primaryVariant {
+  background: var(--blue);
+  color: var(--white);
+}
+.tooltipBubble.secondaryVariant {
+  background: var(--white);
+  color: var(--blue);
+}
+.tooltipBubble.dangerVariant {
+  background: var(--danger-background-colour);
+  color: var(--white);
 }
 /* note - these top, left, bottom, right classnames refer 
    to the location of the speech bubble triangle
@@ -138,4 +155,57 @@
   border-right: 0;
   margin-left: -5px;
   margin-bottom: -10px;
+}
+
+/* VARIANT MODIFIERS */
+/* tooltipBubble secondary VARIANT */
+.tooltipBubble.top.secondaryVariant:after {
+  border-bottom-color: var(--secondary-background-colour);
+}
+.tooltipBubble.right.dangerVariant:after {
+  border-left-color: var(--secondary-background-colour);
+}
+.tooltipBubble.bottom.dangerVariant:after {
+  border-top-color: var(--secondary-background-colour);
+}
+.tooltipBubble.left.dangerVariant:after {
+  border-right-color: var(--secondary-background-colour);
+}
+.tooltipBubble.topRight.dangerVariant:after {
+  border-bottom-color: var(--secondary-background-colour);
+}
+.tooltipBubble.topLeft.dangerVariant:after {
+  border-bottom-color: var(--secondary-background-colour);
+}
+.tooltipBubble.bottomLeft.dangerVariant:after {
+  border-top-color: var(--secondary-background-colour);
+}
+.tooltipBubble.bottomRight.dangerVariant:after {
+  border-top-color: var(--secondary-background-colour);
+}
+
+/* tooltipBubble DANGER VARIANT */
+.tooltipBubble.top.dangerVariant:after {
+  border-bottom-color: var(--danger-background-colour);
+}
+.tooltipBubble.right.dangerVariant:after {
+  border-left-color: var(--danger-background-colour);
+}
+.tooltipBubble.bottom.dangerVariant:after {
+  border-top-color: var(--danger-background-colour);
+}
+.tooltipBubble.left.dangerVariant:after {
+  border-right-color: var(--danger-background-colour);
+}
+.tooltipBubble.topRight.dangerVariant:after {
+  border-bottom-color: var(--danger-background-colour);
+}
+.tooltipBubble.topLeft.dangerVariant:after {
+  border-bottom-color: var(--danger-background-colour);
+}
+.tooltipBubble.bottomLeft.dangerVariant:after {
+  border-top-color: var(--danger-background-colour);
+}
+.tooltipBubble.bottomRight.dangerVariant:after {
+  border-top-color: var(--danger-background-colour);
 }

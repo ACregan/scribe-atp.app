@@ -1,6 +1,8 @@
 /* <GroupItem> Component */
 
 .groupItem_root {
+  --groupItem_root-background-colour: var(--alto);
+
   width: auto;
   list-style-type: none;
   padding: 0;
@@ -17,13 +19,15 @@
 
   border: 0.2rem solid var(--black);
   border-radius: 1.2rem;
-  background: var(--mid-grey);
+  background: var(--groupItem_root-background-colour);
 }
 .titleContainer_root {
   grid-area: GroupItem_root_Heading;
 }
 
 .groupItem {
+  --groupItem-background-colour: var(--alto);
+
   width: auto;
   list-style-type: none;
   padding: 0;
@@ -32,7 +36,7 @@
   grid-auto-flow: column;
   grid-auto-rows: 1fr;
   grid-template-columns: 5rem 1fr 30rem;
-  grid-template-rows: min-content 2rem min-content;
+  grid-template-rows: min-content min-content min-content;
   gap: 0em 0em;
   grid-template-areas:
     "GroupItem_Handle GroupItem_Title GroupItem_Buttons"
@@ -41,7 +45,7 @@
 
   border: 0.2rem solid var(--black);
   border-radius: 1.2rem;
-  background: var(--mid-grey);
+  background: var(--groupItem-background-colour);
 }
 .handleContainer {
   grid-area: GroupItem_Handle;
@@ -52,21 +56,30 @@
 }
 .titleContainer {
   grid-area: GroupItem_Title;
+
+  display: flex;
+  align-items: center;
 }
 .title {
-  margin-left: 1rem;
+  margin: 0 0 0 1rem;
   font-size: 3rem;
 }
 .slug {
-}
+  --slug-background-colour: var(--gray);
+  --slug-text-colour: var(--white);
 
-.uriContainer {
-  grid-area: GroupItem_Uri;
-}
-.uri {
   font-family: monospace;
   margin-left: 1rem;
   font-size: 1.2rem;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  background: var(--slug-background-colour);
+  color: var(--slug-text-colour);
+}
+
+.middleContainer {
+  grid-area: GroupItem_Uri;
 }
 
 .buttonsContainer {
@@ -74,7 +87,12 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 0 2rem;
+  padding: 0 1rem;
+}
+.deleteGroupButton > svg {
+  height: 2rem;
+  width: 2rem;
+  margin: 0.5rem;
 }
 
 .groupArticlesContainer {
@@ -83,11 +101,11 @@
 .groupArticlesList {
   width: auto;
   min-height: 6rem;
-  border: 0.2rem solid var(--black);
   border-radius: 0.8rem;
-  margin: 1rem;
+  margin: 0 1rem 1rem 1rem;
   padding: 0.2rem;
 
+  border: 0.2rem solid var(--black);
   background: var(--white);
 
   display: flex;
