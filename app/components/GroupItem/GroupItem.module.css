@@ -23,6 +23,7 @@
 }
 .titleContainer_root {
   grid-area: GroupItem_root_Heading;
+  padding: 0 0 0 1rem;
 }
 
 .groupItem {
@@ -61,7 +62,7 @@
   align-items: center;
 }
 .title {
-  margin: 0 0 0 1rem;
+  margin: 0;
   font-size: 3rem;
 }
 .slug {
