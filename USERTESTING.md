@@ -70,10 +70,11 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
   - [ ] Add a more prominent activity indicator than just `PROCEED` button label momentarily changing to `CREATING`
   - [ ] Once the group has been created the modal should close and the page should update to show the new group.
 
-- [ ] Style Group Item component, it looks drab and unstyled.
-  - [ ] Better background colour
-  - [ ] Put the urlSlug into a neat wrapper 'pill' and center it inline
-  - [ ] Use the Trash icon instead of DELETE text for consistency
+- [x] Style Group Item component, it looks drab and unstyled.
+  - [x] Better background colour
+  - [x] Put the urlSlug into a neat wrapper 'pill' and center it inline
+  - [x] Use the Trash icon instead of DELETE text for consistency
+  - [x] Add Tooltips where they'll be useful.
 
 - [ ] SAVE ORDER button behaviour
   - [ ] disabled until the order is not the same as that on the PDS
