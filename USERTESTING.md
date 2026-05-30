@@ -87,3 +87,8 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
 - [x] Toast Context Provider and Components
 - [x] ReactRouter Navigation-Based Loading Spinner
 - [ ] Universal / Site Wide Loading Spinner (or equivelent) (Context)
+
+###### New Features
+
+- [ ] `<Toast>`: Add a countdown timer around the X close button when it is set to autoexpire.
+  - [ ] Hover should pause it (?) **_HAVE A THINK ABOUT BEHAVIOUR_**

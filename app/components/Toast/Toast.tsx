@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import styles from "./Toast.module.css";
 import classNames from "classnames/bind";
 import { useToast, type ToastPropsWithId } from "./ToastContext";
+import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 
 const cx = classNames.bind(styles);
 
@@ -43,7 +44,7 @@ const Toast: React.FC<ToastPropsWithId> = ({
           onClick={() => removeToast(id)}
           className={styles.closeButton}
         >
-          &times;
+          <SvgIcon name={SvgImageList.Close} fill="white" />
         </button>
       </div>
       <div className={styles.toastContent}>{content}</div>
