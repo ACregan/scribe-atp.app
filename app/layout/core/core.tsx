@@ -1,11 +1,12 @@
 import type { Route } from "./+types/core";
-import { Form, Link, Outlet, useLocation } from "react-router";
+import { Form, Link, Outlet, useLocation, useNavigation } from "react-router";
 import { getAuthSession, useRealOAuth } from "~/services/auth.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import AsideMenu from "~/components/AsideMenu/AsideMenu";
 import { ToastProvider } from "~/components/Toast/ToastContext";
+import { Spinner } from "~/components/Spinner/Spinner";
 import { Toasts } from "~/components/Toast/Toast";
 
 type BskyProfile = {
@@ -52,6 +53,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function CoreLayout({ loaderData }: Route.ComponentProps) {
   const { isAuthenticated, displayName, avatar, handle } = loaderData;
   const location = useLocation();
+  const navigation = useNavigation();
+  const isNavigating = navigation.state !== "idle";
 
   return (
     <ToastProvider>
@@ -94,6 +97,7 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
         </header>
         {isAuthenticated && <AsideMenu />}
         <main>
+          {isNavigating && <Spinner overlay />}
           <Outlet />
         </main>
         <footer id="footer-portal-element"></footer>

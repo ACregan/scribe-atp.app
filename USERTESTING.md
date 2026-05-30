@@ -83,6 +83,7 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
 
 ###### New Components List
 
-- [ ] Bottom Buttons Portal - the ability to put buttons in the `<footer>` of the main layout
-- [ ] Toast Context Provider and Components
-- [ ] Universal / Site Wide Loading Spinner (or equivelent)
+- [x] Bottom Buttons Portal - the ability to put buttons in the `<footer>` of the main layout
+- [x] Toast Context Provider and Components
+- [x] ReactRouter Navigation-Based Loading Spinner
+- [ ] Universal / Site Wide Loading Spinner (or equivelent) (Context)

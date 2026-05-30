@@ -42,7 +42,10 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /site/:siteName/configure      configure  — edit site metadata (title, description, images, url, urlPrefix)
 ```
 
-All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header.
+All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header. It also hosts:
+- `<ToastProvider>` — wraps the entire layout so `useToast()` is available on every route
+- `<Spinner overlay />` inside `<main>` — shown whenever `useNavigation().state !== "idle"`, covering the content area during route transitions
+- `<footer id="footer-portal-element">` — the portal target for `FooterPortal`
 
 Article routes (`/article/*`) are additionally wrapped by a protected layout at `app/layout/protected/protected.tsx` which redirects unauthenticated requests to `/login` before any route loader runs.
 
@@ -286,16 +289,10 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
 | `SiteTile` | `app/components/SiteTile/SiteTile.tsx` | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Also exports the `SiteData` interface. |
-
-### Planned components
-
-The following have been identified in user testing as the next components to build (see `USERTESTING.md`):
-
-| Component | Notes |
-|---|---|
-| `Toast` | Context provider + component for transient success/error notifications. Replace the current "Order Saved" green text on `/article/list/:siteSlug`. Auto-dismiss, accessible. Consider Radix UI Toast primitive. |
-| Bottom Buttons Portal | Mechanism to render buttons into the core layout `<footer>` from a page component. Pattern: context-exposed ref + `createPortal` (same approach as `Modal`). |
-| Loading Spinner | Site-wide activity indicator. Best placed in the core layout's `HydrateFallback` / React Router `<Suspense>` so it appears automatically during navigations. |
+| `FooterPortal` | `app/components/FooterPortal/FooterPortal.tsx` | Portals `children` into `<footer id="footer-portal-element">` in the core layout. Default export. Props: `children: ReactNode`. Client-only — uses a `mounted` guard (same pattern as `RichTextEditor`) to avoid SSR crashes from `document.getElementById`. **Note:** portaled buttons must use `form="form-id"` to associate with a `<form>` elsewhere in the DOM — they are no longer DOM descendants of the form. |
+| `Spinner` | `app/components/Spinner/Spinner.tsx` | Spinning ring indicator. Props: `overlay?: boolean`. Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: absolute; inset: 0` overlay that dims and covers its nearest `position: relative` ancestor. Used in `core.tsx` as `<Spinner overlay />` inside `<main>` (which has `position: relative`) during route navigations. |
+| `Toast` / `ToastContainer` / `Toasts` | `app/components/Toast/Toast.tsx` | `Toast` renders a single notification. Props: all fields from `ToastPropsWithId` (see ToastContext). Auto-dismisses via `useEffect` + `setTimeout` when `autoExpire` is true. Cleanup cancels the timer if the toast is removed manually first. `ToastContainer` is a plain wrapper div. `Toasts` reads all active toasts from context via `useToast()` and renders them. |
+| `ToastProvider` / `useToast` | `app/components/Toast/ToastContext.tsx` | Context provider wired into `core.tsx` — wraps the entire layout so `useToast()` works anywhere in the app. `useToast()` returns `{ toasts, addToast, removeToast }`. `addToast(props: ToastProps)` generates a UUID, binds `removeToast`, and appends to state. `removeToast` is `useCallback`-memoized with `[]` deps so its reference is stable — without this, adding a new toast would reset all existing timers. Exports: `ToastProvider`, `useToast`, `ToastProps`, `ToastPropsWithId`. `ToastProps`: `heading`, `content?`, `autoExpire?` (default `true`), `expireTimeSeconds?` (default `5`), `variant?: "primary" \| "secondary" \| "danger"`. |
 
 ### RichTextEditor — toolbar
 
