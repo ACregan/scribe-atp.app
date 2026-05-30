@@ -36,8 +36,8 @@ const Toast: React.FC<ToastPropsWithId> = ({
 
   return (
     <div className={toastClasses}>
-      <div className={styles.toastHeader}>
-        {heading}
+      <div className={styles.toastHeaderContainer}>
+        <span className={styles.toastHeader}>{heading}</span>
         <button
           type="button"
           onClick={() => removeToast(id)}

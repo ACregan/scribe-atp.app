@@ -95,10 +95,10 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
         {isAuthenticated && <AsideMenu />}
         <main>
           <Outlet />
-          <Toasts />
         </main>
         <footer id="footer-portal-element"></footer>
       </div>
+      <Toasts />
     </ToastProvider>
   );
 }
