@@ -80,7 +80,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export function HydrateFallback() {
-  return <Spinner />;
+  return <Spinner size="large" />;
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {

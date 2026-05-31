@@ -8,7 +8,9 @@ import {
   requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
+import { useToast } from "~/components/Toast/ToastContext";
 
 import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 
@@ -284,7 +286,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }),
   ]);
 
-  return redirect("/article/list");
+  return { ok: true, title };
 }
 
 export default function EditArticle({
@@ -297,6 +299,14 @@ export default function EditArticle({
   const [selectedSites, setSelectedSites] = useState<string[]>(
     currentSiteRkeys,
   );
+  const navigate = useNavigate();
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (!actionData?.ok) return;
+    addToast({ heading: "Article saved", content: actionData.title, variant: "primary" });
+    navigate("/article/list");
+  }, [actionData]);
 
   const siteOptions = sites.map((s) => ({
     value: s.rkey,

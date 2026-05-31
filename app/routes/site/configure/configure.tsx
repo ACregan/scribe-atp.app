@@ -1,10 +1,12 @@
-import { redirect } from "react-router";
+import { useNavigate } from "react-router";
+import { useEffect } from "react";
 import { PageContainer, PageSection } from "~/components/PageContainer/PageContainer";
 import { Input } from "~/components/Input/Input";
 import { Button } from "~/components/Button/Button";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
+import { useToast } from "~/components/Toast/ToastContext";
 
 import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
 
@@ -103,7 +105,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
-  throw redirect("/sites");
+  return { ok: true };
 }
 
 export function meta({ data }: Route.MetaArgs) {
@@ -118,6 +120,14 @@ export default function ConfigureSite({
   actionData,
 }: Route.ComponentProps) {
   const { site } = loaderData;
+  const navigate = useNavigate();
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (!actionData?.ok) return;
+    addToast({ heading: "Site configured", content: site.title, variant: "primary" });
+    navigate("/sites");
+  }, [actionData]);
 
   return (
     <PageContainer title={`Configure — ${site.title}`}>

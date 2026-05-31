@@ -7,14 +7,13 @@ import {
 import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import { Input } from "~/components/Input/Input";
 import { Select } from "~/components/Select/Select";
-import {
-  getAtpAgent,
-  requireAuth,
-  useRealOAuth,
-} from "~/services/auth.server";
-import { useState } from "react";
+import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { useState, useEffect } from "react";
+import { useToast } from "~/components/Toast/ToastContext";
 
 import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import FooterPortal from "~/components/FooterPortal/FooterPortal";
+import { Button } from "~/components/Button/Button";
 
 type SiteOption = { rkey: string; title: string; url: string };
 
@@ -144,6 +143,16 @@ export default function Create({
 }: Route.ComponentProps) {
   const { sites } = loaderData;
   const [selectedSites, setSelectedSites] = useState<string[]>([]);
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (!actionData?.uri) return;
+    addToast({
+      heading: actionData.devMode ? "Dev — article not saved" : "Article saved",
+      content: actionData.title,
+      variant: "primary",
+    });
+  }, [actionData]);
 
   const siteOptions = sites.map((s) => ({
     value: s.rkey,
@@ -151,11 +160,8 @@ export default function Create({
   }));
 
   return (
-    <Form method="post">
-      <PageContainer
-        title="Create Article"
-        bottomButtons={<button type="submit">Save to PDS</button>}
-      >
+    <Form method="post" id="create-article-form">
+      <PageContainer title="Create Article">
         <PageSection>
           <Input id="title" name="title" label="Title" />
           <Input
@@ -188,21 +194,18 @@ export default function Create({
           <RichTextEditor name="content" label="Content" />
         </PageSection>
 
-        {actionData?.uri && (
-          <PageSection>
-            <p>
-              {actionData.devMode
-                ? `[Dev] "${actionData.title}" would be saved at: ${actionData.uri}`
-                : `"${actionData.title}" saved — AT URI: ${actionData.uri}`}
-            </p>
-          </PageSection>
-        )}
         {actionData?.error && (
           <PageSection>
             <p style={{ color: "red" }}>{actionData.error}</p>
           </PageSection>
         )}
       </PageContainer>
+
+      <FooterPortal>
+        <Button form="create-article-form" type="submit">
+          Save to PDS
+        </Button>
+      </FooterPortal>
     </Form>
   );
 }

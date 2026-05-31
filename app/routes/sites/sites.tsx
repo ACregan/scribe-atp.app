@@ -10,12 +10,9 @@ import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
 import { useState, useEffect } from "react";
 import { useFetcher } from "react-router";
+import { useToast } from "~/components/Toast/ToastContext";
 import styles from "./sites.module.css";
-import {
-  getAtpAgent,
-  requireAuth,
-  useRealOAuth,
-} from "~/services/auth.server";
+import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { SiteTile, type SiteData } from "~/components/SiteTile/SiteTile";
 
 import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
@@ -89,12 +86,10 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "createSite") {
     const title = (formData.get("title") as string)?.trim();
     const url = (formData.get("url") as string)?.trim().toLowerCase();
-    const urlPrefix = (
-      (formData.get("urlPrefix") as string) ?? ""
-    ).trim().toLowerCase();
-    const description = (
-      (formData.get("description") as string) ?? ""
-    ).trim();
+    const urlPrefix = ((formData.get("urlPrefix") as string) ?? "")
+      .trim()
+      .toLowerCase();
+    const description = ((formData.get("description") as string) ?? "").trim();
     const splashImageUrl = (
       (formData.get("splashImageUrl") as string) ?? ""
     ).trim();
@@ -174,7 +169,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export function HydrateFallback() {
-  return <Spinner />;
+  return <Spinner size="large" />;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -191,15 +186,19 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
   const isCreating = createFetcher.state !== "idle";
   const isDeleting = deleteFetcher.state !== "idle";
 
+  const { addToast } = useToast();
+
   useEffect(() => {
-    if (createFetcher.data?.ok) addSiteModal.close();
+    if (!createFetcher.data?.ok) return;
+    addSiteModal.close();
+    addToast({ heading: "Site created", variant: "primary" });
   }, [createFetcher.data, addSiteModal.close]);
 
   useEffect(() => {
-    if (deleteFetcher.data?.ok) {
-      deleteSiteModal.close();
-      setSiteToDelete(null);
-    }
+    if (!deleteFetcher.data?.ok) return;
+    addToast({ heading: "Site deleted", content: siteToDelete?.title, variant: "primary" });
+    deleteSiteModal.close();
+    setSiteToDelete(null);
   }, [deleteFetcher.data, deleteSiteModal.close]);
 
   return (
@@ -265,12 +264,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
         >
           <input type="hidden" name="_intent" value="createSite" />
           <Input name="title" label="Title" placeholder="My Blog" required />
-          <Input
-            name="url"
-            label="Domain"
-            placeholder="myblog.com"
-            required
-          />
+          <Input name="url" label="Domain" placeholder="myblog.com" required />
           <Input name="urlPrefix" label="URL Prefix" placeholder="blog" />
           <Input
             name="description"
