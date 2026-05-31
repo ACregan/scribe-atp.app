@@ -90,6 +90,10 @@
   align-items: center;
   padding: 0 1rem;
 }
+.deleteGroupButton {
+  height: 3.2rem;
+  width: 4.2rem;
+}
 .deleteGroupButton > svg {
   height: 2rem;
   width: 2rem;

@@ -79,7 +79,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
         </div>
         <div className={styles.buttonContainer}>
           <Link to={`/article/view/${uri.split("/").pop()}`}>
-            <Button type="button" variant="primary">
+            <Button type="button" variant="secondary">
               View
             </Button>
           </Link>
