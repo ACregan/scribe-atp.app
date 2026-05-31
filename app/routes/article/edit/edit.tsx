@@ -1,20 +1,13 @@
 import type { Route } from "./+types/edit";
-import { Form, redirect } from "react-router";
-import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
-import { Input } from "~/components/Input/Input";
-import { Select } from "~/components/Select/Select";
-import {
-  getAtpAgent,
-  requireAuth,
-  useRealOAuth,
-} from "~/services/auth.server";
+import { Form, redirect, useNavigate } from "react-router";
+import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
 import { useToast } from "~/components/Toast/ToastContext";
-
 import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
-
-type SiteOption = { rkey: string; title: string; url: string };
+import { PageContainer } from "~/components/PageContainer/PageContainer";
+import { Button } from "~/components/Button/Button";
+import FooterPortal from "~/components/FooterPortal/FooterPortal";
+import { ArticleForm, type SiteOption } from "~/components/ArticleForm/ArticleForm";
 
 type ArticleRef = {
   uri: string;
@@ -308,56 +301,32 @@ export default function EditArticle({
     navigate("/article/list");
   }, [actionData]);
 
-  const siteOptions = sites.map((s) => ({
-    value: s.rkey,
-    label: `${s.title} (${s.url})`,
-  }));
-
   return (
-    <div>
-      <h1>Edit Article</h1>
-      <Form method="post">
-        <input type="hidden" name="cid" value={cid ?? ""} />
-        <input
-          type="hidden"
-          name="oldSiteRkeys"
-          value={JSON.stringify(currentSiteRkeys)}
+    <Form method="post" id="edit-article-form">
+      <input type="hidden" name="cid" value={cid ?? ""} />
+      <input
+        type="hidden"
+        name="oldSiteRkeys"
+        value={JSON.stringify(currentSiteRkeys)}
+      />
+      <PageContainer title="Edit Article">
+        <ArticleForm
+          defaultTitle={title}
+          defaultUrl={url}
+          defaultSplashImageUrl={splashImageUrl}
+          defaultContent={content}
+          sites={sites}
+          selectedSites={selectedSites}
+          onSitesChange={setSelectedSites}
+          error={actionData?.error}
         />
-        <div>
-          <label htmlFor="title">Title</label>
-          <input type="text" id="title" name="title" defaultValue={title} />
-        </div>
-        <div>
-          <label htmlFor="url">URL slug</label>
-          <input type="text" id="url" name="url" defaultValue={url} />
-        </div>
-        <div>
-          <label htmlFor="splashImageUrl">Splash image URL</label>
-          <input
-            type="text"
-            id="splashImageUrl"
-            name="splashImageUrl"
-            defaultValue={splashImageUrl}
-          />
-        </div>
+      </PageContainer>
 
-        {siteOptions.length > 0 && (
-          <Select
-            name="sites"
-            label="Assign to sites"
-            options={siteOptions}
-            multiple
-            value={selectedSites}
-            onChange={setSelectedSites}
-          />
-        )}
-
-        <RichTextEditor name="content" label="Content" defaultValue={content} />
-        <button type="submit">Save changes</button>
-      </Form>
-      {actionData?.error && (
-        <p style={{ color: "red" }}>{actionData.error}</p>
-      )}
-    </div>
+      <FooterPortal>
+        <Button form="edit-article-form" type="submit">
+          Save Changes
+        </Button>
+      </FooterPortal>
+    </Form>
   );
 }

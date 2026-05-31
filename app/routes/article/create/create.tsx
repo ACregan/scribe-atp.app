@@ -1,21 +1,13 @@
 import type { Route } from "./+types/create";
 import { Form } from "react-router";
-import {
-  PageContainer,
-  PageSection,
-} from "~/components/PageContainer/PageContainer";
-import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
-import { Input } from "~/components/Input/Input";
-import { Select } from "~/components/Select/Select";
+import { PageContainer } from "~/components/PageContainer/PageContainer";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-
 import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { Button } from "~/components/Button/Button";
-
-type SiteOption = { rkey: string; title: string; url: string };
+import { ArticleForm, type SiteOption } from "~/components/ArticleForm/ArticleForm";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
@@ -154,51 +146,15 @@ export default function Create({
     });
   }, [actionData]);
 
-  const siteOptions = sites.map((s) => ({
-    value: s.rkey,
-    label: `${s.title} (${s.url})`,
-  }));
-
   return (
     <Form method="post" id="create-article-form">
       <PageContainer title="Create Article">
-        <PageSection>
-          <Input id="title" name="title" label="Title" />
-          <Input
-            id="url"
-            name="url"
-            label="URL slug"
-            placeholder="my-article-title"
-          />
-          <Input
-            id="splashImageUrl"
-            name="splashImageUrl"
-            label="Splash image URL"
-          />
-        </PageSection>
-
-        {siteOptions.length > 0 && (
-          <PageSection>
-            <Select
-              name="sites"
-              label="Assign to sites"
-              options={siteOptions}
-              multiple
-              value={selectedSites}
-              onChange={setSelectedSites}
-            />
-          </PageSection>
-        )}
-
-        <PageSection>
-          <RichTextEditor name="content" label="Content" />
-        </PageSection>
-
-        {actionData?.error && (
-          <PageSection>
-            <p style={{ color: "red" }}>{actionData.error}</p>
-          </PageSection>
-        )}
+        <ArticleForm
+          sites={sites}
+          selectedSites={selectedSites}
+          onSitesChange={setSelectedSites}
+          error={actionData?.error}
+        />
       </PageContainer>
 
       <FooterPortal>
