@@ -2,6 +2,7 @@ import type { Route } from "./+types/site-list";
 import { redirect, useFetcher, Link } from "react-router";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
+import { Spinner } from "~/components/Spinner/Spinner";
 import { Input } from "~/components/Input/Input";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -33,6 +34,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useState, useRef, useEffect } from "react";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
+import { useToast } from "~/components/Toast/ToastContext";
 
 const SITE_COLLECTION = "app.scribe.site";
 
@@ -435,7 +437,7 @@ function CreateGroupModal({ onClose }: { onClose: () => void }) {
 }
 
 export function HydrateFallback() {
-  return <div>Loading…</div>;
+  return <Spinner />;
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
@@ -452,6 +454,16 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   const previousTreeRef = useRef<TreeGroupNode[]>(tree);
   const saveFetcher = useFetcher<{ ok?: boolean; error?: string }>();
   const isSaving = saveFetcher.state !== "idle";
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
+    if (saveFetcher.data.ok) {
+      addToast({ heading: "Order saved", variant: "primary" });
+    } else if (saveFetcher.data.error) {
+      addToast({ heading: "Save failed", content: saveFetcher.data.error, variant: "danger", autoExpire: false });
+    }
+  }, [saveFetcher.state, saveFetcher.data]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -594,11 +606,6 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         </>
       }
     >
-      {saveFetcher.data?.error && (
-        <p style={{ color: "red" }}>Save failed: {saveFetcher.data.error}</p>
-      )}
-      {saveFetcher.data?.ok && <p style={{ color: "green" }}>Order saved.</p>}
-
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}

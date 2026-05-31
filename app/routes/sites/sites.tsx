@@ -4,6 +4,7 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import type { Route } from "./+types/sites";
 import { Input } from "~/components/Input/Input";
+import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
@@ -176,7 +177,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export function HydrateFallback() {
-  return <div>Loading…</div>;
+  return <Spinner />;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

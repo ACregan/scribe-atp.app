@@ -5,6 +5,7 @@ import {
   useRealOAuth,
 } from "~/services/auth.server";
 import { useModal } from "~/components/Modal/useModal";
+import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { useFetcher } from "react-router";
@@ -78,7 +79,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export function HydrateFallback() {
-  return <div>Loading...</div>;
+  return <Spinner />;
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
