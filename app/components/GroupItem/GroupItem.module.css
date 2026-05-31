@@ -17,9 +17,9 @@
     "GroupItem_root_Heading"
     "GroupItem_ArticleList ";
 
-  border: 0.2rem solid var(--black);
+  /* border: 0.2rem solid var(--black);
   border-radius: 1.2rem;
-  background: var(--groupItem_root-background-colour);
+  background: var(--groupItem_root-background-colour); */
 }
 .titleContainer_root {
   grid-area: GroupItem_root_Heading;

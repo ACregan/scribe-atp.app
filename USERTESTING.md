@@ -90,7 +90,7 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
 
 ###### New Features
 
-- [ ] `<Toast>`: Add a countdown timer around the X close button when it is set to autoexpire.
+- [x] `<Toast>`: Add a countdown timer around the X close button when it is set to autoexpire.
   - [ ] Hover should pause it (?) **_HAVE A THINK ABOUT BEHAVIOUR_**
 
 ---

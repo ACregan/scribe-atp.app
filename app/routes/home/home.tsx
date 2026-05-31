@@ -12,6 +12,10 @@ import { useFetcher } from "react-router";
 import styles from "./home.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
+import {
+  PageContainer,
+  PageSection,
+} from "~/components/PageContainer/PageContainer";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -105,97 +109,108 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   return (
     <>
-      <h1>Home Page</h1>
+      <PageContainer
+        title="Dashboard"
+        topButtons={
+          <>
+            <button
+              onClick={() =>
+                addToast({
+                  heading: "Hello!",
+                  content: "This is a test toast.",
+                  variant: "primary",
+                  expireTimeSeconds: 5,
+                })
+              }
+            >
+              ADD REGULAR TOAST
+            </button>
+
+            <button
+              onClick={() =>
+                addToast({
+                  heading: "Hello Again!",
+                  content: "This is another test toast.",
+                  variant: "secondary",
+                  expireTimeSeconds: 15,
+                })
+              }
+            >
+              ADD ANOTHER TOAST
+            </button>
+
+            <button
+              onClick={() =>
+                addToast({
+                  heading: "WARNING!",
+                  content: "HOT TOAST!",
+                  variant: "danger",
+                  expireTimeSeconds: 5,
+                })
+              }
+            >
+              ADD DANGER TOAST
+            </button>
+          </>
+        }
+      >
+        <PageSection>
+          {isDev && (
+            <div className={styles.devTools}>
+              <h2 className={styles.devToolsTitle}>Dev Tools</h2>
+              <Button
+                variant="danger"
+                onClick={nukeModal.open}
+                disabled={isPending}
+              >
+                {isPending ? "Nuking…" : "Nuke PDS Data"}
+              </Button>
+              {result?.ok && (
+                <p className={styles.nukeSuccess}>
+                  {result.devMode
+                    ? "Dev mode — no real data deleted."
+                    : `Done. ${result.deleted} record${result.deleted !== 1 ? "s" : ""} deleted.`}
+                </p>
+              )}
+              {result?.error && (
+                <p className={styles.nukeError}>{result.error}</p>
+              )}
+            </div>
+          )}
+        </PageSection>
+      </PageContainer>
       <p>
         {userName} is {isAuthenticated == false && "NOT"} Authenticated
       </p>
 
-      <button
-        onClick={() =>
-          addToast({
-            heading: "Hello!",
-            content: "This is a test toast.",
-            variant: "primary",
-            expireTimeSeconds: 10,
-          })
-        }
-      >
-        ADD REGULAR TOAST
-      </button>
-
-      <button
-        onClick={() =>
-          addToast({
-            heading: "Hello Again!",
-            content: "This is another test toast.",
-            variant: "secondary",
-            autoExpire: false,
-          })
-        }
-      >
-        ADD ANOTHER TOAST
-      </button>
-
-      <button
-        onClick={() =>
-          addToast({
-            heading: "WARNING!",
-            content: "HOT TOAST!",
-            variant: "danger",
-            autoExpire: false,
-          })
-        }
-      >
-        ADD DANGER TOAST
-      </button>
-
       {isDev && (
-        <div className={styles.devTools}>
-          <h2 className={styles.devToolsTitle}>Dev Tools</h2>
-          <Button
-            variant="danger"
-            onClick={nukeModal.open}
-            disabled={isPending}
-          >
-            {isPending ? "Nuking…" : "Nuke PDS Data"}
-          </Button>
-          {result?.ok && (
-            <p className={styles.nukeSuccess}>
-              {result.devMode
-                ? "Dev mode — no real data deleted."
-                : `Done. ${result.deleted} record${result.deleted !== 1 ? "s" : ""} deleted.`}
-            </p>
-          )}
-          {result?.error && <p className={styles.nukeError}>{result.error}</p>}
-        </div>
+        <Modal
+          isOpen={nukeModal.isOpen}
+          onClose={nukeModal.close}
+          title="Nuke PDS Data"
+          footer={
+            <div className={styles.modalFooter}>
+              <Button variant="secondary" onClick={nukeModal.close}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleConfirm}>
+                Delete Everything
+              </Button>
+            </div>
+          }
+        >
+          <p>
+            This will permanently delete <strong>all</strong> Scribe records
+            from your PDS:
+          </p>
+          <ul className={styles.nukeList}>
+            {SCRIBE_COLLECTIONS.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <p>This cannot be undone.</p>
+        </Modal>
       )}
-
-      <Modal
-        isOpen={nukeModal.isOpen}
-        onClose={nukeModal.close}
-        title="Nuke PDS Data"
-        footer={
-          <div className={styles.modalFooter}>
-            <Button variant="secondary" onClick={nukeModal.close}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleConfirm}>
-              Delete Everything
-            </Button>
-          </div>
-        }
-      >
-        <p>
-          This will permanently delete <strong>all</strong> Scribe records from
-          your PDS:
-        </p>
-        <ul className={styles.nukeList}>
-          {SCRIBE_COLLECTIONS.map((c) => (
-            <li key={c}>{c}</li>
-          ))}
-        </ul>
-        <p>This cannot be undone.</p>
-      </Modal>
     </>
   );
 }
