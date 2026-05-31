@@ -54,7 +54,7 @@ Route types are auto-generated — run `npx react-router typegen` after adding a
 When adding a new route, export a `HydrateFallback` that returns `<Spinner />` — this shows during the brief initial hydration window rather than an unstyled blank or text placeholder:
 ```tsx
 export function HydrateFallback() {
-  return <Spinner />;
+  return <Spinner size="large" />;
 }
 ```
 
@@ -224,6 +224,9 @@ Key behaviours on this route:
 - **Dirty tracking** — `savedTreeRef` holds the tree as last saved (initialised from loader, updated on successful save). `isDirty` is computed via `useMemo` using `JSON.stringify` comparison. The Save Order button is disabled until `isDirty` is true.
 - **Navigation blocker** — `useBlocker(isDirty)` intercepts any React Router navigation when there are unsaved changes. A modal appears with three options: **Stay** (`blocker.reset()`), **Discard & Leave** (`blocker.proceed()`), **Save & Leave** (triggers save, then calls `blocker.proceed()` from the fetcher effect via `proceedAfterSaveRef`).
 - **Save feedback** — success shows a primary toast (auto-expires); error shows a danger toast with `autoExpire: false` so it persists until dismissed.
+- **Group create** — `createGroup` action returns `{ ok: true }` (not a redirect) so the fetcher can close the modal automatically. The loader revalidates automatically after any fetcher action; `knownGroupSlugsRef` tracks which group slugs are already in the tree, and a `useEffect` on `site.groups` detects newly added slugs and appends them as empty group nodes. `savedTreeRef` is updated in the same step so new groups don't register as unsaved changes.
+- **Group delete** — handled via `deleteFetcher` (not a form redirect). Action returns `{ ok: true, deletedSlug }`; a `useEffect` removes the deleted group from both `tree` and `savedTreeRef` client-side. The `GroupItem` delete button shows `<Spinner size="small" />` while `isDeleting` is true.
+- **Add New Group modal** — includes a URL path (slug) field that auto-populates from the title as the user types. Once the user manually edits the slug the auto-fill stops. The slug is immutable after creation (it keys the group in the site record); the modal shows a note to that effect.
 
 ### Nuke tool
 
@@ -295,14 +298,14 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `ArticleList` | `app/components/ArticleList/ArticleList.tsx` | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`. |
 | `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid?`, `mode?: "pds" \| "site"`. `id` is the dnd-kit sortable id (`a:{slug}`). In `"pds"` mode (default): Delete button removes the record from the PDS. In `"site"` mode: Remove button removes the article from the site record only (`_intent=removeArticle, uri`). Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
 | `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
-| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and the `TreeArticle` interface (`cid?` optional). `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has children). `articleMode` is forwarded to each `ArticleItem` child. `uri`/`cid` are omitted for site-embedded groups. |
+| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`, `onDeleteConfirm?: (slug: string) => void`, `isDeleting?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and the `TreeArticle` interface (`cid?` optional). `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has articles). When `onDeleteConfirm` is provided, confirmation calls it instead of submitting the form natively — this is the correct path for fetcher-based deletes. `isDeleting` replaces the trash icon with `<Spinner size="small" />` and disables the button. `articleMode` is forwarded to each `ArticleItem` child. |
 | `Select` | `app/components/Select/Select.tsx` | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a checkbox list. Both modes post standard form values under `name`. |
 | `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (links to `/sites`), article list (also links to `/sites` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
 | `SiteTile` | `app/components/SiteTile/SiteTile.tsx` | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Also exports the `SiteData` interface. |
 | `FooterPortal` | `app/components/FooterPortal/FooterPortal.tsx` | Portals `children` into `<footer id="footer-portal-element">` in the core layout. Default export. Props: `children: ReactNode`. Client-only — uses a `mounted` guard (same pattern as `RichTextEditor`) to avoid SSR crashes from `document.getElementById`. **Note:** portaled buttons must use `form="form-id"` to associate with a `<form>` elsewhere in the DOM — they are no longer DOM descendants of the form. |
-| `Spinner` | `app/components/Spinner/Spinner.tsx` | Spinning ring indicator. Props: `overlay?: boolean`. Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: absolute; inset: 0` overlay that dims and covers its nearest `position: relative` ancestor. Used in `core.tsx` as `<Spinner overlay />` inside `<main>` (which has `position: relative`) during route navigations. |
+| `Spinner` | `app/components/Spinner/Spinner.tsx` | Spinning ring indicator. Props: `overlay?: boolean`, `size?: "small" \| "medium" \| "large"` (default `"medium"`). Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: fixed` overlay sized to the content area (below the header, beside the aside) that dims everything behind it. Used in `core.tsx` as `<Spinner overlay />` during route navigations. Use `size="large"` in `HydrateFallback` exports; use `size="small"` for inline button states. |
 | `Toast` / `ToastContainer` / `Toasts` | `app/components/Toast/Toast.tsx` | `Toast` renders a single notification. Props: all fields from `ToastPropsWithId` (see ToastContext). Auto-dismisses via `useEffect` + `setTimeout` when `autoExpire` is true. Cleanup cancels the timer if the toast is removed manually first. `ToastContainer` is a plain wrapper div. `Toasts` reads all active toasts from context via `useToast()` and renders them. |
 | `ToastProvider` / `useToast` | `app/components/Toast/ToastContext.tsx` | Context provider wired into `core.tsx` — wraps the entire layout so `useToast()` works anywhere in the app. `useToast()` returns `{ toasts, addToast, removeToast }`. `addToast(props: ToastProps)` generates a UUID, binds `removeToast`, and appends to state. `removeToast` is `useCallback`-memoized with `[]` deps so its reference is stable — without this, adding a new toast would reset all existing timers. Exports: `ToastProvider`, `useToast`, `ToastProps`, `ToastPropsWithId`. `ToastProps`: `heading`, `content?`, `autoExpire?` (default `true`), `expireTimeSeconds?` (default `5`), `variant?: "primary" \| "secondary" \| "danger"`. |
 
@@ -332,6 +335,42 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 - **`$setBlocksType`** is not exported by `@lexical/utils` in v0.44. It is implemented locally in `ToolbarPlugin.tsx`. If upgrading Lexical, check whether it becomes available in `@lexical/utils` and remove the local copy.
 - **`LexicalCodeHighlightPlugin`** does not exist as a named export from `@lexical/react` in v0.44. Code syntax highlighting is registered via `registerCodeHighlighting(editor)` from `@lexical/code` inside a `useEffect` in a small `CodeHighlightPlugin` wrapper defined inline in `RichTextEditor.tsx`. `registerCodeHighlighting` is marked deprecated upstream but is the correct v0.44 approach.
 - **Web Speech API** (`SpeechRecognition`, `SpeechRecognitionEvent`) has no TypeScript lib types. Local interface declarations are provided at the top of `ToolbarPlugin.tsx` — do not add `@types/dom-speech-recognition` unless TS starts complaining about conflicts.
+
+## Shared constants
+
+`app/constants.ts` is the single source of truth for string literals and regexes that appear in multiple route files. Import from here rather than redeclaring locally:
+
+| Export | Value | Used in |
+|---|---|---|
+| `ARTICLE_COLLECTION` | `"app.scribe.article"` | create, edit, view, home |
+| `SITE_COLLECTION` | `"app.scribe.site"` | sites, site-list, list, configure, create, edit, home |
+| `SLUG_RE` | `/^[a-z0-9]+(?:-[a-z0-9]+)*$/` | article create, edit, site-list group create |
+| `DOMAIN_RE` | `/^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/` | sites, configure |
+
+`app/services/auth.server.ts` also exports two server-only constants consumed by `client-metadata.ts`:
+- `PUBLIC_URL_DEFAULT` — the `"https://scribe-atp.app"` fallback string
+- `OAUTH_METADATA_STATIC` — the stable OAuth client config fields (`grant_types`, `response_types`, etc.) shared between the `NodeOAuthClient` config and the `/client-metadata.json` response
+
+## Toast + navigate pattern
+
+Routes that save and then redirect (e.g. `article/edit`, `site/configure`) use this pattern so the toast survives the navigation:
+
+```ts
+// action — return data instead of redirect
+return { ok: true, title };
+
+// component
+const navigate = useNavigate();
+const { addToast } = useToast();
+
+useEffect(() => {
+  if (!actionData?.ok) return;
+  addToast({ heading: "Saved", content: actionData.title, variant: "primary" });
+  navigate("/destination");
+}, [actionData]);
+```
+
+This works because `ToastProvider` is mounted at the core layout level and persists across React Router soft navigations — the toast state is not reset when the route changes.
 
 ## Client metadata
 
