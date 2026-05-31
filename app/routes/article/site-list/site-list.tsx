@@ -1,5 +1,5 @@
 import type { Route } from "./+types/site-list";
-import { redirect, useFetcher, Link } from "react-router";
+import { redirect, useFetcher, useBlocker, Link } from "react-router";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
 import { Spinner } from "~/components/Spinner/Spinner";
@@ -32,7 +32,7 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
@@ -456,11 +456,28 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   const isSaving = saveFetcher.state !== "idle";
   const { addToast } = useToast();
 
+  // Tracks the tree as it exists on the PDS — updated after each successful save
+  const savedTreeRef = useRef<TreeGroupNode[]>(tree);
+  const proceedAfterSaveRef = useRef(false);
+
+  const isDirty = useMemo(
+    () => JSON.stringify(tree) !== JSON.stringify(savedTreeRef.current),
+    [tree],
+  );
+
+  const blocker = useBlocker(isDirty);
+
   useEffect(() => {
     if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
     if (saveFetcher.data.ok) {
+      savedTreeRef.current = tree;
       addToast({ heading: "Order saved", variant: "primary" });
+      if (proceedAfterSaveRef.current) {
+        proceedAfterSaveRef.current = false;
+        blocker.proceed?.();
+      }
     } else if (saveFetcher.data.error) {
+      proceedAfterSaveRef.current = false;
       addToast({ heading: "Save failed", content: saveFetcher.data.error, variant: "danger", autoExpire: false });
     }
   }, [saveFetcher.state, saveFetcher.data]);
@@ -667,7 +684,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           type="button"
           variant="primary"
           onClick={handleSave}
-          disabled={isSaving}
+          disabled={isSaving || !isDirty}
         >
           {isSaving ? "Saving…" : "Save Order"}
         </Button>
@@ -680,6 +697,34 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         footer={null}
       >
         <CreateGroupModal onClose={close} />
+      </Modal>
+
+      <Modal
+        isOpen={blocker.state === "blocked"}
+        onClose={() => blocker.reset?.()}
+        title="Unsaved changes"
+        footer={
+          <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}>
+            <Button variant="secondary" onClick={() => blocker.reset?.()}>
+              Stay
+            </Button>
+            <Button variant="danger" onClick={() => blocker.proceed?.()}>
+              Discard & Leave
+            </Button>
+            <Button
+              variant="primary"
+              disabled={isSaving}
+              onClick={() => {
+                proceedAfterSaveRef.current = true;
+                handleSave();
+              }}
+            >
+              {isSaving ? "Saving…" : "Save & Leave"}
+            </Button>
+          </div>
+        }
+      >
+        <p>You have unsaved changes to the article order. What would you like to do?</p>
       </Modal>
     </PageContainer>
   );
