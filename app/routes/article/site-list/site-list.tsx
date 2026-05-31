@@ -36,7 +36,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
-import { SITE_COLLECTION } from "~/constants";
+import { SITE_COLLECTION, SLUG_RE } from "~/constants";
 
 type SiteArticleRef = {
   uri: string;
@@ -262,9 +262,14 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "createGroup") {
     const title = (formData.get("title") as string)?.trim();
     if (!title) return { error: "Group title is required." };
-    const slug = toSlug(title);
+    const slugInput = (formData.get("slug") as string)?.trim().toLowerCase();
+    const slug = slugInput || toSlug(title);
     if (!slug)
       return { error: "Title must contain at least one letter or number." };
+    if (!SLUG_RE.test(slug))
+      return {
+        error: "URL path must be lowercase letters, numbers and hyphens only.",
+      };
 
     if (useRealOAuth) {
       const agent = await getAtpAgent(did);
@@ -290,12 +295,12 @@ export async function action({ request, params }: Route.ActionArgs) {
       });
     }
 
-    return redirect(`/article/list/${siteSlug}`);
+    return { ok: true };
   }
 
   if (intent === "deleteGroup") {
     const rkey = formData.get("rkey") as string;
-    if (!rkey) return redirect(`/article/list/${siteSlug}`);
+    if (!rkey) return { ok: false, error: "Missing group ID." };
 
     if (useRealOAuth) {
       try {
@@ -319,10 +324,11 @@ export async function action({ request, params }: Route.ActionArgs) {
         });
       } catch (err) {
         console.error("Failed to delete group:", err);
+        return { ok: false, error: `Failed to delete group: ${String(err)}` };
       }
     }
 
-    return redirect(`/article/list/${siteSlug}`);
+    return { ok: true, deletedSlug: rkey };
   }
 
   if (intent === "saveSite") {
@@ -402,13 +408,25 @@ export async function action({ request, params }: Route.ActionArgs) {
   return redirect(`/article/list/${siteSlug}`);
 }
 
-function CreateGroupModal({ onClose }: { onClose: () => void }) {
+function CreateGroupModal({
+  onClose,
+  siteUrl,
+  urlPrefix,
+}: {
+  onClose: () => void;
+  siteUrl: string;
+  urlPrefix: string;
+}) {
   const fetcher = useFetcher<{ error?: string }>();
   const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const slugDirtyRef = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   const isPending = fetcher.state !== "idle";
+  const slugValid = slug === "" || SLUG_RE.test(slug);
+  const composedPath = [siteUrl, urlPrefix, slug].filter(Boolean).join("/");
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data && !fetcher.data.error) {
@@ -417,7 +435,10 @@ function CreateGroupModal({ onClose }: { onClose: () => void }) {
   }, [fetcher.state, fetcher.data]);
 
   return (
-    <fetcher.Form method="post">
+    <fetcher.Form
+      method="post"
+      style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}
+    >
       <input type="hidden" name="_intent" value="createGroup" />
       <Input
         id="group-title"
@@ -425,19 +446,54 @@ function CreateGroupModal({ onClose }: { onClose: () => void }) {
         label="Group title"
         placeholder="e.g. Engineering"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        error={fetcher.data?.error}
+        onChange={(e) => {
+          const value = e.target.value;
+          setTitle(value);
+          if (!slugDirtyRef.current) setSlug(toSlug(value));
+        }}
         autoFocus
       />
-      <Button type="submit" disabled={isPending || !title.trim()}>
-        {isPending ? "Creating…" : "Proceed"}
+      <Input
+        id="group-slug"
+        name="slug"
+        label="URL path"
+        placeholder="e.g. engineering"
+        value={slug}
+        onChange={(e) => {
+          slugDirtyRef.current = true;
+          setSlug(e.target.value.toLowerCase());
+        }}
+        error={
+          !slugValid
+            ? "Lowercase letters, numbers and hyphens only."
+            : undefined
+        }
+      />
+      {slug && slugValid && (
+        <p style={{ fontSize: "1.2rem", color: "var(--mid-grey)", margin: 0 }}>
+          Path: <code>{composedPath}</code>
+        </p>
+      )}
+      {fetcher.data?.error && (
+        <p style={{ fontSize: "1.3rem", color: "var(--red)", margin: 0 }}>
+          {fetcher.data.error}
+        </p>
+      )}
+      <p style={{ fontSize: "1.2rem", color: "var(--mid-grey)", margin: 0 }}>
+        The URL path cannot be changed after the group is created.
+      </p>
+      <Button
+        type="submit"
+        disabled={isPending || !title.trim() || !slug || !slugValid}
+      >
+        {isPending ? "Creating…" : "Create Group"}
       </Button>
     </fetcher.Form>
   );
 }
 
 export function HydrateFallback() {
-  return <Spinner />;
+  return <Spinner size="large" />;
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
@@ -454,11 +510,80 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   const previousTreeRef = useRef<TreeGroupNode[]>(tree);
   const saveFetcher = useFetcher<{ ok?: boolean; error?: string }>();
   const isSaving = saveFetcher.state !== "idle";
+
+  const deleteFetcher = useFetcher<{
+    ok?: boolean;
+    deletedSlug?: string;
+    error?: string;
+  }>();
+  const isDeleting = deleteFetcher.state !== "idle";
+  const deletingSlugRef = useRef<string | null>(null);
+
   const { addToast } = useToast();
 
   // Tracks the tree as it exists on the PDS — updated after each successful save
   const savedTreeRef = useRef<TreeGroupNode[]>(tree);
   const proceedAfterSaveRef = useRef(false);
+
+  // Track which group slugs are already in the tree so we can detect new ones
+  // added server-side (after createGroup revalidates the loader).
+  const knownGroupSlugsRef = useRef<Set<string>>(
+    new Set(site.groups.map((g) => g.slug)),
+  );
+
+  useEffect(() => {
+    const newGroups = site.groups.filter(
+      (g) => !knownGroupSlugsRef.current.has(g.slug),
+    );
+    if (newGroups.length === 0) return;
+
+    newGroups.forEach((g) => knownGroupSlugsRef.current.add(g.slug));
+
+    const newNodes: TreeGroupNode[] = newGroups.map((g) => ({
+      kind: "group",
+      id: groupId(g.slug),
+      slug: g.slug,
+      title: g.title,
+      children: [],
+    }));
+
+    setTree((prev) => {
+      const updated = [...prev, ...newNodes];
+      // Keep savedTreeRef in sync so new (already-persisted) groups
+      // don't register as unsaved changes.
+      savedTreeRef.current = [...savedTreeRef.current, ...newNodes];
+      return updated;
+    });
+
+    if (newGroups.length === 1) {
+      addToast({ heading: "Group created", content: newGroups[0].title, variant: "primary" });
+    } else {
+      addToast({ heading: `${newGroups.length} groups added`, variant: "primary" });
+    }
+  }, [site.groups]);
+
+  useEffect(() => {
+    if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
+    if (deleteFetcher.data.ok && deleteFetcher.data.deletedSlug) {
+      const slug = deleteFetcher.data.deletedSlug;
+      deletingSlugRef.current = null;
+      knownGroupSlugsRef.current.delete(slug);
+      setTree((prev) => {
+        const updated = prev.filter((g) => g.slug !== slug);
+        savedTreeRef.current = savedTreeRef.current.filter(
+          (g) => g.slug !== slug,
+        );
+        return updated;
+      });
+    } else if (deleteFetcher.data.error) {
+      addToast({
+        heading: "Delete failed",
+        content: deleteFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }, [deleteFetcher.state, deleteFetcher.data]);
 
   const isDirty = useMemo(
     () => JSON.stringify(tree) !== JSON.stringify(savedTreeRef.current),
@@ -478,7 +603,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       }
     } else if (saveFetcher.data.error) {
       proceedAfterSaveRef.current = false;
-      addToast({ heading: "Save failed", content: saveFetcher.data.error, variant: "danger", autoExpire: false });
+      addToast({
+        heading: "Save failed",
+        content: saveFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
     }
   }, [saveFetcher.state, saveFetcher.data]);
 
@@ -597,6 +727,14 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     setActiveGroup(null);
   }
 
+  function handleDeleteGroup(slug: string) {
+    deletingSlugRef.current = slug;
+    const formData = new FormData();
+    formData.set("_intent", "deleteGroup");
+    formData.set("rkey", slug);
+    deleteFetcher.submit(formData, { method: "post" });
+  }
+
   function handleSave() {
     const siteData = treeToSiteData(tree);
     const formData = new FormData();
@@ -650,6 +788,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                   isRoot={group.id === "g:root"}
                   articleMode="site"
                   urlAndPrefix={urlAndPrefix}
+                  onDeleteConfirm={handleDeleteGroup}
+                  isDeleting={
+                    isDeleting && deletingSlugRef.current === group.slug
+                  }
                 />
               ))}
             </GroupList>
@@ -696,7 +838,11 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         title="Add new group"
         footer={null}
       >
-        <CreateGroupModal onClose={close} />
+        <CreateGroupModal
+          onClose={close}
+          siteUrl={site.url}
+          urlPrefix={site.urlPrefix}
+        />
       </Modal>
 
       <Modal
@@ -704,7 +850,13 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onClose={() => blocker.reset?.()}
         title="Unsaved changes"
         footer={
-          <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              justifyContent: "flex-end",
+            }}
+          >
             <Button variant="secondary" onClick={() => blocker.reset?.()}>
               Stay
             </Button>
@@ -724,7 +876,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           </div>
         }
       >
-        <p>You have unsaved changes to the article order. What would you like to do?</p>
+        <p>
+          You have unsaved changes to the article order. What would you like to
+          do?
+        </p>
       </Modal>
     </PageContainer>
   );

@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { Spinner } from "../Spinner/Spinner";
 import styles from "./GroupItem.module.css";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 import {
@@ -33,6 +34,8 @@ interface GroupItemProps {
   isRoot?: boolean;
   articleMode?: "pds" | "site";
   urlAndPrefix?: string;
+  onDeleteConfirm?: (slug: string) => void;
+  isDeleting?: boolean;
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
@@ -45,6 +48,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
   isRoot = false,
   articleMode = "pds",
   urlAndPrefix,
+  onDeleteConfirm,
+  isDeleting = false,
 }) => {
   const {
     attributes,
@@ -76,7 +81,11 @@ const GroupItem: React.FC<GroupItemProps> = ({
 
   const handleConfirmDelete = () => {
     deleteModal.close();
-    deleteFormRef.current?.submit();
+    if (onDeleteConfirm) {
+      onDeleteConfirm(slug);
+    } else {
+      deleteFormRef.current?.submit();
+    }
   };
 
   if (isRoot) {
@@ -173,9 +182,13 @@ const GroupItem: React.FC<GroupItemProps> = ({
                 className={styles.deleteGroupButton}
                 type="submit"
                 variant="danger"
-                disabled={articleChildren.length !== 0}
+                disabled={articleChildren.length !== 0 || isDeleting}
               >
-                <SvgIcon name={SvgImageList.Trash} fill="var(--white)" />
+                {isDeleting ? (
+                  <Spinner size="small" />
+                ) : (
+                  <SvgIcon name={SvgImageList.Trash} fill="var(--white)" />
+                )}
               </Button>
             </Tooltip>
           </Form>
