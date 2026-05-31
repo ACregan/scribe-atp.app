@@ -1,10 +1,23 @@
 .spinner {
-  width: 4rem;
-  height: 4rem;
   border: 0.3rem solid rgba(255, 255, 255, 0.2);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+.small {
+  border-width: 0.3rem;
+  width: 2rem;
+  height: 2rem;
+}
+.medium {
+  border-width: 0.6rem;
+  width: 4rem;
+  height: 4rem;
+}
+.large {
+  border-width: 0.9rem;
+  width: 8rem;
+  height: 8rem;
 }
 
 @keyframes spin {
@@ -14,8 +27,10 @@
 }
 
 .overlay {
-  position: absolute;
-  inset: 0;
+  /* position: absolute;
+  inset: 0; */
+  position: fixed;
+  inset: 8rem 0 6rem 6rem;
   background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
