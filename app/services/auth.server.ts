@@ -15,7 +15,8 @@ const isProduction = process.env.NODE_ENV === "production";
 export const useRealOAuth =
   isProduction || process.env.DEV_USE_REAL_OAUTH === "true";
 
-const publicUrl = process.env.PUBLIC_URL ?? "https://scribe-atp.app";
+export const PUBLIC_URL_DEFAULT = "https://scribe-atp.app";
+const publicUrl = process.env.PUBLIC_URL ?? PUBLIC_URL_DEFAULT;
 const devPort = process.env.DEV_PORT ?? "5173";
 
 const clientId = useRealOAuth
@@ -51,6 +52,16 @@ function requestLock<T>(key: string, fn: () => T | PromiseLike<T>): Promise<T> {
   return next;
 }
 
+// Stable OAuth metadata fields — identical in client-metadata.ts and here.
+// Exported so client-metadata.ts can spread them rather than duplicating.
+export const OAUTH_METADATA_STATIC = {
+  grant_types: ["authorization_code", "refresh_token"],
+  response_types: ["code"],
+  token_endpoint_auth_method: "none",
+  application_type: "web",
+  dpop_bound_access_tokens: true,
+};
+
 export const oauthClient = new NodeOAuthClient({
   requestLock,
   clientMetadata: {
@@ -59,6 +70,7 @@ export const oauthClient = new NodeOAuthClient({
     client_uri: isProduction ? publicUrl : "http://localhost",
     redirect_uris: [redirectUri],
     scope: OAUTH_SCOPE,
+    // Keep in sync with OAUTH_METADATA_STATIC below
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
     token_endpoint_auth_method: "none",

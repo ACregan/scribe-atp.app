@@ -8,7 +8,7 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import styles from "../../sites/sites.module.css";
 
-const SITE_COLLECTION = "app.scribe.site";
+import { SITE_COLLECTION } from "~/constants";
 
 type SiteRef = {
   rkey: string;

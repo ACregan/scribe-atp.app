@@ -18,10 +18,7 @@ import {
 } from "~/services/auth.server";
 import { SiteTile, type SiteData } from "~/components/SiteTile/SiteTile";
 
-const SITE_COLLECTION = "app.scribe.site";
-
-// Domain must contain at least one dot, no spaces, valid hostname chars
-const DOMAIN_RE = /^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/;
+import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
 
 type ActionData = { ok: boolean; error?: string };
 

@@ -6,8 +6,7 @@ import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
 
-const SITE_COLLECTION = "app.scribe.site";
-const DOMAIN_RE = /^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/;
+import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 

@@ -14,9 +14,7 @@ import {
 } from "~/services/auth.server";
 import { useState } from "react";
 
-const COLLECTION = "app.scribe.article";
-const SITE_COLLECTION = "app.scribe.site";
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 
 type SiteOption = { rkey: string; title: string; url: string };
 
@@ -72,7 +70,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   if (!useRealOAuth) {
     return {
-      uri: `at://${did}/${COLLECTION}/${url}`,
+      uri: `at://${did}/${ARTICLE_COLLECTION}/${url}`,
       devMode: true,
       title,
     };
@@ -82,10 +80,10 @@ export async function action({ request }: Route.ActionArgs) {
     const agent = await getAtpAgent(did);
     const result = await agent.com.atproto.repo.createRecord({
       repo: did,
-      collection: COLLECTION,
+      collection: ARTICLE_COLLECTION,
       rkey: url,
       record: {
-        $type: COLLECTION,
+        $type: ARTICLE_COLLECTION,
         title,
         content,
         url,

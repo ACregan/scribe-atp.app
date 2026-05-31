@@ -6,7 +6,7 @@ import {
   useRealOAuth,
 } from "~/services/auth.server";
 
-const COLLECTION = "app.scribe.article";
+import { ARTICLE_COLLECTION } from "~/constants";
 
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.title ? `${data.title} – Scribe ATP` : "Scribe ATP" }];
@@ -28,7 +28,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const agent = await getAtpAgent(did);
   const result = await agent.com.atproto.repo.getRecord({
     repo: did,
-    collection: COLLECTION,
+    collection: ARTICLE_COLLECTION,
     rkey: params.articleUrl,
   });
 

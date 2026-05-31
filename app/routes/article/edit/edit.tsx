@@ -10,9 +10,7 @@ import {
 } from "~/services/auth.server";
 import { useState } from "react";
 
-const COLLECTION = "app.scribe.article";
-const SITE_COLLECTION = "app.scribe.site";
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 
 type SiteOption = { rkey: string; title: string; url: string };
 
@@ -91,12 +89,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 
   const agent = await getAtpAgent(did);
-  const articleUri = `at://${did}/${COLLECTION}/${params.articleUrl}`;
+  const articleUri = `at://${did}/${ARTICLE_COLLECTION}/${params.articleUrl}`;
 
   const [articleResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.getRecord({
       repo: did,
-      collection: COLLECTION,
+      collection: ARTICLE_COLLECTION,
       rkey: params.articleUrl,
     }),
     agent.com.atproto.repo.listRecords({
@@ -163,12 +161,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (!useRealOAuth) return redirect("/article/list");
 
   const agent = await getAtpAgent(did);
-  const oldArticleUri = `at://${did}/${COLLECTION}/${oldRkey}`;
-  const newArticleUri = `at://${did}/${COLLECTION}/${newUrl}`;
+  const oldArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${oldRkey}`;
+  const newArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${newUrl}`;
   const slugChanged = newUrl !== oldRkey;
 
   const record = {
-    $type: COLLECTION,
+    $type: ARTICLE_COLLECTION,
     title,
     content,
     url: newUrl,
@@ -180,14 +178,14 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (slugChanged) {
       await agent.com.atproto.repo.createRecord({
         repo: did,
-        collection: COLLECTION,
+        collection: ARTICLE_COLLECTION,
         rkey: newUrl,
         record,
       });
       await agent.com.atproto.repo
         .deleteRecord({
           repo: did,
-          collection: COLLECTION,
+          collection: ARTICLE_COLLECTION,
           rkey: oldRkey,
           swapRecord: cid ?? undefined,
         })
@@ -197,7 +195,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     } else {
       await agent.com.atproto.repo.putRecord({
         repo: did,
-        collection: COLLECTION,
+        collection: ARTICLE_COLLECTION,
         rkey: oldRkey,
         record,
         swapRecord: cid ?? undefined,

@@ -11,10 +11,11 @@ import { Button } from "~/components/Button/Button";
 import { useFetcher } from "react-router";
 import styles from "./home.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
+import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
-const SCRIBE_COLLECTIONS = ["app.scribe.article", "app.scribe.site"];
+const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, SITE_COLLECTION];
 
 export function meta({}: Route.MetaArgs) {
   return [

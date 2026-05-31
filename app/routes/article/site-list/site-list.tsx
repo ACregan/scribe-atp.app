@@ -36,7 +36,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
-const SITE_COLLECTION = "app.scribe.site";
+import { SITE_COLLECTION } from "~/constants";
 
 type SiteArticleRef = {
   uri: string;

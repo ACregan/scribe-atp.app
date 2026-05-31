@@ -7,6 +7,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   server: {
-    allowedHosts: ["fabulous-mode-difficulties-kyle.trycloudflare.com"],
+    // without https: or trailing slash
+    allowedHosts: ["member-simpson-looksmart-class.trycloudflare.com"],
   },
 });

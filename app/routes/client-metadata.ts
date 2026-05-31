@@ -1,8 +1,8 @@
 import type { Route } from "./+types/client-metadata";
-import { OAUTH_SCOPE } from "~/services/auth.server";
+import { OAUTH_SCOPE, OAUTH_METADATA_STATIC, PUBLIC_URL_DEFAULT } from "~/services/auth.server";
 
 export async function loader({}: Route.LoaderArgs) {
-  const publicUrl = process.env.PUBLIC_URL ?? "https://scribe-atp.app";
+  const publicUrl = process.env.PUBLIC_URL ?? PUBLIC_URL_DEFAULT;
 
   return new Response(
     JSON.stringify({
@@ -11,11 +11,7 @@ export async function loader({}: Route.LoaderArgs) {
       client_uri: publicUrl,
       redirect_uris: [`${publicUrl}/auth/callback`],
       scope: OAUTH_SCOPE,
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "none",
-      application_type: "web",
-      dpop_bound_access_tokens: true,
+      ...OAUTH_METADATA_STATIC,
     }),
     {
       headers: {
