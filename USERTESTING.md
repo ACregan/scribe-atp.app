@@ -66,9 +66,9 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
 
 ###### ACTION ITEM LIST
 
-- [ ] Improve the UX on `/article/list/SITENAME`, when user clicks `ADD NEW GROUP`, fills out the Group Name input and clicks `PROCEED` button, there should be user feedback, a progress spinner perhaps and once the group has been added the modal should close and the view update with the recently added group showing. **_NEEDS MORE WORK - What is the expected behaviour?_**
-  - [ ] Add a more prominent activity indicator than just `PROCEED` button label momentarily changing to `CREATING`
-  - [ ] Once the group has been created the modal should close and the page should update to show the new group.
+- [x] Improve the UX on `/article/list/SITENAME`, when user clicks `ADD NEW GROUP`, fills out the Group Name input and clicks `PROCEED` button, there should be user feedback, a progress spinner perhaps and once the group has been added the modal should close and the view update with the recently added group showing. **_NEEDS MORE WORK - What is the expected behaviour?_**
+  - [x] Add a more prominent activity indicator than just `PROCEED` button label momentarily changing to `CREATING`
+  - [x] Once the group has been created the modal should close and the page should update to show the new group.
 
 - [x] Style Group Item component, it looks drab and unstyled.
   - [x] Better background colour
@@ -92,3 +92,20 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
 
 - [ ] `<Toast>`: Add a countdown timer around the X close button when it is set to autoexpire.
   - [ ] Hover should pause it (?) **_HAVE A THINK ABOUT BEHAVIOUR_**
+
+---
+
+##### 31-05-26
+
+Lots of good progress made on the above, whilst testing the above implemetations we started to encounter other issues
+
+###### Observations
+
+DRAFT NEW ARTICLE UX
+The UX is suboptimal for CREATE/DRAFT NEW ARTICLE. Once you have navigated to `/article/create`, filled out the required inputs and submitted your new article with the SAVE TO PDS button. The article is saved as you might expect but the user is kept on the page (after a brief loading spinner interval). If the user adds more content then again presses SAVE TO PDS again then it exhibits the same behaviour but the subsequent changes are not persisted.
+Do we navigate the user back to the articles page (maybe we should have a 'recent articles' section on `/article/list` view?).
+ANother option is to merge create and edit into one route but that could be messier. **_NEEDS MORE THOUGHT_**
+
+###### ACTION ITEM LIST
+
+- [ ] Draft New Article UX improvements **_THINK ABOUT HOW BEST TO GO ABOUT THIS_**
