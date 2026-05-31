@@ -51,6 +51,13 @@ Article routes (`/article/*`) are additionally wrapped by a protected layout at 
 
 Route types are auto-generated — run `npx react-router typegen` after adding a route to `routes.ts`, or they will be generated on the next `dev`/`build`.
 
+When adding a new route, export a `HydrateFallback` that returns `<Spinner />` — this shows during the brief initial hydration window rather than an unstyled blank or text placeholder:
+```tsx
+export function HydrateFallback() {
+  return <Spinner />;
+}
+```
+
 ## Auth architecture
 
 All auth logic lives in **`app/services/auth.server.ts`** (server-only, never imported client-side).
@@ -212,6 +219,11 @@ Key design decisions for `app.scribe.site`:
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
 
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
+
+Key behaviours on this route:
+- **Dirty tracking** — `savedTreeRef` holds the tree as last saved (initialised from loader, updated on successful save). `isDirty` is computed via `useMemo` using `JSON.stringify` comparison. The Save Order button is disabled until `isDirty` is true.
+- **Navigation blocker** — `useBlocker(isDirty)` intercepts any React Router navigation when there are unsaved changes. A modal appears with three options: **Stay** (`blocker.reset()`), **Discard & Leave** (`blocker.proceed()`), **Save & Leave** (triggers save, then calls `blocker.proceed()` from the fetcher effect via `proceedAfterSaveRef`).
+- **Save feedback** — success shows a primary toast (auto-expires); error shows a danger toast with `autoExpire: false` so it persists until dismissed.
 
 ### Nuke tool
 

@@ -76,10 +76,10 @@ When you click `SAVE ORDER` button the acknowledgement is just a bit of green te
   - [x] Use the Trash icon instead of DELETE text for consistency
   - [x] Add Tooltips where they'll be useful.
 
-- [ ] SAVE ORDER button behaviour
-  - [ ] disabled until the order is not the same as that on the PDS
-  - [ ] warn user if they try to navigate away from the page if they have changed the order but not saved it
-  - [ ] Improve the `Order Saved` notification, build a Toast component.
+- [x] SAVE ORDER button behaviour
+  - [x] disabled until the order is not the same as that on the PDS
+  - [x] warn user if they try to navigate away from the page if they have changed the order but not saved it
+  - [x] Improve the `Order Saved` notification, build a Toast component.
 
 ###### New Components List
 
