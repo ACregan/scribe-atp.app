@@ -176,6 +176,7 @@ This breaks any existing AT URIs pointing to the old rkey.
   content: string,       // HTML, produced by the RichTextEditor
   url: string,           // same as rkey
   splashImageUrl?: string,
+  synopsis?: string,
   createdAt: string,     // ISO 8601
 }
 ```
@@ -205,7 +206,9 @@ This breaks any existing AT URIs pointing to the old rkey.
 {
   uri: string,           // full AT URI e.g. at://did/app.scribe.article/slug
   title: string,
+  url: string,           // article slug — same as rkey, convenient for consumers who don't want to parse the URI
   splashImageUrl: string | null,
+  synopsis: string | null,
   createdAt: string,
 }
 ```
@@ -217,6 +220,8 @@ Key design decisions for `app.scribe.site`:
 - Groups and article order within groups are authoritative — the site record is the manifest
 - `updatedAt` is useful for cache invalidation by public readers
 - Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
+- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. When adding a new article field, add it to `ArticleRef` in the same PR and update the four construction/propagation sites: `create.tsx` (articleRef), `edit.tsx` (newArticleRef), and `site-list.tsx` (`SiteArticleRef` type + `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps).
+- **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every site the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member sites without any manual re-ordering.
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
 
@@ -302,7 +307,7 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid?`, `mode?: "pds" \| "site"`. `id` is the dnd-kit sortable id (`a:{slug}`). In `"pds"` mode (default): Delete button removes the record from the PDS. In `"site"` mode: Remove button removes the article from the site record only (`_intent=removeArticle, uri`). Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
 | `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
 | `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`, `onDeleteConfirm?: (slug: string) => void`, `isDeleting?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and the `TreeArticle` interface (`cid?` optional). `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has articles). When `onDeleteConfirm` is provided, confirmation calls it instead of submitting the form natively — this is the correct path for fetcher-based deletes. `isDeleting` replaces the trash icon with `<Spinner size="small" />` and disables the button. `articleMode` is forwarded to each `ArticleItem` child. |
-| `Select` | `app/components/Select/Select.tsx` | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a checkbox list. Both modes post standard form values under `name`. |
+| `Select` | `app/components/Select/Select.tsx` | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a dropdown trigger styled like `<select>` that opens a checkbox list on click; collapses showing "Select options" / single label / "{n} selected" summary; closes on click-outside or Escape. Both modes post standard form values under `name` (multi-select uses hidden inputs per selected value). |
 | `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (links to `/sites`), article list (also links to `/sites` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
