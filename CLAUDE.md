@@ -13,6 +13,7 @@ An AT Protocol-driven content management system. Authors write and store article
 - **lexical / @lexical/react** (+ @lexical/rich-text, @lexical/list, @lexical/code, @lexical/link, @lexical/html, @lexical/selection) — WYSIWYG rich text editor (article content stored as HTML)
 - **@dnd-kit/core**, **@dnd-kit/sortable**, **@dnd-kit/utilities** — drag-and-drop for article/group reordering on `/article/list`
 - **classnames** — CSS class composition utility
+- **vitest** + **@testing-library/react** + **@testing-library/jest-dom** — unit/component testing
 - Production server: `react-router-serve` on port 3008
 
 ## Environment variables
@@ -23,6 +24,7 @@ An AT Protocol-driven content management system. Authors write and store article
 | `PUBLIC_URL` | Prod | Base URL e.g. `https://scribe-atp.app` — drives `client_id` and `redirect_uri` |
 | `DEV_USE_REAL_OAUTH` | Optional | Set to `"true"` to use real Bluesky OAuth in dev (requires tunnel, see below) |
 | `DEV_PORT` | Optional | Dev server port if not 5173 |
+| `DEV_TUNNEL_HOST` | Optional | Cloudflare tunnel hostname (without `https://`) — added to Vite's `allowedHosts` so the dev server accepts requests from the tunnel URL |
 
 The app will throw on startup if `SESSION_SECRET` is missing.
 
@@ -381,6 +383,68 @@ The `client_id` is a plain URL (`${publicUrl}/client-metadata.json`) with no ver
 
 **To add a new OAuth scope:** update `OAUTH_SCOPE` in `app/services/auth.server.ts` only — `client-metadata.ts` and `login.tsx` consume it automatically. Then ask users to re-authenticate (revoke at https://bsky.social/account and log in again).
 
+## Public hooks (`app/hooks/`)
+
+`app/hooks/usePublicSiteArticles.ts` (re-exported via `app/hooks/index.ts`) provides React hooks that read Scribe ATP data directly from the AT Protocol — no auth, no API backend. Intended to be copied into consumer websites (not imported as a package — there is no published npm artifact yet).
+
+### Hooks
+
+| Hook | Purpose |
+|---|---|
+| `usePublicSiteArticles(authorDid, siteSlug, groupSlug?)` | Fetches a site record from the PDS; returns `{ data, loading, error }`. `data` is the result of `useSiteArticles` (see below). `groupSlug` filters to a single group. |
+| `useSiteArticles(site)` | Pure computation hook — takes an already-fetched `SiteData` object and returns query helpers without any network calls. |
+| `useSiteArticlesDirect(authorDid, siteSlug, groupSlug?)` | Convenience wrapper; returns `{ articles, loading, error }` — flat `SiteArticleRef[]`. |
+| `useSiteGroupsDirect(authorDid, siteSlug)` | Convenience wrapper; returns `{ groups, loading, error }` — `SiteGroup[]`. |
+
+### Returned methods from `useSiteArticles`
+
+`allArticles()`, `getArticlesByGroup(slug)`, `getArticleBySlug(slug)`, `getArticleByUri(uri)`, `groups()`, `getGroupBySlug(slug)`, `isArticleInAnyGroup(uri)`, `getUngroupedArticles()`
+
+### Helper functions (pure, no hooks)
+
+`slugFromUri(uri)`, `flattenSiteArticles(site)`, `getGroupArticles(site, groupSlug)`, `getGroupSlugs(site)`, `isArticleInGroup(site, groupSlug, uri)`, `findArticleGroup(site, uri)`
+
+### Types
+
+`SiteArticleRef { uri, title, splashImageUrl, createdAt }`, `SiteGroup { slug, title, articles }`, `SiteData { rkey, cid, url, title, urlPrefix, groups, articles }`
+
+### ⚠️ PDS endpoint limitation
+
+`fetchSiteFromPds` always proxies through `https://public.api.bsky.app`. This works for `did:plc` identifiers on bsky.social but will fail for `did:web` or self-hosted PDS instances. Resolving the correct PDS URL requires calling `com.atproto.identity.resolveDid` and checking the `#atproto_pds` service endpoint — not yet implemented.
+
+### Handle resolution
+
+`authorDid` can be a handle (e.g. `"user.bsky.social"`) — the hook resolves it to a DID via `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle` before fetching the site record.
+
+## Testing
+
+The project uses **Vitest** with **React Testing Library** for component unit tests.
+
+### Config
+
+- `vitest.config.ts` — standalone Vitest config (separate from `vite.config.ts`); sets `jsdom` environment, global test APIs, `~/` alias
+- `test.setup.ts` — global setup: imports `@testing-library/jest-dom` matchers and registers an `afterEach` cleanup
+- `vite.config.ts` skips the `reactRouter()` plugin when `process.env.VITEST` is set, preventing React Router's build plugin from interfering with tests
+
+### Test file conventions
+
+- Co-located with components: `app/components/Foo/Foo.test.tsx`
+- Child components are mocked with `vi.mock(...)` to isolate the component under test
+- React Router primitives (`Form`, `Link`) are mocked per-file
+- dnd-kit hooks (`useSortable`) are mocked to return static values
+
+### Running tests
+
+```bash
+npm test             # watch mode
+npm run test:run     # single run (CI)
+npm run test:coverage  # with coverage report
+```
+
+### Coverage targets
+
+Tests exist for: `ArticleForm`, `ArticleItem`, `ArticleList`. All other components in `app/components/` are candidates — see `TEST_SETUP.md` for the full checklist.
+
 ## Key commands
 
 ```bash
@@ -388,5 +452,7 @@ npm run dev          # start dev server (port 5173)
 npm run build        # production build
 npm run start        # serve production build (port 3008)
 npm run typecheck    # react-router typegen + tsc
+npm test             # run tests in watch mode
+npm run test:run     # run tests once (CI)
 npx react-router typegen  # regenerate route types after adding routes
 ```

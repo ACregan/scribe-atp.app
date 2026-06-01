@@ -340,7 +340,8 @@ export function usePublicSiteArticles(
     };
   }, [authorDid, siteSlug, groupSlug]);
 
-  const data = site ? useSiteArticles(site) : null;
+  const siteData = useSiteArticles(site);
+  const data = site ? siteData : null;
 
   return { data, loading, error };
 }
