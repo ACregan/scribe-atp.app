@@ -234,15 +234,15 @@ describe("ArticleForm", () => {
 
   describe("error display", () => {
     it("should not render error message when no error", () => {
-      render(
+      const { container } = render(
         <ArticleForm
           sites={mockSites}
           selectedSites={[]}
           onSitesChange={mockOnSitesChange}
         />,
       );
-
-      expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
+      // No styled error paragraph should be present
+      expect(container.querySelector("p[style]")).not.toBeInTheDocument();
     });
 
     it("should render error message when provided", () => {
@@ -290,7 +290,7 @@ describe("ArticleForm", () => {
       expect(sections.length).toBeGreaterThanOrEqual(3);
     });
 
-    it("should render sections in correct order", () => {
+    it("should group title/url/splash in one section and editor in a separate section", () => {
       render(
         <ArticleForm
           sites={mockSites}
@@ -299,18 +299,26 @@ describe("ArticleForm", () => {
         />,
       );
 
-      const sections = screen.getAllByTestId("page-section");
-
-      // First section should contain title input
-      expect(sections[0]).toContainElement(screen.getByTestId("input-title"));
-
-      // Second section should contain select (when sites exist)
-      expect(sections[1]).toContainElement(screen.getByTestId("select-sites"));
-
-      // Third section should contain editor
-      expect(sections[2]).toContainElement(
-        screen.getByTestId("editor-content"),
+      // The three text inputs share a section
+      const titleSection = screen
+        .getByTestId("input-title")
+        .closest("[data-testid='page-section']");
+      expect(titleSection).toContainElement(screen.getByTestId("input-url"));
+      expect(titleSection).toContainElement(
+        screen.getByTestId("input-splashImageUrl"),
       );
+
+      // The editor and select each live in their own distinct sections
+      const editorSection = screen
+        .getByTestId("editor-content")
+        .closest("[data-testid='page-section']");
+      const selectSection = screen
+        .getByTestId("select-sites")
+        .closest("[data-testid='page-section']");
+
+      expect(editorSection).not.toBe(titleSection);
+      expect(selectSection).not.toBe(titleSection);
+      expect(selectSection).not.toBe(editorSection);
     });
   });
 

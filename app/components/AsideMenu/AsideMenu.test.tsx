@@ -1,11 +1,10 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import AsideMenu from "./AsideMenu";
 
 // Mock Tooltip component
 vi.mock("../Tooltip/Tooltip", () => ({
-  __esModule: true,
   default: ({
     children,
     anchorName,
@@ -36,7 +35,6 @@ vi.mock("../Tooltip/Tooltip", () => ({
 
 // Mock SvgIcon component
 vi.mock("../SvgIcon/SvgIcon", () => ({
-  __esModule: true,
   default: ({ name, fill }: { name: string; fill?: string }) => (
     <svg data-testid={`icon-${name}`} fill={fill} />
   ),
@@ -51,7 +49,6 @@ vi.mock("../SvgIcon/SvgIcon", () => ({
 
 // Mock Button component
 vi.mock("../Button/Button", () => ({
-  __esModule: true,
   Button: ({
     children,
     type,
@@ -98,7 +95,6 @@ describe("AsideMenu", () => {
     it("should render all four menu items", () => {
       renderWithRouter(<AsideMenu />);
 
-      // Check for menu item links by their tooltip content
       expect(screen.getByText("Dashboard")).toBeInTheDocument();
       expect(screen.getByText("Sites")).toBeInTheDocument();
       expect(screen.getByText("Article List")).toBeInTheDocument();
@@ -107,8 +103,6 @@ describe("AsideMenu", () => {
 
     it("should render the logout button", () => {
       renderWithRouter(<AsideMenu />);
-
-      // Check for logout tooltip content
       expect(screen.getByText("Logout")).toBeInTheDocument();
     });
 
@@ -135,7 +129,6 @@ describe("AsideMenu", () => {
     it("should render tooltip bubbles with correct pointer location", () => {
       renderWithRouter(<AsideMenu />);
 
-      // All tooltips should have left pointer location (for right-side anchoring)
       const tooltipBubbles = screen.getAllByTestId("tooltip-bubble-left");
       expect(tooltipBubbles).toHaveLength(5); // 4 menu items + logout
     });
@@ -148,7 +141,6 @@ describe("AsideMenu", () => {
       const links = screen.getAllByRole("link");
       expect(links).toHaveLength(4);
 
-      // Check that links have correct href attributes
       const hrefs = links.map((link) => link.getAttribute("href"));
       expect(hrefs).toContain("/");
       expect(hrefs).toContain("/sites");
@@ -170,10 +162,9 @@ describe("AsideMenu", () => {
       renderWithRouter(<AsideMenu />);
 
       const buttons = screen.getAllByRole("button");
-      // Should have 4 menu buttons + 1 logout button = 5 buttons
+      // 4 menu buttons + 1 logout button
       expect(buttons).toHaveLength(5);
 
-      // Each button should contain an SVG
       buttons.forEach((button) => {
         const svg = button.querySelector("svg");
         expect(svg).toBeInTheDocument();
@@ -188,7 +179,6 @@ describe("AsideMenu", () => {
       const aside = screen.getByRole("complementary");
       const containers = aside.querySelectorAll("div");
 
-      // Should have at least 2 containers (top and bottom)
       expect(containers.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -198,7 +188,6 @@ describe("AsideMenu", () => {
       const aside = screen.getByRole("complementary");
       const containers = aside.querySelectorAll("div");
 
-      // First container should have 4 menu item links
       const topContainer = containers[0];
       const links = topContainer.querySelectorAll("a");
       expect(links).toHaveLength(4);
@@ -210,7 +199,6 @@ describe("AsideMenu", () => {
       const aside = screen.getByRole("complementary");
       const containers = aside.querySelectorAll("div");
 
-      // Find the container that has the form (bottom container)
       const bottomContainer = Array.from(containers).find((container) =>
         container.querySelector("form"),
       );
@@ -222,9 +210,8 @@ describe("AsideMenu", () => {
     it("should render a form for logout", () => {
       renderWithRouter(<AsideMenu />);
 
-      // Find the form that contains the logout button
       const buttons = screen.getAllByRole("button");
-      const logoutButton = buttons[buttons.length - 1]; // Last button is logout
+      const logoutButton = buttons[buttons.length - 1];
       const form = logoutButton.closest("form");
       expect(form).toBeInTheDocument();
     });
@@ -251,9 +238,8 @@ describe("AsideMenu", () => {
       renderWithRouter(<AsideMenu />);
 
       const buttons = screen.getAllByRole("button");
-      const logoutButton = buttons[buttons.length - 1]; // Last button is logout
+      const logoutButton = buttons[buttons.length - 1];
 
-      // Check that it's inside the form and has submit type
       const form = logoutButton.closest("form");
       expect(form).toBeInTheDocument();
       expect(logoutButton).toHaveAttribute("type", "submit");
@@ -263,7 +249,7 @@ describe("AsideMenu", () => {
       renderWithRouter(<AsideMenu />);
 
       const buttons = screen.getAllByRole("button");
-      const logoutButton = buttons[buttons.length - 1]; // Last button is logout
+      const logoutButton = buttons[buttons.length - 1];
 
       expect(logoutButton).toHaveAttribute("data-variant", "danger");
     });
@@ -271,7 +257,6 @@ describe("AsideMenu", () => {
     it("should render logout button with exit icon", () => {
       renderWithRouter(<AsideMenu />);
 
-      // The logout button should contain the exit icon
       const buttons = screen.getAllByRole("button");
       const logoutButton = buttons[buttons.length - 1];
       const svg = logoutButton.querySelector("svg");
@@ -294,7 +279,6 @@ describe("AsideMenu", () => {
     it("should render tooltips with right anchor position", () => {
       renderWithRouter(<AsideMenu />);
 
-      // Get all tooltip wrapper divs (they have data-testid starting with "tooltip-")
       const tooltips = screen.getAllByTestId(/tooltip-(?!content|bubble)/);
       tooltips.forEach((tooltip) => {
         expect(tooltip).toHaveAttribute("data-anchor-position", "right");
@@ -304,10 +288,8 @@ describe("AsideMenu", () => {
     it("should render tooltip content with strong labels", () => {
       renderWithRouter(<AsideMenu />);
 
-      // Check that tooltip content contains strong elements with labels
       const tooltipContents = screen.getAllByTestId(/tooltip-content-/);
 
-      // Each tooltip content should contain a strong element
       tooltipContents.forEach((content) => {
         const strong = content.querySelector("strong");
         expect(strong).toBeInTheDocument();
@@ -316,32 +298,12 @@ describe("AsideMenu", () => {
   });
 
   describe("Accessibility", () => {
-    it("should render aside with complementary role", () => {
-      renderWithRouter(<AsideMenu />);
-
-      const aside = screen.getByRole("complementary");
-      expect(aside).toBeInTheDocument();
-    });
-
-    it("should render navigation links", () => {
-      renderWithRouter(<AsideMenu />);
-
-      const links = screen.getAllByRole("link");
-      expect(links).toHaveLength(4);
-
-      // All links should be focusable
-      links.forEach((link) => {
-        expect(link).toBeVisible();
-      });
-    });
-
     it("should render buttons that are focusable", () => {
       renderWithRouter(<AsideMenu />);
 
       const buttons = screen.getAllByRole("button");
       expect(buttons).toHaveLength(5);
 
-      // All buttons should be focusable
       buttons.forEach((button) => {
         expect(button).toBeVisible();
       });
@@ -369,7 +331,6 @@ describe("AsideMenu", () => {
     it("should have correct labels for each menu item", () => {
       renderWithRouter(<AsideMenu />);
 
-      // Check that each menu item has its label in the tooltip
       expect(screen.getByText("Dashboard")).toBeInTheDocument();
       expect(screen.getByText("Sites")).toBeInTheDocument();
       expect(screen.getByText("Article List")).toBeInTheDocument();
@@ -379,9 +340,6 @@ describe("AsideMenu", () => {
     it("should have correct icons for each menu item", () => {
       renderWithRouter(<AsideMenu />);
 
-      const links = screen.getAllByRole("link");
-
-      // Check icons by their test IDs
       expect(screen.getByTestId("icon-home")).toBeInTheDocument();
       expect(screen.getByTestId("icon-website")).toBeInTheDocument();
       expect(screen.getByTestId("icon-documents")).toBeInTheDocument();

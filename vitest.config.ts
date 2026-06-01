@@ -14,7 +14,7 @@ export default defineConfig({
     include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     coverage: {
       reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "src/test/"],
+      exclude: ["node_modules/", "test.setup.ts"],
     },
   },
 });

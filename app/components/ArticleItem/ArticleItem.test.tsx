@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import React from "react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import ArticleItem from "./ArticleItem";
+import ArticleItem, { ArticleItemPreview } from "./ArticleItem";
 
 // Mock useSortable from @dnd-kit/sortable
 vi.mock("@dnd-kit/sortable", () => ({
@@ -23,25 +24,15 @@ vi.mock("@dnd-kit/utilities", () => ({
   },
 }));
 
-// Mock React Router
+// Mock React Router — Form uses forwardRef so deleteFormRef is populated
 vi.mock("react-router", () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
-  Form: ({
-    children,
-    method,
-    onSubmit,
-    className,
-    style,
-  }: {
-    children: React.ReactNode;
-    method?: string;
-    onSubmit?: (e: React.FormEvent) => void;
-    className?: string;
-    style?: React.CSSProperties;
-  }) => (
+  Form: React.forwardRef<HTMLFormElement, React.ComponentPropsWithRef<"form">>(
+  ({ children, method, onSubmit, className, style }, ref) => (
     <form
+      ref={ref}
       method={method}
       onSubmit={onSubmit}
       className={className}
@@ -49,7 +40,7 @@ vi.mock("react-router", () => ({
     >
       {children}
     </form>
-  ),
+  )),
 }));
 
 // Mock useModal with a mutable reference
@@ -125,6 +116,7 @@ describe("ArticleItem", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    useModalMock.isOpen = false;
   });
 
   describe("rendering", () => {
@@ -207,12 +199,12 @@ describe("ArticleItem", () => {
   describe("delete functionality (pds mode)", () => {
     it("should include hidden inputs for delete intent in pds mode", () => {
       render(<ArticleItem {...defaultProps} mode="pds" />);
-      const container = document.body;
-      const form = container.querySelector("form");
-      expect(form).toBeInTheDocument();
-      const intentInput = form?.querySelector('input[name="_intent"]');
-      const rkeyInput = form?.querySelector('input[name="rkey"]');
-      const cidInput = form?.querySelector('input[name="cid"]');
+      const listItem = screen.getByRole("listitem");
+      const scopedForm = listItem.querySelector("form");
+      expect(scopedForm).toBeInTheDocument();
+      const intentInput = scopedForm?.querySelector('input[name="_intent"]');
+      const rkeyInput = scopedForm?.querySelector('input[name="rkey"]');
+      const cidInput = scopedForm?.querySelector('input[name="cid"]');
 
       expect(intentInput).toHaveValue("deleteArticle");
       expect(rkeyInput).toHaveValue(defaultProps.uri.split("/").pop());
@@ -220,25 +212,41 @@ describe("ArticleItem", () => {
     });
 
     it("should open modal when Delete button is clicked", () => {
-      useModalMock.isOpen = false;
-      useModalMock.open.mockClear();
-
       render(<ArticleItem {...defaultProps} mode="pds" />);
       const deleteButton = screen.getByRole("button", { name: /delete/i });
       fireEvent.click(deleteButton);
 
       expect(useModalMock.open).toHaveBeenCalled();
     });
+
+    it("should submit the form when confirm delete is clicked", () => {
+      useModalMock.isOpen = true;
+      const submitSpy = vi
+        .spyOn(HTMLFormElement.prototype, "submit")
+        .mockImplementation(() => {});
+
+      render(<ArticleItem {...defaultProps} mode="pds" />);
+      // Click the confirm Delete button inside the modal
+      const modal = screen.getByRole("dialog");
+      const confirmButton = within(modal).getByRole("button", {
+        name: /delete/i,
+      });
+      fireEvent.click(confirmButton);
+
+      expect(useModalMock.close).toHaveBeenCalled();
+      expect(submitSpy).toHaveBeenCalled();
+      submitSpy.mockRestore();
+    });
   });
 
   describe("remove functionality (site mode)", () => {
     it("should include hidden inputs for remove intent in site mode", () => {
       render(<ArticleItem {...defaultProps} mode="site" />);
-      const container = document.body;
-      const form = container.querySelector("form");
-      expect(form).toBeInTheDocument();
-      const intentInput = form?.querySelector('input[name="_intent"]');
-      const uriInput = form?.querySelector('input[name="uri"]');
+      const listItem = screen.getByRole("listitem");
+      const scopedForm = listItem.querySelector("form");
+      expect(scopedForm).toBeInTheDocument();
+      const intentInput = scopedForm?.querySelector('input[name="_intent"]');
+      const uriInput = scopedForm?.querySelector('input[name="uri"]');
 
       expect(intentInput).toHaveValue("removeArticle");
       expect(uriInput).toHaveValue(defaultProps.uri);
@@ -258,7 +266,6 @@ describe("ArticleItem", () => {
 
   describe("modal", () => {
     it("should not render modal when not open", () => {
-      useModalMock.isOpen = false;
       render(<ArticleItem {...defaultProps} />);
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -290,8 +297,6 @@ describe("ArticleItem", () => {
   describe("drag and drop", () => {
     it("should render drag handle with icon", () => {
       const { container } = render(<ArticleItem {...defaultProps} />);
-      // The drag handle container should exist and contain an SVG icon
-      // Find the div that contains the svg-icon
       const svgIcon = container.querySelector('[data-testid="svg-icon"]');
       expect(svgIcon).toBeInTheDocument();
       expect(svgIcon).toHaveAttribute("data-icon", "drag-handle");
@@ -322,8 +327,7 @@ describe("ArticleItem", () => {
   });
 
   describe("ArticleItemPreview", () => {
-    it("should render preview without buttons", async () => {
-      const { ArticleItemPreview } = await import("./ArticleItem");
+    it("should render preview without buttons", () => {
       render(
         <ArticleItemPreview
           title="Preview Title"
@@ -338,8 +342,7 @@ describe("ArticleItem", () => {
       expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
 
-    it("should render preview as a list item", async () => {
-      const { ArticleItemPreview } = await import("./ArticleItem");
+    it("should render preview as a list item", () => {
       const { container } = render(
         <ArticleItemPreview
           title="Preview Title"

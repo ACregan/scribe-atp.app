@@ -39,32 +39,34 @@ describe("Button", () => {
   });
 
   describe("Variants", () => {
-    it("should have primary variant by default", () => {
+    it("should apply primary variant class by default", () => {
       const { container } = render(<Button>Primary</Button>);
       const button = container.querySelector("button");
-      // Check that it has the button class and primary class
       expect(button?.className).toContain("button");
-      expect(button?.className).toMatch(/button/);
+      expect(button?.className).toContain("primary");
     });
 
-    it("should apply primary variant when specified", () => {
+    it("should apply primary variant class when specified", () => {
       const { container } = render(<Button variant="primary">Primary</Button>);
       const button = container.querySelector("button");
       expect(button?.className).toContain("button");
+      expect(button?.className).toContain("primary");
     });
 
-    it("should apply secondary variant when specified", () => {
+    it("should apply secondary variant class when specified", () => {
       const { container } = render(
         <Button variant="secondary">Secondary</Button>,
       );
       const button = container.querySelector("button");
       expect(button?.className).toContain("button");
+      expect(button?.className).toContain("secondary");
     });
 
-    it("should apply danger variant when specified", () => {
+    it("should apply danger variant class when specified", () => {
       const { container } = render(<Button variant="danger">Danger</Button>);
       const button = container.querySelector("button");
       expect(button?.className).toContain("button");
+      expect(button?.className).toContain("danger");
     });
 
     it("should have different classes for different variants", () => {
@@ -82,7 +84,6 @@ describe("Button", () => {
       const secondaryButton = secondaryContainer.querySelector("button");
       const dangerButton = dangerContainer.querySelector("button");
 
-      // Each variant should have its own class
       expect(primaryButton?.className).not.toBe(secondaryButton?.className);
       expect(secondaryButton?.className).not.toBe(dangerButton?.className);
       expect(primaryButton?.className).not.toBe(dangerButton?.className);
@@ -103,7 +104,6 @@ describe("Button", () => {
         <Button className="my-custom-class">Button</Button>,
       );
       const button = container.querySelector("button");
-      // Should have both the base button class and custom class
       expect(button?.className).toContain("my-custom-class");
       expect(button?.className).toMatch(/button/);
     });
@@ -189,7 +189,6 @@ describe("Button", () => {
       render(<Button>Click me</Button>);
       const button = screen.getByRole("button");
       fireEvent.click(button);
-      // If we get here without errors, the click worked
       expect(button).toBeInTheDocument();
     });
 
@@ -266,7 +265,6 @@ describe("Button", () => {
     it("should not be focusable when disabled", () => {
       render(<Button disabled>Disabled</Button>);
       const button = screen.getByRole("button");
-      // Disabled buttons are not in the tab order
       expect(button).toBeDisabled();
     });
 
@@ -309,11 +307,9 @@ describe("Button", () => {
       expect(handleReset).toHaveBeenCalledTimes(1);
     });
 
-    it("should have button type by default", () => {
+    it("should have no type attribute when type prop is omitted", () => {
       render(<Button>Default</Button>);
       const button = screen.getByRole("button");
-      // When no type is specified, the button doesn't have a type attribute set
-      // but behaves as type="submit" by default in HTML
       expect(button).not.toHaveAttribute("type");
     });
   });
