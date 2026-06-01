@@ -1,0 +1,43 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.textarea {
+  padding: 0.8rem 1.2rem;
+  font-size: 1.6rem;
+  font-family: inherit;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  background: var(--white);
+  color: var(--black, #000);
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.textareaError {
+  border-color: var(--red);
+}
+
+.errorContainer {
+  display: flex;
+  align-items: center;
+  height: 1.8rem;
+}
+
+.error {
+  font-size: 1.2rem;
+  color: var(--red);
+}
