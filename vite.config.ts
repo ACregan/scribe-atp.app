@@ -1,13 +1,17 @@
 import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig } from "vite";
+import path from "path";
 
 export default defineConfig({
-  plugins: [reactRouter()],
+  plugins: process.env.VITEST ? [] : [reactRouter()],
   resolve: {
     tsconfigPaths: true,
+    alias: {
+      "~": path.resolve(__dirname, "./app"),
+    },
   },
   server: {
     // without https: or trailing slash
-    allowedHosts: ["member-simpson-looksmart-class.trycloudflare.com"],
+    allowedHosts: ["successful-wendy-bibliographic-colour.trycloudflare.com"],
   },
 });
