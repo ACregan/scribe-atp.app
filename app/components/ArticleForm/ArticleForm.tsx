@@ -1,4 +1,5 @@
 import { Input } from "~/components/Input/Input";
+import { Textarea } from "~/components/Textarea/Textarea";
 import { Select } from "~/components/Select/Select";
 import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import { PageSection } from "~/components/PageContainer/PageContainer";
@@ -9,6 +10,7 @@ type ArticleFormProps = {
   defaultTitle?: string;
   defaultUrl?: string;
   defaultSplashImageUrl?: string;
+  defaultSynopsis?: string;
   defaultContent?: string;
   sites: SiteOption[];
   selectedSites: string[];
@@ -20,6 +22,7 @@ export function ArticleForm({
   defaultTitle,
   defaultUrl,
   defaultSplashImageUrl,
+  defaultSynopsis,
   defaultContent,
   sites,
   selectedSites,
@@ -49,6 +52,14 @@ export function ArticleForm({
           name="splashImageUrl"
           label="Splash image URL"
           defaultValue={defaultSplashImageUrl}
+        />
+        <Textarea
+          id="synopsis"
+          name="synopsis"
+          label="Synopsis"
+          rows={3}
+          placeholder="Brief description of the article..."
+          defaultValue={defaultSynopsis}
         />
       </PageSection>
 
