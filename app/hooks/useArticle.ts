@@ -23,6 +23,7 @@ async function fetchArticle(
     content: value.content ?? "",
     url: value.url ?? articleSlug,
     splashImageUrl: value.splashImageUrl,
+    synopsis: value.synopsis,
     createdAt: value.createdAt ?? "",
   };
 }
