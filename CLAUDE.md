@@ -425,7 +425,7 @@ The `client_id` is a plain URL (`${publicUrl}/client-metadata.json`) with no ver
 
 ## Testing
 
-The project uses **Vitest** with **React Testing Library** for component unit tests.
+The project uses **Vitest** with **React Testing Library** for component unit tests, plus pure function tests for data-transformation utilities.
 
 ### Config
 
@@ -435,10 +435,33 @@ The project uses **Vitest** with **React Testing Library** for component unit te
 
 ### Test file conventions
 
-- Co-located with components: `app/components/Foo/Foo.test.tsx`
+- Component tests co-located: `app/components/Foo/Foo.test.tsx`
+- Utility/pure-function tests co-located with source: `app/hooks/utils.test.ts`, `app/constants.test.ts`, `app/routes/article/site-list/siteTree.test.ts`
 - Child components are mocked with `vi.mock(...)` to isolate the component under test
-- React Router primitives (`Form`, `Link`) are mocked per-file
-- dnd-kit hooks (`useSortable`) are mocked to return static values
+- React Router primitives (`Form`, `Link`, `NavLink`) are mocked per-file
+- dnd-kit hooks (`useSortable`, `useDndContext`) are mocked to return static values; `vi.hoisted()` is required for any mock variable referenced inside a `vi.mock()` factory
+- Lexical editor internals are mocked wholesale in `RichTextEditor.test.tsx` and `ToolbarPlugin.test.tsx`; `useLexicalComposerContext` is mocked via `vi.hoisted`
+
+### Test philosophy
+
+- **Prefer testing observable behaviour** over implementation details — what the user sees, what handlers get called, what the DOM communicates
+- **Pure function tests** are highest value: no mocking needed and they catch silent data corruption (e.g. the `buildTreeFromSite`/`treeToSiteData` round-trip catching a dropped field)
+- **Component tests** mock aggressively to isolate the unit; they verify rendering and interaction, not business logic
+- **Business logic lives in route loaders/actions** — those are the next priority for test coverage
+
+### siteTree utilities
+
+`app/routes/article/site-list/siteTree.ts` contains the pure data-transformation functions extracted from `site-list.tsx`:
+
+| Export | Purpose |
+|---|---|
+| `buildTreeFromSite(site)` | Converts a `SiteData` record into a `TreeGroupNode[]` DnD tree (root node + named groups) |
+| `treeToSiteData(tree)` | Inverse — converts the DnD tree back to `{ groups, articles }` for writing to the PDS |
+| `toSlug(title)` | Converts a group title to a URL slug (lowercase, spaces→hyphens, strip specials) |
+| `slugFromUri(uri)` | Returns the final path segment of an AT URI |
+| `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`) |
+
+**Critical invariant:** `treeToSiteData(buildTreeFromSite(site))` must reproduce the original `{ groups, articles }` exactly — including every `ArticleRef` field (`url`, `synopsis`, `splashImageUrl`, etc.). The round-trip tests in `siteTree.test.ts` enforce this.
 
 ### Running tests
 
@@ -448,9 +471,17 @@ npm run test:run     # single run (CI)
 npm run test:coverage  # with coverage report
 ```
 
-### Coverage targets
+### Current coverage
 
-Tests exist for: `ArticleForm`, `ArticleItem`, `ArticleList`. All other components in `app/components/` are candidates — see `TEST_SETUP.md` for the full checklist.
+All components in `app/components/` have test suites. Pure function coverage:
+
+| File | What's tested |
+|---|---|
+| `app/constants.test.ts` | `SLUG_RE`, `DOMAIN_RE` valid/invalid cases; collection name constants |
+| `app/hooks/utils.test.ts` | `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier` (DID passthrough, handle fetch, error) |
+| `app/routes/article/site-list/siteTree.test.ts` | `toSlug`, `buildTreeFromSite` field mapping, `treeToSiteData`, full round-trip suite |
+
+**Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
 
 ## Key commands
 
