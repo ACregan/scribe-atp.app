@@ -20,6 +20,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       title: "Dev mode article",
       content: "This is placeholder content for dev mode.",
       splashImageUrl: "",
+      synopsis: "",
       createdAt: new Date().toISOString(),
       url: params.articleUrl,
     };
@@ -36,13 +37,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     title: String(result.data.value.title ?? "(untitled)"),
     content: String(result.data.value.content ?? ""),
     splashImageUrl: String(result.data.value.splashImageUrl ?? ""),
+    synopsis: String(result.data.value.synopsis ?? ""),
     createdAt: String(result.data.value.createdAt ?? ""),
     url: params.articleUrl,
   };
 }
 
 export default function ViewArticle({ loaderData }: Route.ComponentProps) {
-  const { title, content, splashImageUrl, createdAt, url } = loaderData;
+  const { title, content, splashImageUrl, synopsis, createdAt, url } = loaderData;
 
   return (
     <div>
@@ -54,6 +56,9 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
         <p style={{ color: "gray", fontSize: "0.875rem" }}>
           {new Date(createdAt).toLocaleDateString()}
         </p>
+      )}
+      {synopsis && (
+        <p style={{ fontStyle: "italic", marginBottom: "1rem" }}>{synopsis}</p>
       )}
       <div dangerouslySetInnerHTML={{ __html: content }} />
       <hr />
