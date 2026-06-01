@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { resolveIdentifier, PUBLIC_API, type Site } from "./utils";
+import { resolveIdentifier, PUBLIC_API } from "./utils";
+import type { Site } from "./types";
 
 async function fetchSite(author: string, siteSlug: string): Promise<Site> {
   const did = await resolveIdentifier(author);

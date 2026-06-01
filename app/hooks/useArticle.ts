@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { resolveIdentifier, PUBLIC_API, type Article } from "./utils";
+import { resolveIdentifier, PUBLIC_API } from "./utils";
+import type { Article } from "./types";
 
 const ARTICLE_COLLECTION = "app.scribe.article";
 
