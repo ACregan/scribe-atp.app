@@ -1,7 +1,9 @@
 export interface ArticleRef {
   uri: string;
   title: string;
+  url?: string;
   splashImageUrl: string | null;
+  synopsis?: string | null;
   createdAt: string;
 }
 
@@ -27,6 +29,7 @@ export interface Article {
   content: string; // HTML produced by the Scribe rich text editor
   url: string;
   splashImageUrl?: string;
+  synopsis?: string;
   createdAt: string;
 }
 

@@ -49,6 +49,7 @@ export async function action({ request }: Route.ActionArgs) {
   const content = formData.get("content") as string;
   const url = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
+  const synopsis = formData.get("synopsis") as string;
   const selectedSiteRkeys = formData.getAll("sites") as string[];
 
   if (!title?.trim()) return { error: "Title is required." };
@@ -79,6 +80,7 @@ export async function action({ request }: Route.ActionArgs) {
         content,
         url,
         splashImageUrl: splashImageUrl?.trim() || undefined,
+        synopsis: synopsis?.trim() || undefined,
         createdAt: new Date().toISOString(),
       },
     });
@@ -87,7 +89,9 @@ export async function action({ request }: Route.ActionArgs) {
       const articleRef = {
         uri: result.data.uri,
         title,
+        url,
         splashImageUrl: splashImageUrl?.trim() || null,
+        synopsis: synopsis?.trim() || null,
         createdAt: new Date().toISOString(),
       };
 

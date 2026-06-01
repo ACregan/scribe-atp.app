@@ -12,7 +12,9 @@ import { ArticleForm, type SiteOption } from "~/components/ArticleForm/ArticleFo
 type ArticleRef = {
   uri: string;
   title: string;
+  url?: string;
   splashImageUrl: string | null;
+  synopsis?: string | null;
   createdAt: string;
 };
 
@@ -70,6 +72,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       content: "Dev mode content",
       url: params.articleUrl,
       splashImageUrl: "",
+      synopsis: "",
       cid: "dev-cid",
       sites: [
         { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
@@ -124,6 +127,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     content: String(articleResult.data.value.content ?? ""),
     url: String(articleResult.data.value.url ?? params.articleUrl),
     splashImageUrl: String(articleResult.data.value.splashImageUrl ?? ""),
+    synopsis: String(articleResult.data.value.synopsis ?? ""),
     cid: articleResult.data.cid ?? null,
     sites,
     currentSiteRkeys,
@@ -138,6 +142,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const content = formData.get("content") as string;
   const newUrl = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
+  const synopsis = formData.get("synopsis") as string;
   const cid = formData.get("cid") as string | null;
   const oldRkey = params.articleUrl;
   const newSiteRkeys = formData.getAll("sites") as string[];
@@ -166,6 +171,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     content,
     url: newUrl,
     splashImageUrl: splashImageUrl?.trim() || undefined,
+    synopsis: synopsis?.trim() || undefined,
     createdAt: new Date().toISOString(),
   };
 
@@ -210,11 +216,16 @@ export async function action({ request, params }: Route.ActionArgs) {
   const sitesToUpdate = oldSiteRkeys.filter(
     (r) => newSiteRkeys.includes(r) && slugChanged,
   );
+  const sitesToRefresh = oldSiteRkeys.filter(
+    (r) => newSiteRkeys.includes(r) && !slugChanged,
+  );
 
   const newArticleRef: ArticleRef = {
     uri: newArticleUri,
     title,
+    url: newUrl,
     splashImageUrl: splashImageUrl?.trim() || null,
+    synopsis: synopsis?.trim() || null,
     createdAt: new Date().toISOString(),
   };
 
@@ -239,6 +250,26 @@ export async function action({ request, params }: Route.ActionArgs) {
     }),
 
     ...sitesToUpdate.map(async (siteRkey) => {
+      const rec = await agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteRkey,
+      });
+      const updated = updateArticleUriInSiteValue(
+        rec.data.value as SiteRecord,
+        oldArticleUri,
+        newArticleRef,
+      );
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteRkey,
+        record: updated,
+        swapRecord: rec.data.cid,
+      });
+    }),
+
+    ...sitesToRefresh.map(async (siteRkey) => {
       const rec = await agent.com.atproto.repo.getRecord({
         repo: did,
         collection: SITE_COLLECTION,
@@ -286,7 +317,7 @@ export default function EditArticle({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { title, content, url, splashImageUrl, cid, sites, currentSiteRkeys } =
+  const { title, content, url, splashImageUrl, synopsis, cid, sites, currentSiteRkeys } =
     loaderData;
 
   const [selectedSites, setSelectedSites] = useState<string[]>(
@@ -314,6 +345,7 @@ export default function EditArticle({
           defaultTitle={title}
           defaultUrl={url}
           defaultSplashImageUrl={splashImageUrl}
+          defaultSynopsis={synopsis}
           defaultContent={content}
           sites={sites}
           selectedSites={selectedSites}

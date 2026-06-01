@@ -41,7 +41,9 @@ import { SITE_COLLECTION, SLUG_RE } from "~/constants";
 type SiteArticleRef = {
   uri: string;
   title: string;
+  url?: string;
   splashImageUrl: string | null;
+  synopsis?: string | null;
   createdAt: string;
 };
 
@@ -66,7 +68,9 @@ type TreeArticleNode = {
   id: string;
   uri: string;
   title: string;
+  url?: string;
   splashImageUrl: string | null;
+  synopsis?: string | null;
   createdAt: string;
 };
 
@@ -109,7 +113,9 @@ function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
       id: articleId(slugFromUri(a.uri)),
       uri: a.uri,
       title: a.title,
+      url: a.url,
       splashImageUrl: a.splashImageUrl,
+      synopsis: a.synopsis,
       createdAt: a.createdAt,
     })),
   };
@@ -124,7 +130,9 @@ function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
       id: articleId(slugFromUri(a.uri)),
       uri: a.uri,
       title: a.title,
+      url: a.url,
       splashImageUrl: a.splashImageUrl,
+      synopsis: a.synopsis,
       createdAt: a.createdAt,
     })),
   }));
@@ -145,7 +153,9 @@ function treeToSiteData(tree: TreeGroupNode[]): {
         articles.push({
           uri: child.uri,
           title: child.title,
+          url: child.url,
           splashImageUrl: child.splashImageUrl,
+          synopsis: child.synopsis,
           createdAt: child.createdAt,
         });
       }
@@ -156,7 +166,9 @@ function treeToSiteData(tree: TreeGroupNode[]): {
         articles: node.children.map((c) => ({
           uri: c.uri,
           title: c.title,
+          url: c.url,
           splashImageUrl: c.splashImageUrl,
+          synopsis: c.synopsis,
           createdAt: c.createdAt,
         })),
       });
