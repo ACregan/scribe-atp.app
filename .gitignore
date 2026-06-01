@@ -8,3 +8,5 @@
 # React Router
 /.react-router/
 /build/
+
+coverage/
