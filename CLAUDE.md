@@ -36,7 +36,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /logout                        logout     — destroys session cookie, redirects to /login
 /auth/callback                 callback   — OAuth redirect handler, sets session cookie
 /article/create                create     — write a new article to the PDS; multi-select assigns to sites
-/article/list                  list       — site picker; links into site-list
+/article/list                  list       — site picker + unassigned articles; links into site-list
 /article/list/:siteSlug        site-list  — site-scoped article/group management; reads/writes app.scribe.site
 /article/view/:articleUrl      view       — read-only display of a single article
 /article/edit/:articleUrl      edit       — edit an existing article; multi-select manages site assignment
@@ -224,6 +224,8 @@ Key design decisions for `app.scribe.site`:
 - **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every site the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member sites without any manual re-ordering.
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
+
+The `/article/list` route shows two sections: a site picker (links to `/article/list/:siteSlug` for each site) and an **Unassigned Articles** section listing any `app.scribe.article` records not referenced in any site's `articles` or `groups[x].articles`. The loader fetches both article and site records in parallel, builds a `Set` of referenced URIs from all site values, and returns the difference as `orphanedArticles`. The route has a `deleteArticle` action for removing orphaned articles directly. The section is hidden when there are no orphans.
 
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 

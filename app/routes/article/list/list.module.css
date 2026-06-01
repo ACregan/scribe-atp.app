@@ -1,0 +1,121 @@
+/* ── Site list ─────────────────────────────────────────────────────────────── */
+
+.siteList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.siteItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.6rem;
+  border: 0.2rem solid var(--black);
+  border-radius: 0.6rem;
+}
+
+.siteInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.siteTitle {
+  font-size: 1.6rem;
+}
+
+.siteUrl {
+  font-size: 1.3rem;
+  color: var(--mid-grey);
+  font-family: monospace;
+}
+
+.siteActions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+/* ── Unassigned articles ───────────────────────────────────────────────────── */
+
+.sectionHeading {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0 0 0.8rem;
+}
+
+.sectionNote {
+  font-size: 1.3rem;
+  color: var(--mid-grey);
+  margin: 0 0 1.2rem;
+}
+
+.orphanList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.orphanItem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: 3rem 2rem;
+  grid-template-areas:
+    "Title Buttons"
+    "Info  Buttons";
+  border: 0.2rem solid var(--black);
+  border-radius: 0.6rem;
+  box-sizing: border-box;
+}
+
+.orphanTitle {
+  grid-area: Title;
+  display: flex;
+  align-items: center;
+  padding-left: 1.2rem;
+  gap: 1rem;
+}
+
+.orphanTitle > strong {
+  font-size: 2.2rem;
+}
+
+.orphanTitle > span {
+  background: var(--mid-grey);
+  color: var(--white);
+  font-size: 1rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.4rem;
+}
+
+.orphanInfo {
+  grid-area: Info;
+  display: flex;
+  align-items: flex-start;
+  padding-left: 1.2rem;
+}
+
+.orphanButtons {
+  grid-area: Buttons;
+  display: flex;
+  align-items: center;
+  padding-right: 1rem;
+  gap: 0.5rem;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 3.2rem;
+  text-align: center;
+  color: var(--mid-grey);
+}
