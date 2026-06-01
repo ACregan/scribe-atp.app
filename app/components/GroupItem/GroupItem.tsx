@@ -90,40 +90,44 @@ const GroupItem: React.FC<GroupItemProps> = ({
 
   if (isRoot) {
     return (
-      <li ref={setSortableRef} className={styles.groupItem_root}>
-        <div className={styles.titleContainer_root}>
-          <strong className={styles.title}>{title}</strong>
-        </div>
-        <div className={styles.groupArticlesContainer}>
-          <SortableContext
-            items={childIds}
-            strategy={verticalListSortingStrategy}
-          >
-            <ul
-              className={`${styles.groupArticlesList} ${isOver && articleChildren.length === 0 ? styles.dropZoneOver : ""}`}
+      <>
+        <li ref={setSortableRef} className={styles.groupItem_root}>
+          <div className={styles.titleContainer_root}>
+            <strong className={styles.title}>Ungrouped Articles</strong>
+          </div>
+          <div className={styles.groupArticlesContainer}>
+            <SortableContext
+              items={childIds}
+              strategy={verticalListSortingStrategy}
             >
-              {articleChildren.map((article) => (
-                <ArticleItem
-                  key={article.id}
-                  id={article.id}
-                  uri={article.uri}
-                  cid={article.cid}
-                  title={article.title}
-                  createdAt={article.createdAt}
-                  mode={articleMode}
-                />
-              ))}
-              {articleChildren.length === 0 && (
-                <li
-                  className={`${styles.dropZone} ${isOver ? styles.dropZoneOver : ""}`}
-                >
-                  Drop articles here
-                </li>
-              )}
-            </ul>
-          </SortableContext>
-        </div>
-      </li>
+              <ul
+                className={`${styles.groupArticlesList} ${isOver && articleChildren.length === 0 ? styles.dropZoneOver : ""}`}
+              >
+                {articleChildren.map((article) => (
+                  <ArticleItem
+                    key={article.id}
+                    id={article.id}
+                    uri={article.uri}
+                    cid={article.cid}
+                    title={article.title}
+                    createdAt={article.createdAt}
+                    mode={articleMode}
+                  />
+                ))}
+                {articleChildren.length === 0 && (
+                  <li
+                    className={`${styles.dropZone} ${isOver ? styles.dropZoneOver : ""}`}
+                  >
+                    Drop articles here
+                  </li>
+                )}
+              </ul>
+            </SortableContext>
+          </div>
+        </li>
+        <hr style={{ margin: "1rem 0 0 0" }} />
+        <h4 className={styles.groupHeading}>Groups</h4>
+      </>
     );
   }
 

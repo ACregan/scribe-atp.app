@@ -11,19 +11,36 @@
   grid-auto-flow: column;
   grid-auto-rows: auto auto;
   grid-template-columns: 1fr;
-  grid-template-rows: min-content min-content;
+  grid-template-rows: 2rem min-content;
   gap: 0em 0em;
   grid-template-areas:
     "GroupItem_root_Heading"
     "GroupItem_ArticleList ";
 
-  /* border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--black);
   border-radius: 1.2rem;
-  background: var(--groupItem_root-background-colour); */
+  /* background: var(--groupItem_root-background-colour); */
+  margin-top: 1rem;
 }
 .titleContainer_root {
   grid-area: GroupItem_root_Heading;
   padding: 0 0 0 1rem;
+}
+.titleContainer_root > strong {
+  font-size: 2.4rem;
+  display: inline-block;
+  transform: translateY(-2rem);
+  padding: 0 0.5rem;
+  background: var(--white);
+}
+
+.groupHeading {
+  font-size: 2.4rem;
+  color: black;
+  /* display: inline-block;
+  transform: translateY(-2rem);
+  padding: 0 0.5rem;
+  background: var(--white); */
 }
 
 .groupItem {
