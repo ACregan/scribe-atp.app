@@ -42,8 +42,9 @@ describe("Tooltip", () => {
       </Tooltip>,
     );
     const child = screen.getByText("child");
-    // anchor-name CSS property should use sanitised form
-    expect(child.style.anchorName).toBe("--my-anchor-name");
+    // anchor-name is a CSS Anchor Positioning property set via the style prop
+    const anchorName = (child.style as unknown as Record<string, unknown>)["anchorName"];
+    expect(anchorName).toBe("--my-anchor-name");
   });
 
   it("renders multiple children when provided", () => {

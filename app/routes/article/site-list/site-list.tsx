@@ -37,146 +37,19 @@ import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
 import { SITE_COLLECTION, SLUG_RE } from "~/constants";
-
-type SiteArticleRef = {
-  uri: string;
-  title: string;
-  url?: string;
-  splashImageUrl: string | null;
-  synopsis?: string | null;
-  createdAt: string;
-};
-
-type SiteGroup = {
-  slug: string;
-  title: string;
-  articles: SiteArticleRef[];
-};
-
-type SiteData = {
-  rkey: string;
-  cid: string;
-  url: string;
-  title: string;
-  urlPrefix: string;
-  groups: SiteGroup[];
-  articles: SiteArticleRef[];
-};
-
-type TreeArticleNode = {
-  kind: "article";
-  id: string;
-  uri: string;
-  title: string;
-  url?: string;
-  splashImageUrl: string | null;
-  synopsis?: string | null;
-  createdAt: string;
-};
-
-type TreeGroupNode = {
-  kind: "group";
-  id: string;
-  slug: string;
-  title: string;
-  children: TreeArticleNode[];
-};
-
-function slugFromUri(uri: string): string {
-  return uri.split("/").pop()!;
-}
-
-function articleId(slug: string): string {
-  return `a:${slug}`;
-}
-
-function groupId(slug: string): string {
-  return `g:${slug}`;
-}
-
-function toSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-}
-
-function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
-  const root: TreeGroupNode = {
-    kind: "group",
-    id: "g:root",
-    slug: "root",
-    title: "Ungrouped",
-    children: (site.articles ?? []).map((a) => ({
-      kind: "article",
-      id: articleId(slugFromUri(a.uri)),
-      uri: a.uri,
-      title: a.title,
-      url: a.url,
-      splashImageUrl: a.splashImageUrl,
-      synopsis: a.synopsis,
-      createdAt: a.createdAt,
-    })),
-  };
-
-  const named: TreeGroupNode[] = (site.groups ?? []).map((g) => ({
-    kind: "group",
-    id: groupId(g.slug),
-    slug: g.slug,
-    title: g.title,
-    children: (g.articles ?? []).map((a) => ({
-      kind: "article",
-      id: articleId(slugFromUri(a.uri)),
-      uri: a.uri,
-      title: a.title,
-      url: a.url,
-      splashImageUrl: a.splashImageUrl,
-      synopsis: a.synopsis,
-      createdAt: a.createdAt,
-    })),
-  }));
-
-  return [root, ...named];
-}
-
-function treeToSiteData(tree: TreeGroupNode[]): {
-  groups: SiteGroup[];
-  articles: SiteArticleRef[];
-} {
-  const groups: SiteGroup[] = [];
-  const articles: SiteArticleRef[] = [];
-
-  for (const node of tree) {
-    if (node.id === "g:root") {
-      for (const child of node.children) {
-        articles.push({
-          uri: child.uri,
-          title: child.title,
-          url: child.url,
-          splashImageUrl: child.splashImageUrl,
-          synopsis: child.synopsis,
-          createdAt: child.createdAt,
-        });
-      }
-    } else {
-      groups.push({
-        slug: node.slug,
-        title: node.title,
-        articles: node.children.map((c) => ({
-          uri: c.uri,
-          title: c.title,
-          url: c.url,
-          splashImageUrl: c.splashImageUrl,
-          synopsis: c.synopsis,
-          createdAt: c.createdAt,
-        })),
-      });
-    }
-  }
-
-  return { groups, articles };
-}
+import {
+  type SiteArticleRef,
+  type SiteGroup,
+  type SiteData,
+  type TreeArticleNode,
+  type TreeGroupNode,
+  slugFromUri,
+  articleId,
+  groupId,
+  toSlug,
+  buildTreeFromSite,
+  treeToSiteData,
+} from "./siteTree";
 
 function findArticleLocation(
   tree: TreeGroupNode[],
