@@ -30,7 +30,7 @@ const AsideMenuItem: React.FC<AsideMenuItemProps> = ({
         }
       >
         <button>
-          <SvgIcon name={icon} />
+          <SvgIcon name={icon} fill="var(--white)" />
         </button>
       </Tooltip>
     </NavLink>
