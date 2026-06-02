@@ -76,7 +76,11 @@ const SvgIcon: React.FC<SVGiconProp> = ({
 
     case SvgImageList.Document:
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <svg
+          fill={fill}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+        >
           <path
             fillRule="evenodd"
             d="M298.667 64h-192v384h298.666V170.667zm64 341.333H149.333V106.667h85.334v128h128zm0-213.333h-85.334v-85.333h3.627l81.707 81.706z"
@@ -86,7 +90,11 @@ const SvgIcon: React.FC<SVGiconProp> = ({
 
     case SvgImageList.Documents:
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <svg
+          fill={fill}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+        >
           <path
             fillRule="evenodd"
             d="M234.667 170.667 320 256v213.333H85.333V170.667zm-17.686 42.666H128v213.334h149.333V273.685zm81.686-106.666L384 192v213.333h-42.667V209.685l-60.352-60.352H149.333v-42.666zm64-64L448 128v213.333h-42.667V145.685l-60.352-60.352H213.333V42.667z"

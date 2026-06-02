@@ -1,3 +1,19 @@
+/* <PageContainerHeading> component */
+.pageHeadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.headingIconContainer {
+  height: 6rem;
+  width: 6rem;
+  background: var(--blue-ribbon);
+  border: 0.2rem solid var(--black);
+  border-radius: 50%;
+  padding: 0.75rem;
+  margin-right: 1rem;
+}
+
 /* <PageContainer> component */
 .pageContainer {
   width: 100rem;
@@ -47,6 +63,7 @@
   justify-content: flex-end;
   border-top: 0.1rem solid var(--border, #e5e7eb);
   padding: 2rem;
+  gap: 1rem;
 }
 
 /* <PageSection> component */

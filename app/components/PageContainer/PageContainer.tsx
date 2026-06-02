@@ -1,5 +1,27 @@
 import React from "react";
 import styles from "./PageContainer.module.css";
+import SvgIcon, { type SvgImageListTypes } from "../SvgIcon/SvgIcon";
+
+interface PageContainerHeadingProps {
+  icon: SvgImageListTypes;
+  children: React.ReactNode;
+}
+
+const PageContainerHeading: React.FC<PageContainerHeadingProps> = ({
+  icon,
+  children,
+}) => {
+  return (
+    <div className={styles.pageHeadingContainer}>
+      {icon && (
+        <div className={styles.headingIconContainer}>
+          <SvgIcon name={icon} fill="var(--white)" />
+        </div>
+      )}
+      <h1>{children}</h1>
+    </div>
+  );
+};
 
 interface PageContainerProps {
   children: React.ReactNode;
@@ -38,4 +60,4 @@ interface PageSectionProps {
 const PageSection: React.FC<PageSectionProps> = ({ children }) => {
   return <div className={styles.pageSection}>{children}</div>;
 };
-export { PageContainer, PageSection };
+export { PageContainerHeading, PageContainer, PageSection };
