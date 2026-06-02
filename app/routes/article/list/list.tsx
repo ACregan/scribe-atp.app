@@ -15,7 +15,11 @@ import styles from "./list.module.css";
 type SiteRef = {
   rkey: string;
   title: string;
+  description: string;
   url: string;
+  urlPrefix: string;
+  logoImageUrl: string;
+  splashImageUrl: string;
 };
 
 type OrphanedArticle = {
@@ -86,11 +90,16 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const sites: SiteRef[] = sitesResult.data.records.map((record) => {
+    console.log("RECORD", record);
     const value = record.value as Record<string, unknown>;
     return {
       rkey: record.uri.split("/").pop()!,
       title: String(value.title ?? ""),
+      description: String(value.description ?? ""),
       url: String(value.url ?? ""),
+      urlPrefix: String(value.urlPrefix ?? ""),
+      logoImageUrl: String(value.logoImageUrl ?? ""),
+      splashImageUrl: String(value.splashImageUrl ?? ""),
     };
   });
 
@@ -128,6 +137,52 @@ export async function action({ request }: Route.ActionArgs) {
   return { ok: true };
 }
 
+const SiteListItem: React.FC<SiteRef> = ({
+  rkey,
+  title,
+  description,
+  url,
+  urlPrefix,
+  logoImageUrl,
+  splashImageUrl,
+}) => {
+  return (
+    <li className={styles.siteItem}>
+      <div className={styles.siteDetails}>
+        <div
+          className={styles.splashContainer}
+          style={
+            splashImageUrl
+              ? { backgroundImage: `url(${splashImageUrl})` }
+              : undefined // Fallback to gradient, set in list.module.css
+          }
+        >
+          <div
+            className={styles.logoContainer}
+            style={
+              logoImageUrl
+                ? { backgroundImage: `url(${logoImageUrl})` }
+                : undefined // Fallback to gradient, set in list.module.css
+            }
+          ></div>
+        </div>
+        <div className={styles.siteInfo}>
+          <strong className={styles.siteTitle}>{title}</strong>
+          <span className={styles.siteUrl}>
+            {url}
+            {urlPrefix ? `/${urlPrefix}` : null}
+          </span>
+        </div>
+      </div>
+      <div className={styles.siteActions}>
+        <Link to={`/article/list/${rkey}`}>
+          <Button type="button">Manage Articles</Button>
+        </Link>
+      </div>
+    </li>
+  );
+};
+
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   const { sites, orphanedArticles } = loaderData;
   const deleteModal = useModal();
@@ -151,24 +206,25 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       <PageSection>
         {sites.length === 0 ? (
           <p className={styles.emptyState}>
-            No sites yet.{" "}
-            <Link to="/sites">Add a site</Link> to get started.
+            No sites yet. <Link to="/sites">Add a site</Link> to get started.
           </p>
         ) : (
           <ul className={styles.siteList}>
-            {sites.map((site) => (
-              <li key={site.rkey} className={styles.siteItem}>
-                <div className={styles.siteInfo}>
-                  <strong className={styles.siteTitle}>{site.title}</strong>
-                  <span className={styles.siteUrl}>{site.url}</span>
-                </div>
-                <div className={styles.siteActions}>
-                  <Link to={`/article/list/${site.rkey}`}>
-                    <Button type="button">Manage Articles</Button>
-                  </Link>
-                </div>
-              </li>
-            ))}
+            {sites.map((site) => {
+              console.log(site);
+              return (
+                <SiteListItem
+                  key={site.rkey}
+                  rkey={site.rkey}
+                  title={site.title}
+                  description={site.description}
+                  url={site.url}
+                  urlPrefix={site.urlPrefix}
+                  logoImageUrl={site.logoImageUrl}
+                  splashImageUrl={site.splashImageUrl}
+                />
+              );
+            })}
           </ul>
         )}
       </PageSection>
@@ -231,7 +287,9 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         onClose={deleteModal.close}
         title="Delete Article"
         footer={
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+          <div
+            style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
+          >
             <Button onClick={deleteModal.close} variant="secondary">
               Cancel
             </Button>
@@ -241,7 +299,9 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
           </div>
         }
       >
-        <p>Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;?</p>
+        <p>
+          Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;?
+        </p>
       </Modal>
     </PageContainer>
   );
