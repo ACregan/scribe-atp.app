@@ -227,6 +227,8 @@ The `/site/:siteName/configure` route edits site metadata (`title`, `description
 
 The `/article/list` route shows two sections: a site picker (links to `/article/list/:siteSlug` for each site) and an **Unassigned Articles** section listing any `app.scribe.article` records not referenced in any site's `articles` or `groups[x].articles`. The loader fetches both article and site records in parallel, builds a `Set` of referenced URIs from all site values, and returns the difference as `orphanedArticles`. The route has a `deleteArticle` action for removing orphaned articles directly. The section is hidden when there are no orphans.
 
+The site picker renders each site as a `SiteListItem` (a local component in `list.tsx`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, and the site title + composed URL (`url/urlPrefix`). The loader maps `description`, `urlPrefix`, `logoImageUrl`, and `splashImageUrl` from the site record in addition to `rkey`, `title`, and `url`. Both image fields fall back to a CSS gradient when absent.
+
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
 Key behaviours on this route:

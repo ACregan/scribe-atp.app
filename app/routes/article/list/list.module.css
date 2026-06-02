@@ -72,6 +72,7 @@
   flex-direction: column;
   gap: 0.2rem;
   padding-left: 3rem;
+  cursor: help;
 }
 
 .siteTitle {
@@ -80,8 +81,20 @@
 
 .siteUrl {
   font-size: 1.3rem;
+  line-height: 1.3rem;
   color: var(--mid-grey);
   font-family: monospace;
+}
+.counts {
+}
+.groupCount,
+.articleCount {
+  font-size: 1rem;
+  background: var(--mid-grey);
+  color: var(--white);
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.4rem;
+  margin-right: 0.5rem;
 }
 
 .siteActions {

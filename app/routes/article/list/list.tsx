@@ -11,6 +11,7 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import styles from "./list.module.css";
+import Tooltip, { TooltipBubble } from "~/components/Tooltip/Tooltip";
 
 type SiteRef = {
   rkey: string;
@@ -20,6 +21,8 @@ type SiteRef = {
   urlPrefix: string;
   logoImageUrl: string;
   splashImageUrl: string;
+  groupCount: number;
+  articleCount: number;
 };
 
 type OrphanedArticle = {
@@ -40,11 +43,27 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!useRealOAuth) {
     return {
       sites: [
-        { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
+        {
+          rkey: "norobots-blog",
+          title: "NoRobots.blog",
+          description: "",
+          url: "norobots.blog",
+          urlPrefix: "blog",
+          logoImageUrl: "",
+          splashImageUrl: "",
+          groupCount: 2,
+          articleCount: 7,
+        },
         {
           rkey: "perpetualsummer-ltd",
           title: "Perpetual Summer LTD",
+          description: "",
           url: "perpetualsummer.ltd",
+          urlPrefix: "",
+          logoImageUrl: "",
+          splashImageUrl: "",
+          groupCount: 0,
+          articleCount: 3,
         },
       ] as SiteRef[],
       orphanedArticles: [
@@ -90,8 +109,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const sites: SiteRef[] = sitesResult.data.records.map((record) => {
-    console.log("RECORD", record);
     const value = record.value as Record<string, unknown>;
+    const groups = (value.groups as Array<{ articles: unknown[] }>) ?? [];
+    const topArticles = (value.articles as unknown[]) ?? [];
+    const articleCount =
+      groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0) +
+      topArticles.length;
     return {
       rkey: record.uri.split("/").pop()!,
       title: String(value.title ?? ""),
@@ -100,6 +123,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       urlPrefix: String(value.urlPrefix ?? ""),
       logoImageUrl: String(value.logoImageUrl ?? ""),
       splashImageUrl: String(value.splashImageUrl ?? ""),
+      groupCount: groups.length,
+      articleCount,
     };
   });
 
@@ -145,6 +170,8 @@ const SiteListItem: React.FC<SiteRef> = ({
   urlPrefix,
   logoImageUrl,
   splashImageUrl,
+  groupCount,
+  articleCount,
 }) => {
   return (
     <li className={styles.siteItem}>
@@ -166,13 +193,35 @@ const SiteListItem: React.FC<SiteRef> = ({
             }
           ></div>
         </div>
-        <div className={styles.siteInfo}>
-          <strong className={styles.siteTitle}>{title}</strong>
-          <span className={styles.siteUrl}>
-            {url}
-            {urlPrefix ? `/${urlPrefix}` : null}
-          </span>
-        </div>
+        <Tooltip
+          anchorName={rkey}
+          anchorPosition="top"
+          anchorContent={
+            <TooltipBubble pointerLocation="bottom">
+              {description}
+            </TooltipBubble>
+          }
+        >
+          <div className={styles.siteInfo}>
+            <strong className={styles.siteTitle}>{title}</strong>
+            <span className={styles.siteUrl}>
+              {url}
+              {urlPrefix ? `/${urlPrefix}` : null}
+            </span>
+            <div className={styles.counts}>
+              {groupCount > 0 && (
+                <span className={styles.articleCount}>
+                  {`${groupCount} GROUP${groupCount !== 1 ? "S" : ""}`}
+                </span>
+              )}
+              {articleCount > 0 && (
+                <span className={styles.groupCount}>
+                  {articleCount} ARTICLE{articleCount !== 1 ? "S" : ""}
+                </span>
+              )}
+            </div>
+          </div>
+        </Tooltip>
       </div>
       <div className={styles.siteActions}>
         <Link to={`/article/list/${rkey}`}>
@@ -210,21 +259,20 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
           </p>
         ) : (
           <ul className={styles.siteList}>
-            {sites.map((site) => {
-              console.log(site);
-              return (
-                <SiteListItem
-                  key={site.rkey}
-                  rkey={site.rkey}
-                  title={site.title}
-                  description={site.description}
-                  url={site.url}
-                  urlPrefix={site.urlPrefix}
-                  logoImageUrl={site.logoImageUrl}
-                  splashImageUrl={site.splashImageUrl}
-                />
-              );
-            })}
+            {sites.map((site) => (
+              <SiteListItem
+                key={site.rkey}
+                rkey={site.rkey}
+                title={site.title}
+                description={site.description}
+                url={site.url}
+                urlPrefix={site.urlPrefix}
+                logoImageUrl={site.logoImageUrl}
+                splashImageUrl={site.splashImageUrl}
+                groupCount={site.groupCount}
+                articleCount={site.articleCount}
+              />
+            ))}
           </ul>
         )}
       </PageSection>
