@@ -44,10 +44,8 @@ export function SiteTile({
           site.splashImageUrl
             ? {
                 backgroundImage: `url(${site.splashImageUrl})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
               }
-            : undefined
+            : undefined // Fallback to gradient, set in SiteTile.module.css
         }
       />
 

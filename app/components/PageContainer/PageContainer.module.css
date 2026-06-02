@@ -1,6 +1,7 @@
 /* <PageContainer> component */
 .pageContainer {
   width: 100rem;
+  max-width: calc(100vw - 6rem - 2rem - 2rem);
   /* min-height: calc(100dvh - 8rem - 6rem - 2rem); */
   height: fit-content;
   background-color: var(--white);
