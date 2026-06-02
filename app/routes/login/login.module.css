@@ -1,5 +1,18 @@
+.loginWrapper {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 .loginContainer {
   min-width: 40rem;
+  height: fit-content;
+  background-color: var(--white);
+  color: var(--black);
+  border-radius: 0.6rem;
+  box-shadow: 0 0.8rem 3.2rem rgba(0, 0, 0, 0.2);
+  margin: 2rem;
+  padding: 0 2rem;
 }
 
 .loginForm {
@@ -18,4 +31,21 @@
   height: 2rem;
   width: 2rem;
   margin-right: 0.5rem;
+}
+
+.signUp {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 1.3rem;
+  color: var(--gray);
+}
+.signUp > a {
+  font-weight: 700;
+  color: var(--blue-ribbon);
+  text-decoration: none;
+}
+.signUp > a:hover {
+  color: var(--blue-ribbon);
+  text-decoration-color: var(--blue-ribbon);
+  text-decoration: underline;
 }

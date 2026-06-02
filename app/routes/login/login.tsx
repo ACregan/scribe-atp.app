@@ -1,5 +1,5 @@
 import type { Route } from "./+types/login";
-import { Form, useSearchParams } from "react-router";
+import { Form, Link, useSearchParams } from "react-router";
 import { redirect } from "react-router";
 import { Input } from "~/components/Input/Input";
 import { Button } from "~/components/Button/Button";
@@ -73,30 +73,36 @@ export default function Login({
       : null);
 
   return (
-    <div className={styles.loginContainer}>
-      <h1>Login</h1>
-      {loaderData.isBypass && (
-        <p style={{ color: "orange" }}>
-          Dev mode: OAuth is bypassed. Any handle will be accepted.
-        </p>
-      )}
-      <Form method="post" className={styles.loginForm}>
-        <Input
-          id="bskyHandle"
-          type="text"
-          name="bskyHandle"
-          label="Bluesky Handle"
-          placeholder="you.bsky.social"
-          autoComplete="username"
-          error={error ?? undefined}
-        />
-        <Button type="submit">
-          <div className={styles.buttonContent}>
-            <SvgIcon fill="white" name={SvgImageList.SocialBlueSky} />
-            <span>Sign in with Bluesky</span>
-          </div>
-        </Button>
-      </Form>
+    <div className={styles.loginWrapper}>
+      <div className={styles.loginContainer}>
+        <h1>Login</h1>
+        {loaderData.isBypass && (
+          <p style={{ color: "orange" }}>
+            Dev mode: OAuth is bypassed. Any handle will be accepted.
+          </p>
+        )}
+        <Form method="post" className={styles.loginForm}>
+          <Input
+            id="bskyHandle"
+            type="text"
+            name="bskyHandle"
+            label="Bluesky Handle"
+            placeholder="you.bsky.social"
+            autoComplete="username"
+            error={error ?? undefined}
+          />
+          <Button type="submit">
+            <div className={styles.buttonContent}>
+              <SvgIcon fill="white" name={SvgImageList.SocialBlueSky} />
+              <span>Sign in with Bluesky</span>
+            </div>
+          </Button>
+          <p className={styles.signUp}>
+            Dont have a Bluesky account ?{" "}
+            <Link to="https://bsky.app/">Sign Up Here</Link>
+          </p>
+        </Form>
+      </div>
     </div>
   );
 }
