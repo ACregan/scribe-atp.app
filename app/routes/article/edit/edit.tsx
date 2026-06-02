@@ -4,10 +4,17 @@ import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
-import { PageContainer } from "~/components/PageContainer/PageContainer";
+import {
+  PageContainer,
+  PageContainerHeading,
+} from "~/components/PageContainer/PageContainer";
 import { Button } from "~/components/Button/Button";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
-import { ArticleForm, type SiteOption } from "~/components/ArticleForm/ArticleForm";
+import {
+  ArticleForm,
+  type SiteOption,
+} from "~/components/ArticleForm/ArticleForm";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 type ArticleRef = {
   uri: string;
@@ -50,9 +57,7 @@ function updateArticleUriInSiteValue(
     ),
     groups: (siteValue.groups ?? []).map((g) => ({
       ...g,
-      articles: (g.articles ?? []).map((a) =>
-        a.uri === oldUri ? newRef : a,
-      ),
+      articles: (g.articles ?? []).map((a) => (a.uri === oldUri ? newRef : a)),
     })),
     updatedAt: new Date().toISOString(),
   };
@@ -206,7 +211,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     console.error("Failed to update article:", err);
     return {
       error:
-        err instanceof Error ? err.message : "Failed to save. Please try again.",
+        err instanceof Error
+          ? err.message
+          : "Failed to save. Please try again.",
     };
   }
 
@@ -317,18 +324,29 @@ export default function EditArticle({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { title, content, url, splashImageUrl, synopsis, cid, sites, currentSiteRkeys } =
-    loaderData;
-
-  const [selectedSites, setSelectedSites] = useState<string[]>(
+  const {
+    title,
+    content,
+    url,
+    splashImageUrl,
+    synopsis,
+    cid,
+    sites,
     currentSiteRkeys,
-  );
+  } = loaderData;
+
+  const [selectedSites, setSelectedSites] =
+    useState<string[]>(currentSiteRkeys);
   const navigate = useNavigate();
   const { addToast } = useToast();
 
   useEffect(() => {
     if (!actionData?.ok) return;
-    addToast({ heading: "Article saved", content: actionData.title, variant: "primary" });
+    addToast({
+      heading: "Article saved",
+      content: actionData.title,
+      variant: "primary",
+    });
     navigate("/article/list");
   }, [actionData]);
 
@@ -340,7 +358,13 @@ export default function EditArticle({
         name="oldSiteRkeys"
         value={JSON.stringify(currentSiteRkeys)}
       />
-      <PageContainer title="Edit Article">
+      <PageContainer
+        title={
+          <PageContainerHeading icon={SvgImageList.Document}>
+            Edit Article
+          </PageContainerHeading>
+        }
+      >
         <ArticleForm
           defaultTitle={title}
           defaultUrl={url}

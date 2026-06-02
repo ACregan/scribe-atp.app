@@ -1,13 +1,20 @@
 import type { Route } from "./+types/create";
 import { Form } from "react-router";
-import { PageContainer } from "~/components/PageContainer/PageContainer";
+import {
+  PageContainer,
+  PageContainerHeading,
+} from "~/components/PageContainer/PageContainer";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { Button } from "~/components/Button/Button";
-import { ArticleForm, type SiteOption } from "~/components/ArticleForm/ArticleForm";
+import {
+  ArticleForm,
+  type SiteOption,
+} from "~/components/ArticleForm/ArticleForm";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
@@ -152,7 +159,13 @@ export default function Create({
 
   return (
     <Form method="post" id="create-article-form">
-      <PageContainer title="Create Article">
+      <PageContainer
+        title={
+          <PageContainerHeading icon={SvgImageList.Document}>
+            Create Article
+          </PageContainerHeading>
+        }
+      >
         <ArticleForm
           sites={sites}
           selectedSites={selectedSites}

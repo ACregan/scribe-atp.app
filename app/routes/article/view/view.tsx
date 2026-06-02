@@ -1,12 +1,13 @@
 import type { Route } from "./+types/view";
 import { Link } from "react-router";
-import {
-  getAtpAgent,
-  requireAuth,
-  useRealOAuth,
-} from "~/services/auth.server";
-
+import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { Button } from "~/components/Button/Button";
 import { ARTICLE_COLLECTION } from "~/constants";
+import {
+  PageContainer,
+  PageSection,
+} from "~/components/PageContainer/PageContainer";
+import FooterPortal from "~/components/FooterPortal/FooterPortal";
 
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.title ? `${data.title} – Scribe ATP` : "Scribe ATP" }];
@@ -44,27 +45,44 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export default function ViewArticle({ loaderData }: Route.ComponentProps) {
-  const { title, content, splashImageUrl, synopsis, createdAt, url } = loaderData;
+  const { title, content, splashImageUrl, synopsis, createdAt, url } =
+    loaderData;
 
   return (
-    <div>
+    <PageContainer title={title}>
       {splashImageUrl && (
-        <img src={splashImageUrl} alt={title} style={{ maxWidth: "100%", marginBottom: "1rem" }} />
+        <PageSection>
+          <img
+            src={splashImageUrl}
+            alt={title}
+            style={{ maxWidth: "100%", marginBottom: "1rem" }}
+          />
+        </PageSection>
       )}
-      <h1>{title}</h1>
-      {createdAt && (
-        <p style={{ color: "gray", fontSize: "0.875rem" }}>
-          {new Date(createdAt).toLocaleDateString()}
-        </p>
-      )}
-      {synopsis && (
-        <p style={{ fontStyle: "italic", marginBottom: "1rem" }}>{synopsis}</p>
-      )}
-      <div dangerouslySetInnerHTML={{ __html: content }} />
-      <hr />
-      <Link to={`/article/edit/${url}`}>Edit</Link>
-      {" · "}
-      <Link to="/article/list">Back to articles</Link>
-    </div>
+      <PageSection>
+        {createdAt && (
+          <p style={{ color: "gray", fontSize: "0.875rem" }}>
+            {new Date(createdAt).toLocaleDateString()}
+          </p>
+        )}
+        {synopsis && (
+          <p style={{ fontStyle: "italic", marginBottom: "1rem" }}>
+            {synopsis}
+          </p>
+        )}
+      </PageSection>
+      <PageSection>
+        <div dangerouslySetInnerHTML={{ __html: content }} />
+      </PageSection>
+
+      <FooterPortal>
+        <Link to="/article/list">
+          <Button variant="secondary">Back to articles</Button>
+        </Link>
+        <Link to={`/article/edit/${url}`}>
+          <Button>Edit</Button>
+        </Link>
+      </FooterPortal>
+    </PageContainer>
   );
 }

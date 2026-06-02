@@ -8,6 +8,7 @@ import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import {
   PageContainer,
+  PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
 import { ArticleItemPreview } from "~/components/ArticleItem/ArticleItem";
@@ -50,6 +51,7 @@ import {
   buildTreeFromSite,
   treeToSiteData,
 } from "./siteTree";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 function findArticleLocation(
   tree: TreeGroupNode[],
@@ -441,9 +443,16 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     });
 
     if (newGroups.length === 1) {
-      addToast({ heading: "Group created", content: newGroups[0].title, variant: "primary" });
+      addToast({
+        heading: "Group created",
+        content: newGroups[0].title,
+        variant: "primary",
+      });
     } else {
-      addToast({ heading: `${newGroups.length} groups added`, variant: "primary" });
+      addToast({
+        heading: `${newGroups.length} groups added`,
+        variant: "primary",
+      });
     }
   }, [site.groups]);
 
@@ -632,7 +641,11 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
   return (
     <PageContainer
-      title={site.title}
+      title={
+        <PageContainerHeading icon={SvgImageList.Documents}>
+          {site.title}
+        </PageContainerHeading>
+      }
       topButtons={
         <>
           <Link to="/article/create">

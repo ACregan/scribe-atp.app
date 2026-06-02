@@ -7,11 +7,13 @@ import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import {
   PageContainer,
+  PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import styles from "./list.module.css";
 import Tooltip, { TooltipBubble } from "~/components/Tooltip/Tooltip";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 type SiteRef = {
   rkey: string;
@@ -251,7 +253,13 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   };
 
   return (
-    <PageContainer title="Article Lists">
+    <PageContainer
+      title={
+        <PageContainerHeading icon={SvgImageList.Documents}>
+          Article List
+        </PageContainerHeading>
+      }
+    >
       <PageSection>
         {sites.length === 0 ? (
           <p className={styles.emptyState}>
