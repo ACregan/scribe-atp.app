@@ -1,5 +1,6 @@
 import {
   PageContainer,
+  PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
 import type { Route } from "./+types/sites";
@@ -16,6 +17,7 @@ import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { SiteTile, type SiteData } from "~/components/SiteTile/SiteTile";
 
 import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -196,14 +198,22 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
 
   useEffect(() => {
     if (!deleteFetcher.data?.ok) return;
-    addToast({ heading: "Site deleted", content: siteToDelete?.title, variant: "primary" });
+    addToast({
+      heading: "Site deleted",
+      content: siteToDelete?.title,
+      variant: "primary",
+    });
     deleteSiteModal.close();
     setSiteToDelete(null);
   }, [deleteFetcher.data, deleteSiteModal.close]);
 
   return (
     <PageContainer
-      title="Sites"
+      title={
+        <PageContainerHeading icon={SvgImageList.Website}>
+          Sites
+        </PageContainerHeading>
+      }
       topButtons={
         <Button type="button" onClick={addSiteModal.open}>
           Add New Site

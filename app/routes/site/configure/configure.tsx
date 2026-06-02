@@ -1,6 +1,10 @@
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
-import { PageContainer, PageSection } from "~/components/PageContainer/PageContainer";
+import {
+  PageContainer,
+  PageContainerHeading,
+  PageSection,
+} from "~/components/PageContainer/PageContainer";
 import { Input } from "~/components/Input/Input";
 import { Button } from "~/components/Button/Button";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
@@ -23,7 +27,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         title: "NoRobots.blog",
         url: "norobots.blog",
         urlPrefix: "blog",
-        description: "A personal blog about technology, the open web, and avoiding robots.",
+        description:
+          "A personal blog about technology, the open web, and avoiding robots.",
         splashImageUrl: "",
         logoImageUrl: "",
       },
@@ -60,15 +65,22 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   const title = (formData.get("title") as string)?.trim();
   const url = (formData.get("url") as string)?.trim().toLowerCase();
-  const urlPrefix = ((formData.get("urlPrefix") as string) ?? "").trim().toLowerCase();
+  const urlPrefix = ((formData.get("urlPrefix") as string) ?? "")
+    .trim()
+    .toLowerCase();
   const description = ((formData.get("description") as string) ?? "").trim();
-  const splashImageUrl = ((formData.get("splashImageUrl") as string) ?? "").trim();
+  const splashImageUrl = (
+    (formData.get("splashImageUrl") as string) ?? ""
+  ).trim();
   const logoImageUrl = ((formData.get("logoImageUrl") as string) ?? "").trim();
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!url) return { ok: false, error: "Domain is required." };
   if (!DOMAIN_RE.test(url))
-    return { ok: false, error: "Domain must be a valid hostname (e.g. myblog.com)." };
+    return {
+      ok: false,
+      error: "Domain must be a valid hostname (e.g. myblog.com).",
+    };
 
   if (useRealOAuth) {
     try {
@@ -95,7 +107,9 @@ export async function action({ request, params }: Route.ActionArgs) {
           urlPrefix,
           // Store optional fields only when non-empty; clear by omitting
           ...(description ? { description } : { description: undefined }),
-          ...(splashImageUrl ? { splashImageUrl } : { splashImageUrl: undefined }),
+          ...(splashImageUrl
+            ? { splashImageUrl }
+            : { splashImageUrl: undefined }),
           ...(logoImageUrl ? { logoImageUrl } : { logoImageUrl: undefined }),
           updatedAt: new Date().toISOString(),
         },
@@ -125,13 +139,24 @@ export default function ConfigureSite({
 
   useEffect(() => {
     if (!actionData?.ok) return;
-    addToast({ heading: "Site configured", content: site.title, variant: "primary" });
+    addToast({
+      heading: "Site configured",
+      content: site.title,
+      variant: "primary",
+    });
     navigate("/sites");
   }, [actionData]);
 
   return (
-    <PageContainer title={`Configure — ${site.title}`}>
+    <PageContainer
+      title={
+        <PageContainerHeading icon={SvgImageList.Gear}>
+          Configure
+        </PageContainerHeading>
+      }
+    >
       <PageSection>
+        <h5>{site.title}</h5>
         <Form method="post" className={styles.form}>
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Identity</legend>
@@ -220,3 +245,4 @@ export default function ConfigureSite({
 // ── Form import (React Router's Form component) ───────────────────────────────
 
 import { Form } from "react-router";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";

@@ -14,8 +14,10 @@ import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
+  PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -110,7 +112,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <PageContainer
-        title="Dashboard"
+        title={
+          <PageContainerHeading icon={SvgImageList.Home}>
+            Dashboard
+          </PageContainerHeading>
+        }
         topButtons={
           <>
             <button
