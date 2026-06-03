@@ -409,8 +409,11 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
   const { addToast } = useToast();
 
-  // Tracks the tree as it exists on the PDS — updated after each successful save
-  const savedTreeRef = useRef<TreeGroupNode[]>(tree);
+  // Tracks the tree as it exists on the PDS — updated after each successful save.
+  // Must be state (not a ref) so that updating it triggers isDirty to recompute.
+  const [savedTree, setSavedTree] = useState<TreeGroupNode[]>(() =>
+    buildTreeFromSite(site),
+  );
   const proceedAfterSaveRef = useRef(false);
 
   // Track which group slugs are already in the tree so we can detect new ones
@@ -435,13 +438,9 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       children: [],
     }));
 
-    setTree((prev) => {
-      const updated = [...prev, ...newNodes];
-      // Keep savedTreeRef in sync so new (already-persisted) groups
-      // don't register as unsaved changes.
-      savedTreeRef.current = [...savedTreeRef.current, ...newNodes];
-      return updated;
-    });
+    setTree((prev) => [...prev, ...newNodes]);
+    // Keep savedTree in sync so newly persisted groups don't register as unsaved changes.
+    setSavedTree((prev) => [...prev, ...newNodes]);
 
     if (newGroups.length === 1) {
       addToast({
@@ -463,13 +462,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       const slug = deleteFetcher.data.deletedSlug;
       deletingSlugRef.current = null;
       knownGroupSlugsRef.current.delete(slug);
-      setTree((prev) => {
-        const updated = prev.filter((g) => g.slug !== slug);
-        savedTreeRef.current = savedTreeRef.current.filter(
-          (g) => g.slug !== slug,
-        );
-        return updated;
-      });
+      setTree((prev) => prev.filter((g) => g.slug !== slug));
+      setSavedTree((prev) => prev.filter((g) => g.slug !== slug));
     } else if (deleteFetcher.data.error) {
       addToast({
         heading: "Delete failed",
@@ -481,8 +475,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   }, [deleteFetcher.state, deleteFetcher.data]);
 
   const isDirty = useMemo(
-    () => JSON.stringify(tree) !== JSON.stringify(savedTreeRef.current),
-    [tree],
+    () => JSON.stringify(tree) !== JSON.stringify(savedTree),
+    [tree, savedTree],
   );
 
   const blocker = useBlocker(isDirty);
@@ -490,7 +484,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
     if (saveFetcher.data.ok) {
-      savedTreeRef.current = tree;
+      setSavedTree(tree);
       addToast({ heading: "Order saved", variant: "primary" });
       if (proceedAfterSaveRef.current) {
         proceedAfterSaveRef.current = false;
@@ -644,7 +638,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     <PageContainer
       title={
         <PageContainerHeading icon={SvgImageList.Documents}>
-          {site.title}
+          Groups & Articles
         </PageContainerHeading>
       }
       topButtons={
@@ -668,6 +662,9 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onDragEnd={onDragEnd}
       >
         <SortableContext items={rootIds} strategy={verticalListSortingStrategy}>
+          <PageSection>
+            <h6>{site.title}</h6>
+          </PageSection>
           <PageSection>
             <GroupList>
               {tree.map((group) => (
