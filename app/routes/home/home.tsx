@@ -13,6 +13,7 @@ import styles from "./home.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
+  ButtonGroupContainer,
   PageContainer,
   PageContainerHeading,
   PageSection,
@@ -118,8 +119,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </PageContainerHeading>
         }
         topButtons={
-          <>
-            <button
+          <ButtonGroupContainer>
+            <Button
               onClick={() =>
                 addToast({
                   heading: "Hello!",
@@ -128,11 +129,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   expireTimeSeconds: 5,
                 })
               }
+              variant="primary"
             >
               ADD REGULAR TOAST
-            </button>
+            </Button>
 
-            <button
+            <Button
               onClick={() =>
                 addToast({
                   heading: "Hello Again!",
@@ -141,11 +143,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   expireTimeSeconds: 15,
                 })
               }
+              variant="secondary"
             >
               ADD ANOTHER TOAST
-            </button>
+            </Button>
 
-            <button
+            <Button
               onClick={() =>
                 addToast({
                   heading: "WARNING!",
@@ -154,10 +157,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   expireTimeSeconds: 5,
                 })
               }
+              variant="danger"
             >
               ADD DANGER TOAST
-            </button>
-          </>
+            </Button>
+          </ButtonGroupContainer>
         }
       >
         <PageSection>
