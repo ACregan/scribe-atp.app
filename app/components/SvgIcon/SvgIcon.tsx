@@ -12,6 +12,8 @@ export const SvgImageList = {
   Trash: "Trash",
   Gear: "Gear",
   Close: "Close",
+  Tiles: "Tiles",
+  List: "List",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -156,6 +158,32 @@ const SvgIcon: React.FC<SVGiconProp> = ({
           fill={fill}
         >
           <path d="M256-181.91 181.91-256l224-224-224-224L256-778.09l224 224 224-224L778.09-704l-224 224 224 224L704-181.91l-224-224-224 224Z" />
+        </svg>
+      );
+
+    case SvgImageList.Tiles:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          xmlSpace="preserve"
+          baseProfile="full"
+          viewBox="0 0 76 76"
+          fill={fill}
+        >
+          <path d="M33 33h10v10H33zm0-13h10v10H33zm-13 0h10v10H20zm0 13h10v10H20zm26 0h10v10H46zm0-13h10v10H46zM20 46h10v10H20zm13 0h10v10H33zm13 0h10v10H46z"></path>
+        </svg>
+      );
+
+    case SvgImageList.List:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          xmlSpace="preserve"
+          baseProfile="full"
+          viewBox="0 0 76 76"
+          fill={fill}
+        >
+          <path d="M19 23h8v8h-8zm0 11h8v8h-8zm12-11h26v8H31zM19 45h8v8h-8zm12-11h26v8H31zm0 11h26v8H31z"></path>
         </svg>
       );
 

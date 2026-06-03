@@ -1,4 +1,11 @@
-/* ── Tile grid ───────────────────────────────────────────────────────────────── */
+/* ── Top Buttons ───────────────────────────────────────────────────────────────── */
+.viewToggleButton {
+}
+.viewToggleButton > svg {
+  height: 2.4rem;
+}
+
+/* ── Tile grid / list ───────────────────────────────────────────────────────────────── */
 
 .tileGrid {
   list-style: none;
@@ -8,6 +15,14 @@
   grid-template-columns: repeat(auto-fill, minmax(28rem, 1fr));
   gap: 2rem;
   align-items: start;
+}
+.listGrid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────────── */

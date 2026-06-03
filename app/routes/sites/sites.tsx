@@ -14,10 +14,12 @@ import { useFetcher } from "react-router";
 import { useToast } from "~/components/Toast/ToastContext";
 import styles from "./sites.module.css";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
-import { SiteTile, type SiteData } from "~/components/SiteTile/SiteTile";
+import { SiteTile } from "~/components/SiteTile/SiteTile";
+import { type SiteData } from "~/components/types";
 
 import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
-import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import SiteListItem from "~/components/SiteListItem/SiteListItem";
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -41,6 +43,8 @@ export async function loader({ request }: Route.LoaderArgs) {
             "A personal blog about technology, the open web, and avoiding robots.",
           splashImageUrl: "",
           logoImageUrl: "",
+          groupCount: 2,
+          articleCount: 7,
         },
         {
           rkey: "perpetualsummer-ltd",
@@ -51,6 +55,8 @@ export async function loader({ request }: Route.LoaderArgs) {
           description: "",
           splashImageUrl: "",
           logoImageUrl: "",
+          groupCount: 0,
+          articleCount: 3,
         },
       ] as SiteData[],
     };
@@ -65,6 +71,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const sites: SiteData[] = result.data.records.map((record) => {
     const v = record.value as Record<string, unknown>;
+    const groups = (v.groups as Array<{ articles: unknown[] }>) ?? [];
+    const topArticles = (v.articles as unknown[]) ?? [];
     return {
       rkey: record.uri.split("/").pop()!,
       cid: record.cid,
@@ -74,6 +82,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       description: v.description ? String(v.description) : undefined,
       splashImageUrl: v.splashImageUrl ? String(v.splashImageUrl) : undefined,
       logoImageUrl: v.logoImageUrl ? String(v.logoImageUrl) : undefined,
+      groupCount: groups.length,
+      articleCount:
+        groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0) +
+        topArticles.length,
     };
   });
 
@@ -207,6 +219,8 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
     setSiteToDelete(null);
   }, [deleteFetcher.data, deleteSiteModal.close]);
 
+  const [viewType, setViewType] = useState<"list" | "tiles">("tiles");
+
   return (
     <PageContainer
       title={
@@ -215,9 +229,26 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
         </PageContainerHeading>
       }
       topButtons={
-        <Button type="button" onClick={addSiteModal.open}>
-          Add New Site
-        </Button>
+        <>
+          <Button type="button" onClick={addSiteModal.open}>
+            Add New Site
+          </Button>
+
+          <Button
+            className={styles.viewToggleButton}
+            type="button"
+            onClick={() => setViewType("tiles")}
+          >
+            <SvgIcon name={SvgImageList.Tiles} fill="var(--white)" />
+          </Button>
+          <Button
+            className={styles.viewToggleButton}
+            type="button"
+            onClick={() => setViewType("list")}
+          >
+            <SvgIcon name={SvgImageList.List} fill="var(--white)" />
+          </Button>
+        </>
       }
     >
       <PageSection>
@@ -231,18 +262,32 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             </p>
           </div>
         ) : (
-          <ul className={styles.tileGrid}>
-            {sites.map((site) => (
-              <SiteTile
-                key={site.rkey}
-                site={site}
-                onDelete={(s) => {
-                  setSiteToDelete(s);
-                  deleteSiteModal.open();
-                }}
-                isDeleting={isDeleting}
-              />
-            ))}
+          <ul
+            className={viewType === "tiles" ? styles.tileGrid : styles.listGrid}
+          >
+            {sites.map((site) =>
+              viewType === "tiles" ? (
+                <SiteTile
+                  key={site.rkey}
+                  site={site}
+                  onDelete={(s) => {
+                    setSiteToDelete(s);
+                    deleteSiteModal.open();
+                  }}
+                  isDeleting={isDeleting}
+                />
+              ) : (
+                <SiteListItem
+                  key={site.rkey}
+                  site={site}
+                  onDelete={(s) => {
+                    setSiteToDelete(s);
+                    deleteSiteModal.open();
+                  }}
+                  isDeleting={isDeleting}
+                />
+              ),
+            )}
           </ul>
         )}
       </PageSection>
