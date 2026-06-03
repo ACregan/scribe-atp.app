@@ -1,15 +1,4 @@
-/* ── Site list ─────────────────────────────────────────────────────────────── */
-
-.siteList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-}
-
-/* ── Unassigned articles ───────────────────────────────────────────────────── */
+/* ── Article sections ──────────────────────────────────────────────────────── */
 
 .sectionHeading {
   font-size: 2.6rem;
@@ -23,7 +12,7 @@
   margin: 0 0 1.2rem;
 }
 
-.orphanList {
+.articleList {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -32,7 +21,7 @@
   gap: 0.8rem;
 }
 
-.orphanItem {
+.articleItem {
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-rows: 3rem 2rem;
@@ -44,7 +33,7 @@
   box-sizing: border-box;
 }
 
-.orphanTitle {
+.articleTitle {
   grid-area: Title;
   display: flex;
   align-items: center;
@@ -52,11 +41,11 @@
   gap: 1rem;
 }
 
-.orphanTitle > strong {
+.articleTitle > strong {
   font-size: 2.2rem;
 }
 
-.orphanTitle > span {
+.articleTitle > span {
   background: var(--mid-grey);
   color: var(--white);
   font-size: 1rem;
@@ -64,14 +53,14 @@
   border-radius: 0.4rem;
 }
 
-.orphanInfo {
+.articleInfo {
   grid-area: Info;
   display: flex;
   align-items: flex-start;
   padding-left: 1.2rem;
 }
 
-.orphanButtons {
+.articleButtons {
   grid-area: Buttons;
   display: flex;
   align-items: center;

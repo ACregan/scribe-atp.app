@@ -13,12 +13,8 @@ import {
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-import SiteListItem from "~/components/SiteListItem/SiteListItem";
-import { type SiteData } from "~/components/types";
 
-type SiteRef = SiteData;
-
-type OrphanedArticle = {
+type Article = {
   rkey: string;
   uri: string;
   title: string;
@@ -26,8 +22,18 @@ type OrphanedArticle = {
   createdAt: string;
 };
 
+type Assignment = {
+  siteTitle: string;
+  siteRkey: string;
+  groupTitle?: string;
+  groupSlug?: string;
+};
+
+type AssignedArticle = Article & { assignments: Assignment[] };
+type OrphanedArticle = Article;
+
 export function meta({}: Route.MetaArgs) {
-  return [{ title: "Scribe ATP - Article Lists" }];
+  return [{ title: "Scribe ATP - Article List" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -35,26 +41,37 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   if (!useRealOAuth) {
     return {
-      sites: [
+      assignedArticles: [
         {
-          rkey: "norobots-blog",
-          cid: "dev-cid-s1",
-          title: "NoRobots.blog",
-          url: "norobots.blog",
-          urlPrefix: "blog",
-          groupCount: 2,
-          articleCount: 7,
+          rkey: "my-first-post",
+          uri: "at://did:dev:test/app.scribe.article/my-first-post",
+          title: "My First Post",
+          cid: "dev-cid-a1",
+          createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+          assignments: [
+            {
+              siteTitle: "NoRobots.blog",
+              siteRkey: "norobots-blog",
+              groupTitle: "Getting Started",
+              groupSlug: "getting-started",
+            },
+          ],
         },
         {
-          rkey: "perpetualsummer-ltd",
-          cid: "dev-cid-s2",
-          title: "Perpetual Summer LTD",
-          url: "perpetualsummer.ltd",
-          urlPrefix: "",
-          groupCount: 0,
-          articleCount: 3,
+          rkey: "second-post",
+          uri: "at://did:dev:test/app.scribe.article/second-post",
+          title: "Second Post",
+          cid: "dev-cid-a2",
+          createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+          assignments: [
+            { siteTitle: "NoRobots.blog", siteRkey: "norobots-blog" },
+            {
+              siteTitle: "Perpetual Summer LTD",
+              siteRkey: "perpetualsummer-ltd",
+            },
+          ],
         },
-      ] as SiteRef[],
+      ] as AssignedArticle[],
       orphanedArticles: [
         {
           rkey: "dev-orphan",
@@ -83,55 +100,63 @@ export async function loader({ request }: Route.LoaderArgs) {
   ]);
 
   const referencedUris = new Set<string>();
+  const assignmentMap = new Map<string, Assignment[]>();
+
   for (const record of sitesResult.data.records) {
     const value = record.value as Record<string, unknown>;
+    const siteRkey = record.uri.split("/").pop()!;
+    const siteTitle = String(value.title ?? "");
+
     for (const a of (value.articles as Array<{ uri: string }>) ?? []) {
       referencedUris.add(a.uri);
+      const list = assignmentMap.get(a.uri) ?? [];
+      list.push({ siteTitle, siteRkey });
+      assignmentMap.set(a.uri, list);
     }
+
     for (const g of (value.groups as Array<{
+      slug: string;
+      title: string;
       articles: Array<{ uri: string }>;
     }>) ?? []) {
       for (const a of g.articles ?? []) {
         referencedUris.add(a.uri);
+        const list = assignmentMap.get(a.uri) ?? [];
+        list.push({
+          siteTitle,
+          siteRkey,
+          groupTitle: g.title,
+          groupSlug: g.slug,
+        });
+        assignmentMap.set(a.uri, list);
       }
     }
   }
 
-  const sites: SiteRef[] = sitesResult.data.records.map((record) => {
+  const assignedArticles: AssignedArticle[] = [];
+  const orphanedArticles: OrphanedArticle[] = [];
+
+  for (const record of articlesResult.data.records) {
     const value = record.value as Record<string, unknown>;
-    const groups = (value.groups as Array<{ articles: unknown[] }>) ?? [];
-    const topArticles = (value.articles as unknown[]) ?? [];
-    const articleCount =
-      groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0) +
-      topArticles.length;
-    return {
+    const article: Article = {
       rkey: record.uri.split("/").pop()!,
-      cid: record.cid,
+      uri: record.uri,
       title: String(value.title ?? ""),
-      description: value.description ? String(value.description) : undefined,
-      url: String(value.url ?? ""),
-      urlPrefix: String(value.urlPrefix ?? ""),
-      logoImageUrl: value.logoImageUrl ? String(value.logoImageUrl) : undefined,
-      splashImageUrl: value.splashImageUrl ? String(value.splashImageUrl) : undefined,
-      groupCount: groups.length,
-      articleCount,
+      cid: record.cid ?? "",
+      createdAt: String(value.createdAt ?? ""),
     };
-  });
 
-  const orphanedArticles: OrphanedArticle[] = articlesResult.data.records
-    .filter((record) => !referencedUris.has(record.uri))
-    .map((record) => {
-      const value = record.value as Record<string, unknown>;
-      return {
-        rkey: record.uri.split("/").pop()!,
-        uri: record.uri,
-        title: String(value.title ?? ""),
-        cid: record.cid ?? "",
-        createdAt: String(value.createdAt ?? ""),
-      };
-    });
+    if (referencedUris.has(record.uri)) {
+      assignedArticles.push({
+        ...article,
+        assignments: assignmentMap.get(record.uri) ?? [],
+      });
+    } else {
+      orphanedArticles.push(article);
+    }
+  }
 
-  return { sites, orphanedArticles };
+  return { assignedArticles, orphanedArticles };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -153,7 +178,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
-  const { sites, orphanedArticles } = loaderData;
+  const { assignedArticles, orphanedArticles } = loaderData;
   const deleteModal = useModal();
   const [deleteTarget, setDeleteTarget] = useState<OrphanedArticle | null>(
     null,
@@ -179,15 +204,41 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       }
     >
       <PageSection>
-        <h3 className={styles.sectionHeading}>Sites</h3>
-        {sites.length === 0 ? (
-          <p className={styles.emptyState}>
-            No sites yet. <Link to="/sites">Add a site</Link> to get started.
-          </p>
+        <h3 className={styles.sectionHeading}>Assigned Articles</h3>
+        {assignedArticles.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>No articles have been assigned to a site yet.</p>
+          </div>
         ) : (
-          <ul className={styles.siteList}>
-            {sites.map((site) => (
-              <SiteListItem key={site.rkey} site={site} />
+          <ul className={styles.articleList}>
+            {assignedArticles.map((article) => (
+              <li key={article.rkey} className={styles.articleItem}>
+                <div className={styles.articleTitle}>
+                  <strong>{article.title}</strong>
+                  {article.createdAt && (
+                    <span>
+                      {new Date(article.createdAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                <div className={styles.articleInfo}>
+                  <small style={{ fontFamily: "monospace" }}>
+                    {article.uri}
+                  </small>
+                </div>
+                <div className={styles.articleButtons}>
+                  <Link to={`/article/view/${article.rkey}`}>
+                    <Button type="button" variant="secondary">
+                      View
+                    </Button>
+                  </Link>
+                  <Link to={`/article/edit/${article.rkey}`}>
+                    <Button type="button" variant="primary">
+                      Edit
+                    </Button>
+                  </Link>
+                </div>
+              </li>
             ))}
           </ul>
         )}
@@ -200,10 +251,10 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
             These articles exist in your PDS but haven't been assigned to any
             site. Edit an article to assign it.
           </p>
-          <ul className={styles.orphanList}>
+          <ul className={styles.articleList}>
             {orphanedArticles.map((article) => (
-              <li key={article.rkey} className={styles.orphanItem}>
-                <div className={styles.orphanTitle}>
+              <li key={article.rkey} className={styles.articleItem}>
+                <div className={styles.articleTitle}>
                   <strong>{article.title}</strong>
                   {article.createdAt && (
                     <span>
@@ -211,12 +262,12 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                     </span>
                   )}
                 </div>
-                <div className={styles.orphanInfo}>
+                <div className={styles.articleInfo}>
                   <small style={{ fontFamily: "monospace" }}>
                     {article.uri}
                   </small>
                 </div>
-                <div className={styles.orphanButtons}>
+                <div className={styles.articleButtons}>
                   <Link to={`/article/view/${article.rkey}`}>
                     <Button type="button" variant="secondary">
                       View
