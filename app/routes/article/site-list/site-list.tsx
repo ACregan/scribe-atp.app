@@ -7,6 +7,7 @@ import { Input } from "~/components/Input/Input";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import {
+  ButtonGroupContainer,
   PageContainer,
   PageContainerHeading,
   PageSection,
@@ -647,7 +648,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         </PageContainerHeading>
       }
       topButtons={
-        <>
+        <ButtonGroupContainer>
           <Link to="/article/create">
             <Button type="button" variant="primary">
               Draft New Article
@@ -656,7 +657,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           <Button type="button" variant="primary" onClick={open}>
             Add New Group
           </Button>
-        </>
+        </ButtonGroupContainer>
       }
     >
       <DndContext
