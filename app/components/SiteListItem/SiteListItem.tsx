@@ -28,7 +28,7 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
           style={
             site.splashImageUrl
               ? { backgroundImage: `url(${site.splashImageUrl})` }
-              : undefined // Fallback to gradient, set in SiteListItem.module.css
+              : undefined
           }
         >
           <div
@@ -36,9 +36,9 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
             style={
               site.logoImageUrl
                 ? { backgroundImage: `url(${site.logoImageUrl})` }
-                : undefined // Fallback to gradient, set in SiteListItem.module.css
+                : undefined
             }
-          ></div>
+          />
         </div>
         <Tooltip
           anchorName={site.rkey}

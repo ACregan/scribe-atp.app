@@ -2,6 +2,7 @@ import {
   PageContainer,
   PageContainerHeading,
   PageSection,
+  PageSectionCell,
 } from "~/components/PageContainer/PageContainer";
 import type { Route } from "./+types/sites";
 import { Input } from "~/components/Input/Input";
@@ -233,7 +234,6 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
           <Button type="button" onClick={addSiteModal.open}>
             Add New Site
           </Button>
-
           <Button
             className={styles.viewToggleButton}
             type="button"
@@ -247,7 +247,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             onClick={() => setViewType("list")}
           >
             <SvgIcon name={SvgImageList.List} fill="var(--white)" />
-          </Button>
+          </Button>{" "}
         </>
       }
     >
@@ -262,11 +262,12 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             </p>
           </div>
         ) : (
-          <ul
-            className={viewType === "tiles" ? styles.tileGrid : styles.listGrid}
-          >
-            {sites.map((site) =>
-              viewType === "tiles" ? (
+          <>
+            <ul
+              className={styles.tileGrid}
+              style={viewType !== "tiles" ? { display: "none" } : undefined}
+            >
+              {sites.map((site) => (
                 <SiteTile
                   key={site.rkey}
                   site={site}
@@ -276,7 +277,13 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
                   }}
                   isDeleting={isDeleting}
                 />
-              ) : (
+              ))}
+            </ul>
+            <ul
+              className={styles.listGrid}
+              style={viewType !== "list" ? { display: "none" } : undefined}
+            >
+              {sites.map((site) => (
                 <SiteListItem
                   key={site.rkey}
                   site={site}
@@ -286,9 +293,9 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
                   }}
                   isDeleting={isDeleting}
                 />
-              ),
-            )}
-          </ul>
+              ))}
+            </ul>
+          </>
         )}
       </PageSection>
 

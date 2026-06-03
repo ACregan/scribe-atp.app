@@ -27,10 +27,8 @@ export function SiteTile({
         className={styles.tileSplash}
         style={
           site.splashImageUrl
-            ? {
-                backgroundImage: `url(${site.splashImageUrl})`,
-              }
-            : undefined // Fallback to gradient, set in SiteTile.module.css
+            ? { backgroundImage: `url(${site.splashImageUrl})` }
+            : undefined
         }
       />
 
