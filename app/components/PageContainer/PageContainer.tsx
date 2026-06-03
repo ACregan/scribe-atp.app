@@ -66,4 +66,19 @@ interface PageSectionRowProps {
 const PageSectionCell: React.FC<PageSectionRowProps> = ({ children }) => {
   return <div className={styles.pageSectionCell}>{children}</div>;
 };
-export { PageContainerHeading, PageContainer, PageSection, PageSectionCell };
+
+interface ButtonGroupContainerProps {
+  children: React.ReactNode;
+}
+const ButtonGroupContainer: React.FC<ButtonGroupContainerProps> = ({
+  children,
+}) => {
+  return <div className={styles.buttonGroupContainer}>{children}</div>;
+};
+export {
+  PageContainerHeading,
+  PageContainer,
+  PageSection,
+  PageSectionCell,
+  ButtonGroupContainer,
+};

@@ -1,4 +1,5 @@
 import {
+  ButtonGroupContainer,
   PageContainer,
   PageContainerHeading,
   PageSection,
@@ -234,20 +235,34 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
           <Button type="button" onClick={addSiteModal.open}>
             Add New Site
           </Button>
-          <Button
-            className={styles.viewToggleButton}
-            type="button"
-            onClick={() => setViewType("tiles")}
-          >
-            <SvgIcon name={SvgImageList.Tiles} fill="var(--white)" />
-          </Button>
-          <Button
-            className={styles.viewToggleButton}
-            type="button"
-            onClick={() => setViewType("list")}
-          >
-            <SvgIcon name={SvgImageList.List} fill="var(--white)" />
-          </Button>{" "}
+          <ButtonGroupContainer>
+            <Button
+              className={styles.viewToggleButton}
+              type="button"
+              onClick={() => setViewType("tiles")}
+              variant={viewType === "tiles" ? "primary" : "secondary"}
+            >
+              <SvgIcon
+                name={SvgImageList.Tiles}
+                fill={
+                  viewType === "tiles" ? "var(--white)" : "var(--blue-ribbon)"
+                }
+              />
+            </Button>
+            <Button
+              className={styles.viewToggleButton}
+              type="button"
+              onClick={() => setViewType("list")}
+              variant={viewType === "list" ? "primary" : "secondary"}
+            >
+              <SvgIcon
+                name={SvgImageList.List}
+                fill={
+                  viewType === "list" ? "var(--white)" : "var(--blue-ribbon)"
+                }
+              />
+            </Button>
+          </ButtonGroupContainer>
         </>
       }
     >

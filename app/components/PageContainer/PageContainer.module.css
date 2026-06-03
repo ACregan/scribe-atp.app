@@ -50,6 +50,7 @@
 
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
 }
 
@@ -75,4 +76,10 @@
 /* <PageSectionCell> component */
 .pageSectionCell {
   border-left: 0.1rem solid var(--border, #e5e7eb);
+}
+
+/* <ButtonGroupContainer> component */
+.buttonGroupContainer {
+  display: flex;
+  gap: 1rem;
 }

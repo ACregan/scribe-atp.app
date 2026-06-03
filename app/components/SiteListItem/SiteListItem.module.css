@@ -2,7 +2,7 @@
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  border: 0.2rem solid var(--black);
+  border: 0.1rem solid var(--silver, #b3b5b8);
   border-radius: 0.6rem;
   height: 8rem;
   overflow: hidden;
