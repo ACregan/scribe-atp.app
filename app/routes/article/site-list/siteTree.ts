@@ -49,9 +49,8 @@ export type TreeGroupNode = {
 
 // ── ID helpers ────────────────────────────────────────────────────────────────
 
-export function slugFromUri(uri: string): string {
-  return uri.split("/").pop()!;
-}
+export { slugFromUri } from "~/hooks/utils";
+import { slugFromUri } from "~/hooks/utils";
 
 export function articleId(slug: string): string {
   return `a:${slug}`;

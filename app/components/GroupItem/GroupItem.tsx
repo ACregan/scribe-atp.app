@@ -16,13 +16,8 @@ import { useModal } from "../Modal/useModal";
 import { Form } from "react-router";
 import Tooltip, { TooltipBubble } from "../Tooltip/Tooltip";
 
-export interface TreeArticle {
-  id: string;
-  uri: string;
-  cid?: string;
-  title: string;
-  createdAt: string;
-}
+import { type TreeArticle } from "~/components/types";
+export type { TreeArticle };
 
 interface GroupItemProps {
   id: string;

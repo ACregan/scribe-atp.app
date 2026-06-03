@@ -4,7 +4,8 @@ import { Select } from "~/components/Select/Select";
 import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import { PageSection } from "~/components/PageContainer/PageContainer";
 
-export type SiteOption = { rkey: string; title: string; url: string };
+import { type SiteOption } from "~/components/types";
+export type { SiteOption };
 
 type ArticleFormProps = {
   defaultTitle?: string;

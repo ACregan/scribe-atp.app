@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SiteTile } from "./SiteTile";
-import type { SiteData } from "./SiteTile";
+import type { SiteData } from "~/components/types";
 
 vi.mock("react-router", () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
@@ -51,6 +51,8 @@ const baseSite: SiteData = {
   title: "My Blog",
   url: "myblog.com",
   urlPrefix: "posts",
+  groupCount: 0,
+  articleCount: 0,
 };
 
 describe("SiteTile", () => {

@@ -2,31 +2,16 @@ import { Link } from "react-router";
 import { Button } from "~/components/Button/Button";
 import styles from "./SiteTile.module.css";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
+import { type SiteData } from "~/components/types";
+import { composedUrl } from "~/components/utils";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface SiteData {
-  rkey: string;
-  cid: string;
-  title: string;
-  url: string;
-  urlPrefix: string;
-  description?: string;
-  splashImageUrl?: string;
-  logoImageUrl?: string;
-}
+export type { SiteData };
 
 type SiteTileProps = {
   site: SiteData;
   onDelete: (site: SiteData) => void;
   isDeleting?: boolean;
 };
-
-// ── Helper ────────────────────────────────────────────────────────────────────
-
-function composedUrl(site: SiteData) {
-  return site.urlPrefix ? `${site.url}/${site.urlPrefix}` : site.url;
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 

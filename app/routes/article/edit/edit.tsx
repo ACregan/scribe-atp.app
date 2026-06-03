@@ -16,14 +16,7 @@ import {
 } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-type ArticleRef = {
-  uri: string;
-  title: string;
-  url?: string;
-  splashImageUrl: string | null;
-  synopsis?: string | null;
-  createdAt: string;
-};
+import { type ArticleRef } from "~/hooks/types";
 
 type SiteRecord = {
   articles: ArticleRef[];
