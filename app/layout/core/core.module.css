@@ -102,8 +102,6 @@
   align-items: center;
   justify-content: flex-start;
   overflow: auto;
-
-  padding-right: 6rem;
 }
 /* Footer container */
 .coreLayout_container > footer {
