@@ -12,20 +12,11 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import styles from "./list.module.css";
-import Tooltip, { TooltipBubble } from "~/components/Tooltip/Tooltip";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import SiteListItem from "~/components/SiteListItem/SiteListItem";
+import { type SiteData } from "~/components/types";
 
-type SiteRef = {
-  rkey: string;
-  title: string;
-  description: string;
-  url: string;
-  urlPrefix: string;
-  logoImageUrl: string;
-  splashImageUrl: string;
-  groupCount: number;
-  articleCount: number;
-};
+type SiteRef = SiteData;
 
 type OrphanedArticle = {
   rkey: string;
@@ -47,23 +38,19 @@ export async function loader({ request }: Route.LoaderArgs) {
       sites: [
         {
           rkey: "norobots-blog",
+          cid: "dev-cid-s1",
           title: "NoRobots.blog",
-          description: "",
           url: "norobots.blog",
           urlPrefix: "blog",
-          logoImageUrl: "",
-          splashImageUrl: "",
           groupCount: 2,
           articleCount: 7,
         },
         {
           rkey: "perpetualsummer-ltd",
+          cid: "dev-cid-s2",
           title: "Perpetual Summer LTD",
-          description: "",
           url: "perpetualsummer.ltd",
           urlPrefix: "",
-          logoImageUrl: "",
-          splashImageUrl: "",
           groupCount: 0,
           articleCount: 3,
         },
@@ -119,12 +106,13 @@ export async function loader({ request }: Route.LoaderArgs) {
       topArticles.length;
     return {
       rkey: record.uri.split("/").pop()!,
+      cid: record.cid,
       title: String(value.title ?? ""),
-      description: String(value.description ?? ""),
+      description: value.description ? String(value.description) : undefined,
       url: String(value.url ?? ""),
       urlPrefix: String(value.urlPrefix ?? ""),
-      logoImageUrl: String(value.logoImageUrl ?? ""),
-      splashImageUrl: String(value.splashImageUrl ?? ""),
+      logoImageUrl: value.logoImageUrl ? String(value.logoImageUrl) : undefined,
+      splashImageUrl: value.splashImageUrl ? String(value.splashImageUrl) : undefined,
       groupCount: groups.length,
       articleCount,
     };
@@ -164,76 +152,6 @@ export async function action({ request }: Route.ActionArgs) {
   return { ok: true };
 }
 
-const SiteListItem: React.FC<SiteRef> = ({
-  rkey,
-  title,
-  description,
-  url,
-  urlPrefix,
-  logoImageUrl,
-  splashImageUrl,
-  groupCount,
-  articleCount,
-}) => {
-  return (
-    <li className={styles.siteItem}>
-      <div className={styles.siteDetails}>
-        <div
-          className={styles.splashContainer}
-          style={
-            splashImageUrl
-              ? { backgroundImage: `url(${splashImageUrl})` }
-              : undefined // Fallback to gradient, set in list.module.css
-          }
-        >
-          <div
-            className={styles.logoContainer}
-            style={
-              logoImageUrl
-                ? { backgroundImage: `url(${logoImageUrl})` }
-                : undefined // Fallback to gradient, set in list.module.css
-            }
-          ></div>
-        </div>
-        <Tooltip
-          anchorName={rkey}
-          anchorPosition="top"
-          anchorContent={
-            <TooltipBubble pointerLocation="bottom">
-              {description}
-            </TooltipBubble>
-          }
-        >
-          <div className={styles.siteInfo}>
-            <strong className={styles.siteTitle}>{title}</strong>
-            <span className={styles.siteUrl}>
-              {url}
-              {urlPrefix ? `/${urlPrefix}` : null}
-            </span>
-            <div className={styles.counts}>
-              {groupCount > 0 && (
-                <span className={styles.articleCount}>
-                  {`${groupCount} GROUP${groupCount !== 1 ? "S" : ""}`}
-                </span>
-              )}
-              {articleCount > 0 && (
-                <span className={styles.groupCount}>
-                  {articleCount} ARTICLE{articleCount !== 1 ? "S" : ""}
-                </span>
-              )}
-            </div>
-          </div>
-        </Tooltip>
-      </div>
-      <div className={styles.siteActions}>
-        <Link to={`/article/list/${rkey}`}>
-          <Button type="button">Manage Articles</Button>
-        </Link>
-      </div>
-    </li>
-  );
-};
-
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   const { sites, orphanedArticles } = loaderData;
   const deleteModal = useModal();
@@ -261,6 +179,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       }
     >
       <PageSection>
+        <h3 className={styles.sectionHeading}>Sites</h3>
         {sites.length === 0 ? (
           <p className={styles.emptyState}>
             No sites yet. <Link to="/sites">Add a site</Link> to get started.
@@ -268,18 +187,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         ) : (
           <ul className={styles.siteList}>
             {sites.map((site) => (
-              <SiteListItem
-                key={site.rkey}
-                rkey={site.rkey}
-                title={site.title}
-                description={site.description}
-                url={site.url}
-                urlPrefix={site.urlPrefix}
-                logoImageUrl={site.logoImageUrl}
-                splashImageUrl={site.splashImageUrl}
-                groupCount={site.groupCount}
-                articleCount={site.articleCount}
-              />
+              <SiteListItem key={site.rkey} site={site} />
             ))}
           </ul>
         )}
@@ -287,7 +195,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
 
       {orphanedArticles.length > 0 && (
         <PageSection>
-          <h2 className={styles.sectionHeading}>Unassigned Articles</h2>
+          <h3 className={styles.sectionHeading}>Unassigned Articles</h3>
           <p className={styles.sectionNote}>
             These articles exist in your PDS but haven't been assigned to any
             site. Edit an article to assign it.
