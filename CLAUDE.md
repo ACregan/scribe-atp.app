@@ -227,7 +227,7 @@ The `/site/:siteName/configure` route edits site metadata (`title`, `description
 
 The `/article/list` route shows two sections: a site picker (links to `/article/list/:siteSlug` for each site) and an **Unassigned Articles** section listing any `app.scribe.article` records not referenced in any site's `articles` or `groups[x].articles`. The loader fetches both article and site records in parallel, builds a `Set` of referenced URIs from all site values, and returns the difference as `orphanedArticles`. The route has a `deleteArticle` action for removing orphaned articles directly. The section is hidden when there are no orphans.
 
-The site picker renders each site as a `SiteListItem` (a local component in `list.tsx`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, and the site title + composed URL (`url/urlPrefix`). The loader maps `description`, `urlPrefix`, `logoImageUrl`, and `splashImageUrl` from the site record in addition to `rkey`, `title`, and `url`. Both image fields fall back to a CSS gradient when absent.
+The site picker renders each site as a `SiteListItem` (from `app/components/SiteListItem/`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, the site title, composed URL, and group/article count badges. The loader maps all `SiteData` fields from the site record. Both image fields fall back to a CSS gradient when absent. `onDelete` is not passed here — deletion is only available on `/sites`.
 
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
@@ -306,17 +306,18 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `Modal` | `app/components/Modal/Modal.tsx` | `isOpen: boolean`, `onClose: () => void`, `title: string`, `footer?: ReactNode`, `children: ReactNode` — renders via `createPortal` into `document.body`. Closes on Escape key. |
 | `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
 | `PageContainerHeading` | `app/components/PageContainer/PageContainer.tsx` | Styled page heading with an icon badge. Props: `icon: SvgImageListTypes`, `children: ReactNode`. Renders a circular blue badge containing the icon alongside an `<h1>`. Pass as the `title` prop of `PageContainer` — every app route does this: `<PageContainer title={<PageContainerHeading icon={SvgImageList.Document}>Create Article</PageContainerHeading>}>`. Exported from the same file as `PageContainer`. |
-| `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`. `bottomButtons` children are spaced with `gap: 1rem`. Also exports `PageSection` (a simple content-dividing wrapper, `children` only) and `PageContainerHeading` from the same file. |
-| `ArticleForm` | `app/components/ArticleForm/ArticleForm.tsx` | Shared form fields for article create and edit. Props: `defaultTitle?`, `defaultUrl?`, `defaultSplashImageUrl?`, `defaultContent?`, `sites: SiteOption[]`, `selectedSites: string[]`, `onSitesChange: (rkeys: string[]) => void`, `error?: string`. Renders Title, URL slug, Splash image URL, site multi-select, and RichTextEditor inside `PageSection` wrappers. Also exports the `SiteOption` interface (`{ rkey, title, url }`). Hidden fields (`cid`, `oldSiteRkeys`), the submit button, and `FooterPortal` stay in the individual route components. |
+| `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`. `bottomButtons` children are spaced with `gap: 1rem`. Also exports `PageSection` (a simple content-dividing wrapper, `children` only), `PageSectionCell` (a bordered cell within a row, `children` only), and `PageContainerHeading` from the same file. |
+| `ArticleForm` | `app/components/ArticleForm/ArticleForm.tsx` | Shared form fields for article create and edit. Props: `defaultTitle?`, `defaultUrl?`, `defaultSplashImageUrl?`, `defaultContent?`, `sites: SiteOption[]`, `selectedSites: string[]`, `onSitesChange: (rkeys: string[]) => void`, `error?: string`. Renders Title, URL slug, Splash image URL, site multi-select, and RichTextEditor inside `PageSection` wrappers. Re-exports `SiteOption` from `~/components/types`. Hidden fields (`cid`, `oldSiteRkeys`), the submit button, and `FooterPortal` stay in the individual route components. |
 | `ArticleList` | `app/components/ArticleList/ArticleList.tsx` | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`. |
 | `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid?`, `mode?: "pds" \| "site"`. `id` is the dnd-kit sortable id (`a:{slug}`). In `"pds"` mode (default): Delete button removes the record from the PDS. In `"site"` mode: Remove button removes the article from the site record only (`_intent=removeArticle, uri`). Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
 | `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
-| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`, `onDeleteConfirm?: (slug: string) => void`, `isDeleting?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and the `TreeArticle` interface (`cid?` optional). `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has articles). When `onDeleteConfirm` is provided, confirmation calls it instead of submitting the form natively — this is the correct path for fetcher-based deletes. `isDeleting` replaces the trash icon with `<Spinner size="small" />` and disables the button. `articleMode` is forwarded to each `ArticleItem` child. |
+| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`, `onDeleteConfirm?: (slug: string) => void`, `isDeleting?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and re-exports `TreeArticle` from `~/components/types`. `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has articles). When `onDeleteConfirm` is provided, confirmation calls it instead of submitting the form natively — this is the correct path for fetcher-based deletes. `isDeleting` replaces the trash icon with `<Spinner size="small" />` and disables the button. `articleMode` is forwarded to each `ArticleItem` child. |
 | `Select` | `app/components/Select/Select.tsx` | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a dropdown trigger styled like `<select>` that opens a checkbox list on click; collapses showing "Select options" / single label / "{n} selected" summary; closes on click-outside or Escape. Both modes post standard form values under `name` (multi-select uses hidden inputs per selected value). |
 | `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (links to `/sites`), article list (also links to `/sites` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
-| `SiteTile` | `app/components/SiteTile/SiteTile.tsx` | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Also exports the `SiteData` interface. |
+| `SiteTile` | `app/components/SiteTile/SiteTile.tsx` | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Re-exports `SiteData` from `~/components/types`. |
+| `SiteListItem` | `app/components/SiteListItem/SiteListItem.tsx` | Horizontal list-row card for a single site. Props: `site: SiteData`, `onDelete?: (site: SiteData) => void`, `isDeleting?: boolean`. Renders a splash thumbnail with gradient right-edge fade, an overlapping circular logo, site title, composed URL, group/article count badges, and Manage Articles / Configure / Delete actions. `onDelete` is optional — omit it on pages that don't support deletion (e.g. `/article/list`). Re-exports `SiteData` from `~/components/types`. Used alongside `SiteTile` on `/sites` — both lists are always rendered and toggled with `display: none` so background images stay in memory across view switches. |
 | `FooterPortal` | `app/components/FooterPortal/FooterPortal.tsx` | Portals `children` into `<footer id="footer-portal-element">` in the core layout. Default export. Props: `children: ReactNode`. Client-only — uses a `mounted` guard (same pattern as `RichTextEditor`) to avoid SSR crashes from `document.getElementById`. **Note:** portaled buttons must use `form="form-id"` to associate with a `<form>` elsewhere in the DOM — they are no longer DOM descendants of the form. For navigation (non-form) footer actions, wrap `<Button>` in `<Link>` — `core.module.css` handles spacing for the `footer > a > button` selector. |
 | `Spinner` | `app/components/Spinner/Spinner.tsx` | Spinning ring indicator. Props: `overlay?: boolean`, `size?: "small" \| "medium" \| "large"` (default `"medium"`). Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: fixed` overlay sized to the content area (below the header, beside the aside) that dims everything behind it. Used in `core.tsx` as `<Spinner overlay />` during route navigations. Use `size="large"` in `HydrateFallback` exports; use `size="small"` for inline button states. |
 | `Toast` / `ToastContainer` / `Toasts` | `app/components/Toast/Toast.tsx` | `Toast` renders a single notification. Props: all fields from `ToastPropsWithId` (see ToastContext). Auto-dismisses via `useEffect` + `setTimeout` when `autoExpire` is true. Cleanup cancels the timer if the toast is removed manually first. `ToastContainer` is a plain wrapper div. `Toasts` reads all active toasts from context via `useToast()` and renders them. |
@@ -363,6 +364,42 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 `app/services/auth.server.ts` also exports two server-only constants consumed by `client-metadata.ts`:
 - `PUBLIC_URL_DEFAULT` — the `"https://scribe-atp.app"` fallback string
 - `OAUTH_METADATA_STATIC` — the stable OAuth client config fields (`grant_types`, `response_types`, etc.) shared between the `NodeOAuthClient` config and the `/client-metadata.json` response
+
+## Shared component types and utilities
+
+`app/components/types.ts` is the canonical home for interfaces shared across two or more components or route loaders. Import from here rather than from individual component files:
+
+| Export | Used in |
+|---|---|
+| `SiteData` | `SiteTile`, `SiteListItem`, `sites.tsx` loader, `list.tsx` loader |
+| `SiteOption` | `ArticleForm`, `create.tsx`, `edit.tsx` |
+| `TreeArticle` | `GroupItem`, `site-list.tsx` |
+
+`SiteData` shape:
+```ts
+{
+  rkey: string;
+  cid: string;
+  title: string;
+  url: string;
+  urlPrefix: string;
+  description?: string;
+  splashImageUrl?: string;
+  logoImageUrl?: string;
+  groupCount: number;
+  articleCount: number;
+}
+```
+
+`app/components/utils.ts` is the canonical home for pure utility functions shared across components:
+
+| Export | Purpose |
+|---|---|
+| `composedUrl(site: SiteData)` | Returns `url/urlPrefix` or just `url` when prefix is empty |
+
+Components that originally defined these types/utils inline (`SiteTile`, `ArticleForm`, `GroupItem`) now import from the shared files and re-export for backwards compatibility. When adding a new shared type or utility, add it here rather than inside a component file.
+
+**Note:** `app/routes/article/site-list/siteTree.ts` has its own `SiteData` type (with `groups`/`articles` arrays for the DnD tree) that is structurally different from the component-layer `SiteData` above. These serve different purposes and are intentionally kept separate to avoid cross-layer coupling.
 
 ## Toast + navigate pattern
 

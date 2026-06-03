@@ -71,3 +71,8 @@
   border-top: 0.1rem solid var(--border, #e5e7eb);
   padding: 1rem 2rem;
 }
+
+/* <PageSectionCell> component */
+.pageSectionCell {
+  border-left: 0.1rem solid var(--border, #e5e7eb);
+}
