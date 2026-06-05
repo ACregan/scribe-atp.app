@@ -19,8 +19,16 @@ import {
   PageSection,
 } from "~/components/PageContainer/PageContainer";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import { IconBadge } from "~/components/IconBadge/IconBadge";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
+
+function formatArticleDate(iso: string): string {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  return `${time} ${date}`;
+}
 
 const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, SITE_COLLECTION];
 
@@ -61,9 +69,26 @@ export async function loader({ request }: Route.LoaderArgs) {
       isAuthenticated,
       isDev: IS_DEV,
       recentArticles: [
-        { uri: "at://did:dev:alice/app.scribe.article/my-first-post", title: "My First Post", url: "my-first-post", createdAt: "2025-06-01T09:00:00.000Z", updatedAt: "2025-06-04T10:00:00.000Z" },
-        { uri: "at://did:dev:alice/app.scribe.article/design-principles", title: "Design Principles", url: "design-principles", createdAt: "2025-05-20T08:00:00.000Z", updatedAt: "2025-06-01T09:00:00.000Z" },
-        { uri: "at://did:dev:alice/app.scribe.article/getting-started", title: "Getting Started with AT Protocol", url: "getting-started", createdAt: "2025-05-28T14:00:00.000Z" },
+        {
+          uri: "at://did:dev:alice/app.scribe.article/my-first-post",
+          title: "My First Post",
+          url: "my-first-post",
+          createdAt: "2025-06-01T09:00:00.000Z",
+          updatedAt: "2025-06-04T10:00:00.000Z",
+        },
+        {
+          uri: "at://did:dev:alice/app.scribe.article/design-principles",
+          title: "Design Principles",
+          url: "design-principles",
+          createdAt: "2025-05-20T08:00:00.000Z",
+          updatedAt: "2025-06-01T09:00:00.000Z",
+        },
+        {
+          uri: "at://did:dev:alice/app.scribe.article/getting-started",
+          title: "Getting Started with AT Protocol",
+          url: "getting-started",
+          createdAt: "2025-05-28T14:00:00.000Z",
+        },
       ] as RecentArticle[],
       orphanedArticleCount: 2,
     };
@@ -71,16 +96,28 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const agent = await getAtpAgent(did);
   const [articlesResult, sitesResult] = await Promise.all([
-    agent.com.atproto.repo.listRecords({ repo: did, collection: ARTICLE_COLLECTION, limit: 100 }),
-    agent.com.atproto.repo.listRecords({ repo: did, collection: SITE_COLLECTION, limit: 100 }),
+    agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: ARTICLE_COLLECTION,
+      limit: 100,
+    }),
+    agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: SITE_COLLECTION,
+      limit: 100,
+    }),
   ]);
 
   const referencedUris = new Set<string>();
   for (const record of sitesResult.data.records) {
     const value = record.value as Record<string, unknown>;
-    const groups = value.groups as Array<{ articles?: Array<{ uri: string }> }> | undefined;
+    const groups = value.groups as
+      | Array<{ articles?: Array<{ uri: string }> }>
+      | undefined;
     const topArticles = value.articles as Array<{ uri: string }> | undefined;
-    groups?.forEach((g) => g.articles?.forEach((a) => referencedUris.add(a.uri)));
+    groups?.forEach((g) =>
+      g.articles?.forEach((a) => referencedUris.add(a.uri)),
+    );
     topArticles?.forEach((a) => referencedUris.add(a.uri));
   }
 
@@ -161,7 +198,8 @@ export function HydrateFallback() {
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { isAuthenticated, isDev, recentArticles, orphanedArticleCount } = loaderData;
+  const { isAuthenticated, isDev, recentArticles, orphanedArticleCount } =
+    loaderData;
   const nukeModal = useModal();
   const fetcher = useFetcher<{
     ok?: boolean;
@@ -192,14 +230,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <PageSection>
           <h2 className={styles.sectionTitle}>Quick Actions</h2>
           <div className={styles.quickActions}>
-            <Link to="/article/create">
-              <Button type="button">New Article</Button>
+            <Link to="/sites/new">
+              <Button type="button" icon={SvgImageList.Website}>
+                New Site
+              </Button>
             </Link>
             <Link to="/groups/new">
-              <Button type="button" variant="secondary">New Group</Button>
+              <Button type="button" icon={SvgImageList.Folder}>
+                New Group
+              </Button>
             </Link>
-            <Link to="/sites/new">
-              <Button type="button" variant="secondary">New Site</Button>
+            <Link to="/article/create">
+              <Button type="button" icon={SvgImageList.Document}>
+                New Article
+              </Button>
             </Link>
           </div>
         </PageSection>
@@ -208,7 +252,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <PageSection>
             <Link to="/article/list" className={styles.orphanAlert}>
               <Pill variant="danger">
-                {orphanedArticleCount} UNASSIGNED {orphanedArticleCount === 1 ? "ARTICLE" : "ARTICLES"}
+                {orphanedArticleCount} UNASSIGNED{" "}
+                {orphanedArticleCount === 1 ? "ARTICLE" : "ARTICLES"}
               </Pill>
               <span>These articles aren't assigned to any site.</span>
             </Link>
@@ -219,21 +264,22 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <PageSection>
             <h2 className={styles.sectionTitle}>Recently Updated</h2>
             {recentArticles.length === 0 ? (
-              <p className={styles.emptyState}>No articles yet. Create your first one above.</p>
+              <p className={styles.emptyState}>
+                No articles yet. Create your first one above.
+              </p>
             ) : (
               <ul className={styles.recentList}>
                 {recentArticles.map((article) => (
                   <li key={article.uri} className={styles.recentItem}>
+                    <IconBadge icon={SvgImageList.Document} />
                     <span className={styles.recentTitle}>{article.title}</span>
-                    <span className={styles.recentDate}>
-                      {new Date(article.updatedAt ?? article.createdAt).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
+                    <Pill>
+                      {formatArticleDate(article.updatedAt ?? article.createdAt)}
+                    </Pill>
                     <Link to={`/article/edit/${article.url}`}>
-                      <Button type="button" variant="secondary">Edit</Button>
+                      <Button type="button" variant="secondary">
+                        Edit
+                      </Button>
                     </Link>
                   </li>
                 ))}
@@ -249,7 +295,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <div className={styles.devToastButtons}>
                 <Button
                   onClick={() =>
-                    addToast({ heading: "Hello!", content: "This is a test toast.", variant: "primary", expireTimeSeconds: 5 })
+                    addToast({
+                      heading: "Hello!",
+                      content: "This is a test toast.",
+                      variant: "primary",
+                      expireTimeSeconds: 5,
+                    })
                   }
                   variant="primary"
                 >
@@ -257,7 +308,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 </Button>
                 <Button
                   onClick={() =>
-                    addToast({ heading: "Hello Again!", content: "This is another test toast.", variant: "secondary", expireTimeSeconds: 15 })
+                    addToast({
+                      heading: "Hello Again!",
+                      content: "This is another test toast.",
+                      variant: "secondary",
+                      expireTimeSeconds: 15,
+                    })
                   }
                   variant="secondary"
                 >
@@ -265,7 +321,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 </Button>
                 <Button
                   onClick={() =>
-                    addToast({ heading: "Warning!", content: "Hot toast!", variant: "danger", expireTimeSeconds: 5 })
+                    addToast({
+                      heading: "Warning!",
+                      content: "Hot toast!",
+                      variant: "danger",
+                      expireTimeSeconds: 5,
+                    })
                   }
                   variant="danger"
                 >
