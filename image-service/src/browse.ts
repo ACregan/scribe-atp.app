@@ -13,15 +13,17 @@ type ImageRow = {
   created_at: string;
 };
 
-function buildBreadcrumbs(folderId: number): Array<{ id: number; name: string }> {
+function buildBreadcrumbs(folderId: number, did: string): Array<{ id: number; name: string }> {
   const crumbs: Array<{ id: number; name: string }> = [];
   let currentId: number | null = folderId;
   while (currentId !== null) {
     const row = db
-      .prepare("SELECT id, name, parent_id FROM image_folders WHERE id = ?")
+      .prepare("SELECT id, user_did, name, parent_id FROM image_folders WHERE id = ?")
       .get(currentId) as FolderRow | undefined;
     if (!row) break;
-    crumbs.unshift({ id: row.id, name: row.name });
+    // Root folder names are DIDs — show "My Images" for the current user's own root
+    const displayName = (row.parent_id === null && row.user_did === did) ? "My Images" : row.name;
+    crumbs.unshift({ id: row.id, name: displayName });
     currentId = row.parent_id;
   }
   return crumbs;
@@ -47,17 +49,15 @@ export function handleBrowse(req: Request, res: Response): void {
       return;
     }
   } else {
-    folder = db
-      .prepare("SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE user_did = ? AND parent_id IS NULL LIMIT 1")
-      .get(did) as FolderRow | undefined ?? null;
-  }
-
-  if (!folder) {
-    res.json({ folder: null, breadcrumbs: [], subfolders: [], images: [] });
+    // No folderId: top-level shared view — return all users' root folders
+    const allRootFolders = db
+      .prepare("SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE parent_id IS NULL ORDER BY name")
+      .all() as FolderRow[];
+    res.json({ folder: null, breadcrumbs: [], subfolders: allRootFolders, images: [] });
     return;
   }
 
-  const breadcrumbs = buildBreadcrumbs(folder.id);
+  const breadcrumbs = buildBreadcrumbs(folder.id, did);
 
   const subfolders = db
     .prepare("SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE parent_id = ? ORDER BY name")

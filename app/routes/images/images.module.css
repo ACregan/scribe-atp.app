@@ -66,6 +66,10 @@
 
 /* ── Folder tile ─────────────────────────────────────────────────────────── */
 
+.folderTileOwn {
+  border-color: var(--blue, #0070f3);
+}
+
 .folderIcon {
   display: flex;
   align-items: center;

@@ -57,33 +57,13 @@ const DEV_DID = "did:dev:user";
 
 const DEV_MOCK: LoaderData = {
   currentUserDid: DEV_DID,
-  folder: { id: 1, user_did: DEV_DID, name: "my-images", parent_id: null },
-  breadcrumbs: [{ id: 1, name: "my-images" }],
+  folder: null,
+  breadcrumbs: [],
   subfolders: [
-    { id: 2, user_did: DEV_DID, name: "blog-headers", parent_id: 1, created_at: "2026-01-01T00:00:00.000Z" },
+    { id: 1, user_did: DEV_DID, name: DEV_DID, parent_id: null },
+    { id: 2, user_did: "did:plc:otheruser456789abcdefgh", name: "did:plc:otheruser456789abcdefgh", parent_id: null },
   ],
-  images: [
-    {
-      id: 1,
-      user_did: DEV_DID,
-      filename: "00000000-0000-0000-0000-000000000001",
-      original_name: "hero.jpg",
-      width: 1600,
-      height: 900,
-      sizes: { thumb: { width: 300, height: 169 }, "600": { width: 600, height: 338 }, max: { width: 1600, height: 900 } },
-      created_at: "2026-06-01T10:00:00.000Z",
-    },
-    {
-      id: 2,
-      user_did: DEV_DID,
-      filename: "00000000-0000-0000-0000-000000000002",
-      original_name: "portrait.jpg",
-      width: 800,
-      height: 1200,
-      sizes: { thumb: { width: 200, height: 300 }, max: { width: 800, height: 1200 } },
-      created_at: "2026-06-02T12:00:00.000Z",
-    },
-  ],
+  images: [],
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -128,6 +108,12 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const { folder, breadcrumbs, subfolders, images, currentUserDid } = loaderData;
   const isEmpty = subfolders.length === 0 && images.length === 0;
   const isOwnTree = folder?.user_did === currentUserDid;
+
+  function folderLabel(sub: BrowseFolder): string {
+    if (sub.parent_id !== null) return sub.name;
+    if (sub.user_did === currentUserDid) return "My Images";
+    return sub.name.length > 20 ? `${sub.name.slice(0, 20)}…` : sub.name;
+  }
 
   const uploadModal = useModal();
   const newFolderModal = useModal();
@@ -233,7 +219,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
       </PageSection>
 
       <PageSection>
-        {!folder && (
+        {!folder && isEmpty && (
           <div className={styles.emptyState}>
             <p className={styles.emptyStateHeading}>No images yet</p>
             <p className={styles.emptyStateBody}>
@@ -269,11 +255,14 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                   </div>
                 ) : (
                   <div className={styles.folderTileWrap}>
-                    <Link to={`/images?folder=${subfolder.id}`} className={styles.folderTile}>
+                    <Link
+                      to={`/images?folder=${subfolder.id}`}
+                      className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}`}
+                    >
                       <span className={styles.folderIcon}>
                         <SvgIcon name={SvgImageList.Folder} fill="var(--blue)" />
                       </span>
-                      <span className={styles.tileName}>{subfolder.name}</span>
+                      <span className={styles.tileName}>{folderLabel(subfolder)}</span>
                     </Link>
                     {isOwnTree && (
                       <div className={styles.tileActions}>
