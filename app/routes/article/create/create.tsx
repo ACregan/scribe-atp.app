@@ -77,6 +77,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   try {
     const agent = await getAtpAgent(did);
+    const now = new Date().toISOString();
     const result = await agent.com.atproto.repo.createRecord({
       repo: did,
       collection: ARTICLE_COLLECTION,
@@ -88,7 +89,8 @@ export async function action({ request }: Route.ActionArgs) {
         url,
         splashImageUrl: splashImageUrl?.trim() || undefined,
         synopsis: synopsis?.trim() || undefined,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       },
     });
 
@@ -99,7 +101,8 @@ export async function action({ request }: Route.ActionArgs) {
         url,
         splashImageUrl: splashImageUrl?.trim() || null,
         synopsis: synopsis?.trim() || null,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       };
 
       await Promise.allSettled(

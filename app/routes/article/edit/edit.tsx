@@ -126,6 +126,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     url: String(articleResult.data.value.url ?? params.articleUrl),
     splashImageUrl: String(articleResult.data.value.splashImageUrl ?? ""),
     synopsis: String(articleResult.data.value.synopsis ?? ""),
+    createdAt: String(articleResult.data.value.createdAt ?? new Date().toISOString()),
     cid: articleResult.data.cid ?? null,
     sites,
     currentSiteRkeys,
@@ -142,6 +143,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const synopsis = formData.get("synopsis") as string;
   const cid = formData.get("cid") as string | null;
+  const createdAt = (formData.get("createdAt") as string) || new Date().toISOString();
   const oldRkey = params.articleUrl;
   const newSiteRkeys = formData.getAll("sites") as string[];
   const oldSiteRkeys: string[] = JSON.parse(
@@ -163,6 +165,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const newArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${newUrl}`;
   const slugChanged = newUrl !== oldRkey;
 
+  const now = new Date().toISOString();
   const record = {
     $type: ARTICLE_COLLECTION,
     title,
@@ -170,7 +173,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     url: newUrl,
     splashImageUrl: splashImageUrl?.trim() || undefined,
     synopsis: synopsis?.trim() || undefined,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    updatedAt: now,
   };
 
   try {
@@ -226,7 +230,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     url: newUrl,
     splashImageUrl: splashImageUrl?.trim() || null,
     synopsis: synopsis?.trim() || null,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    updatedAt: now,
   };
 
   await Promise.allSettled([
@@ -323,6 +328,7 @@ export default function EditArticle({
     url,
     splashImageUrl,
     synopsis,
+    createdAt,
     cid,
     sites,
     currentSiteRkeys,
@@ -346,6 +352,7 @@ export default function EditArticle({
   return (
     <Form method="post" id="edit-article-form">
       <input type="hidden" name="cid" value={cid ?? ""} />
+      <input type="hidden" name="createdAt" value={createdAt} />
       <input
         type="hidden"
         name="oldSiteRkeys"

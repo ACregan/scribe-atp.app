@@ -29,6 +29,7 @@ type RecentArticle = {
   title: string;
   url: string;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -60,8 +61,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       isAuthenticated,
       isDev: IS_DEV,
       recentArticles: [
-        { uri: "at://did:dev:alice/app.scribe.article/my-first-post", title: "My First Post", url: "my-first-post", createdAt: "2025-06-04T10:00:00.000Z" },
-        { uri: "at://did:dev:alice/app.scribe.article/design-principles", title: "Design Principles", url: "design-principles", createdAt: "2025-06-01T09:00:00.000Z" },
+        { uri: "at://did:dev:alice/app.scribe.article/my-first-post", title: "My First Post", url: "my-first-post", createdAt: "2025-06-01T09:00:00.000Z", updatedAt: "2025-06-04T10:00:00.000Z" },
+        { uri: "at://did:dev:alice/app.scribe.article/design-principles", title: "Design Principles", url: "design-principles", createdAt: "2025-05-20T08:00:00.000Z", updatedAt: "2025-06-01T09:00:00.000Z" },
         { uri: "at://did:dev:alice/app.scribe.article/getting-started", title: "Getting Started with AT Protocol", url: "getting-started", createdAt: "2025-05-28T14:00:00.000Z" },
       ] as RecentArticle[],
       orphanedArticleCount: 2,
@@ -91,9 +92,12 @@ export async function loader({ request }: Route.LoaderArgs) {
         title: String(value.title ?? "Untitled"),
         url: String(value.url ?? record.uri.split("/").pop()!),
         createdAt: String(value.createdAt ?? ""),
+        updatedAt: value.updatedAt ? String(value.updatedAt) : undefined,
       };
     })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) =>
+      (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+    )
     .slice(0, 5);
 
   const orphanedArticleCount = articlesResult.data.records.filter(
@@ -210,7 +214,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
         {isAuthenticated && (
           <PageSection>
-            <h2 className={styles.sectionTitle}>Recent Articles</h2>
+            <h2 className={styles.sectionTitle}>Recently Updated</h2>
             {recentArticles.length === 0 ? (
               <p className={styles.emptyState}>No articles yet. Create your first one above.</p>
             ) : (
@@ -219,7 +223,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   <li key={article.uri} className={styles.recentItem}>
                     <span className={styles.recentTitle}>{article.title}</span>
                     <span className={styles.recentDate}>
-                      {new Date(article.createdAt).toLocaleDateString("en-GB", {
+                      {new Date(article.updatedAt ?? article.createdAt).toLocaleDateString("en-GB", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",

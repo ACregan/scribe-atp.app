@@ -194,8 +194,4 @@ Both PDS calls (articles + sites) are made in parallel via `Promise.all`. The ho
 
 **Traffic analytics** — the PDS is write-only from the CMS's perspective; public readers don't report back. This would require instrumenting the public-facing site and building a separate analytics backend — out of scope.
 
-**Activity feed / recently edited** — requires an `updatedAt` field on `app.scribe.article` (not currently stored). Adding this field is a small change to the create and edit actions and is planned as the next dashboard iteration. Without it, only `createdAt` ordering is reliable.
-
-### Next: Recently edited articles (item 4)
-
-Add `updatedAt` to `app.scribe.article` (written on create and updated on every edit). Use it to power a "Recently Edited" list on the dashboard, replacing or supplementing the current "Recent Articles" (created) list.
+**Recently Updated** — `updatedAt` is now written to `app.scribe.article` on every create and edit. The dashboard "Recently Updated" section sorts by `updatedAt` descending, falling back to `createdAt` for older records that pre-date the field. `updatedAt` is also mirrored into `ArticleRef` (and propagated through `SiteArticleRef` / `TreeArticleNode` / both `buildTreeFromSite` and `treeToSiteData` maps) per the ArticleRef mirroring principle. The edit action was also fixed to preserve the original `createdAt` (previously it overwrote it with the save timestamp).

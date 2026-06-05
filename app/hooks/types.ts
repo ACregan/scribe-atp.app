@@ -5,6 +5,7 @@ export interface ArticleRef {
   splashImageUrl: string | null;
   synopsis?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface SiteGroup {

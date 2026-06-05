@@ -10,6 +10,7 @@ export type SiteArticleRef = {
   splashImageUrl: string | null;
   synopsis?: string | null;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type SiteGroup = {
@@ -37,6 +38,7 @@ export type TreeArticleNode = {
   splashImageUrl: string | null;
   synopsis?: string | null;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type TreeGroupNode = {
@@ -87,6 +89,7 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
       splashImageUrl: a.splashImageUrl,
       synopsis: a.synopsis,
       createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
     })),
   };
 
@@ -104,6 +107,7 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
       splashImageUrl: a.splashImageUrl,
       synopsis: a.synopsis,
       createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
     })),
   }));
 
@@ -127,6 +131,7 @@ export function treeToSiteData(tree: TreeGroupNode[]): {
           splashImageUrl: child.splashImageUrl,
           synopsis: child.synopsis,
           createdAt: child.createdAt,
+          updatedAt: child.updatedAt,
         });
       }
     } else {
@@ -140,6 +145,7 @@ export function treeToSiteData(tree: TreeGroupNode[]): {
           splashImageUrl: c.splashImageUrl,
           synopsis: c.synopsis,
           createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
         })),
       });
     }
