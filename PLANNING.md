@@ -150,6 +150,10 @@ The following are items relating to features that will be planned and implemente
 
 ## FEATURE: Image Library
 
+### Status: Implemented (June 2026)
+
+All items in this section are live on the VPS. The Image Service runs on port 3009 managed by PM2 (`scribe-atp.app-image-service`). The `/images` route is accessible to all authenticated users.
+
 ### Requirement
 
 ScribeCMS requires the ability to upload and organise images for use in splash images and article content.
@@ -204,6 +208,8 @@ nginx serves `/image-storage/` directly from the filesystem — the Image Servic
 **Accepted source formats:** JPEG, PNG, WebP, TIFF, GIF. HEIC/AVIF excluded (requires `libheif`, not guaranteed on VPS).
 
 **Upload file size limit:** 50MB per file.
+
+**Sharp version constraint:** `sharp` is pinned to `^0.31.3`. The production VPS CPU predates the x86_64-v2 microarchitecture required by sharp 0.33+ prebuilt binaries. Do not upgrade without first checking CPU support: `grep -m1 flags /proc/cpuinfo | grep -o sse4_2`. See `docs/adr/0002-sharp-version-pin.md`.
 
 **SQLite database** (separate file from `data/oauth.db`):
 ```sql
