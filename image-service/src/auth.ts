@@ -60,7 +60,8 @@ export async function getSessionDid(cookieHeader: string | undefined): Promise<s
   if (!unsigned) return null;
 
   try {
-    const data = JSON.parse(unsigned) as Record<string, unknown>;
+    // React Router btoa-encodes the JSON before signing; decode before parsing
+    const data = JSON.parse(atob(unsigned)) as Record<string, unknown>;
     return typeof data.did === "string" ? data.did : null;
   } catch {
     return null;
