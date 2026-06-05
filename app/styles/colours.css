@@ -18,5 +18,6 @@
   --off-white: var(--wild-sand);
   /* --white: var(--white); */
   --red: var(--cinnabar);
+  --error: var(--cinnabar);
   --blue: var(--blue-ribbon);
 }
