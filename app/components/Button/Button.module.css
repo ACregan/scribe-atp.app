@@ -39,3 +39,10 @@
   border: 0.2rem solid var(--error, #d32f2f);
   color: var(--white, #fff);
 }
+
+.icon {
+  display: inline-flex;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
+}
