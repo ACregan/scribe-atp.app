@@ -1,16 +1,23 @@
 import type { Route } from "./+types/groups";
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router";
+import { useState, useRef, useEffect } from "react";
 import { requireAuth, getAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
+import { Input } from "~/components/Input/Input";
+import { Select } from "~/components/Select/Select";
 import { Spinner } from "~/components/Spinner/Spinner";
+import { Modal } from "~/components/Modal/Modal";
+import { useModal } from "~/components/Modal/useModal";
 import {
   PageContainer,
   PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
-import { SITE_COLLECTION } from "~/constants";
+import { SITE_COLLECTION, SLUG_RE } from "~/constants";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { Pill } from "~/components/Pill/Pill";
+import { useToast } from "~/components/Toast/ToastContext";
+import { toSlug } from "~/routes/article/site-list/siteTree";
 import styles from "./groups.module.css";
 
 type SiteGroup = {
@@ -22,6 +29,8 @@ type SiteGroup = {
 type SiteWithGroups = {
   rkey: string;
   title: string;
+  url: string;
+  urlPrefix: string;
   splashImageUrl?: string;
   logoImageUrl?: string;
   groups: SiteGroup[];
@@ -44,6 +53,8 @@ export async function loader({ request }: Route.LoaderArgs) {
         {
           rkey: "norobots-blog",
           title: "NoRobots.blog",
+          url: "norobots.blog",
+          urlPrefix: "blog",
           groups: [
             { slug: "engineering", title: "Engineering", articleCount: 4 },
             {
@@ -56,6 +67,8 @@ export async function loader({ request }: Route.LoaderArgs) {
         {
           rkey: "perpetualsummer-ltd",
           title: "Perpetual Summer LTD",
+          url: "perpetualsummer.ltd",
+          urlPrefix: "",
           groups: [],
         },
       ] as SiteWithGroups[],
@@ -85,6 +98,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     return {
       rkey: record.uri.split("/").pop()!,
       title: String(value.title ?? ""),
+      url: String(value.url ?? ""),
+      urlPrefix: String(value.urlPrefix ?? ""),
       splashImageUrl: value.splashImageUrl
         ? String(value.splashImageUrl)
         : undefined,
@@ -96,8 +111,162 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { sites };
 }
 
+export async function action({ request }: Route.ActionArgs) {
+  const { did } = await requireAuth(request);
+  const formData = await request.formData();
+  const intent = formData.get("_intent") as string;
+
+  if (intent === "createGroup") {
+    const siteRkey = (formData.get("siteRkey") as string)?.trim();
+    const title = (formData.get("title") as string)?.trim();
+    if (!siteRkey) return { error: "Please select a site." };
+    if (!title) return { error: "Group title is required." };
+    const slugInput = (formData.get("slug") as string)?.trim().toLowerCase();
+    const slug = slugInput || toSlug(title);
+    if (!slug)
+      return { error: "Title must contain at least one letter or number." };
+    if (!SLUG_RE.test(slug))
+      return {
+        error: "URL path must be lowercase letters, numbers and hyphens only.",
+      };
+
+    if (useRealOAuth) {
+      const agent = await getAtpAgent(did);
+      const rec = await agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteRkey,
+      });
+      const val = rec.data.value as Record<string, unknown> & {
+        groups?: Array<{ slug: string }>;
+      };
+      if ((val.groups ?? []).some((g) => g.slug === slug)) {
+        return {
+          error: "A group with this URL path already exists on this site.",
+        };
+      }
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteRkey,
+        record: {
+          ...val,
+          groups: [...(val.groups ?? []), { slug, title, articles: [] }],
+          updatedAt: new Date().toISOString(),
+        },
+        swapRecord: rec.data.cid,
+      });
+    }
+
+    return { ok: true };
+  }
+
+  return { error: "Unknown intent." };
+}
+
 export function HydrateFallback() {
   return <Spinner size="large" />;
+}
+
+function CreateGroupModal({
+  sites,
+  onClose,
+}: {
+  sites: SiteWithGroups[];
+  onClose: () => void;
+}) {
+  const fetcher = useFetcher<{ error?: string; ok?: boolean }>();
+  const [selectedSiteRkey, setSelectedSiteRkey] = useState(
+    sites[0]?.rkey ?? "",
+  );
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const slugDirtyRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const { addToast } = useToast();
+
+  const selectedSite = sites.find((s) => s.rkey === selectedSiteRkey);
+  const isPending = fetcher.state !== "idle";
+  const slugValid = slug === "" || SLUG_RE.test(slug);
+  const composedPath = [selectedSite?.url, selectedSite?.urlPrefix, slug]
+    .filter(Boolean)
+    .join("/");
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data?.ok) {
+      addToast({ heading: "Group created", content: title, variant: "primary" });
+      onCloseRef.current();
+    }
+  }, [fetcher.state, fetcher.data]);
+
+  const siteOptions = sites.map((s) => ({ value: s.rkey, label: s.title }));
+
+  return (
+    <fetcher.Form
+      method="post"
+      style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}
+    >
+      <input type="hidden" name="_intent" value="createGroup" />
+      <Select
+        name="siteRkey"
+        label="Site"
+        options={siteOptions}
+        value={selectedSiteRkey}
+        onChange={(value) => setSelectedSiteRkey(value)}
+      />
+      <Input
+        id="group-title"
+        name="title"
+        label="Group title"
+        placeholder="e.g. Engineering"
+        value={title}
+        onChange={(e) => {
+          const val = e.target.value;
+          setTitle(val);
+          if (!slugDirtyRef.current) setSlug(toSlug(val));
+        }}
+        autoFocus
+      />
+      <Input
+        id="group-slug"
+        name="slug"
+        label="URL path"
+        placeholder="e.g. engineering"
+        value={slug}
+        onChange={(e) => {
+          slugDirtyRef.current = true;
+          setSlug(e.target.value.toLowerCase());
+        }}
+        error={
+          !slugValid
+            ? "Lowercase letters, numbers and hyphens only."
+            : undefined
+        }
+      />
+      {slug && slugValid && (
+        <p style={{ fontSize: "1.2rem", color: "var(--mid-grey)", margin: 0 }}>
+          Path: <code>{composedPath}</code>
+        </p>
+      )}
+      {fetcher.data?.error && (
+        <p style={{ fontSize: "1.3rem", color: "var(--red)", margin: 0 }}>
+          {fetcher.data.error}
+        </p>
+      )}
+      <p style={{ fontSize: "1.2rem", color: "var(--mid-grey)", margin: 0 }}>
+        The URL path cannot be changed after the group is created.
+      </p>
+      <Button
+        type="submit"
+        disabled={
+          isPending || !selectedSiteRkey || !title.trim() || !slug || !slugValid
+        }
+      >
+        {isPending ? "Creating…" : "Create Group"}
+      </Button>
+    </fetcher.Form>
+  );
 }
 
 const GroupSiteItem: React.FC<GroupSiteItemProps> = ({ site }) => {
@@ -152,6 +321,7 @@ const GroupSiteItem: React.FC<GroupSiteItemProps> = ({ site }) => {
 
 export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
   const { sites } = loaderData;
+  const { isOpen, open, close } = useModal();
 
   return (
     <PageContainer
@@ -159,6 +329,13 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
         <PageContainerHeading icon={SvgImageList.Folder}>
           Groups
         </PageContainerHeading>
+      }
+      topButtons={
+        sites.length > 0 ? (
+          <Button type="button" variant="primary" onClick={open}>
+            Add New Group
+          </Button>
+        ) : undefined
       }
     >
       <PageSection>
@@ -174,6 +351,10 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
           </ul>
         )}
       </PageSection>
+
+      <Modal isOpen={isOpen} onClose={close} title="Add new group" footer={null}>
+        {isOpen && <CreateGroupModal sites={sites} onClose={close} />}
+      </Modal>
     </PageContainer>
   );
 }
