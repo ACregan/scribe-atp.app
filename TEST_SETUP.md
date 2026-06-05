@@ -1,24 +1,23 @@
-# Test Setup Instructions
+# Test Setup
 
-## Required Dependencies
+## Stack
 
-To run the component tests, install the following dev dependencies:
+- **Vitest** — test runner (compatible with Jest assertion API)
+- **@testing-library/react** — component rendering and interaction helpers
+- **@testing-library/jest-dom** — DOM matchers (`toBeInTheDocument`, etc.)
+- **jsdom** — DOM environment for tests
 
-```bash
-npm install --save-dev vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom @vitejs/plugin-react
-```
+## Configuration
 
-## Vite Configuration
+Tests use a standalone `vitest.config.ts` separate from `vite.config.ts`. This avoids loading the React Router build plugin during test runs (`vite.config.ts` skips `reactRouter()` when `process.env.VITEST` is set, but the standalone config is cleaner).
 
-Update `vite.config.ts` to include test configuration:
+**`vitest.config.ts`**
 
 ```typescript
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 import path from "path";
 
 export default defineConfig({
-  plugins: [react()],
   resolve: {
     alias: {
       "~": path.resolve(__dirname, "./app"),
@@ -31,99 +30,80 @@ export default defineConfig({
     include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     coverage: {
       reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "src/test/"],
+      exclude: ["node_modules/", "test.setup.ts", "**/*.module.css"],
     },
   },
 });
 ```
 
-## Test Setup File
-
-Create `test.setup.ts` in the root directory:
+**`test.setup.ts`**
 
 ```typescript
 import "@testing-library/jest-dom";
-import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
-
-afterEach(() => {
-  cleanup();
-});
 ```
 
-## Running Tests
+`@testing-library/react` handles `cleanup` automatically when Vitest's `globals: true` is set — no manual `afterEach` needed.
 
-Add test script to `package.json`:
-
-```json
-{
-  "scripts": {
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
-  }
-}
-```
-
-Run tests with:
+## Commands
 
 ```bash
-npm test
+npm test              # watch mode
+npm run test:run      # single run (CI)
+npm run test:coverage # single run with coverage report
 ```
 
-Run with coverage:
+## File conventions
 
-```bash
-npm run test:coverage
-```
+- Component tests are co-located: `app/components/Foo/Foo.test.tsx`
+- Pure function tests are co-located with the source: `app/hooks/utils.test.ts`
+- Hook tests co-located: `app/components/Modal/useModal.test.ts`
 
-## Test File Structure
+## Mocking conventions
 
-Tests are located alongside components with the pattern: `ComponentName.test.tsx`
+- **Child components** are mocked with `vi.mock(...)` to isolate the component under test
+- **React Router primitives** (`Form`, `Link`, `NavLink`) are mocked per-file
+- **dnd-kit hooks** (`useSortable`, `useDndContext`) are mocked to return static values; `vi.hoisted()` is required for any mock variable referenced inside a `vi.mock()` factory
+- **Lexical editor internals** are mocked wholesale in `RichTextEditor.test.tsx` and `ToolbarPlugin.test.tsx`; `useLexicalComposerContext` is mocked via `vi.hoisted`
 
-Example:
+## Testing philosophy
 
-- `app/components/Button/Button.tsx`
-- `app/components/Button/Button.test.tsx`
+- Prefer testing **observable behaviour** — what the user sees, what handlers are called, what the DOM communicates
+- **Pure function tests** are highest value: no mocking needed and they catch silent data corruption (e.g. the `buildTreeFromSite`/`treeToSiteData` round-trip)
+- **Component tests** mock aggressively to isolate the unit — they verify rendering and interaction, not business logic
+- **Business logic lives in route loaders/actions** — those are the next priority for test coverage
 
-## Testing Approach
+## Current test files
 
-Each component test file:
-
-1. Mocks child components to isolate testing
-2. Tests rendering with various props
-3. Tests user interactions
-4. Tests conditional rendering
-5. Aims for 100% coverage
-
-## Current Test Files
+### Components
 
 - [x] `app/components/ArticleForm/ArticleForm.test.tsx`
-- [ ] `app/components/ArticleItem/ArticleItem.test.tsx`
-- [ ] `app/components/ArticleList/ArticleList.test.tsx`
-- [ ] `app/components/AsideMenu/AsideMenu.test.tsx`
-- [ ] `app/components/Button/Button.test.tsx`
-- [ ] `app/components/FooterPortal/FooterPortal.test.tsx`
-- [ ] `app/components/GroupItem/GroupItem.test.tsx`
-- [ ] `app/components/GroupList/GroupList.test.tsx`
-- [ ] `app/components/Input/Input.test.tsx`
-- [ ] `app/components/Modal/Modal.test.tsx`
-- [ ] `app/components/Modal/useModal.test.ts`
-- [ ] `app/components/PageContainer/PageContainer.test.tsx`
-- [ ] `app/components/RichTextEditor/RichTextEditor.test.tsx`
-- [ ] `app/components/RichTextEditor/ToolbarPlugin.test.tsx`
-- [ ] `app/components/Select/Select.test.tsx`
-- [ ] `app/components/SiteTile/SiteTile.test.tsx`
-- [ ] `app/components/Spinner/Spinner.test.tsx`
-- [ ] `app/components/SvgIcon/SvgIcon.test.tsx`
-- [ ] `app/components/Toast/Toast.test.tsx`
-- [ ] `app/components/Toast/ToastContext.test.tsx`
-- [ ] `app/components/Tooltip/Tooltip.test.tsx`
+- [x] `app/components/ArticleItem/ArticleItem.test.tsx`
+- [x] `app/components/ArticleList/ArticleList.test.tsx`
+- [x] `app/components/AsideMenu/AsideMenu.test.tsx`
+- [x] `app/components/Button/Button.test.tsx`
+- [x] `app/components/FooterPortal/FooterPortal.test.tsx`
+- [x] `app/components/GroupItem/GroupItem.test.tsx`
+- [x] `app/components/GroupList/GroupList.test.tsx`
+- [x] `app/components/Input/Input.test.tsx`
+- [x] `app/components/Modal/Modal.test.tsx`
+- [x] `app/components/Modal/useModal.test.ts`
+- [x] `app/components/PageContainer/PageContainer.test.tsx`
+- [x] `app/components/RichTextEditor/RichTextEditor.test.tsx`
+- [x] `app/components/RichTextEditor/ToolbarPlugin.test.tsx`
+- [x] `app/components/Select/Select.test.tsx`
+- [x] `app/components/SiteTile/SiteTile.test.tsx`
+- [x] `app/components/Spinner/Spinner.test.tsx`
+- [x] `app/components/SvgIcon/SvgIcon.test.tsx`
+- [x] `app/components/Toast/Toast.test.tsx`
+- [x] `app/components/Toast/ToastContext.test.tsx`
+- [x] `app/components/Tooltip/Tooltip.test.tsx`
 
-## Notes
+### Pure functions / utilities
 
-- Tests use Vitest (compatible with Jest assertions)
-- React Testing Library for component testing
-- jsdom for DOM environment
-- All tests are written in TypeScript
-- Mocks are used to isolate components
+- [x] `app/constants.test.ts` — `SLUG_RE`, `DOMAIN_RE` valid/invalid cases; collection name constants
+- [x] `app/hooks/utils.test.ts` — `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier`
+- [x] `app/routes/article/site-list/siteTree.test.ts` — `toSlug`, `buildTreeFromSite`, `treeToSiteData`, full round-trip suite
+
+### Next priority
+
+Route loader/action tests (slug validation, site assignment logic, orphan detection).
