@@ -15,7 +15,8 @@ const MAX_BOX_CAP = 3000;
 
 export async function generateVariants(
   inputBuffer: Buffer,
-  outputDir: string
+  outputDir: string,
+  onVariant?: (name: string, dims: { width: number; height: number }) => void
 ): Promise<{ sizes: VariantSizes; sourceWidth: number; sourceHeight: number }> {
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -35,6 +36,7 @@ export async function generateVariants(
       .toFile(path.join(outputDir, `${name}.webp`));
 
     sizes[name] = { width: result.width, height: result.height };
+    onVariant?.(name, sizes[name]);
   }
 
   // max is always generated — at source dimensions, capped at MAX_BOX_CAP
@@ -47,6 +49,7 @@ export async function generateVariants(
           .toFile(path.join(outputDir, "max.webp"));
 
   sizes["max"] = { width: maxResult.width, height: maxResult.height };
+  onVariant?.("max", sizes["max"]);
 
   return { sizes, sourceWidth, sourceHeight };
 }

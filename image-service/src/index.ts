@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import multer from "multer";
 import { getSessionDid } from "./auth.js";
 import { handleUpload } from "./upload.js";
+import { registerSSE } from "./sse.js";
 import { startupCleanup } from "./cleanup.js";
 
 if (!process.env.SESSION_SECRET) {
@@ -26,6 +27,15 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   }
   (req as Request & { userDid: string }).userDid = did;
   next();
+});
+
+app.get("/api/image-service/progress/:uploadId", (req: Request, res: Response) => {
+  const { uploadId } = req.params;
+  if (!uploadId || typeof uploadId !== "string") {
+    res.status(400).json({ error: "Missing uploadId" });
+    return;
+  }
+  registerSSE(uploadId, res);
 });
 
 app.post("/api/image-service/upload", upload.single("file"), handleUpload);
