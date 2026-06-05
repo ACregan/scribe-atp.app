@@ -1,5 +1,5 @@
 import type { Route } from "./+types/site-list";
-import { redirect, useFetcher, useBlocker, Link } from "react-router";
+import { redirect, useFetcher, useBlocker, useNavigate, useLocation, Link } from "react-router";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
 import { Spinner } from "~/components/Spinner/Spinner";
@@ -388,6 +388,23 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   const { site, devMode } = loaderData;
   const { isOpen, open, close } = useModal();
 
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isNewRoute = pathname.endsWith("/new");
+
+  const openedByRouteRef = useRef(false);
+  useEffect(() => {
+    if (isNewRoute && !openedByRouteRef.current) {
+      openedByRouteRef.current = true;
+      open();
+    }
+  }, []);
+
+  function handleCloseModal() {
+    close();
+    if (isNewRoute) navigate(`/article/list/${site.rkey}`, { replace: true });
+  }
+
   const [tree, setTree] = useState<TreeGroupNode[]>(() =>
     buildTreeFromSite(site),
   );
@@ -648,9 +665,11 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
               Draft New Article
             </Button>
           </Link>
-          <Button type="button" variant="primary" onClick={open}>
-            Add New Group
-          </Button>
+          <Link to={`/article/list/${site.rkey}/new`}>
+            <Button type="button" variant="primary">
+              Add New Group
+            </Button>
+          </Link>
         </ButtonGroupContainer>
       }
     >
@@ -730,12 +749,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
       <Modal
         isOpen={isOpen}
-        onClose={close}
+        onClose={handleCloseModal}
         title="Add new group"
         footer={null}
       >
         <CreateGroupModal
-          onClose={close}
+          onClose={handleCloseModal}
           siteUrl={site.url}
           urlPrefix={site.urlPrefix}
         />
