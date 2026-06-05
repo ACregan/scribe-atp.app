@@ -32,4 +32,5 @@ export interface Article {
   splashImageUrl?: string;
   synopsis?: string;
   createdAt: string;
+  updatedAt?: string;
 }

@@ -226,7 +226,7 @@ Key design decisions for `app.scribe.site`:
 - Groups and article order within groups are authoritative — the site record is the manifest
 - `updatedAt` is useful for cache invalidation by public readers
 - Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
-- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. Current mirrored fields: `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`. When adding a new article field, add it to `ArticleRef` in the same PR and update the four construction/propagation sites: `create.tsx` (articleRef), `edit.tsx` (newArticleRef), and `site-list.tsx` (`SiteArticleRef` type + `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps).
+- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. Current mirrored fields: `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`. When adding a new article field, add it to `ArticleRef` in the same PR and update the four construction/propagation sites: `create.tsx` (articleRef), `edit.tsx` (newArticleRef), and `siteTree.ts` (`SiteArticleRef` type + `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps).
 - **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every site the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member sites without any manual re-ordering.
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
@@ -321,7 +321,7 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
 | `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`, `onDeleteConfirm?: (slug: string) => void`, `isDeleting?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and re-exports `TreeArticle` from `~/components/types`. `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has articles). When `onDeleteConfirm` is provided, confirmation calls it instead of submitting the form natively — this is the correct path for fetcher-based deletes. `isDeleting` replaces the trash icon with `<Spinner size="small" />` and disables the button. `articleMode` is forwarded to each `ArticleItem` child. |
 | `Select` | `app/components/Select/Select.tsx` | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a dropdown trigger styled like `<select>` that opens a checkbox list on click; collapses showing "Select options" / single label / "{n} selected" summary; closes on click-outside or Escape. Both modes post standard form values under `name` (multi-select uses hidden inputs per selected value). |
-| `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (links to `/sites`), article list (also links to `/sites` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
+| `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (`/sites`), groups (`/groups`), articles (`/article/list` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
 | `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
 | `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
 | `SiteTile` | `app/components/SiteTile/SiteTile.tsx` | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Re-exports `SiteData` from `~/components/types`. |
@@ -485,36 +485,42 @@ The `client_id` is a plain URL (`${publicUrl}/client-metadata.json`) with no ver
 
 ## Public hooks (`app/hooks/`)
 
-`app/hooks/usePublicSiteArticles.ts` (re-exported via `app/hooks/index.ts`) provides React hooks that read Scribe ATP data directly from the AT Protocol — no auth, no API backend. Intended to be copied into consumer websites (not imported as a package — there is no published npm artifact yet).
+`app/hooks/` (re-exported via `app/hooks/index.ts`) provides React hooks that read Scribe ATP data directly from the AT Protocol — no auth, no API backend. Intended to be copied into consumer websites (not imported as a package — there is no published npm artifact yet).
 
 ### Hooks
 
-| Hook | Purpose |
-|---|---|
-| `usePublicSiteArticles(authorDid, siteSlug, groupSlug?)` | Fetches a site record from the PDS; returns `{ data, loading, error }`. `data` is the result of `useSiteArticles` (see below). `groupSlug` filters to a single group. |
-| `useSiteArticles(site)` | Pure computation hook — takes an already-fetched `SiteData` object and returns query helpers without any network calls. |
-| `useSiteArticlesDirect(authorDid, siteSlug, groupSlug?)` | Convenience wrapper; returns `{ articles, loading, error }` — flat `SiteArticleRef[]`. |
-| `useSiteGroupsDirect(authorDid, siteSlug)` | Convenience wrapper; returns `{ groups, loading, error }` — `SiteGroup[]`. |
+| Hook | Signature | Returns |
+|---|---|---|
+| `useSite` | `(author: string, siteSlug: string)` | `{ site: Site \| null, loading: boolean, error: Error \| null }` — fetches the full site manifest (groups, ungrouped articles, metadata) |
+| `useArticle` | `(author: string, articleSlug: string)` | `{ article: Article \| null, loading: boolean, error: Error \| null }` — fetches a single article including HTML content |
 
-### Returned methods from `useSiteArticles`
-
-`allArticles()`, `getArticlesByGroup(slug)`, `getArticleBySlug(slug)`, `getArticleByUri(uri)`, `groups()`, `getGroupBySlug(slug)`, `isArticleInAnyGroup(uri)`, `getUngroupedArticles()`
+Both hooks cancel the in-flight fetch on unmount and on parameter change.
 
 ### Helper functions (pure, no hooks)
 
-`slugFromUri(uri)`, `flattenSiteArticles(site)`, `getGroupArticles(site, groupSlug)`, `getGroupSlugs(site)`, `isArticleInGroup(site, groupSlug, uri)`, `findArticleGroup(site, uri)`
+| Function | Purpose |
+|---|---|
+| `slugFromUri(uri)` | Returns the final path segment of an AT URI (the rkey / article slug) |
+| `flattenArticles(site)` | Returns all articles from a site in order: each group's articles followed by top-level ungrouped articles |
 
-### Types
+### Types (exported from `app/hooks/types.ts`)
 
-`SiteArticleRef { uri, title, splashImageUrl, createdAt }`, `SiteGroup { slug, title, articles }`, `SiteData { rkey, cid, url, title, urlPrefix, groups, articles }`
+```ts
+ArticleRef  { uri, title, url?, splashImageUrl, synopsis?, createdAt, updatedAt? }
+SiteGroup   { slug, title, articles: ArticleRef[] }
+Site        { title, url, urlPrefix, description?, splashImageUrl?, logoImageUrl?, groups: SiteGroup[], articles: ArticleRef[] }
+Article     { title, content, url, splashImageUrl?, synopsis?, createdAt, updatedAt? }
+```
+
+`ArticleRef` is the cached snapshot stored inside a `Site` record. `Article` is the full article record including HTML `content`.
 
 ### ⚠️ PDS endpoint limitation
 
-`fetchSiteFromPds` always proxies through `https://public.api.bsky.app`. This works for `did:plc` identifiers on bsky.social but will fail for `did:web` or self-hosted PDS instances. Resolving the correct PDS URL requires calling `com.atproto.identity.resolveDid` and checking the `#atproto_pds` service endpoint — not yet implemented.
+All requests proxy through `https://public.api.bsky.app`. This works for `did:plc` identifiers on bsky.social but will fail for `did:web` or self-hosted PDS instances. Resolving the correct PDS URL requires calling `com.atproto.identity.resolveDid` and checking the `#atproto_pds` service endpoint — not yet implemented.
 
 ### Handle resolution
 
-`authorDid` can be a handle (e.g. `"user.bsky.social"`) — the hook resolves it to a DID via `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle` before fetching the site record.
+`author` can be a handle (e.g. `"user.bsky.social"`) or a DID — the hooks resolve handles to a DID via `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle` before fetching.
 
 ## Testing
 

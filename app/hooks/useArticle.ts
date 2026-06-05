@@ -25,6 +25,7 @@ async function fetchArticle(
     splashImageUrl: value.splashImageUrl,
     synopsis: value.synopsis,
     createdAt: value.createdAt ?? "",
+    updatedAt: value.updatedAt,
   };
 }
 

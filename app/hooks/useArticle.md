@@ -31,7 +31,9 @@ const { article, loading, error } = useArticle(author, articleSlug);
   content: string;        // HTML — render with dangerouslySetInnerHTML
   url: string;            // the slug, same as articleSlug
   splashImageUrl?: string;
-  createdAt: string;      // ISO 8601
+  synopsis?: string;
+  createdAt: string;      // ISO 8601 — set once on create, never changed
+  updatedAt?: string;     // ISO 8601 — set on create and updated on every edit
 }
 ```
 

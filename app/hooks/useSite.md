@@ -41,7 +41,15 @@ const { site, loading, error } = useSite(author, siteSlug);
 { slug: string; title: string; articles: ArticleRef[] }
 
 // ArticleRef — cached snapshot; does NOT include article body content
-{ uri: string; title: string; splashImageUrl: string | null; createdAt: string }
+{
+  uri: string;
+  title: string;
+  url?: string;            // article slug — same as rkey, convenient for routing
+  splashImageUrl: string | null;
+  synopsis: string | null;
+  createdAt: string;       // ISO 8601
+  updatedAt?: string;      // ISO 8601 — absent on refs created before this field was introduced
+}
 ```
 
 > **Note:** `ArticleRef` contains only the metadata cached in the site record. To render the article body, fetch the full record with [`useArticle`](./useArticle.md).
