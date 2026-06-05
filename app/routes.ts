@@ -34,6 +34,7 @@ export default [
         "site/:siteSlug/configure",
         "./routes/site/configure/configure.tsx",
       ),
+      route("images", "./routes/images/images.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

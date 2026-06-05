@@ -1,0 +1,254 @@
+/* ── Breadcrumbs ─────────────────────────────────────────────────────────── */
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  font-size: 1.4rem;
+  color: var(--mid-grey);
+}
+
+.breadcrumbLink {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.breadcrumbLink:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbSep {
+  margin: 0 0.4rem;
+  color: var(--mid-grey);
+}
+
+.breadcrumbCurrent {
+  color: var(--black);
+  font-weight: 500;
+}
+
+/* ── Grid ────────────────────────────────────────────────────────────────── */
+
+.grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1.6rem;
+  align-items: start;
+}
+
+/* ── Shared tile base ────────────────────────────────────────────────────── */
+
+.folderTile,
+.imageTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  border: 1px solid var(--light-grey);
+  border-radius: 0.8rem;
+  background: var(--white);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.folderTile:hover,
+.imageTile:hover {
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Folder tile ─────────────────────────────────────────────────────────── */
+
+.folderTileOwn {
+  border-color: var(--blue, #0070f3);
+}
+
+.folderIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 6rem;
+  height: 6rem;
+}
+
+.folderIcon > svg {
+  width: 5rem;
+  height: 5rem;
+}
+
+/* ── Image tile ──────────────────────────────────────────────────────────── */
+
+.thumbnailWrap {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  background: var(--light-grey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Tile label ──────────────────────────────────────────────────────────── */
+
+.tileName {
+  font-size: 1.2rem;
+  color: var(--dark-grey);
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Top buttons ─────────────────────────────────────────────────────────── */
+
+.topButtons {
+  display: flex;
+  gap: 0.8rem;
+}
+
+/* ── Tile wrappers with action buttons ───────────────────────────────────── */
+
+.folderTileWrap,
+.imageTileWrap {
+  position: relative;
+}
+
+.tileActions {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: flex;
+  gap: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.folderTileWrap:hover .tileActions,
+.imageTileWrap:hover .tileActions {
+  opacity: 1;
+}
+
+.tileAction {
+  background: var(--white, #fff);
+  border: 1px solid var(--light-grey, #dedede);
+  border-radius: 0.4rem;
+  padding: 0.3rem;
+  cursor: pointer;
+  color: var(--mid-grey, #949494);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tileAction > svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.tileAction:hover {
+  color: var(--blue, #0070f3);
+  border-color: var(--blue, #0070f3);
+}
+
+.tileActionDanger:hover {
+  color: var(--red, #df2827);
+  border-color: var(--red, #df2827);
+}
+
+/* ── Delete confirmation inline ──────────────────────────────────────────── */
+
+.deleteConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  border: 1px solid var(--red);
+  border-radius: 0.8rem;
+  font-size: 1.3rem;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.deleteError {
+  color: var(--red);
+  font-size: 1.3rem;
+  margin: 0 0 1.2rem;
+}
+
+/* ── Variant copy buttons ────────────────────────────────────────────────── */
+
+.variantButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.variantButton {
+  font-size: 1.1rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--light-grey, #dedede);
+  border-radius: 0.4rem;
+  background: var(--white, #fff);
+  cursor: pointer;
+  color: var(--mid-grey, #949494);
+  transition: border-color 0.1s, color 0.1s;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.variantButton:hover {
+  border-color: var(--blue, #0070f3);
+  color: var(--blue, #0070f3);
+}
+
+.variantButtonCopied {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 3.2rem;
+  text-align: center;
+  color: var(--mid-grey);
+}
+
+.emptyStateHeading {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--black);
+}
+
+.emptyStateBody {
+  font-size: 1.4rem;
+  margin: 0;
+  max-width: 40rem;
+  align-self: center;
+  line-height: 1.6;
+}

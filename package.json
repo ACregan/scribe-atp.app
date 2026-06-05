@@ -5,8 +5,11 @@
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
+    "dev:image-service": "tsx --env-file=.env watch image-service/src/index.ts",
     "start": "PORT=3008 react-router-serve ./build/server/index.js",
+    "start:image-service": "tsx image-service/src/index.ts",
     "typecheck": "react-router typegen && tsc",
+    "typecheck:image-service": "tsc -p image-service/tsconfig.json --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -31,11 +34,14 @@
     "@react-router/serve": "7.15.1",
     "better-sqlite3": "^12.10.0",
     "classnames": "^2.5.1",
+    "express": "^5.2.1",
     "isbot": "^5.1.36",
     "lexical": "^0.44.0",
+    "multer": "^2.1.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-router": "7.15.1"
+    "react-router": "7.15.1",
+    "sharp": "^0.31.3"
   },
   "devDependencies": {
     "@react-router/dev": "7.15.1",
@@ -43,12 +49,16 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/sharp": "^0.31.1",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.8",
     "jsdom": "^29.1.1",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3",
     "vite": "^8.0.3",
     "vitest": "^4.1.8"

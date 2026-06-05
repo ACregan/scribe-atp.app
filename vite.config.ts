@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       allowedHosts: env.DEV_TUNNEL_HOST ? [env.DEV_TUNNEL_HOST] : undefined,
+      proxy: {
+        "/api/image-service": {
+          target: "http://localhost:3009",
+          changeOrigin: true,
+        },
+      },
     },
   };
 });
