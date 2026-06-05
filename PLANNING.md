@@ -38,6 +38,9 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
   "url": "norobots.blog",
   "title": "NoRobots.blog",
   "urlPrefix": "blog",
+  "description": "A blog about engineering and design.",
+  "splashImageUrl": "https://norobots.blog/images/splash.jpg",
+  "logoImageUrl": "https://norobots.blog/images/logo.png",
   "contributors": ["did:plc:contributorOneId", "did:plc:contributorTwoId"],
   "groups": [
     {
@@ -47,13 +50,17 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
         {
           "uri": "at://did:plc:ownerId/app.scribe.article/my-first-post",
           "title": "My First Post",
+          "url": "my-first-post",
           "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
+          "synopsis": "An introduction to the blog.",
           "createdAt": "2025-01-01T00:00:00.000Z"
         },
         {
           "uri": "at://did:plc:contributorOneId/app.scribe.article/their-article",
           "title": "Their Article",
+          "url": "their-article",
           "splashImageUrl": null,
+          "synopsis": null,
           "createdAt": "2025-02-01T00:00:00.000Z"
         }
       ]
@@ -65,7 +72,9 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
         {
           "uri": "at://did:plc:ownerId/app.scribe.article/design-principles",
           "title": "Design Principles",
+          "url": "design-principles",
           "splashImageUrl": "https://norobots.blog/images/design-principles.jpg",
+          "synopsis": "Core principles we follow.",
           "createdAt": "2025-03-01T00:00:00.000Z"
         }
       ]
@@ -75,7 +84,9 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
     {
       "uri": "at://did:plc:ownerId/app.scribe.article/ungrouped-post",
       "title": "Ungrouped Post",
+      "url": "ungrouped-post",
       "splashImageUrl": null,
+      "synopsis": null,
       "createdAt": "2025-04-01T00:00:00.000Z"
     }
   ],
@@ -87,11 +98,15 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
 Notes:
 
 - `ownerId` is omitted — the owner is whoever's PDS holds this record (their DID is the repo DID)
-- Article references are objects (not bare AT URIs) containing cached metadata: `uri`, `title`, `splashImageUrl`, `createdAt`
-- `uri` encodes everything needed to identify the article: author DID, collection, and rkey (slug)
-- Cached metadata (`title`, `splashImageUrl`) may go stale if the author edits their article — a sync mechanism will be needed, especially for contributor articles
+- `description`, `splashImageUrl`, `logoImageUrl` are optional site-level metadata fields; omitted from the record entirely when blank (not stored as empty strings)
+- Article references (`ArticleRef`) are objects (not bare AT URIs) containing a cached snapshot of article metadata: `uri`, `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`
+- `url` on an `ArticleRef` is the article slug — the same as the rkey; included so consumers don't have to parse the AT URI
+- `synopsis` is nullable — not all articles have one
 - `splashImageUrl` is nullable — not all articles have a splash image
-- `cid` is deliberately excluded — storing it would cause `swapRecord` failures after any edit to the article; fetch it live at the point of deletion
+- `uri` encodes everything needed to identify the article: author DID, collection, and rkey (slug)
+- Cached metadata may go stale if the author edits their article — the edit action always refreshes `ArticleRef` entries in every site the article belongs to on save (`sitesToRefresh`), keeping refs current without manual re-ordering
+- `cid` is deliberately excluded from `ArticleRef` — storing it would cause `swapRecord` failures after any edit to the article; fetch it live at the point of deletion
+- Every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef` — `content` is excluded because it can be arbitrarily large
 - `articles` at the top level holds ungrouped articles (same role as the ROOT virtual group in the current list view)
 - `groups` order is significant — it determines display order on the site
 - `updatedAt` is useful for cache invalidation by public readers
@@ -107,6 +122,7 @@ AT Protocol collection: `app.scribe.article`, rkey = url slug (e.g. `my-first-po
   "url": "my-first-post",
   "content": "<p>Article body as serialised HTML.</p>",
   "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
+  "synopsis": "An introduction to the blog.",
   "createdAt": "2025-01-01T00:00:00.000Z"
 }
 ```
@@ -118,6 +134,7 @@ Notes:
 - The author is implicit from whose PDS holds the record — no `authorId` field is needed; the AT URI (`at://did/app.scribe.article/slug`) carries that information
 - `url` doubles as the rkey — the slug used in the AT URI and in the public-facing URL path
 - `splashImageUrl` is optional
+- `synopsis` is optional — a short human-readable description; mirrored into every `ArticleRef` that references this article
 
 ---
 
