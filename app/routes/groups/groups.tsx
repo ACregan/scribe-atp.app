@@ -1,5 +1,5 @@
 import type { Route } from "./+types/groups";
-import { Link, useFetcher } from "react-router";
+import { Link, useFetcher, useNavigate, useLocation } from "react-router";
 import { useState, useRef, useEffect } from "react";
 import { requireAuth, getAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
@@ -323,6 +323,23 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
   const { sites } = loaderData;
   const { isOpen, open, close } = useModal();
 
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isNewRoute = pathname.endsWith("/new");
+
+  const openedByRouteRef = useRef(false);
+  useEffect(() => {
+    if (isNewRoute && !openedByRouteRef.current) {
+      openedByRouteRef.current = true;
+      open();
+    }
+  }, []);
+
+  function handleCloseModal() {
+    close();
+    if (isNewRoute) navigate("/groups", { replace: true });
+  }
+
   return (
     <PageContainer
       title={
@@ -352,8 +369,8 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
         )}
       </PageSection>
 
-      <Modal isOpen={isOpen} onClose={close} title="Add new group" footer={null}>
-        {isOpen && <CreateGroupModal sites={sites} onClose={close} />}
+      <Modal isOpen={isOpen} onClose={handleCloseModal} title="Add new group" footer={null}>
+        {isOpen && <CreateGroupModal sites={sites} onClose={handleCloseModal} />}
       </Modal>
     </PageContainer>
   );

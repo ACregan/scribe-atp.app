@@ -195,6 +195,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <Link to="/article/create">
               <Button type="button">New Article</Button>
             </Link>
+            <Link to="/groups/new">
+              <Button type="button" variant="secondary">New Group</Button>
+            </Link>
             <Link to="/sites/new">
               <Button type="button" variant="secondary">New Site</Button>
             </Link>
