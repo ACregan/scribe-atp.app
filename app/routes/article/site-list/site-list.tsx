@@ -660,7 +660,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       }
       topButtons={
         <ButtonGroupContainer>
-          <Link to="/article/create">
+          <Link to={`/article/create?site=${site.rkey}`}>
             <Button type="button" variant="primary">
               Draft New Article
             </Button>

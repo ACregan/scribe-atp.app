@@ -18,18 +18,21 @@ import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
+  const preselect = new URL(request.url).searchParams.get("site") ?? undefined;
 
   if (!useRealOAuth) {
-    return {
-      sites: [
-        { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
-        {
-          rkey: "perpetualsummer-ltd",
-          title: "Perpetual Summer LTD",
-          url: "perpetualsummer.ltd",
-        },
-      ] as SiteOption[],
-    };
+    const sites: SiteOption[] = [
+      { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
+      {
+        rkey: "perpetualsummer-ltd",
+        title: "Perpetual Summer LTD",
+        url: "perpetualsummer.ltd",
+      },
+    ];
+    const preselectedSite = sites.some((s) => s.rkey === preselect)
+      ? preselect
+      : undefined;
+    return { sites, preselectedSite };
   }
 
   const agent = await getAtpAgent(did);
@@ -39,13 +42,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  return {
-    sites: sitesResult.data.records.map((record) => ({
-      rkey: record.uri.split("/").pop()!,
-      title: String((record.value as Record<string, unknown>).title ?? ""),
-      url: String((record.value as Record<string, unknown>).url ?? ""),
-    })) as SiteOption[],
-  };
+  const sites: SiteOption[] = sitesResult.data.records.map((record) => ({
+    rkey: record.uri.split("/").pop()!,
+    title: String((record.value as Record<string, unknown>).title ?? ""),
+    url: String((record.value as Record<string, unknown>).url ?? ""),
+  }));
+
+  const preselectedSite = sites.some((s) => s.rkey === preselect)
+    ? preselect
+    : undefined;
+
+  return { sites, preselectedSite };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -147,8 +154,10 @@ export default function Create({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { sites } = loaderData;
-  const [selectedSites, setSelectedSites] = useState<string[]>([]);
+  const { sites, preselectedSite } = loaderData;
+  const [selectedSites, setSelectedSites] = useState<string[]>(
+    preselectedSite ? [preselectedSite] : [],
+  );
   const { addToast } = useToast();
 
   useEffect(() => {
