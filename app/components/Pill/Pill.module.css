@@ -1,0 +1,26 @@
+.pill {
+  display: inline-block;
+  font-size: 1rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.4rem;
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.default {
+  background: var(--mid-grey);
+}
+
+.primary {
+  background: var(--blue);
+}
+
+.secondary {
+  background: transparent;
+  color: var(--blue);
+  border: 0.1rem solid var(--blue);
+}
+
+.danger {
+  background: var(--error);
+}

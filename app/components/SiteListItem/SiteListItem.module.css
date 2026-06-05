@@ -77,16 +77,8 @@
 }
 
 .counts {
-}
-
-.groupCount,
-.articleCount {
-  font-size: 1rem;
-  background: var(--mid-grey);
-  color: var(--white);
-  padding: 0.3rem 0.5rem;
-  border-radius: 0.4rem;
-  margin-right: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* ── Actions ─────────────────────────────────────────────────────────────────── */

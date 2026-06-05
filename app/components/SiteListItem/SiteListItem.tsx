@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router";
 import { Button } from "~/components/Button/Button";
+import { Pill } from "~/components/Pill/Pill";
 import Tooltip, { TooltipBubble } from "~/components/Tooltip/Tooltip";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { type SiteData } from "~/components/types";
@@ -54,15 +55,10 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
             <span className={styles.siteUrl}>{composedUrl(site)}</span>
             <div className={styles.counts}>
               {site.groupCount > 0 && (
-                <span className={styles.articleCount}>
-                  {`${site.groupCount} GROUP${site.groupCount !== 1 ? "S" : ""}`}
-                </span>
+                <Pill>{`${site.groupCount} GROUP${site.groupCount !== 1 ? "S" : ""}`}</Pill>
               )}
               {site.articleCount > 0 && (
-                <span className={styles.groupCount}>
-                  {site.articleCount} ARTICLE
-                  {site.articleCount !== 1 ? "S" : ""}
-                </span>
+                <Pill>{site.articleCount} ARTICLE{site.articleCount !== 1 ? "S" : ""}</Pill>
               )}
             </div>
           </div>
