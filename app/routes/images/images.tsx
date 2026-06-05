@@ -43,6 +43,15 @@ type LoaderData = {
   images: BrowseImage[];
 };
 
+const VARIANT_ORDER = ["thumb", "600", "1200", "1800", "max"];
+const VARIANT_LABEL: Record<string, string> = {
+  thumb: "Thumb",
+  "600": "600w",
+  "1200": "1200w",
+  "1800": "1800w",
+  max: "Max",
+};
+
 const DEV_DID = "did:dev:user";
 
 const DEV_MOCK: LoaderData = {
@@ -126,8 +135,18 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moveImage, setMoveImage] = useState<BrowseImage | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   function refresh() { revalidator.revalidate(); }
+
+  function handleCopy(image: BrowseImage, variant: string) {
+    const url = `${window.location.origin}/image-storage/${image.user_did}/${image.filename}/${variant}.webp`;
+    navigator.clipboard.writeText(url).then(() => {
+      const key = `${image.id}:${variant}`;
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(prev => prev === key ? null : prev), 2000);
+    }).catch(() => { /* clipboard denied — no visual change */ });
+  }
 
   function handleUploadClose() { uploadModal.close(); refresh(); }
 
@@ -260,7 +279,9 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
               </li>
             ))}
 
-            {images.map((image) => (
+            {images.map((image) => {
+              const orderedVariants = VARIANT_ORDER.filter(v => v in image.sizes);
+              return (
               <li key={`i-${image.id}`}>
                 <div className={styles.imageTileWrap}>
                   <div className={styles.imageTile}>
@@ -275,6 +296,23 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                     <span className={styles.tileName} title={image.original_name}>
                       {image.original_name}
                     </span>
+                    <div className={styles.variantButtons}>
+                      {orderedVariants.map(v => {
+                        const key = `${image.id}:${v}`;
+                        const copied = copiedKey === key;
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
+                            onClick={() => handleCopy(image, v)}
+                            title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
+                          >
+                            {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   {isOwnTree && (
                     <button
@@ -289,7 +327,8 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                   )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </PageSection>

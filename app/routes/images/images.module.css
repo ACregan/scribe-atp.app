@@ -179,6 +179,39 @@
   margin: 0 0 1.2rem;
 }
 
+/* ── Variant copy buttons ────────────────────────────────────────────────── */
+
+.variantButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.variantButton {
+  font-size: 1.1rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--light-grey, #dedede);
+  border-radius: 0.4rem;
+  background: var(--white, #fff);
+  cursor: pointer;
+  color: var(--mid-grey, #949494);
+  transition: border-color 0.1s, color 0.1s;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.variantButton:hover {
+  border-color: var(--blue, #0070f3);
+  color: var(--blue, #0070f3);
+}
+
+.variantButtonCopied {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 
 .emptyState {
