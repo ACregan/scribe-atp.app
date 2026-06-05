@@ -625,6 +625,8 @@ The Image Service reads the `__session` cookie and verifies it using `SESSION_SE
 
 Sharp generates WebP Variants constrained by a bounding box on the longest side. Standard set: thumb (300px), 600, 1200, 1800, max (≤3000px cap). A Variant is skipped if its bounding box would exceed the source image's longest side — no upscaling. Storage path: `{IMAGE_STORAGE_ROOT}/{user_did}/{uuid}/{variant}.webp`.
 
+**Sharp version pin:** `sharp` is pinned to `^0.31.3`. Sharp 0.33+ prebuilt binaries require the x86_64-v2 microarchitecture (SSE4.2), which the production VPS CPU does not support. 0.31.x ships prebuilt binaries for all x64 CPUs and bundles its own `@types/sharp`. Do not upgrade sharp without first verifying the target server's CPU supports x86_64-v2 (`grep -m1 flags /proc/cpuinfo | grep -o sse4_2`). See `docs/adr/0002-sharp-version-pin.md`.
+
 ### SQLite schema (separate from `data/oauth.db`)
 
 ```sql
