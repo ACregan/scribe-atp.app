@@ -88,31 +88,19 @@
 
 .groupItem {
   padding: 0.6rem 1.2rem 0.6rem 1.6rem;
-
   border-bottom: 0.1rem solid var(--border, #e5e7eb);
-
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  gap: 0.8rem;
 }
 
 .groupItem:last-child {
   border-bottom: none;
 }
 
-.groupIconContainer {
-  height: 3rem;
-  width: 3rem;
-  border: 0.2rem solid var(--black);
-  border-radius: 50%;
-  margin-right: 0.8rem;
-  padding: 0.4rem;
-  background: var(--blue-ribbon);
-}
 .folderName {
   font-size: 1.6rem;
   font-weight: 600;
-  margin-right: 0.8rem;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────────── */

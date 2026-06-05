@@ -14,7 +14,8 @@ import {
   PageSection,
 } from "~/components/PageContainer/PageContainer";
 import { SITE_COLLECTION, SLUG_RE } from "~/constants";
-import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { Pill } from "~/components/Pill/Pill";
 import { useToast } from "~/components/Toast/ToastContext";
 import { toSlug } from "~/routes/article/site-list/siteTree";
@@ -303,9 +304,7 @@ const GroupSiteItem: React.FC<GroupSiteItemProps> = ({ site }) => {
         <ul className={styles.groupList}>
           {site.groups.map((group) => (
             <li key={group.slug} className={styles.groupItem}>
-              <div className={styles.groupIconContainer}>
-                <SvgIcon name={SvgImageList.Folder} fill="var(--white)" />
-              </div>
+              <IconBadge icon={SvgImageList.Folder} />
               <span className={styles.folderName}>{group.title}</span>
               <Pill>
                 {group.articleCount}{" "}

@@ -1,0 +1,21 @@
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--blue-ribbon);
+  border: 0.2rem solid var(--black);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.small {
+  height: 3rem;
+  width: 3rem;
+  padding: 0.4rem;
+}
+
+.large {
+  height: 6rem;
+  width: 6rem;
+  padding: 0.75rem;
+}
