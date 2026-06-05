@@ -6,6 +6,7 @@ export const SvgImageList = {
   Exit: "Exit",
   Document: "Document",
   Documents: "Documents",
+  Folder: "Folder",
   Home: "Home",
   DragHandle: "DragHandle",
   Website: "Website",
@@ -101,6 +102,17 @@ const SvgIcon: React.FC<SVGiconProp> = ({
             fillRule="evenodd"
             d="M234.667 170.667 320 256v213.333H85.333V170.667zm-17.686 42.666H128v213.334h149.333V273.685zm81.686-106.666L384 192v213.333h-42.667V209.685l-60.352-60.352H149.333v-42.666zm64-64L448 128v213.333h-42.667V145.685l-60.352-60.352H213.333V42.667z"
           ></path>
+        </svg>
+      );
+
+    case SvgImageList.Folder:
+      return (
+        <svg
+          fill={fill}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+        >
+          <path d="M 64 128 H 224 L 256 192 H 448 V 448 H 64 Z" />
         </svg>
       );
 

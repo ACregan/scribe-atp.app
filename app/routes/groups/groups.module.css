@@ -1,0 +1,55 @@
+/* ── Site list ───────────────────────────────────────────────────────────────── */
+
+.siteList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.siteItem {
+  border: 0.2rem solid var(--black);
+  border-radius: 0.6rem;
+  overflow: hidden;
+}
+
+.siteHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.2rem;
+}
+
+.siteTitle {
+  font-size: 1.8rem;
+}
+
+/* ── Group list ──────────────────────────────────────────────────────────────── */
+
+.groupList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 0.1rem solid var(--border, #e5e7eb);
+}
+
+.groupItem {
+  padding: 0.6rem 1.2rem 0.6rem 2.8rem;
+  font-size: 1.4rem;
+  color: var(--mid-grey);
+  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+}
+
+.groupItem:last-child {
+  border-bottom: none;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
+
+.emptyState {
+  padding: 3.2rem;
+  text-align: center;
+  color: var(--mid-grey);
+}

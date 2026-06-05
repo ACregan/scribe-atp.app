@@ -21,6 +21,7 @@ export default [
       ),
       route("article/edit/:articleUrl", "./routes/article/edit/edit.tsx"),
       route("article/view/:articleUrl", "./routes/article/view/view.tsx"),
+      route("groups", "./routes/groups/groups.tsx"),
       route("sites", "./routes/sites/sites.tsx"),
       route(
         "site/:siteSlug/configure",
