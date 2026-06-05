@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import multer from "multer";
 import { getSessionDid } from "./auth.js";
 import { handleUpload } from "./upload.js";
+import { handleBrowse } from "./browse.js";
 import { registerSSE } from "./sse.js";
 import { startupCleanup } from "./cleanup.js";
 
@@ -28,6 +29,8 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   (req as Request & { userDid: string }).userDid = did;
   next();
 });
+
+app.get("/api/image-service/browse", handleBrowse);
 
 app.get("/api/image-service/progress/:uploadId", (req: Request, res: Response) => {
   const { uploadId } = req.params;

@@ -68,6 +68,12 @@ const MENU_CONFIG: AsideMenuItemProps[] = [
     label: "Create New Article",
     to: "/article/create",
   },
+  {
+    id: "image-library",
+    icon: SvgImageList.Tiles,
+    label: "Image Library",
+    to: "/images",
+  },
 ];
 
 const AsideMenu = () => {

@@ -1,0 +1,137 @@
+/* ── Breadcrumbs ─────────────────────────────────────────────────────────── */
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  font-size: 1.4rem;
+  color: var(--mid-grey);
+}
+
+.breadcrumbLink {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.breadcrumbLink:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbSep {
+  margin: 0 0.4rem;
+  color: var(--mid-grey);
+}
+
+.breadcrumbCurrent {
+  color: var(--black);
+  font-weight: 500;
+}
+
+/* ── Grid ────────────────────────────────────────────────────────────────── */
+
+.grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1.6rem;
+  align-items: start;
+}
+
+/* ── Shared tile base ────────────────────────────────────────────────────── */
+
+.folderTile,
+.imageTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  border: 1px solid var(--light-grey);
+  border-radius: 0.8rem;
+  background: var(--white);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.folderTile:hover,
+.imageTile:hover {
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Folder tile ─────────────────────────────────────────────────────────── */
+
+.folderIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 6rem;
+  height: 6rem;
+}
+
+.folderIcon > svg {
+  width: 5rem;
+  height: 5rem;
+}
+
+/* ── Image tile ──────────────────────────────────────────────────────────── */
+
+.thumbnailWrap {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  background: var(--light-grey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Tile label ──────────────────────────────────────────────────────────── */
+
+.tileName {
+  font-size: 1.2rem;
+  color: var(--dark-grey);
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 3.2rem;
+  text-align: center;
+  color: var(--mid-grey);
+}
+
+.emptyStateHeading {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--black);
+}
+
+.emptyStateBody {
+  font-size: 1.4rem;
+  margin: 0;
+  max-width: 40rem;
+  align-self: center;
+  line-height: 1.6;
+}
