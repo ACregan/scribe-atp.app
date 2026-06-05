@@ -1,6 +1,9 @@
 import type { Route } from "./+types/images";
-import { Link, useSearchParams } from "react-router";
+import { Link, useRevalidator } from "react-router";
 import { requireAuth, useRealOAuth } from "~/services/auth.server";
+import { useModal } from "~/components/Modal/useModal";
+import { Button } from "~/components/Button/Button";
+import { UploadModal } from "./UploadModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -105,6 +108,13 @@ function thumbUrl(image: BrowseImage): string {
 export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const { folder, breadcrumbs, subfolders, images } = loaderData;
   const isEmpty = subfolders.length === 0 && images.length === 0;
+  const { isOpen, open, close } = useModal();
+  const revalidator = useRevalidator();
+
+  function handleModalClose() {
+    close();
+    revalidator.revalidate();
+  }
 
   return (
     <PageContainer
@@ -113,7 +123,11 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           Image Library
         </PageContainerHeading>
       }
+      topButtons={
+        <Button type="button" onClick={open}>Upload Images</Button>
+      }
     >
+      <UploadModal isOpen={isOpen} onClose={handleModalClose} />
       <PageSection>
         <nav className={styles.breadcrumbs} aria-label="Folder navigation">
           <Link to="/images" className={styles.breadcrumbLink}>Image Library</Link>

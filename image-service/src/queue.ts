@@ -23,6 +23,19 @@ export function enqueue(job: QueueJob): void {
     });
 }
 
+// Returns the id of the user's root folder, creating it if it doesn't exist yet.
+function ensureUserFolder(did: string): number {
+  const existing = db
+    .prepare("SELECT id FROM image_folders WHERE user_did = ? AND parent_id IS NULL")
+    .get(did) as { id: number } | undefined;
+  if (existing) return existing.id;
+
+  const result = db
+    .prepare("INSERT INTO image_folders (user_did, name, parent_id, created_at) VALUES (?, ?, NULL, datetime('now'))")
+    .run(did, did);
+  return result.lastInsertRowid as number;
+}
+
 async function processJob(job: QueueJob): Promise<void> {
   const { uploadId, did, uuid, fileBuffer, originalName, outputDir } = job;
 
@@ -33,10 +46,12 @@ async function processJob(job: QueueJob): Promise<void> {
       (name, dims) => emitEvent(uploadId, "variant", { name, ...dims })
     );
 
+    const folderId = ensureUserFolder(did);
+
     db.prepare(
       `INSERT INTO images (user_did, folder_id, filename, original_name, width, height, sizes, created_at)
-       VALUES (?, NULL, ?, ?, ?, ?, ?, datetime('now'))`
-    ).run(did, uuid, originalName, sourceWidth, sourceHeight, JSON.stringify(sizes));
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).run(did, folderId, uuid, originalName, sourceWidth, sourceHeight, JSON.stringify(sizes));
 
     emitEvent(uploadId, "complete", { uuid, sizes });
     closeSSE(uploadId);
