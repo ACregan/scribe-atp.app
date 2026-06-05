@@ -19,6 +19,8 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 - **Lexical / @lexical/react** — WYSIWYG rich text editor (content stored as HTML)
 - **@dnd-kit** — drag-and-drop for article and group reordering
 - **CSS Modules** — scoped component styles
+- **Express** (Image Service) — dedicated service on port 3009 for image upload, Sharp processing, and SSE progress streaming
+- **sharp** (Image Service) — server-side image processing and WebP Variant generation
 
 ## Features
 
@@ -27,6 +29,7 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 - Organise articles into sites and named groups with drag-and-drop ordering
 - Assign articles to multiple sites
 - Public read access — no auth required for consumers
+- **Image Library** *(in development)* — upload, organise, and serve images; WebP conversion and multi-size Variant generation via Sharp
 
 ## Getting started
 
@@ -46,11 +49,12 @@ SESSION_SECRET=your-32-plus-character-random-secret
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SESSION_SECRET` | Yes | Signs the `__session` cookie — must be 32+ random characters |
+| `SESSION_SECRET` | Yes | Signs the `__session` cookie — must be 32+ random characters. Also used by the Image Service for session verification. |
 | `PUBLIC_URL` | Production | Base URL e.g. `https://scribe-atp.app` — drives OAuth `client_id` and `redirect_uri` |
 | `DEV_USE_REAL_OAUTH` | Optional | Set to `"true"` to use real Bluesky OAuth in development (requires a tunnel — see below) |
 | `DEV_TUNNEL_HOST` | Optional | Cloudflare tunnel hostname (without `https://`) |
 | `DEV_PORT` | Optional | Dev server port if not 5173 |
+| `IMAGE_STORAGE_ROOT` | Image Service | Absolute filesystem path where uploaded image Variants are stored (e.g. `/var/scribe/images`) |
 
 ### 3. Start the dev server
 

@@ -152,35 +152,91 @@ The following are items relating to features that will be planned and implemente
 
 ### Requirement
 
-ScribeCMS will at some point require the ability to upload and organise images for use in splash images and article content.
+ScribeCMS requires the ability to upload and organise images for use in splash images and article content.
 
 ### Purpose
 
-To enable users to provide and reference images for use in the SITES and ARTICLES they use ScribeCMS to manage.
+To enable users to provide and reference images for use in the Sites and Articles they manage in ScribeCMS.
 
-### Implementation
+### Architecture
 
-There will need to be a `/images` route implemented, it should show all of the images uploaded with the ability to navigate the folder structure, preview images, delete them or copy a image url to the clipboard for use in an article.
+The Image Library is served by a **dedicated Image Service** — a separate Express app running on port 3009 alongside the main React Router app (port 3008). See `docs/adr/0001-separate-image-service.md` for the rationale.
 
-#### Appearance and Behaviour
+**nginx routing on the VPS:**
+```
+/images/*             → react-router-serve :3008  (Image Library management UI)
+/image-storage/*      → filesystem (static, zero Node.js)  (Variant file serving)
+/api/image-service/*  → Image Service :3009  (upload endpoint + SSE progress)
+/*                    → react-router-serve :3008  (main app)
+```
 
-The image library will have a similar layout and behaviour to a drive in windows explorer - it will show a grid array of all the images and folders in the library. The images can be organised into folders that can be created and deleted. Perhaps to avoid accidents we can restrict users to only delete empty folders.
+**Authentication:** The Image Service shares `SESSION_SECRET` with the main app and replicates the `__session` cookie-verification logic to identify the requesting user's DID. No separate token exchange is needed.
 
-The image library will be shared across all users: a user can use images uploaded by other users but they cannot delete or move them. It might be worth simplifying this by having a folder for each user in the library at the top level that can be navigated by everyone but only files that are descended from the current users user folder can be deleted or moved.
+### Image Storage
 
-The upload process should be started by clicking a "Upload Image(s)" button which shows a simple `<input type="file" multiple/>` upload facility inside a modal. This should also support drag and drop. When an image(s) is dropped or selected for upload, a preview of the image(s) can be provided in the modal and then a button ("Upload (x) Files") is enabled. Once the user clicks this button to submit the selected files for upload there should be a progress bar for each file. Once the file uploads are all complete then the upload modal can be closed, or the user can select/drop more files for upload. Once the user has finished uploading the image(s), the newly uploaded images are shown in the root of their user folder in the `/images` view.
+Uploaded images are processed server-side by `sharp` and stored as pre-generated WebP Variants on the VPS filesystem. On-demand resizing was considered and rejected — see UBIQUITOUS_LANGUAGE.md for Variant/Bounding Box definitions.
 
-When an image is uploaded it should be optimised: For instance if the user uploads a BMP file that is 5000px x 5000px then, once the upload is complete, it should be processed: converted to a WEBP image file, optimised and resized to a more sensible maximum dimensions. Perhaps we should cap image dimensions to be max width or height of 3000px. We might also generate smaller versions (say, thumbnail: 300px, small:640px, medium:1000px, large:1600px, extraLarge:2000px and originalSize)
+**Variant set** (generated in ascending order; a Variant is skipped if its Bounding Box exceeds the source image's longest side — no upscaling):
 
-Another alternative approach is to have the images resized on demand with URL params (eg. "https://siteurl.com/images/imagefile.webp?maxWidthHeight=1000" would return an image with a max width or height, whichever is largest, of 1000px). This would be ideal but I have reservations that this might slow down the serving of images unless we cache them - which adds its own complexity which we might be best avoiding.
+| Variant | Bounding Box |
+| :--- | :--- |
+| thumb | 300px |
+| 600 | 600px |
+| 1200 | 1200px |
+| 1800 | 1800px |
+| max | 3000px (cap) |
 
-#### Server provisioning
+All Variants are WebP. The `max` Variant is the uploaded image at its original dimensions, converted to WebP, capped at a 3000px Bounding Box. "max" is the canonical term — not "original" (see UBIQUITOUS_LANGUAGE.md).
 
-This will be served from the same VPS that currently hosts the Scribe-atp.app website, it will use a filesystem-based image store.
+**Filesystem layout:**
+```
+{storage_root}/{user_did}/{uuid}/thumb.webp
+{storage_root}/{user_did}/{uuid}/600.webp
+{storage_root}/{user_did}/{uuid}/1200.webp
+{storage_root}/{user_did}/{uuid}/1800.webp  ← omitted if source longest side < 1800
+{storage_root}/{user_did}/{uuid}/max.webp
+```
 
-As recommended by Claude, we will continue to use sqlite3 with 2 tables: `image_folders` (id, user_did, name, parent_id, created_at) and `images` (id, user_did, folder_id, filename, original_name, width, height, sizes as JSON, created_at).
+**Public URL pattern:** `/image-storage/{user_did}/{uuid}/{variant}.webp`
 
-Claude pointed out that there is a decision to be made around the per-image progress bar. The tradeoff is, if we drop the progress bar and just use a spinner then the implementation is much simpler and does not require changes to the react-router-serve implementation that we currently use. It does point out that these are one-time changes and are reasonably doable. We should dig into this in more detail before we proceed with implementation.
+nginx serves `/image-storage/` directly from the filesystem — the Image Service is not involved in reads.
+
+**Accepted source formats:** JPEG, PNG, WebP, TIFF, GIF. HEIC/AVIF excluded (requires `libheif`, not guaranteed on VPS).
+
+**Upload file size limit:** 50MB per file.
+
+**SQLite database** (separate file from `data/oauth.db`):
+```sql
+image_folders (id, user_did, name, parent_id, created_at)
+images        (id, user_did, folder_id, filename, original_name, width, height, sizes JSON, created_at)
+```
+`sizes` JSON stores the generated Variant names and their actual pixel dimensions.
+
+### Upload Flow
+
+1. User clicks "Upload Image(s)" — opens a modal with drag-and-drop + `<input type="file" multiple>`
+2. User selects or drops files — previews shown, "Upload (N) Files" button enabled
+3. On submit: all files upload **in parallel** via XHR. Upload phase progress (0–100%) is driven by `xhr.upload.progress` events client-side — no server involvement.
+4. Processing is **sequential** — the Image Service maintains an in-memory queue; files are processed one at a time by `sharp` to avoid CPU spikes on the shared VPS.
+5. For each file, a **per-file SSE connection** (`/api/image-service/progress/{uploadId}`) is opened before the upload starts. The SSE stream drives the processing phase UI: one tick per Variant as `sharp` completes it (`thumb` → `600` → `1200` → `1800` → `max`), then a `complete` event.
+6. Once all uploads are complete, newly uploaded images appear in the user's **User Image Folder** in the `/images` view.
+
+**In-memory queue recovery:** if the Image Service restarts mid-processing, the in-flight UUID directory (with partial Variants) is orphaned on disk without a SQLite record. A startup sweep removes any UUID directories with no corresponding `images` row.
+
+### Image Library UI (`/images`)
+
+Windows Explorer-style grid of images and folders. Behaviour:
+
+- **User Image Folder** — created automatically on a user's first upload. Each user has one top-level folder; all their images and subfolders live within it.
+- **Browsing** — all authenticated users can browse and use any image in the library, including other users' User Image Folders.
+- **Write restrictions** — upload, delete, move, and create subfolder are only permitted within the current user's own User Image Folder tree.
+- **Folder deletion** — only empty folders can be deleted (prevents accidental loss).
+- **Image deletion** — deletes all Variant files from the filesystem and the `images` SQLite row. A single confirmation modal warns that any Articles or Sites referencing the image URL will have broken images. No cross-reference check is performed.
+- **Copy URL** — each image shows per-Variant copy buttons (only Variants that were actually generated for that image are shown). User selects which Variant URL to copy to clipboard.
+
+### Deferred
+
+**Inline image picker in the Lexical editor** — a picker modal launchable from within the article editor to browse the Image Library and insert an image URL directly, without copy-paste. Deferred until the Image Library itself is complete.
 
 ## FEATURE: Dashboard
 

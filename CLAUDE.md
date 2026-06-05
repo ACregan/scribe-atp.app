@@ -2,6 +2,15 @@
 
 An AT Protocol-driven content management system. Authors write and store articles in their own Bluesky PDS (Personal Data Server); the AT Protocol repository is the database.
 
+## Project documentation
+
+| File | Purpose |
+|---|---|
+| `CLAUDE.md` | This file — architecture, patterns, and conventions for AI-assisted development |
+| `PLANNING.md` | Feature specs and implementation notes (planned and completed) |
+| `UBIQUITOUS_LANGUAGE.md` | Canonical glossary of domain terms — use these names in code, UI, and discussion |
+| `docs/adr/` | Architecture Decision Records — why significant structural decisions were made |
+
 ## Stack
 
 - **React Router v7** (framework mode, SSR enabled)
@@ -20,11 +29,12 @@ An AT Protocol-driven content management system. Authors write and store article
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SESSION_SECRET` | Yes | Signs the `__session` cookie — must be 32+ random chars |
+| `SESSION_SECRET` | Yes | Signs the `__session` cookie — must be 32+ random chars. Also shared with the Image Service for session verification. |
 | `PUBLIC_URL` | Prod | Base URL e.g. `https://scribe-atp.app` — drives `client_id` and `redirect_uri` |
 | `DEV_USE_REAL_OAUTH` | Optional | Set to `"true"` to use real Bluesky OAuth in dev (requires tunnel, see below) |
 | `DEV_PORT` | Optional | Dev server port if not 5173 |
 | `DEV_TUNNEL_HOST` | Optional | Cloudflare tunnel hostname (without `https://`) — added to Vite's `allowedHosts` so the dev server accepts requests from the tunnel URL |
+| `IMAGE_STORAGE_ROOT` | Image Service | Absolute filesystem path where uploaded image Variants are stored (e.g. `/var/scribe/images`). Used by the Image Service only. |
 
 The app will throw on startup if `SESSION_SECRET` is missing.
 
@@ -46,6 +56,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /sites                         sites           — list, create and delete app.scribe.site records
 /sites/new                     sites-new       — same component as sites; auto-opens Add New Site modal on mount
 /site/:siteName/configure      configure       — edit site metadata (title, description, images, url, urlPrefix)
+/images                        image-library   — Image Library: browse, upload, organise, and copy URLs for images; shared across all users
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header. It also hosts:
@@ -581,6 +592,58 @@ All components in `app/components/` have test suites. Pure function coverage:
 | `app/routes/article/site-list/siteTree.test.ts` | `toSlug`, `buildTreeFromSite` field mapping, `treeToSiteData`, full round-trip suite |
 
 **Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
+
+## Image Service
+
+The Image Library feature is backed by a **dedicated Express service** running on port 3009, separate from the main React Router app. See `docs/adr/0001-separate-image-service.md` for why a separate process was chosen over a custom server entry. See `UBIQUITOUS_LANGUAGE.md` for canonical definitions of Image Library terms (Variant, Bounding Box, max, thumb, User Image Folder, Image Storage).
+
+### Architecture overview
+
+```
+Browser
+  ├── GET /images/*              → react-router-serve :3008  (Image Library UI route)
+  ├── GET /image-storage/*       → nginx static files         (Variant serving — no Node.js)
+  ├── POST /api/image-service/*  → Image Service :3009        (upload endpoint)
+  └── GET /api/image-service/progress/:uploadId  → Image Service :3009  (SSE progress stream)
+```
+
+### Authentication
+
+The Image Service reads the `__session` cookie and verifies it using `SESSION_SECRET` — the same secret used by the main app. No separate token exchange. The Image Service rejects requests with a missing or invalid cookie with 401.
+
+### Upload flow
+
+1. Client generates a UUID (`uploadId`) per file
+2. Client opens an SSE connection to `/api/image-service/progress/{uploadId}` before uploading
+3. Client POSTs the file to `/api/image-service/upload` via XHR (parallel for multiple files)
+4. XHR `upload.progress` events drive the upload phase progress bar client-side
+5. Image Service queues the file for processing (sequential in-memory queue — one file at a time)
+6. SSE stream emits `queued` → `variant:{name}` per Variant → `complete` as Sharp processes
+7. SQLite `images` row is inserted only after all Variants are successfully written
+
+### Variant generation
+
+Sharp generates WebP Variants constrained by a bounding box on the longest side. Standard set: thumb (300px), 600, 1200, 1800, max (≤3000px cap). A Variant is skipped if its bounding box would exceed the source image's longest side — no upscaling. Storage path: `{IMAGE_STORAGE_ROOT}/{user_did}/{uuid}/{variant}.webp`.
+
+### SQLite schema (separate from `data/oauth.db`)
+
+```sql
+image_folders (id, user_did, name, parent_id, created_at)
+images        (id, user_did, folder_id, filename, original_name, width, height, sizes JSON, created_at)
+```
+
+`sizes` JSON records each generated Variant name and its actual pixel dimensions.
+
+### Access control
+
+- Any authenticated user can browse and copy URLs from any image in the library
+- Write operations (upload, delete, move, create folder) are restricted to the user's own **User Image Folder** tree
+- The Image Service enforces ownership on all write endpoints (403 for violations)
+- User Image Folders are auto-created on first upload
+
+### Startup cleanup
+
+On startup, the Image Service sweeps the filesystem for UUID directories with no corresponding `images` SQLite row and deletes them. These are left behind when the service restarts mid-processing.
 
 ## Key commands
 
