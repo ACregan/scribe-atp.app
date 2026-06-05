@@ -53,7 +53,8 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
           "url": "my-first-post",
           "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
           "synopsis": "An introduction to the blog.",
-          "createdAt": "2025-01-01T00:00:00.000Z"
+          "createdAt": "2025-01-01T00:00:00.000Z",
+          "updatedAt": "2025-06-01T10:00:00.000Z"
         },
         {
           "uri": "at://did:plc:contributorOneId/app.scribe.article/their-article",
@@ -61,7 +62,8 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
           "url": "their-article",
           "splashImageUrl": null,
           "synopsis": null,
-          "createdAt": "2025-02-01T00:00:00.000Z"
+          "createdAt": "2025-02-01T00:00:00.000Z",
+          "updatedAt": "2025-02-01T00:00:00.000Z"
         }
       ]
     },
@@ -75,7 +77,8 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
           "url": "design-principles",
           "splashImageUrl": "https://norobots.blog/images/design-principles.jpg",
           "synopsis": "Core principles we follow.",
-          "createdAt": "2025-03-01T00:00:00.000Z"
+          "createdAt": "2025-03-01T00:00:00.000Z",
+          "updatedAt": "2025-06-04T09:00:00.000Z"
         }
       ]
     }
@@ -87,7 +90,8 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
       "url": "ungrouped-post",
       "splashImageUrl": null,
       "synopsis": null,
-      "createdAt": "2025-04-01T00:00:00.000Z"
+      "createdAt": "2025-04-01T00:00:00.000Z",
+      "updatedAt": "2025-04-01T00:00:00.000Z"
     }
   ],
   "createdAt": "2025-01-01T00:00:00.000Z",
@@ -99,7 +103,7 @@ Notes:
 
 - `ownerId` is omitted — the owner is whoever's PDS holds this record (their DID is the repo DID)
 - `description`, `splashImageUrl`, `logoImageUrl` are optional site-level metadata fields; omitted from the record entirely when blank (not stored as empty strings)
-- Article references (`ArticleRef`) are objects (not bare AT URIs) containing a cached snapshot of article metadata: `uri`, `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`
+- Article references (`ArticleRef`) are objects (not bare AT URIs) containing a cached snapshot of article metadata: `uri`, `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`
 - `url` on an `ArticleRef` is the article slug — the same as the rkey; included so consumers don't have to parse the AT URI
 - `synopsis` is nullable — not all articles have one
 - `splashImageUrl` is nullable — not all articles have a splash image
@@ -123,7 +127,8 @@ AT Protocol collection: `app.scribe.article`, rkey = url slug (e.g. `my-first-po
   "content": "<p>Article body as serialised HTML.</p>",
   "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
   "synopsis": "An introduction to the blog.",
-  "createdAt": "2025-01-01T00:00:00.000Z"
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "updatedAt": "2025-06-01T10:00:00.000Z"
 }
 ```
 
@@ -135,6 +140,7 @@ Notes:
 - `url` doubles as the rkey — the slug used in the AT URI and in the public-facing URL path
 - `splashImageUrl` is optional
 - `synopsis` is optional — a short human-readable description; mirrored into every `ArticleRef` that references this article
+- `createdAt` is set once on create and never changed; `updatedAt` is set on create and updated on every edit — the edit action preserves the original `createdAt` via a hidden form field
 
 ---
 
@@ -182,16 +188,14 @@ Claude pointed out that there is a decision to be made around the per-image prog
 
 The dashboard (`/`) shows three sections for authenticated users:
 
-**Quick Actions** — prominent "New Article" and "New Site" buttons to avoid navigating through the menu for common tasks.
+**Quick Actions** — "New Site", "New Group", and "New Article" buttons. Each links to a modal-backed route (`/sites/new`, `/groups/new`, `/article/create`) that opens the relevant creation modal immediately on arrival. See the modal-backed route pattern in CLAUDE.md.
 
-**Unassigned Articles alert** — a danger pill linking to `/article/list` that appears only when one or more articles exist that are not referenced by any site. Computed in the loader by diffing all article URIs against all URIs referenced in `groups[].articles` and `articles` across every site record.
+**Unassigned Articles alert** — a danger `Pill` linking to `/article/list` that appears only when one or more articles exist that are not referenced by any site. Computed in the loader by diffing all article URIs against all URIs referenced in `groups[].articles` and `articles` across every site record.
 
-**Recent Articles** — the 5 most recently created articles, sorted by `createdAt` descending, each with a direct Edit link. Fetched from `app.scribe.article` in the same loader pass as the orphan calculation.
+**Recently Updated** — the 5 most recently edited articles, sorted by `updatedAt` descending (falling back to `createdAt` for older records without `updatedAt`). Each row shows a Document `IconBadge`, the article title, and the edit timestamp formatted as `HH:MM DD/MM/YY` in a grey `Pill`. Fetched from `app.scribe.article` in the same loader pass as the orphan calculation.
 
 Both PDS calls (articles + sites) are made in parallel via `Promise.all`. The home route uses `getAuthSession` (not `requireAuth`) so unauthenticated users still reach the page — the loader returns empty data in that case and the two authenticated sections are hidden.
 
 ### Deferred / not planned
 
 **Traffic analytics** — the PDS is write-only from the CMS's perspective; public readers don't report back. This would require instrumenting the public-facing site and building a separate analytics backend — out of scope.
-
-**Recently Updated** — `updatedAt` is now written to `app.scribe.article` on every create and edit. The dashboard "Recently Updated" section sorts by `updatedAt` descending, falling back to `createdAt` for older records that pre-date the field. `updatedAt` is also mirrored into `ArticleRef` (and propagated through `SiteArticleRef` / `TreeArticleNode` / both `buildTreeFromSite` and `treeToSiteData` maps) per the ArticleRef mirroring principle. The edit action was also fixed to preserve the original `createdAt` (previously it overwrote it with the save timestamp).

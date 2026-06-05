@@ -31,17 +31,21 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 ## Routes
 
 ```
-/                              home       — auth status display
-/login                         login      — Bluesky OAuth entry point (or dev bypass); centred card UI with sign-up link to bsky.app
-/logout                        logout     — destroys session cookie, redirects to /login
-/auth/callback                 callback   — OAuth redirect handler, sets session cookie
-/article/create                create     — write a new article to the PDS; multi-select assigns to sites
-/article/list                  list       — site picker + unassigned articles; links into site-list
-/article/list/:siteSlug        site-list  — site-scoped article/group management; reads/writes app.scribe.site
-/article/view/:articleUrl      view       — read-only display of a single article
-/article/edit/:articleUrl      edit       — edit an existing article; multi-select manages site assignment
-/sites                         sites      — list, create and delete app.scribe.site records
-/site/:siteName/configure      configure  — edit site metadata (title, description, images, url, urlPrefix)
+/                              home            — dashboard: quick actions, unassigned-article alert, recently updated list
+/login                         login           — Bluesky OAuth entry point (or dev bypass); centred card UI with sign-up link to bsky.app
+/logout                        logout          — destroys session cookie, redirects to /login
+/auth/callback                 callback        — OAuth redirect handler, sets session cookie
+/article/create                create          — write a new article to the PDS; multi-select assigns to sites; accepts ?site=<rkey> to pre-check a site
+/article/list                  list            — site picker + unassigned articles; links into site-list
+/article/list/:siteSlug        site-list       — site-scoped article/group management; reads/writes app.scribe.site
+/article/list/:siteSlug/new    site-list-new   — same component as site-list; auto-opens Add New Group modal on mount
+/article/view/:articleUrl      view            — read-only display of a single article
+/article/edit/:articleUrl      edit            — edit an existing article; multi-select manages site assignment
+/groups                        groups          — all sites with their groups; splash/logo imagery, folder icons, article count pills; Add New Group modal
+/groups/new                    groups-new      — same component as groups; auto-opens Add New Group modal on mount
+/sites                         sites           — list, create and delete app.scribe.site records
+/sites/new                     sites-new       — same component as sites; auto-opens Add New Site modal on mount
+/site/:siteName/configure      configure       — edit site metadata (title, description, images, url, urlPrefix)
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header. It also hosts:
@@ -177,7 +181,8 @@ This breaks any existing AT URIs pointing to the old rkey.
   url: string,           // same as rkey
   splashImageUrl?: string,
   synopsis?: string,
-  createdAt: string,     // ISO 8601
+  createdAt: string,     // ISO 8601 — set on create, never changed
+  updatedAt: string,     // ISO 8601 — set on create and updated on every edit
 }
 ```
 
@@ -210,6 +215,7 @@ This breaks any existing AT URIs pointing to the old rkey.
   splashImageUrl: string | null,
   synopsis: string | null,
   createdAt: string,
+  updatedAt?: string,    // mirrors app.scribe.article.updatedAt; absent on refs created before the field was introduced
 }
 ```
 
@@ -220,7 +226,7 @@ Key design decisions for `app.scribe.site`:
 - Groups and article order within groups are authoritative — the site record is the manifest
 - `updatedAt` is useful for cache invalidation by public readers
 - Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
-- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. When adding a new article field, add it to `ArticleRef` in the same PR and update the four construction/propagation sites: `create.tsx` (articleRef), `edit.tsx` (newArticleRef), and `site-list.tsx` (`SiteArticleRef` type + `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps).
+- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. Current mirrored fields: `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`. When adding a new article field, add it to `ArticleRef` in the same PR and update the four construction/propagation sites: `create.tsx` (articleRef), `edit.tsx` (newArticleRef), and `site-list.tsx` (`SiteArticleRef` type + `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps).
 - **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every site the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member sites without any manual re-ordering.
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
@@ -238,6 +244,7 @@ Key behaviours on this route:
 - **Group create** — `createGroup` action returns `{ ok: true }` (not a redirect) so the fetcher can close the modal automatically. The loader revalidates automatically after any fetcher action; `knownGroupSlugsRef` tracks which group slugs are already in the tree, and a `useEffect` on `site.groups` detects newly added slugs and appends them as empty group nodes. `savedTreeRef` is updated in the same step so new groups don't register as unsaved changes.
 - **Group delete** — handled via `deleteFetcher` (not a form redirect). Action returns `{ ok: true, deletedSlug }`; a `useEffect` removes the deleted group from both `tree` and `savedTreeRef` client-side. The `GroupItem` delete button shows `<Spinner size="small" />` while `isDeleting` is true.
 - **Add New Group modal** — includes a URL path (slug) field that auto-populates from the title as the user types. Once the user manually edits the slug the auto-fill stops. The slug is immutable after creation (it keys the group in the site record); the modal shows a note to that effect.
+- **"Draft New Article" link** — navigates to `/article/create?site=<rkey>` so the current site is pre-checked in the Assign to Sites dropdown on arrival. The create loader validates the rkey against the user's actual sites before applying the preselection.
 
 ### Nuke tool
 
@@ -301,7 +308,8 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | Component | Path | Props |
 |---|---|---|
 | `Input` | `app/components/Input/Input.tsx` | All `<input>` HTML attrs + `label?: string`, `error?: string` |
-| `Button` | `app/components/Button/Button.tsx` | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) |
+| `Button` | `app/components/Button/Button.tsx` | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) + `icon?: SvgImageListTypes` — when provided, renders the icon in a 1.6rem `inline-flex` span to the left of the label using `fill="currentColor"` so it inherits the button's text colour across all variants |
+| `IconBadge` | `app/components/IconBadge/IconBadge.tsx` | Circular blue badge containing an SVG icon. Props: `icon: SvgImageListTypes`, `size?: "small" \| "large"` (default `"small"`). Small = 3rem × 3rem, large = 6rem × 6rem (matches `headingIconContainer` in `PageContainer`). Use for inline row decoration; `PageContainerHeading` uses equivalent inline styles directly. |
 | `RichTextEditor` | `app/components/RichTextEditor/RichTextEditor.tsx` | `name: string`, `label?: string`, `defaultValue?: string` — drop-in for `<textarea>`, outputs HTML into a hidden field on form submit. Client-only (falls back to plain textarea during SSR). Toolbar implemented in `ToolbarPlugin.tsx` (see below). |
 | `Modal` | `app/components/Modal/Modal.tsx` | `isOpen: boolean`, `onClose: () => void`, `title: string`, `footer?: ReactNode`, `children: ReactNode` — renders via `createPortal` into `document.body`. Closes on Escape key. |
 | `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
@@ -400,6 +408,51 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 Components that originally defined these types/utils inline (`SiteTile`, `ArticleForm`, `GroupItem`) now import from the shared files and re-export for backwards compatibility. When adding a new shared type or utility, add it here rather than inside a component file.
 
 **Note:** `app/routes/article/site-list/siteTree.ts` has its own `SiteData` type (with `groups`/`articles` arrays for the DnD tree) that is structurally different from the component-layer `SiteData` above. These serve different purposes and are intentionally kept separate to avoid cross-layer coupling.
+
+## Modal-backed route pattern
+
+Several routes exist solely to auto-open a modal on an existing page. They reuse the same component file as their parent route but carry a distinct route `id` to avoid the duplicate-id error React Router raises when two routes point to the same file:
+
+```ts
+// routes.ts
+route("sites", "./routes/sites/sites.tsx"),
+route("sites/new", "./routes/sites/sites.tsx", { id: "sites-new" }),
+```
+
+Inside the shared component, detect the `/new` suffix and open the modal in a one-shot `useEffect`:
+
+```tsx
+const { pathname } = useLocation();
+const isNewRoute = pathname.endsWith("/new");
+const navigate = useNavigate();
+
+const openedByRouteRef = useRef(false);
+useEffect(() => {
+  if (isNewRoute && !openedByRouteRef.current) {
+    openedByRouteRef.current = true;
+    open(); // from useModal()
+  }
+}, []);
+
+function handleCloseModal() {
+  close();
+  if (isNewRoute) navigate("/base-path", { replace: true });
+}
+```
+
+Use `handleCloseModal` everywhere `close` was previously used (`onClose` prop and any cancel buttons) so that closing the modal on the `/new` route navigates back to the base route and keeps browser history clean.
+
+**Current modal-backed routes:**
+
+| `/new` route | Base route | Modal opened |
+|---|---|---|
+| `/sites/new` | `/sites` | Add New Site |
+| `/groups/new` | `/groups` | Add New Group |
+| `/article/list/:siteSlug/new` | `/article/list/:siteSlug` | Add New Group |
+
+The dashboard Quick Actions link directly to these `/new` routes. When `useBlocker(isDirty)` is active (e.g. on site-list), navigating to `/new` with unsaved changes correctly triggers the "Unsaved changes" modal before proceeding.
+
+**Note on Vite HMR:** after adding a new route to `routes.ts`, a hard browser refresh is sometimes needed before the route is recognised. If the modal doesn't open on first test, hard-refresh before debugging further.
 
 ## Toast + navigate pattern
 
