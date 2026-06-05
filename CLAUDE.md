@@ -611,6 +611,8 @@ Browser
 
 The Image Service reads the `__session` cookie and verifies it using `SESSION_SECRET` — the same secret used by the main app. No separate token exchange. The Image Service rejects requests with a missing or invalid cookie with 401.
 
+**Cookie format:** React Router serialises the session as `btoa(JSON.stringify(data)).hmacSignature` — the JSON is base64-encoded *before* signing, not stored as raw JSON. The Image Service's `auth.ts` replicates this: after `unsign()` verifies the HMAC and returns the signed value, `atob()` must be called before `JSON.parse()`. If you see persistent 401s from the Image Service despite a correct `SESSION_SECRET`, this encoding step is the first thing to check.
+
 ### Upload flow
 
 1. Client generates a UUID (`uploadId`) per file
