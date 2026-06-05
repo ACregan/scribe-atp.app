@@ -53,13 +53,13 @@ const MENU_CONFIG: AsideMenuItemProps[] = [
   {
     id: "group-list",
     icon: SvgImageList.Folder,
-    label: "Groups & Articles",
+    label: "Groups",
     to: "/groups",
   },
   {
     id: "article-list",
     icon: SvgImageList.Documents,
-    label: "Article List",
+    label: "Articles",
     to: "/article/list",
   },
   {
