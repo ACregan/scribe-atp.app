@@ -112,7 +112,10 @@ const SvgIcon: React.FC<SVGiconProp> = ({
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 512 512"
         >
-          <path d="M 64 128 H 224 L 256 192 H 448 V 448 H 64 Z" />
+          <path
+            fillRule="evenodd"
+            d="M 64 96 H 224 L 256 160 H 448 V 416 H 64 Z M 100 132 H 202 L 234 196 H 412 V 380 H 100 Z"
+          />
         </svg>
       );
 
