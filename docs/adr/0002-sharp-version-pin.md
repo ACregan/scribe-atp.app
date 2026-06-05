@@ -16,7 +16,7 @@ Unsupported CPU: Prebuilt binaries for linux-x64 require v2 microarchitecture
 Building from source was attempted but also failed — sharp bundles a pre-compiled libvips that carries the same microarchitecture requirement, so a source build does not help on affected hardware.
 
 ## Decision
-Pin `sharp` to `^0.31.3` in `package.json`. Sharp 0.31.x prebuilt binaries support all x64 CPUs. The `@types/sharp` package is added as a dev dependency because 0.31.x does not bundle its own TypeScript declarations (bundled types were added in a later version).
+Pin `sharp` to `^0.32.6` in `package.json`. Sharp 0.32.x prebuilt binaries support all x64 CPUs (the microarchitecture restriction was introduced in 0.33.0), and 0.32.6 is the first release to include the patched libwebp that fixes CVE-2023-4863. Sharp 0.32.x bundles its own TypeScript declarations so `@types/sharp` is not required.
 
 ## Alternatives Considered
 **Build libvips from source on the VPS** — compile libvips itself for the actual CPU, then build sharp against it. This avoids the version pin but requires maintaining a C build toolchain on the server and re-running the build after each deploy. Rejected as operationally fragile for a non-critical constraint.

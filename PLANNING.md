@@ -209,7 +209,7 @@ nginx serves `/image-storage/` directly from the filesystem — the Image Servic
 
 **Upload file size limit:** 50MB per file.
 
-**Sharp version constraint:** `sharp` is pinned to `^0.31.3`. The production VPS CPU predates the x86_64-v2 microarchitecture required by sharp 0.33+ prebuilt binaries. Do not upgrade without first checking CPU support: `grep -m1 flags /proc/cpuinfo | grep -o sse4_2`. See `docs/adr/0002-sharp-version-pin.md`.
+**Sharp version constraint:** `sharp` is pinned to `^0.32.6`. The production VPS CPU predates the x86_64-v2 microarchitecture required by sharp 0.33+ prebuilt binaries. Do not upgrade without first checking CPU support: `grep -m1 flags /proc/cpuinfo | grep -o sse4_2`. See `docs/adr/0002-sharp-version-pin.md`.
 
 **SQLite database** (separate file from `data/oauth.db`):
 ```sql
