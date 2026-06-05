@@ -110,6 +110,75 @@
   text-overflow: ellipsis;
 }
 
+/* ── Top buttons ─────────────────────────────────────────────────────────── */
+
+.topButtons {
+  display: flex;
+  gap: 0.8rem;
+}
+
+/* ── Tile wrappers with action buttons ───────────────────────────────────── */
+
+.folderTileWrap,
+.imageTileWrap {
+  position: relative;
+}
+
+.tileAction {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  background: var(--white);
+  border: 1px solid var(--light-grey);
+  border-radius: 0.4rem;
+  padding: 0.3rem;
+  cursor: pointer;
+  color: var(--mid-grey);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.tileAction > svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.folderTileWrap:hover .tileAction,
+.imageTileWrap:hover .tileAction {
+  opacity: 1;
+}
+
+.tileAction:hover {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+/* ── Delete confirmation inline ──────────────────────────────────────────── */
+
+.deleteConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  border: 1px solid var(--red);
+  border-radius: 0.8rem;
+  font-size: 1.3rem;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.deleteError {
+  color: var(--red);
+  font-size: 1.3rem;
+  margin: 0 0 1.2rem;
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 
 .emptyState {

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import db from "./db.js";
 
-type FolderRow = { id: number; name: string; parent_id: number | null; created_at: string };
+type FolderRow = { id: number; user_did: string; name: string; parent_id: number | null; created_at: string };
 type ImageRow = {
   id: number;
   user_did: string;
@@ -40,7 +40,7 @@ export function handleBrowse(req: Request, res: Response): void {
       return;
     }
     folder = db
-      .prepare("SELECT id, name, parent_id, created_at FROM image_folders WHERE id = ?")
+      .prepare("SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE id = ?")
       .get(id) as FolderRow | undefined ?? null;
     if (!folder) {
       res.status(404).json({ error: "Folder not found" });
@@ -48,7 +48,7 @@ export function handleBrowse(req: Request, res: Response): void {
     }
   } else {
     folder = db
-      .prepare("SELECT id, name, parent_id, created_at FROM image_folders WHERE user_did = ? AND parent_id IS NULL LIMIT 1")
+      .prepare("SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE user_did = ? AND parent_id IS NULL LIMIT 1")
       .get(did) as FolderRow | undefined ?? null;
   }
 
@@ -60,7 +60,7 @@ export function handleBrowse(req: Request, res: Response): void {
   const breadcrumbs = buildBreadcrumbs(folder.id);
 
   const subfolders = db
-    .prepare("SELECT id, name, parent_id, created_at FROM image_folders WHERE parent_id = ? ORDER BY name")
+    .prepare("SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE parent_id = ? ORDER BY name")
     .all(folder.id) as FolderRow[];
 
   const imageRows = db

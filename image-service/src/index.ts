@@ -3,6 +3,7 @@ import multer from "multer";
 import { getSessionDid } from "./auth.js";
 import { handleUpload } from "./upload.js";
 import { handleBrowse } from "./browse.js";
+import { handleListFolders, handleCreateFolder, handleDeleteFolder, handleMoveImage } from "./folders.js";
 import { registerSSE } from "./sse.js";
 import { startupCleanup } from "./cleanup.js";
 
@@ -31,6 +32,10 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
 });
 
 app.get("/api/image-service/browse", handleBrowse);
+app.get("/api/image-service/folders/mine", handleListFolders);
+app.post("/api/image-service/folders", express.json(), handleCreateFolder);
+app.delete("/api/image-service/folders/:folderId", handleDeleteFolder);
+app.post("/api/image-service/images/:imageId/move", express.json(), handleMoveImage);
 
 app.get("/api/image-service/progress/:uploadId", (req: Request, res: Response) => {
   const { uploadId } = req.params;

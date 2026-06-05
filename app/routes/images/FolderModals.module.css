@@ -1,0 +1,54 @@
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
+.error {
+  color: var(--red);
+  font-size: 1.3rem;
+  margin: 0 0 1.2rem;
+}
+
+.empty {
+  font-size: 1.4rem;
+  color: var(--mid-grey);
+  margin: 0;
+}
+
+.folderList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.folderOption {
+  display: block;
+  padding: 0.8rem 1.2rem;
+  border: 1px solid var(--light-grey);
+  border-radius: 0.6rem;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.folderOption:hover {
+  border-color: var(--blue);
+}
+
+.folderOptionSelected {
+  border-color: var(--blue);
+  background: rgba(0, 100, 255, 0.04);
+  font-weight: 500;
+}
+
+.hiddenRadio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}

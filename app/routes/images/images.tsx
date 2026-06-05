@@ -1,9 +1,12 @@
 import type { Route } from "./+types/images";
 import { Link, useRevalidator } from "react-router";
+import { useState } from "react";
 import { requireAuth, useRealOAuth } from "~/services/auth.server";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
 import { UploadModal } from "./UploadModal";
+import { NewFolderModal } from "./NewFolderModal";
+import { MoveImageModal } from "./MoveImageModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -15,6 +18,7 @@ import styles from "./images.module.css";
 
 type BrowseFolder = {
   id: number;
+  user_did: string;
   name: string;
   parent_id: number | null;
   created_at?: string;
@@ -32,22 +36,26 @@ type BrowseImage = {
 };
 
 type LoaderData = {
+  currentUserDid: string;
   folder: BrowseFolder | null;
   breadcrumbs: Array<{ id: number; name: string }>;
   subfolders: BrowseFolder[];
   images: BrowseImage[];
 };
 
+const DEV_DID = "did:dev:user";
+
 const DEV_MOCK: LoaderData = {
-  folder: { id: 1, name: "my-images", parent_id: null },
+  currentUserDid: DEV_DID,
+  folder: { id: 1, user_did: DEV_DID, name: "my-images", parent_id: null },
   breadcrumbs: [{ id: 1, name: "my-images" }],
   subfolders: [
-    { id: 2, name: "blog-headers", parent_id: 1, created_at: "2026-01-01T00:00:00.000Z" },
+    { id: 2, user_did: DEV_DID, name: "blog-headers", parent_id: 1, created_at: "2026-01-01T00:00:00.000Z" },
   ],
   images: [
     {
       id: 1,
-      user_did: "did:dev:user",
+      user_did: DEV_DID,
       filename: "00000000-0000-0000-0000-000000000001",
       original_name: "hero.jpg",
       width: 1600,
@@ -57,7 +65,7 @@ const DEV_MOCK: LoaderData = {
     },
     {
       id: 2,
-      user_did: "did:dev:user",
+      user_did: DEV_DID,
       filename: "00000000-0000-0000-0000-000000000002",
       original_name: "portrait.jpg",
       width: 800,
@@ -77,7 +85,7 @@ export function HydrateFallback() {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await requireAuth(request);
+  const { did } = await requireAuth(request);
 
   if (!useRealOAuth) return DEV_MOCK;
 
@@ -90,10 +98,11 @@ export async function loader({ request }: Route.LoaderArgs) {
       headers: { Cookie: request.headers.get("Cookie") ?? "" },
     });
     if (!response.ok) throw new Error(`Image Service returned ${response.status}`);
-    return (await response.json()) as LoaderData;
+    const data = await response.json() as Omit<LoaderData, "currentUserDid">;
+    return { ...data, currentUserDid: did };
   } catch (err) {
     console.error("[images loader]", err);
-    return { folder: null, breadcrumbs: [], subfolders: [], images: [] } satisfies LoaderData;
+    return { folder: null, breadcrumbs: [], subfolders: [], images: [], currentUserDid: did } satisfies LoaderData;
   }
 }
 
@@ -106,14 +115,32 @@ function thumbUrl(image: BrowseImage): string {
 }
 
 export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
-  const { folder, breadcrumbs, subfolders, images } = loaderData;
+  const { folder, breadcrumbs, subfolders, images, currentUserDid } = loaderData;
   const isEmpty = subfolders.length === 0 && images.length === 0;
-  const { isOpen, open, close } = useModal();
+  const isOwnTree = folder?.user_did === currentUserDid;
+
+  const uploadModal = useModal();
+  const newFolderModal = useModal();
   const revalidator = useRevalidator();
 
-  function handleModalClose() {
-    close();
-    revalidator.revalidate();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [moveImage, setMoveImage] = useState<BrowseImage | null>(null);
+
+  function refresh() { revalidator.revalidate(); }
+
+  function handleUploadClose() { uploadModal.close(); refresh(); }
+
+  async function handleDeleteFolder(folderId: number) {
+    setDeleteError(null);
+    const res = await fetch(`/api/image-service/folders/${folderId}`, { method: "DELETE" });
+    if (res.ok) {
+      setConfirmDeleteId(null);
+      refresh();
+    } else {
+      const data = await res.json() as { error?: string };
+      setDeleteError(data.error ?? "Delete failed");
+    }
   }
 
   return (
@@ -124,10 +151,38 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         </PageContainerHeading>
       }
       topButtons={
-        <Button type="button" onClick={open}>Upload Images</Button>
+        <div className={styles.topButtons}>
+          {isOwnTree && folder && (
+            <Button variant="secondary" type="button" onClick={newFolderModal.open}>
+              New Folder
+            </Button>
+          )}
+          <Button type="button" onClick={uploadModal.open}>Upload Images</Button>
+        </div>
       }
     >
-      <UploadModal isOpen={isOpen} onClose={handleModalClose} />
+      <UploadModal isOpen={uploadModal.isOpen} onClose={handleUploadClose} />
+
+      {isOwnTree && folder && (
+        <NewFolderModal
+          isOpen={newFolderModal.isOpen}
+          parentFolderId={folder.id}
+          onClose={newFolderModal.close}
+          onSuccess={refresh}
+        />
+      )}
+
+      {moveImage && (
+        <MoveImageModal
+          isOpen={true}
+          imageId={moveImage.id}
+          imageName={moveImage.original_name}
+          currentFolderId={folder?.id ?? null}
+          onClose={() => setMoveImage(null)}
+          onSuccess={() => { setMoveImage(null); refresh(); }}
+        />
+      )}
+
       <PageSection>
         <nav className={styles.breadcrumbs} aria-label="Folder navigation">
           <Link to="/images" className={styles.breadcrumbLink}>Image Library</Link>
@@ -165,33 +220,73 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           </div>
         )}
 
+        {deleteError && (
+          <p className={styles.deleteError}>{deleteError}</p>
+        )}
+
         {(subfolders.length > 0 || images.length > 0) && (
           <ul className={styles.grid}>
             {subfolders.map((subfolder) => (
               <li key={`f-${subfolder.id}`}>
-                <Link to={`/images?folder=${subfolder.id}`} className={styles.folderTile}>
-                  <span className={styles.folderIcon}>
-                    <SvgIcon name={SvgImageList.Folder} fill="var(--blue)" />
-                  </span>
-                  <span className={styles.tileName}>{subfolder.name}</span>
-                </Link>
+                {confirmDeleteId === subfolder.id ? (
+                  <div className={styles.deleteConfirm}>
+                    <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
+                    <div className={styles.deleteConfirmActions}>
+                      <Button variant="danger" type="button" onClick={() => handleDeleteFolder(subfolder.id)}>Delete</Button>
+                      <Button variant="secondary" type="button" onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.folderTileWrap}>
+                    <Link to={`/images?folder=${subfolder.id}`} className={styles.folderTile}>
+                      <span className={styles.folderIcon}>
+                        <SvgIcon name={SvgImageList.Folder} fill="var(--blue)" />
+                      </span>
+                      <span className={styles.tileName}>{subfolder.name}</span>
+                    </Link>
+                    {isOwnTree && (
+                      <button
+                        type="button"
+                        className={styles.tileAction}
+                        onClick={() => { setConfirmDeleteId(subfolder.id); setDeleteError(null); }}
+                        aria-label={`Delete ${subfolder.name}`}
+                        title="Delete folder"
+                      >
+                        <SvgIcon name={SvgImageList.Trash} fill="currentColor" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
 
             {images.map((image) => (
               <li key={`i-${image.id}`}>
-                <div className={styles.imageTile}>
-                  <span className={styles.thumbnailWrap}>
-                    <img
-                      src={thumbUrl(image)}
-                      alt={image.original_name}
-                      className={styles.thumbnail}
-                      loading="lazy"
-                    />
-                  </span>
-                  <span className={styles.tileName} title={image.original_name}>
-                    {image.original_name}
-                  </span>
+                <div className={styles.imageTileWrap}>
+                  <div className={styles.imageTile}>
+                    <span className={styles.thumbnailWrap}>
+                      <img
+                        src={thumbUrl(image)}
+                        alt={image.original_name}
+                        className={styles.thumbnail}
+                        loading="lazy"
+                      />
+                    </span>
+                    <span className={styles.tileName} title={image.original_name}>
+                      {image.original_name}
+                    </span>
+                  </div>
+                  {isOwnTree && (
+                    <button
+                      type="button"
+                      className={styles.tileAction}
+                      onClick={() => setMoveImage(image)}
+                      aria-label={`Move ${image.original_name}`}
+                      title="Move to folder"
+                    >
+                      <SvgIcon name={SvgImageList.Folder} fill="currentColor" />
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
