@@ -41,6 +41,7 @@ vi.mock("../SvgIcon/SvgIcon", () => ({
   SvgImageList: {
     Home: "home",
     Website: "website",
+    Folder: "folder",
     Documents: "documents",
     Document: "document",
     Exit: "exit",
@@ -71,6 +72,7 @@ const renderWithRouter = (ui: React.ReactElement) => {
     [
       { path: "/", element: ui },
       { path: "/sites", element: null },
+      { path: "/groups", element: null },
       { path: "/article/list", element: null },
       { path: "/article/create", element: null },
     ],
@@ -92,12 +94,13 @@ describe("AsideMenu", () => {
       expect(aside).toBeInTheDocument();
     });
 
-    it("should render all four menu items", () => {
+    it("should render all five menu items", () => {
       renderWithRouter(<AsideMenu />);
 
       expect(screen.getByText("Dashboard")).toBeInTheDocument();
       expect(screen.getByText("Sites")).toBeInTheDocument();
-      expect(screen.getByText("Article List")).toBeInTheDocument();
+      expect(screen.getByText("Groups")).toBeInTheDocument();
+      expect(screen.getByText("Articles")).toBeInTheDocument();
       expect(screen.getByText("Create New Article")).toBeInTheDocument();
     });
 
@@ -111,6 +114,7 @@ describe("AsideMenu", () => {
 
       expect(screen.getByTestId("icon-home")).toBeInTheDocument();
       expect(screen.getByTestId("icon-website")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-folder")).toBeInTheDocument();
       expect(screen.getByTestId("icon-documents")).toBeInTheDocument();
       expect(screen.getByTestId("icon-document")).toBeInTheDocument();
       expect(screen.getByTestId("icon-exit")).toBeInTheDocument();
@@ -121,6 +125,7 @@ describe("AsideMenu", () => {
 
       expect(screen.getByTestId("tooltip-home")).toBeInTheDocument();
       expect(screen.getByTestId("tooltip-site-management")).toBeInTheDocument();
+      expect(screen.getByTestId("tooltip-group-list")).toBeInTheDocument();
       expect(screen.getByTestId("tooltip-article-list")).toBeInTheDocument();
       expect(screen.getByTestId("tooltip-create-article")).toBeInTheDocument();
       expect(screen.getByTestId("tooltip-logout-button")).toBeInTheDocument();
@@ -130,7 +135,7 @@ describe("AsideMenu", () => {
       renderWithRouter(<AsideMenu />);
 
       const tooltipBubbles = screen.getAllByTestId("tooltip-bubble-left");
-      expect(tooltipBubbles).toHaveLength(5); // 4 menu items + logout
+      expect(tooltipBubbles).toHaveLength(6); // 5 menu items + logout
     });
   });
 
@@ -139,11 +144,12 @@ describe("AsideMenu", () => {
       renderWithRouter(<AsideMenu />);
 
       const links = screen.getAllByRole("link");
-      expect(links).toHaveLength(4);
+      expect(links).toHaveLength(5);
 
       const hrefs = links.map((link) => link.getAttribute("href"));
       expect(hrefs).toContain("/");
       expect(hrefs).toContain("/sites");
+      expect(hrefs).toContain("/groups");
       expect(hrefs).toContain("/article/list");
       expect(hrefs).toContain("/article/create");
     });
@@ -162,8 +168,8 @@ describe("AsideMenu", () => {
       renderWithRouter(<AsideMenu />);
 
       const buttons = screen.getAllByRole("button");
-      // 4 menu buttons + 1 logout button
-      expect(buttons).toHaveLength(5);
+      // 5 menu buttons + 1 logout button
+      expect(buttons).toHaveLength(6);
 
       buttons.forEach((button) => {
         const svg = button.querySelector("svg");
@@ -190,7 +196,7 @@ describe("AsideMenu", () => {
 
       const topContainer = containers[0];
       const links = topContainer.querySelectorAll("a");
-      expect(links).toHaveLength(4);
+      expect(links).toHaveLength(5);
     });
 
     it("should render logout form in the bottom container", () => {
@@ -302,7 +308,7 @@ describe("AsideMenu", () => {
       renderWithRouter(<AsideMenu />);
 
       const buttons = screen.getAllByRole("button");
-      expect(buttons).toHaveLength(5);
+      expect(buttons).toHaveLength(6);
 
       buttons.forEach((button) => {
         expect(button).toBeVisible();
@@ -311,11 +317,11 @@ describe("AsideMenu", () => {
   });
 
   describe("Menu Configuration", () => {
-    it("should have exactly 4 menu items", () => {
+    it("should have exactly 5 menu items", () => {
       renderWithRouter(<AsideMenu />);
 
       const links = screen.getAllByRole("link");
-      expect(links).toHaveLength(4);
+      expect(links).toHaveLength(5);
     });
 
     it("should have menu items in correct order", () => {
@@ -324,8 +330,9 @@ describe("AsideMenu", () => {
       const links = screen.getAllByRole("link");
       expect(links[0]).toHaveAttribute("href", "/");
       expect(links[1]).toHaveAttribute("href", "/sites");
-      expect(links[2]).toHaveAttribute("href", "/article/list");
-      expect(links[3]).toHaveAttribute("href", "/article/create");
+      expect(links[2]).toHaveAttribute("href", "/groups");
+      expect(links[3]).toHaveAttribute("href", "/article/list");
+      expect(links[4]).toHaveAttribute("href", "/article/create");
     });
 
     it("should have correct labels for each menu item", () => {
@@ -333,7 +340,8 @@ describe("AsideMenu", () => {
 
       expect(screen.getByText("Dashboard")).toBeInTheDocument();
       expect(screen.getByText("Sites")).toBeInTheDocument();
-      expect(screen.getByText("Article List")).toBeInTheDocument();
+      expect(screen.getByText("Groups")).toBeInTheDocument();
+      expect(screen.getByText("Articles")).toBeInTheDocument();
       expect(screen.getByText("Create New Article")).toBeInTheDocument();
     });
 
@@ -342,6 +350,7 @@ describe("AsideMenu", () => {
 
       expect(screen.getByTestId("icon-home")).toBeInTheDocument();
       expect(screen.getByTestId("icon-website")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-folder")).toBeInTheDocument();
       expect(screen.getByTestId("icon-documents")).toBeInTheDocument();
       expect(screen.getByTestId("icon-document")).toBeInTheDocument();
     });
