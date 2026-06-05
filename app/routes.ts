@@ -19,10 +19,16 @@ export default [
         "article/list/:siteSlug",
         "./routes/article/site-list/site-list.tsx",
       ),
+      route(
+        "article/list/:siteSlug/new",
+        "./routes/article/site-list/site-list.tsx",
+        { id: "site-list-new" },
+      ),
       route("article/edit/:articleUrl", "./routes/article/edit/edit.tsx"),
       route("article/view/:articleUrl", "./routes/article/view/view.tsx"),
       route("groups", "./routes/groups/groups.tsx"),
       route("sites", "./routes/sites/sites.tsx"),
+      route("sites/new", "./routes/sites/sites.tsx", { id: "sites-new" }),
       route(
         "site/:siteSlug/configure",
         "./routes/site/configure/configure.tsx",

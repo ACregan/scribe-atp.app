@@ -11,8 +11,8 @@ import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
-import { useState, useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useState, useEffect, useRef } from "react";
+import { useFetcher, useLocation, useNavigate } from "react-router";
 import { useToast } from "~/components/Toast/ToastContext";
 import styles from "./sites.module.css";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
@@ -203,12 +203,29 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
   const isDeleting = deleteFetcher.state !== "idle";
 
   const { addToast } = useToast();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isNewRoute = pathname === "/sites/new";
+
+  // Auto-open when landing on /sites/new
+  const openedByRouteRef = useRef(false);
+  useEffect(() => {
+    if (isNewRoute && !openedByRouteRef.current) {
+      openedByRouteRef.current = true;
+      addSiteModal.open();
+    }
+  }, []);
+
+  function handleCloseAddModal() {
+    addSiteModal.close();
+    if (isNewRoute) navigate("/sites", { replace: true });
+  }
 
   useEffect(() => {
     if (!createFetcher.data?.ok) return;
-    addSiteModal.close();
+    handleCloseAddModal();
     addToast({ heading: "Site created", variant: "primary" });
-  }, [createFetcher.data, addSiteModal.close]);
+  }, [createFetcher.data]);
 
   useEffect(() => {
     if (!deleteFetcher.data?.ok) return;
@@ -317,13 +334,13 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
       {/* ── Add Site Modal ─────────────────────────────────────────────────── */}
       <Modal
         isOpen={addSiteModal.isOpen}
-        onClose={addSiteModal.close}
+        onClose={handleCloseAddModal}
         title="Add New Site"
         footer={
           <div className={styles.modalFooter}>
             <Button
               variant="secondary"
-              onClick={addSiteModal.close}
+              onClick={handleCloseAddModal}
               disabled={isCreating}
             >
               Cancel
