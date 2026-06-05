@@ -7,6 +7,7 @@ import { Button } from "~/components/Button/Button";
 import { UploadModal } from "./UploadModal";
 import { NewFolderModal } from "./NewFolderModal";
 import { MoveImageModal } from "./MoveImageModal";
+import { DeleteImageModal } from "./DeleteImageModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -135,6 +136,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moveImage, setMoveImage] = useState<BrowseImage | null>(null);
+  const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   function refresh() { revalidator.revalidate(); }
@@ -202,6 +204,16 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         />
       )}
 
+      {deleteImage && (
+        <DeleteImageModal
+          isOpen={true}
+          imageId={deleteImage.id}
+          imageName={deleteImage.original_name}
+          onClose={() => setDeleteImage(null)}
+          onSuccess={() => { setDeleteImage(null); refresh(); }}
+        />
+      )}
+
       <PageSection>
         <nav className={styles.breadcrumbs} aria-label="Folder navigation">
           <Link to="/images" className={styles.breadcrumbLink}>Image Library</Link>
@@ -264,15 +276,17 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                       <span className={styles.tileName}>{subfolder.name}</span>
                     </Link>
                     {isOwnTree && (
-                      <button
-                        type="button"
-                        className={styles.tileAction}
-                        onClick={() => { setConfirmDeleteId(subfolder.id); setDeleteError(null); }}
-                        aria-label={`Delete ${subfolder.name}`}
-                        title="Delete folder"
-                      >
-                        <SvgIcon name={SvgImageList.Trash} fill="currentColor" />
-                      </button>
+                      <div className={styles.tileActions}>
+                        <button
+                          type="button"
+                          className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                          onClick={() => { setConfirmDeleteId(subfolder.id); setDeleteError(null); }}
+                          aria-label={`Delete ${subfolder.name}`}
+                          title="Delete folder"
+                        >
+                          <SvgIcon name={SvgImageList.Trash} fill="currentColor" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -315,15 +329,26 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                     </div>
                   </div>
                   {isOwnTree && (
-                    <button
-                      type="button"
-                      className={styles.tileAction}
-                      onClick={() => setMoveImage(image)}
-                      aria-label={`Move ${image.original_name}`}
-                      title="Move to folder"
-                    >
-                      <SvgIcon name={SvgImageList.Folder} fill="currentColor" />
-                    </button>
+                    <div className={styles.tileActions}>
+                      <button
+                        type="button"
+                        className={styles.tileAction}
+                        onClick={() => setMoveImage(image)}
+                        aria-label={`Move ${image.original_name}`}
+                        title="Move to folder"
+                      >
+                        <SvgIcon name={SvgImageList.Folder} fill="currentColor" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                        onClick={() => setDeleteImage(image)}
+                        aria-label={`Delete ${image.original_name}`}
+                        title="Delete image"
+                      >
+                        <SvgIcon name={SvgImageList.Trash} fill="currentColor" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </li>

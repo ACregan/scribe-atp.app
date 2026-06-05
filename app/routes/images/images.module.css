@@ -124,21 +124,32 @@
   position: relative;
 }
 
-.tileAction {
+.tileActions {
   position: absolute;
   top: 0.6rem;
   right: 0.6rem;
-  background: var(--white);
-  border: 1px solid var(--light-grey);
+  display: flex;
+  gap: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.folderTileWrap:hover .tileActions,
+.imageTileWrap:hover .tileActions {
+  opacity: 1;
+}
+
+.tileAction {
+  background: var(--white, #fff);
+  border: 1px solid var(--light-grey, #dedede);
   border-radius: 0.4rem;
   padding: 0.3rem;
   cursor: pointer;
-  color: var(--mid-grey);
+  color: var(--mid-grey, #949494);
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .tileAction > svg {
@@ -146,14 +157,14 @@
   height: 1.4rem;
 }
 
-.folderTileWrap:hover .tileAction,
-.imageTileWrap:hover .tileAction {
-  opacity: 1;
+.tileAction:hover {
+  color: var(--blue, #0070f3);
+  border-color: var(--blue, #0070f3);
 }
 
-.tileAction:hover {
-  color: var(--blue);
-  border-color: var(--blue);
+.tileActionDanger:hover {
+  color: var(--red, #df2827);
+  border-color: var(--red, #df2827);
 }
 
 /* ── Delete confirmation inline ──────────────────────────────────────────── */
