@@ -175,3 +175,27 @@ This will be served from the same VPS that currently hosts the Scribe-atp.app we
 As recommended by Claude, we will continue to use sqlite3 with 2 tables: `image_folders` (id, user_did, name, parent_id, created_at) and `images` (id, user_did, folder_id, filename, original_name, width, height, sizes as JSON, created_at).
 
 Claude pointed out that there is a decision to be made around the per-image progress bar. The tradeoff is, if we drop the progress bar and just use a spinner then the implementation is much simpler and does not require changes to the react-router-serve implementation that we currently use. It does point out that these are one-time changes and are reasonably doable. We should dig into this in more detail before we proceed with implementation.
+
+## FEATURE: Dashboard
+
+### Implemented
+
+The dashboard (`/`) shows three sections for authenticated users:
+
+**Quick Actions** — prominent "New Article" and "New Site" buttons to avoid navigating through the menu for common tasks.
+
+**Unassigned Articles alert** — a danger pill linking to `/article/list` that appears only when one or more articles exist that are not referenced by any site. Computed in the loader by diffing all article URIs against all URIs referenced in `groups[].articles` and `articles` across every site record.
+
+**Recent Articles** — the 5 most recently created articles, sorted by `createdAt` descending, each with a direct Edit link. Fetched from `app.scribe.article` in the same loader pass as the orphan calculation.
+
+Both PDS calls (articles + sites) are made in parallel via `Promise.all`. The home route uses `getAuthSession` (not `requireAuth`) so unauthenticated users still reach the page — the loader returns empty data in that case and the two authenticated sections are hidden.
+
+### Deferred / not planned
+
+**Traffic analytics** — the PDS is write-only from the CMS's perspective; public readers don't report back. This would require instrumenting the public-facing site and building a separate analytics backend — out of scope.
+
+**Activity feed / recently edited** — requires an `updatedAt` field on `app.scribe.article` (not currently stored). Adding this field is a small change to the create and edit actions and is planned as the next dashboard iteration. Without it, only `createdAt` ordering is reliable.
+
+### Next: Recently edited articles (item 4)
+
+Add `updatedAt` to `app.scribe.article` (written on create and updated on every edit). Use it to power a "Recently Edited" list on the dashboard, replacing or supplementing the current "Recent Articles" (created) list.

@@ -1,3 +1,80 @@
+/* ── Section headings ────────────────────────────────────────────────────────── */
+
+.sectionTitle {
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mid-grey);
+  margin: 0 0 1.2rem;
+}
+
+/* ── Quick actions ───────────────────────────────────────────────────────────── */
+
+.quickActions {
+  display: flex;
+  gap: 1rem;
+}
+
+/* ── Orphan alert ────────────────────────────────────────────────────────────── */
+
+.orphanAlert {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.5rem;
+  color: var(--black);
+  text-decoration: none;
+}
+
+.orphanAlert:hover {
+  text-decoration: underline;
+}
+
+/* ── Recent articles ─────────────────────────────────────────────────────────── */
+
+.recentList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recentItem {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1rem 0;
+  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+}
+
+.recentItem:last-child {
+  border-bottom: none;
+}
+
+.recentTitle {
+  flex: 1;
+  font-size: 1.6rem;
+}
+
+.recentDate {
+  font-size: 1.3rem;
+  color: var(--mid-grey);
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.emptyState {
+  font-size: 1.5rem;
+  color: var(--mid-grey);
+}
+
+/* ── Dev tools ───────────────────────────────────────────────────────────────── */
+
+.devToastButtons {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
 .devTools {
   margin-top: 3rem;
   padding: 1.6rem;
