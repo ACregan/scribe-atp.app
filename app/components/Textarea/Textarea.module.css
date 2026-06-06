@@ -17,9 +17,10 @@
   border-radius: 4px;
   background: var(--white);
   color: var(--black, #000);
-  width: 100%;
+  width: auto;
   box-sizing: border-box;
   resize: vertical;
+  margin: 0px 0.4rem;
 }
 
 .textarea:focus {

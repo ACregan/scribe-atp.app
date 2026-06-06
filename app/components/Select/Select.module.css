@@ -20,9 +20,10 @@
   border-radius: 4px;
   background: var(--white);
   color: var(--black, #000);
-  width: 100%;
+  width: auto;
   box-sizing: border-box;
   cursor: pointer;
+  margin: 0px 0.4rem;
 }
 
 .select:focus {
@@ -38,7 +39,9 @@
 
 .multiSelectWrapper {
   position: relative;
-  width: 100%;
+  width: auto;
+
+  margin: 0px 0.4rem;
 }
 
 .trigger {

@@ -16,8 +16,9 @@
   border-radius: 4px;
   background: var(--white);
   color: var(--black, #000);
-  width: 100%;
+  width: auto;
   box-sizing: border-box;
+  margin: 0px 0.4rem;
 }
 .input:focus {
   outline: 2px solid var(--blue);
