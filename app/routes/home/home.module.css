@@ -12,10 +12,16 @@
 
 .quickActions {
   display: flex;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8rem;
 }
 
 /* ── Orphan alert ────────────────────────────────────────────────────────────── */
+
+.orphanAlertWrapper {
+  margin-top: 1.6rem;
+}
 
 .orphanAlert {
   display: inline-flex;
@@ -61,23 +67,118 @@
   color: var(--mid-grey);
 }
 
-/* ── Dev tools ───────────────────────────────────────────────────────────────── */
+/* ── Site list (mirrors groups page) ─────────────────────────────────────────── */
+
+.siteList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.siteItem {
+  border: 0.2rem solid var(--black);
+  border-radius: 0.6rem;
+  overflow: hidden;
+}
+
+.siteHeader {
+  display: flex;
+  align-items: center;
+  height: 8rem;
+  justify-content: space-between;
+}
+
+.splashContainer {
+  position: relative;
+  width: 15rem;
+  height: 100%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  background-size: cover;
+  background-position: top center;
+}
+
+.splashContainer::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 3rem;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 1) 100%
+  );
+}
+
+.logoContainer {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: -2rem;
+  width: 5rem;
+  height: 5rem;
+  border: 0.2rem solid var(--black);
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  background-size: cover;
+  background-position: top center;
+  z-index: 100;
+}
+
+.siteTitle {
+  font-size: 1.8rem;
+  padding-left: 3rem;
+  flex: 1;
+}
+
+.siteActions {
+  padding-right: 1.2rem;
+}
+
+.groupList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 0.1rem solid var(--border, #e5e7eb);
+}
+
+.groupItem {
+  padding: 0.6rem 1.2rem 0.6rem 1.6rem;
+  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.groupItem:last-child {
+  border-bottom: none;
+}
+
+.folderName {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+/* ── Dev tools (inside modal) ────────────────────────────────────────────────── */
+
+.devTools {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
 
 .devToastButtons {
   display: flex;
   gap: 0.8rem;
   flex-wrap: wrap;
-}
-
-.devTools {
-  margin-top: 3rem;
-  padding: 1.6rem;
-  border: 0.2rem dashed var(--red);
-  border-radius: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  align-items: flex-start;
 }
 
 .devToolsTitle {
@@ -95,15 +196,7 @@
   font-size: 1.4rem;
 }
 
-.nukeSuccess {
-  font-size: 1.4rem;
-  color: green;
-}
-
-.nukeError {
-  font-size: 1.4rem;
-  color: var(--red);
-}
+/* ── Modal footer ────────────────────────────────────────────────────────────── */
 
 .modalFooter {
   display: flex;

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { Route } from "./+types/home";
 import { Link, useFetcher } from "react-router";
 import {
@@ -17,6 +18,8 @@ import {
   PageContainer,
   PageContainerHeading,
   PageSection,
+  PageSectionColumns,
+  PageSectionColumn,
 } from "~/components/PageContainer/PageContainer";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
@@ -25,8 +28,16 @@ const IS_DEV = process.env.NODE_ENV !== "production";
 
 function formatArticleDate(iso: string): string {
   const d = new Date(iso);
-  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-  const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const date = d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
   return `${time} ${date}`;
 }
 
@@ -38,6 +49,14 @@ type RecentArticle = {
   url: string;
   createdAt: string;
   updatedAt?: string;
+};
+
+type SiteWithGroups = {
+  rkey: string;
+  title: string;
+  splashImageUrl?: string;
+  logoImageUrl?: string;
+  groups: Array<{ slug: string; title: string; articleCount: number }>;
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -60,6 +79,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       isDev: IS_DEV,
       recentArticles: [] as RecentArticle[],
       orphanedArticleCount: 0,
+      sites: [] as SiteWithGroups[],
     };
   }
 
@@ -91,6 +111,25 @@ export async function loader({ request }: Route.LoaderArgs) {
         },
       ] as RecentArticle[],
       orphanedArticleCount: 2,
+      sites: [
+        {
+          rkey: "norobots-blog",
+          title: "NoRobots.blog",
+          groups: [
+            { slug: "engineering", title: "Engineering", articleCount: 4 },
+            {
+              slug: "getting-started",
+              title: "Getting Started",
+              articleCount: 2,
+            },
+          ],
+        },
+        {
+          rkey: "perpetualsummer-ltd",
+          title: "Perpetual Summer LTD",
+          groups: [],
+        },
+      ] as SiteWithGroups[],
     };
   }
 
@@ -107,6 +146,31 @@ export async function loader({ request }: Route.LoaderArgs) {
       limit: 100,
     }),
   ]);
+
+  const sites: SiteWithGroups[] = sitesResult.data.records.map((record) => {
+    const value = record.value as Record<string, unknown>;
+    const rawGroups =
+      (value.groups as
+        | Array<{
+            slug: string;
+            title: string;
+            articles?: Array<{ uri: string }>;
+          }>
+        | undefined) ?? [];
+    return {
+      rkey: record.uri.split("/").pop()!,
+      title: String(value.title ?? ""),
+      splashImageUrl: value.splashImageUrl
+        ? String(value.splashImageUrl)
+        : undefined,
+      logoImageUrl: value.logoImageUrl ? String(value.logoImageUrl) : undefined,
+      groups: rawGroups.map(({ slug, title, articles }) => ({
+        slug,
+        title,
+        articleCount: articles?.length ?? 0,
+      })),
+    };
+  });
 
   const referencedUris = new Set<string>();
   for (const record of sitesResult.data.records) {
@@ -135,7 +199,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     .sort((a, b) =>
       (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
     )
-    .slice(0, 5);
+    .slice(0, 10);
 
   const orphanedArticleCount = articlesResult.data.records.filter(
     (r) => !referencedUris.has(r.uri),
@@ -147,6 +211,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     isDev: IS_DEV,
     recentArticles,
     orphanedArticleCount,
+    sites,
   };
 }
 
@@ -197,101 +262,225 @@ export function HydrateFallback() {
   return <Spinner size="large" />;
 }
 
+function GroupSiteItem({ site }: { site: SiteWithGroups }) {
+  return (
+    <li className={styles.siteItem}>
+      <div className={styles.siteHeader}>
+        <div
+          className={styles.splashContainer}
+          style={
+            site.splashImageUrl
+              ? { backgroundImage: `url(${site.splashImageUrl})` }
+              : undefined
+          }
+        >
+          <div
+            className={styles.logoContainer}
+            style={
+              site.logoImageUrl
+                ? { backgroundImage: `url(${site.logoImageUrl})` }
+                : undefined
+            }
+          />
+        </div>
+        <strong className={styles.siteTitle}>{site.title}</strong>
+        <div className={styles.siteActions}>
+          <Link to={`/article/list/${site.rkey}`}>
+            <Button type="button" variant="primary">
+              Manage
+            </Button>
+          </Link>
+        </div>
+      </div>
+      {site.groups.length > 0 && (
+        <ul className={styles.groupList}>
+          {site.groups.map((group) => (
+            <li key={group.slug} className={styles.groupItem}>
+              <IconBadge icon={SvgImageList.Folder} />
+              <span className={styles.folderName}>{group.title}</span>
+              <Pill>
+                {group.articleCount}{" "}
+                {group.articleCount === 1 ? "ARTICLE" : "ARTICLES"}
+              </Pill>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { isAuthenticated, isDev, recentArticles, orphanedArticleCount } =
-    loaderData;
+  const {
+    isAuthenticated,
+    isDev,
+    recentArticles,
+    orphanedArticleCount,
+    sites,
+  } = loaderData;
   const nukeModal = useModal();
+  const devToolsModal = useModal();
   const fetcher = useFetcher<{
     ok?: boolean;
     deleted?: number;
     devMode?: boolean;
     error?: string;
   }>();
+  const { addToast } = useToast();
 
   const isPending = fetcher.state !== "idle";
-  const result = fetcher.data;
 
-  const handleConfirm = () => {
+  useEffect(() => {
+    if (!fetcher.data) return;
+    if (fetcher.data.ok) {
+      addToast({
+        heading: "Nuke complete",
+        content: fetcher.data.devMode
+          ? "Dev mode — no real data deleted."
+          : `${fetcher.data.deleted} record${fetcher.data.deleted !== 1 ? "s" : ""} deleted.`,
+        variant: "primary",
+      });
+    } else if (fetcher.data.error) {
+      addToast({
+        heading: "Nuke failed",
+        content: fetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }, [fetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleNukeConfirm() {
     nukeModal.close();
     fetcher.submit({}, { method: "post" });
-  };
-
-  const { addToast } = useToast();
+  }
 
   return (
     <>
       <PageContainer
+        fixed
         title={
           <PageContainerHeading icon={SvgImageList.Home}>
             Dashboard
           </PageContainerHeading>
         }
+        topButtons={
+          isDev ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={devToolsModal.open}
+            >
+              Dev Tools
+            </Button>
+          ) : undefined
+        }
       >
-        <PageSection>
-          <h2 className={styles.sectionTitle}>Quick Actions</h2>
-          <div className={styles.quickActions}>
-            <Link to="/sites/new">
-              <Button type="button" icon={SvgImageList.Website}>
-                New Site
-              </Button>
-            </Link>
-            <Link to="/groups/new">
-              <Button type="button" icon={SvgImageList.Folder}>
-                New Group
-              </Button>
-            </Link>
-            <Link to="/article/create">
-              <Button type="button" icon={SvgImageList.Document}>
-                New Article
-              </Button>
-            </Link>
-          </div>
-        </PageSection>
+        <PageSection fill>
+          <PageSectionColumns breakpoint="lg">
+            {/* Sites */}
+            <PageSectionColumn span={4} overflow>
+              <h2 className={styles.sectionTitle}>Sites</h2>
+              {isAuthenticated ? (
+                sites.length === 0 ? (
+                  <p className={styles.emptyState}>
+                    No sites yet.{" "}
+                    <Link to="/sites/new">Create your first site</Link>.
+                  </p>
+                ) : (
+                  <ul className={styles.siteList}>
+                    {sites.map((site) => (
+                      <GroupSiteItem key={site.rkey} site={site} />
+                    ))}
+                  </ul>
+                )
+              ) : null}
+            </PageSectionColumn>
 
-        {isAuthenticated && orphanedArticleCount > 0 && (
-          <PageSection>
-            <Link to="/article/list" className={styles.orphanAlert}>
-              <Pill variant="danger">
-                {orphanedArticleCount} UNASSIGNED{" "}
-                {orphanedArticleCount === 1 ? "ARTICLE" : "ARTICLES"}
-              </Pill>
-              <span>These articles aren't assigned to any site.</span>
-            </Link>
-          </PageSection>
-        )}
+            {/* Recently Updated */}
+            <PageSectionColumn span={4} overflow>
+              <h2 className={styles.sectionTitle}>Recently Updated</h2>
+              {isAuthenticated ? (
+                recentArticles.length === 0 ? (
+                  <p className={styles.emptyState}>
+                    No articles yet. Create your first one.
+                  </p>
+                ) : (
+                  <ul className={styles.recentList}>
+                    {recentArticles.map((article) => (
+                      <li key={article.uri} className={styles.recentItem}>
+                        <IconBadge icon={SvgImageList.Document} />
+                        <span className={styles.recentTitle}>
+                          {article.title}
+                        </span>
+                        <Pill>
+                          {formatArticleDate(
+                            article.updatedAt ?? article.createdAt,
+                          )}
+                        </Pill>
+                        <Link to={`/article/edit/${article.url}`}>
+                          <Button type="button" variant="secondary">
+                            Edit
+                          </Button>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : null}
+            </PageSectionColumn>
 
-        {isAuthenticated && (
-          <PageSection>
-            <h2 className={styles.sectionTitle}>Recently Updated</h2>
-            {recentArticles.length === 0 ? (
-              <p className={styles.emptyState}>
-                No articles yet. Create your first one above.
-              </p>
-            ) : (
-              <ul className={styles.recentList}>
-                {recentArticles.map((article) => (
-                  <li key={article.uri} className={styles.recentItem}>
-                    <IconBadge icon={SvgImageList.Document} />
-                    <span className={styles.recentTitle}>{article.title}</span>
-                    <Pill>
-                      {formatArticleDate(article.updatedAt ?? article.createdAt)}
+            {/* Quick Actions */}
+            <PageSectionColumn span={4} overflow>
+              <h2 className={styles.sectionTitle}>Quick Actions</h2>
+              <div className={styles.quickActions}>
+                <Link to="/sites/new">
+                  <Button type="button" icon={SvgImageList.Website}>
+                    New Site
+                  </Button>
+                </Link>
+                <Link to="/groups/new">
+                  <Button type="button" icon={SvgImageList.Folder}>
+                    New Group
+                  </Button>
+                </Link>
+                <Link to="/article/create">
+                  <Button type="button" icon={SvgImageList.Document}>
+                    New Article
+                  </Button>
+                </Link>
+                <Link to="/images">
+                  <Button type="button" icon={SvgImageList.Image}>
+                    Image Library
+                  </Button>
+                </Link>
+              </div>
+              {isAuthenticated && orphanedArticleCount > 0 && (
+                <div className={styles.orphanAlertWrapper}>
+                  <Link to="/article/list" className={styles.orphanAlert}>
+                    <Pill variant="danger">
+                      {orphanedArticleCount} UNASSIGNED{" "}
+                      {orphanedArticleCount === 1 ? "ARTICLE" : "ARTICLES"}
                     </Pill>
-                    <Link to={`/article/edit/${article.url}`}>
-                      <Button type="button" variant="secondary">
-                        Edit
-                      </Button>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </PageSection>
-        )}
+                    <span>These articles aren't assigned to any site.</span>
+                  </Link>
+                </div>
+              )}
+            </PageSectionColumn>
+          </PageSectionColumns>
+        </PageSection>
+      </PageContainer>
 
-        {isDev && (
-          <PageSection>
+      {isDev && (
+        <>
+          <Modal
+            isOpen={devToolsModal.isOpen}
+            onClose={devToolsModal.close}
+            title="Dev Tools"
+            footer={null}
+          >
             <div className={styles.devTools}>
-              <h2 className={styles.devToolsTitle}>Dev Tools</h2>
+              <h3 className={styles.devToolsTitle}>Toast Testing</h3>
               <div className={styles.devToastButtons}>
                 <Button
                   onClick={() =>
@@ -333,55 +522,47 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   Add Danger Toast
                 </Button>
               </div>
+              <h3 className={styles.devToolsTitle}>Data</h3>
               <Button
                 variant="danger"
-                onClick={nukeModal.open}
+                onClick={() => {
+                  devToolsModal.close();
+                  nukeModal.open();
+                }}
                 disabled={isPending}
               >
                 {isPending ? "Nuking…" : "Nuke PDS Data"}
               </Button>
-              {result?.ok && (
-                <p className={styles.nukeSuccess}>
-                  {result.devMode
-                    ? "Dev mode — no real data deleted."
-                    : `Done. ${result.deleted} record${result.deleted !== 1 ? "s" : ""} deleted.`}
-                </p>
-              )}
-              {result?.error && (
-                <p className={styles.nukeError}>{result.error}</p>
-              )}
             </div>
-          </PageSection>
-        )}
-      </PageContainer>
+          </Modal>
 
-      {isDev && (
-        <Modal
-          isOpen={nukeModal.isOpen}
-          onClose={nukeModal.close}
-          title="Nuke PDS Data"
-          footer={
-            <div className={styles.modalFooter}>
-              <Button variant="secondary" onClick={nukeModal.close}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleConfirm}>
-                Delete Everything
-              </Button>
-            </div>
-          }
-        >
-          <p>
-            This will permanently delete <strong>all</strong> Scribe records
-            from your PDS:
-          </p>
-          <ul className={styles.nukeList}>
-            {SCRIBE_COLLECTIONS.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
-          <p>This cannot be undone.</p>
-        </Modal>
+          <Modal
+            isOpen={nukeModal.isOpen}
+            onClose={nukeModal.close}
+            title="Nuke PDS Data"
+            footer={
+              <div className={styles.modalFooter}>
+                <Button variant="secondary" onClick={nukeModal.close}>
+                  Cancel
+                </Button>
+                <Button variant="danger" onClick={handleNukeConfirm}>
+                  Delete Everything
+                </Button>
+              </div>
+            }
+          >
+            <p>
+              This will permanently delete <strong>all</strong> Scribe records
+              from your PDS:
+            </p>
+            <ul className={styles.nukeList}>
+              {SCRIBE_COLLECTIONS.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+            <p>This cannot be undone.</p>
+          </Modal>
+        </>
       )}
     </>
   );
