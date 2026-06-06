@@ -262,7 +262,13 @@ export function HydrateFallback() {
   return <Spinner size="large" />;
 }
 
-function GroupSiteItem({ site }: { site: SiteWithGroups }) {
+function GroupSiteItem({
+  site,
+  showGroups = true,
+}: {
+  site: SiteWithGroups;
+  showGroups?: boolean;
+}) {
   return (
     <li className={styles.siteItem}>
       <div className={styles.siteHeader}>
@@ -292,7 +298,7 @@ function GroupSiteItem({ site }: { site: SiteWithGroups }) {
           </Link>
         </div>
       </div>
-      {site.groups.length > 0 && (
+      {showGroups && site.groups.length > 0 && (
         <ul className={styles.groupList}>
           {site.groups.map((group) => (
             <li key={group.slug} className={styles.groupItem}>
@@ -425,7 +431,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 ) : (
                   <ul className={styles.siteList}>
                     {sites.map((site) => (
-                      <GroupSiteItem key={site.rkey} site={site} />
+                      <GroupSiteItem
+                        key={site.rkey}
+                        site={site}
+                        showGroups={false}
+                      />
                     ))}
                   </ul>
                 )
