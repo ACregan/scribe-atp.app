@@ -8,6 +8,7 @@ import { UploadModal } from "./UploadModal";
 import { NewFolderModal } from "./NewFolderModal";
 import { MoveImageModal } from "./MoveImageModal";
 import { DeleteImageModal } from "./DeleteImageModal";
+import { ImagePreviewModal } from "./ImagePreviewModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -32,7 +33,7 @@ type BrowseImage = {
   original_name: string;
   width: number;
   height: number;
-  sizes: Record<string, { width: number; height: number }>;
+  sizes: Record<string, { width: number; height: number; bytes?: number }>;
   created_at: string;
 };
 
@@ -183,6 +184,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moveImage, setMoveImage] = useState<BrowseImage | null>(null);
   const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
+  const [previewImage, setPreviewImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   function refresh() {
@@ -284,6 +286,17 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
             setDeleteImage(null);
             refresh();
           }}
+        />
+      )}
+
+      {previewImage && (
+        <ImagePreviewModal
+          isOpen={true}
+          image={previewImage}
+          images={images}
+          folder={folder}
+          breadcrumbs={breadcrumbs}
+          onClose={() => setPreviewImage(null)}
         />
       )}
 
@@ -417,7 +430,13 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
               );
               return (
                 <li key={`i-${image.id}`}>
-                  <div className={styles.imageTileWrap}>
+                  <div
+                    className={styles.imageTileWrap}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewImage(image);
+                    }}
+                  >
                     <div className={styles.imageTile}>
                       <span className={styles.thumbnailWrap}>
                         <img
