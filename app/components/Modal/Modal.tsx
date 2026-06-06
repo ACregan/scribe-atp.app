@@ -8,9 +8,19 @@ type ModalProps = {
   title: string;
   footer?: ReactNode;
   children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
 };
 
-export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  footer,
+  children,
+  className,
+  bodyClassName,
+}: ModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -23,18 +33,34 @@ export function Modal({ isOpen, onClose, title, footer, children }: ModalProps) 
   if (!isOpen || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true">
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div
+      className={styles.overlay}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className={`${styles.modal}${className ? ` ${className}` : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.header}>
           <h2 className={styles.title}>{title}</h2>
-          <button className={styles.close} onClick={onClose} aria-label="Close modal">
+          <button
+            className={styles.close}
+            onClick={onClose}
+            aria-label="Close modal"
+          >
             &times;
           </button>
         </div>
-        <div className={styles.body}>{children}</div>
+        <div
+          className={`${styles.body}${bodyClassName ? ` ${bodyClassName}` : ""}`}
+        >
+          {children}
+        </div>
         {footer && <div className={styles.footer}>{footer}</div>}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
