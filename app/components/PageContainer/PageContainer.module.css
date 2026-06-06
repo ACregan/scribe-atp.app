@@ -88,6 +88,9 @@
   border-top: 0.1rem solid var(--border, #e5e7eb);
   padding: 1rem 2rem;
 }
+.pageSection:last-of-type {
+  padding-bottom: 2rem;
+}
 .pageSectionWithOverflow {
   composes: pageSection;
   flex: 1;
@@ -98,7 +101,6 @@
   composes: pageSection;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
 }
 
 /* <PageSectionColumns> component */
