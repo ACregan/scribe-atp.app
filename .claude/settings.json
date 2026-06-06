@@ -10,7 +10,12 @@
       "Bash(glab issue *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(glab repo *)",
+      "Bash(glab config *)",
+      "Bash(git ls-remote *)",
+      "Bash(glab mr create --title 'feat\\(image-library\\): multi-select, bulk actions, drag-and-drop, preview modal' --target-branch main --body ' *)",
+      "Bash(glab mr create --title 'feat\\(image-library\\): multi-select, bulk actions, drag-and-drop, preview modal' --target-branch main --description ' *)"
     ]
   }
 }
