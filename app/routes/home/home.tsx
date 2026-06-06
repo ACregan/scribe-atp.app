@@ -466,7 +466,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </PageSectionColumn>
 
             {/* Third column — reserved */}
-            <PageSectionColumn span={4} overflow />
+            <PageSectionColumn span={4} overflow>
+              {" "}
+            </PageSectionColumn>
           </PageSectionColumns>
         </PageSection>
       </PageContainer>
@@ -481,11 +483,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           >
             <div className={styles.devTools}>
               <h3 className={styles.devToolsTitle}>Toast Testing</h3>
+
               <div className={styles.devToastButtons}>
                 <Button
                   onClick={() =>
                     addToast({
-                      heading: "Hello!",
+                      heading: "This toast will self destruct in 5 seconds.",
                       content: "This is a test toast.",
                       variant: "primary",
                       expireTimeSeconds: 5,
@@ -498,7 +501,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 <Button
                   onClick={() =>
                     addToast({
-                      heading: "Hello Again!",
+                      heading: "This toast will self destruct in 15 seconds.",
                       content: "This is another test toast.",
                       variant: "secondary",
                       expireTimeSeconds: 15,
@@ -511,7 +514,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 <Button
                   onClick={() =>
                     addToast({
-                      heading: "Warning!",
+                      heading:
+                        "Warning! This toast will self destruct in 5 seconds.",
                       content: "Hot toast!",
                       variant: "danger",
                       expireTimeSeconds: 5,
@@ -522,6 +526,48 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   Add Danger Toast
                 </Button>
               </div>
+              <div className={styles.devToastButtons}>
+                <Button
+                  onClick={() =>
+                    addToast({
+                      heading: "Primary Persisting Toast Message",
+                      content: "This is a test toast.",
+                      variant: "primary",
+                      autoExpire: false,
+                    })
+                  }
+                  variant="primary"
+                >
+                  Primary Persisting Toast
+                </Button>
+                <Button
+                  onClick={() =>
+                    addToast({
+                      heading: "Secondary Persisting Toast Message",
+                      content: "This is another test toast.",
+                      variant: "secondary",
+                      autoExpire: false,
+                    })
+                  }
+                  variant="secondary"
+                >
+                  Secondary Persisting Toast
+                </Button>
+                <Button
+                  onClick={() =>
+                    addToast({
+                      heading: "Danger Persisting Toast Message",
+                      content: "Hot toast!",
+                      variant: "danger",
+                      autoExpire: false,
+                    })
+                  }
+                  variant="danger"
+                >
+                  Danger Persisting Toast
+                </Button>
+              </div>
+
               <h3 className={styles.devToolsTitle}>Data</h3>
               <Button
                 variant="danger"
