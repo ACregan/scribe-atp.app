@@ -365,21 +365,56 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </PageContainerHeading>
         }
         topButtons={
-          isDev ? (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={devToolsModal.open}
-            >
-              Dev Tools
-            </Button>
-          ) : undefined
+          <>
+            <div className={styles.quickActions}>
+              <Link to="/sites/new">
+                <Button type="button" icon={SvgImageList.Website}>
+                  New Site
+                </Button>
+              </Link>
+              <Link to="/groups/new">
+                <Button type="button" icon={SvgImageList.Folder}>
+                  New Group
+                </Button>
+              </Link>
+              <Link to="/article/create">
+                <Button type="button" icon={SvgImageList.Document}>
+                  New Article
+                </Button>
+              </Link>
+              <Link to="/images">
+                <Button type="button" icon={SvgImageList.Image}>
+                  Image Library
+                </Button>
+              </Link>
+            </div>
+            {isDev && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={devToolsModal.open}
+              >
+                Dev Tools
+              </Button>
+            )}
+          </>
         }
       >
+        {isAuthenticated && orphanedArticleCount > 0 && (
+          <PageSection>
+            <Link to="/article/list" className={styles.orphanAlert}>
+              <Pill variant="danger">
+                {orphanedArticleCount} UNASSIGNED{" "}
+                {orphanedArticleCount === 1 ? "ARTICLE" : "ARTICLES"}
+              </Pill>
+              <span>These articles aren't assigned to any site.</span>
+            </Link>
+          </PageSection>
+        )}
         <PageSection fill>
           <PageSectionColumns breakpoint="lg">
             {/* Sites */}
-            <PageSectionColumn span={4} overflow>
+            <PageSectionColumn span={6} overflow>
               <h2 className={styles.sectionTitle}>Sites</h2>
               {isAuthenticated ? (
                 sites.length === 0 ? (
@@ -398,7 +433,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </PageSectionColumn>
 
             {/* Recently Updated */}
-            <PageSectionColumn span={4} overflow>
+            <PageSectionColumn span={6} overflow>
               <h2 className={styles.sectionTitle}>Recently Updated</h2>
               {isAuthenticated ? (
                 recentArticles.length === 0 ? (
@@ -428,44 +463,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   </ul>
                 )
               ) : null}
-            </PageSectionColumn>
-
-            {/* Quick Actions */}
-            <PageSectionColumn span={4} overflow>
-              <h2 className={styles.sectionTitle}>Quick Actions</h2>
-              <div className={styles.quickActions}>
-                <Link to="/sites/new">
-                  <Button type="button" icon={SvgImageList.Website}>
-                    New Site
-                  </Button>
-                </Link>
-                <Link to="/groups/new">
-                  <Button type="button" icon={SvgImageList.Folder}>
-                    New Group
-                  </Button>
-                </Link>
-                <Link to="/article/create">
-                  <Button type="button" icon={SvgImageList.Document}>
-                    New Article
-                  </Button>
-                </Link>
-                <Link to="/images">
-                  <Button type="button" icon={SvgImageList.Image}>
-                    Image Library
-                  </Button>
-                </Link>
-              </div>
-              {isAuthenticated && orphanedArticleCount > 0 && (
-                <div className={styles.orphanAlertWrapper}>
-                  <Link to="/article/list" className={styles.orphanAlert}>
-                    <Pill variant="danger">
-                      {orphanedArticleCount} UNASSIGNED{" "}
-                      {orphanedArticleCount === 1 ? "ARTICLE" : "ARTICLES"}
-                    </Pill>
-                    <span>These articles aren't assigned to any site.</span>
-                  </Link>
-                </div>
-              )}
             </PageSectionColumn>
           </PageSectionColumns>
         </PageSection>

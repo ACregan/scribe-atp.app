@@ -12,16 +12,10 @@
 
 .quickActions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
   gap: 0.8rem;
 }
 
 /* ── Orphan alert ────────────────────────────────────────────────────────────── */
-
-.orphanAlertWrapper {
-  margin-top: 1.6rem;
-}
 
 .orphanAlert {
   display: inline-flex;
