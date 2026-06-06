@@ -1,7 +1,19 @@
 import type { Route } from "./+types/images";
 import { Link, useRevalidator } from "react-router";
 import { useState, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { requireAuth, useRealOAuth } from "~/services/auth.server";
+import { useToast } from "~/components/Toast/ToastContext";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
 import { UploadModal } from "./UploadModal";
@@ -165,6 +177,30 @@ function thumbUrl(image: BrowseImage): string {
   return `/image-storage/${image.user_did}/${image.filename}/${variant}.webp`;
 }
 
+function Draggable({
+  id,
+  disabled,
+  children,
+}: {
+  id: string;
+  disabled?: boolean;
+  children: (props: ReturnType<typeof useDraggable>) => React.ReactNode;
+}) {
+  const draggable = useDraggable({ id, disabled });
+  return <>{children(draggable)}</>;
+}
+
+function Droppable({
+  id,
+  children,
+}: {
+  id: string;
+  children: (props: ReturnType<typeof useDroppable>) => React.ReactNode;
+}) {
+  const droppable = useDroppable({ id });
+  return <>{children(droppable)}</>;
+}
+
 export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const { folder, breadcrumbs, subfolders, images, currentUserDid, profiles } =
     loaderData;
@@ -182,6 +218,62 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const uploadModal = useModal();
   const newFolderModal = useModal();
   const revalidator = useRevalidator();
+  const { addToast } = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  function onDragStart({ active }: DragStartEvent) {
+    setActiveId(String(active.id));
+  }
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    setActiveId(null);
+    if (!over) return;
+    const overId = String(over.id);
+    if (!overId.startsWith("drop-f:")) return;
+    const destFolderId = Number(overId.slice("drop-f:".length));
+
+    const dragged = String(active.id);
+    const isMoveSelection = selected.has(dragged);
+    const itemSet = isMoveSelection ? selected : new Set([dragged]);
+    const imageIds = [...itemSet]
+      .filter((id) => id.startsWith("i:"))
+      .map((id) => Number(id.slice(2)));
+    const folderIds = [...itemSet]
+      .filter((id) => id.startsWith("f:"))
+      .map((id) => Number(id.slice(2)));
+
+    if (imageIds.length === 0 && folderIds.length === 0) return;
+
+    fetch("/api/image-service/bulk-move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageIds,
+        folderIds,
+        destinationFolderId: destFolderId,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = (await res.json()) as { error?: string };
+          throw new Error(data.error ?? "Move failed");
+        }
+        if (isMoveSelection) clearSelection();
+        refresh();
+      })
+      .catch((err: unknown) => {
+        addToast({
+          heading: "Move failed",
+          content: err instanceof Error ? err.message : "An error occurred",
+          variant: "danger",
+          autoExpire: false,
+        });
+      });
+  }
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -583,212 +675,263 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         {deleteError && <p className={styles.deleteError}>{deleteError}</p>}
 
         {(subfolders.length > 0 || images.length > 0) && (
-          <ul className={styles.grid} onClick={handleGridClick}>
-            {subfolders.map((subfolder) => {
-              const avatarUrl =
-                subfolder.parent_id === null
-                  ? (profiles[subfolder.user_did]?.avatarUrl ?? null)
-                  : null;
-              const itemId = `f:${subfolder.id}`;
-              const isSelected = selected.has(itemId);
-              return (
-                <li key={`f-${subfolder.id}`}>
-                  {confirmDeleteId === subfolder.id ? (
-                    <div className={styles.deleteConfirm}>
-                      <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
-                      <div className={styles.deleteConfirmActions}>
-                        <Button
-                          variant="danger"
-                          type="button"
-                          onClick={() => handleDeleteFolder(subfolder.id)}
-                        >
-                          Delete
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          type="button"
-                          onClick={() => {
-                            setConfirmDeleteId(null);
-                            setDeleteError(null);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className={`${styles.folderTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}`}
-                    >
-                      {isOwnTree && (
-                        <input
-                          type="checkbox"
-                          className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
-                          checked={isSelected}
-                          aria-label={`Select ${subfolder.name}`}
-                          onChange={() => toggleItem(itemId)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
-                      <Link
-                        to={`/images?folder=${subfolder.id}`}
-                        className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}${isSelected ? ` ${styles.tileSelected}` : ""}`}
-                        onClick={(e) => {
-                          handleTileClick(itemId, e);
-                          // If we consumed the click for selection, prevent navigation
-                          const isCtrl = e.ctrlKey || e.metaKey;
-                          const isShift = e.shiftKey;
-                          if (isCtrl || isShift || isSelectionMode) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }
-                        }}
-                      >
-                        <span className={styles.folderIcon}>
-                          <SvgIcon
-                            name={SvgImageList.Folder}
-                            fill="var(--blue)"
-                          />
-                          {avatarUrl && (
-                            <img
-                              src={avatarUrl}
-                              alt=""
-                              className={styles.folderAvatar}
-                            />
-                          )}
-                        </span>
-                        <span className={styles.tileName}>
-                          {folderLabel(subfolder)}
-                        </span>
-                      </Link>
-                      {isOwnTree && (
-                        <div className={styles.tileActions}>
-                          <button
+          <DndContext
+            sensors={sensors}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onDragCancel={() => setActiveId(null)}
+          >
+            <ul className={styles.grid} onClick={handleGridClick}>
+              {subfolders.map((subfolder) => {
+                const avatarUrl =
+                  subfolder.parent_id === null
+                    ? (profiles[subfolder.user_did]?.avatarUrl ?? null)
+                    : null;
+                const itemId = `f:${subfolder.id}`;
+                const isSelected = selected.has(itemId);
+                const isDeleting = confirmDeleteId === subfolder.id;
+                return (
+                  <li key={`f-${subfolder.id}`}>
+                    {isDeleting ? (
+                      <div className={styles.deleteConfirm}>
+                        <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
+                        <div className={styles.deleteConfirmActions}>
+                          <Button
+                            variant="danger"
                             type="button"
-                            className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                            onClick={() => handleDeleteFolder(subfolder.id)}
+                          >
+                            Delete
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            type="button"
                             onClick={() => {
-                              setConfirmDeleteId(subfolder.id);
+                              setConfirmDeleteId(null);
                               setDeleteError(null);
                             }}
-                            aria-label={`Delete ${subfolder.name}`}
-                            title="Delete folder"
                           >
-                            <SvgIcon
-                              name={SvgImageList.Trash}
-                              fill="currentColor"
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Droppable id={`drop-f:${subfolder.id}`}>
+                        {(droppable) => (
+                          <Draggable id={itemId} disabled={isDeleting}>
+                            {(draggable) => (
+                              <div
+                                ref={(node) => {
+                                  draggable.setNodeRef(node);
+                                  droppable.setNodeRef(node);
+                                }}
+                                {...draggable.attributes}
+                                {...draggable.listeners}
+                                className={`${styles.folderTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}${droppable.isOver ? ` ${styles.folderTileDragOver}` : ""}${draggable.isDragging ? ` ${styles.tileIsDragging}` : ""}`}
+                              >
+                                {isOwnTree && (
+                                  <input
+                                    type="checkbox"
+                                    className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
+                                    checked={isSelected}
+                                    aria-label={`Select ${subfolder.name}`}
+                                    onChange={() => toggleItem(itemId)}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                )}
+                                <Link
+                                  to={`/images?folder=${subfolder.id}`}
+                                  className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}${isSelected ? ` ${styles.tileSelected}` : ""}`}
+                                  onClick={(e) => {
+                                    handleTileClick(itemId, e);
+                                    // If we consumed the click for selection, prevent navigation
+                                    const isCtrl = e.ctrlKey || e.metaKey;
+                                    const isShift = e.shiftKey;
+                                    if (isCtrl || isShift || isSelectionMode) {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }
+                                  }}
+                                >
+                                  <span className={styles.folderIcon}>
+                                    <SvgIcon
+                                      name={SvgImageList.Folder}
+                                      fill="var(--blue)"
+                                    />
+                                    {avatarUrl && (
+                                      <img
+                                        src={avatarUrl}
+                                        alt=""
+                                        className={styles.folderAvatar}
+                                      />
+                                    )}
+                                  </span>
+                                  <span className={styles.tileName}>
+                                    {folderLabel(subfolder)}
+                                  </span>
+                                </Link>
+                                {isOwnTree && (
+                                  <div className={styles.tileActions}>
+                                    <button
+                                      type="button"
+                                      className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                                      onClick={() => {
+                                        setConfirmDeleteId(subfolder.id);
+                                        setDeleteError(null);
+                                      }}
+                                      aria-label={`Delete ${subfolder.name}`}
+                                      title="Delete folder"
+                                    >
+                                      <SvgIcon
+                                        name={SvgImageList.Trash}
+                                        fill="currentColor"
+                                      />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+                        )}
+                      </Droppable>
+                    )}
+                  </li>
+                );
+              })}
+
+              {images.map((image) => {
+                const orderedVariants = VARIANT_ORDER.filter(
+                  (v) => v in image.sizes,
+                );
+                const itemId = `i:${image.id}`;
+                const isSelected = selected.has(itemId);
+                return (
+                  <li key={`i-${image.id}`}>
+                    <Draggable id={itemId}>
+                      {(draggable) => (
+                        <div
+                          ref={draggable.setNodeRef}
+                          {...draggable.attributes}
+                          {...draggable.listeners}
+                          className={`${styles.imageTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}${draggable.isDragging ? ` ${styles.tileIsDragging}` : ""}`}
+                          onClick={(e) => handleTileClick(itemId, e)}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(image);
+                          }}
+                        >
+                          {isOwnTree && (
+                            <input
+                              type="checkbox"
+                              className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
+                              checked={isSelected}
+                              aria-label={`Select ${image.original_name}`}
+                              onChange={() => toggleItem(itemId)}
+                              onClick={(e) => e.stopPropagation()}
                             />
-                          </button>
+                          )}
+                          <div
+                            className={`${styles.imageTile}${isSelected ? ` ${styles.tileSelected}` : ""}`}
+                          >
+                            <span className={styles.thumbnailWrap}>
+                              <img
+                                src={thumbUrl(image)}
+                                alt={image.original_name}
+                                className={styles.thumbnail}
+                                loading="lazy"
+                              />
+                            </span>
+                            <span
+                              className={styles.tileName}
+                              title={image.original_name}
+                            >
+                              {image.original_name}
+                            </span>
+                            <div className={styles.variantButtons}>
+                              {orderedVariants.map((v) => {
+                                const key = `${image.id}:${v}`;
+                                const copied = copiedKey === key;
+                                return (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopy(image, v);
+                                    }}
+                                    title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
+                                  >
+                                    {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {isOwnTree && (
+                            <div className={styles.tileActions}>
+                              <button
+                                type="button"
+                                className={styles.tileAction}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMoveImage(image);
+                                }}
+                                aria-label={`Move ${image.original_name}`}
+                                title="Move to folder"
+                              >
+                                <SvgIcon
+                                  name={SvgImageList.Folder}
+                                  fill="currentColor"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteImage(image);
+                                }}
+                                aria-label={`Delete ${image.original_name}`}
+                                title="Delete image"
+                              >
+                                <SvgIcon
+                                  name={SvgImageList.Trash}
+                                  fill="currentColor"
+                                />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
+                    </Draggable>
+                  </li>
+                );
+              })}
+            </ul>
 
-            {images.map((image) => {
-              const orderedVariants = VARIANT_ORDER.filter(
-                (v) => v in image.sizes,
-              );
-              const itemId = `i:${image.id}`;
-              const isSelected = selected.has(itemId);
-              return (
-                <li key={`i-${image.id}`}>
-                  <div
-                    className={`${styles.imageTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}`}
-                    onClick={(e) => handleTileClick(itemId, e)}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setPreviewImage(image);
-                    }}
-                  >
-                    {isOwnTree && (
-                      <input
-                        type="checkbox"
-                        className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
-                        checked={isSelected}
-                        aria-label={`Select ${image.original_name}`}
-                        onChange={() => toggleItem(itemId)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    )}
-                    <div
-                      className={`${styles.imageTile}${isSelected ? ` ${styles.tileSelected}` : ""}`}
-                    >
-                      <span className={styles.thumbnailWrap}>
-                        <img
-                          src={thumbUrl(image)}
-                          alt={image.original_name}
-                          className={styles.thumbnail}
-                          loading="lazy"
-                        />
-                      </span>
-                      <span
-                        className={styles.tileName}
-                        title={image.original_name}
-                      >
-                        {image.original_name}
-                      </span>
-                      <div className={styles.variantButtons}>
-                        {orderedVariants.map((v) => {
-                          const key = `${image.id}:${v}`;
-                          const copied = copiedKey === key;
-                          return (
-                            <button
-                              key={v}
-                              type="button"
-                              className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopy(image, v);
-                              }}
-                              title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
-                            >
-                              {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {isOwnTree && (
-                      <div className={styles.tileActions}>
-                        <button
-                          type="button"
-                          className={styles.tileAction}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMoveImage(image);
-                          }}
-                          aria-label={`Move ${image.original_name}`}
-                          title="Move to folder"
-                        >
-                          <SvgIcon
-                            name={SvgImageList.Folder}
-                            fill="currentColor"
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.tileAction} ${styles.tileActionDanger}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteImage(image);
-                          }}
-                          aria-label={`Delete ${image.original_name}`}
-                          title="Delete image"
-                        >
-                          <SvgIcon
-                            name={SvgImageList.Trash}
-                            fill="currentColor"
-                          />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+            <DragOverlay>
+              {activeId
+                ? (() => {
+                    const isMoveAll =
+                      selected.has(activeId) && selected.size > 1;
+                    if (isMoveAll) {
+                      return (
+                        <div className={styles.dragBadge}>
+                          {selected.size} items
+                        </div>
+                      );
+                    }
+                    const label = activeId.startsWith("i:")
+                      ? (images.find((img) => `i:${img.id}` === activeId)
+                          ?.original_name ?? activeId)
+                      : (subfolders.find((f) => `f:${f.id}` === activeId)
+                          ?.name ?? activeId);
+                    return <div className={styles.dragBadge}>{label}</div>;
+                  })()
+                : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </PageSection>
     </PageContainer>
