@@ -75,6 +75,14 @@ const VARIANT_LABEL: Record<string, string> = {
   max: "Max",
 };
 
+function largestSizeVariant(sizes: BrowseImage["sizes"]): string | null {
+  for (let i = VARIANT_ORDER.length - 1; i >= 0; i--) {
+    if (VARIANT_ORDER[i] !== "thumb" && VARIANT_ORDER[i] in sizes)
+      return VARIANT_ORDER[i];
+  }
+  return null;
+}
+
 const DEV_DID = "did:dev:user";
 
 const DEV_OTHER_DID = "did:plc:otheruser456789abcdefgh";
@@ -281,6 +289,10 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
   const [previewImage, setPreviewImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [tileSplitVariants, setTileSplitVariants] = useState<
+    Record<number, string>
+  >({});
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [addToNewFolderOpen, setAddToNewFolderOpen] = useState(false);
@@ -307,6 +319,18 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isSelectionMode]);
+
+  // Close tile split dropdown on outside click
+  useEffect(() => {
+    if (openDropdownId === null) return;
+    function handleOutside(e: MouseEvent) {
+      if (!(e.target as Element).closest("[data-tile-split-dropdown]")) {
+        setOpenDropdownId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [openDropdownId]);
 
   // Ordered list of all item IDs in DOM order (folders first, then images)
   function allItemIds(): string[] {
@@ -801,9 +825,14 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
               })}
 
               {images.map((image) => {
-                const orderedVariants = VARIANT_ORDER.filter(
-                  (v) => v in image.sizes,
+                const hasThumb = "thumb" in image.sizes;
+                const sizeVariants = VARIANT_ORDER.filter(
+                  (v) => v !== "thumb" && v in image.sizes,
                 );
+                const splitVariant =
+                  tileSplitVariants[image.id] ??
+                  largestSizeVariant(image.sizes);
+                const isDropdownOpen = openDropdownId === image.id;
                 const itemId = `i:${image.id}`;
                 const isSelected = selected.has(itemId);
                 return (
@@ -849,24 +878,76 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                               {image.original_name}
                             </span>
                             <div className={styles.variantButtons}>
-                              {orderedVariants.map((v) => {
-                                const key = `${image.id}:${v}`;
-                                const copied = copiedKey === key;
-                                return (
+                              {hasThumb && (
+                                <button
+                                  type="button"
+                                  className={`${styles.variantButton}${copiedKey === `${image.id}:thumb` ? ` ${styles.variantButtonCopied}` : ""}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopy(image, "thumb");
+                                  }}
+                                  title="Copy Thumb URL"
+                                >
+                                  {copiedKey === `${image.id}:thumb`
+                                    ? "✓"
+                                    : "Thumb"}
+                                </button>
+                              )}
+                              {splitVariant && (
+                                <div
+                                  className={styles.tileSplitButton}
+                                  data-tile-split-dropdown
+                                >
                                   <button
-                                    key={v}
                                     type="button"
-                                    className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
+                                    className={`${styles.tileSplitButtonMain}${copiedKey === `${image.id}:${splitVariant}` ? ` ${styles.variantButtonCopied}` : ""}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleCopy(image, v);
+                                      handleCopy(image, splitVariant);
                                     }}
-                                    title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
+                                    title={`Copy ${VARIANT_LABEL[splitVariant] ?? splitVariant} URL`}
                                   >
-                                    {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
+                                    {copiedKey === `${image.id}:${splitVariant}`
+                                      ? "✓"
+                                      : (VARIANT_LABEL[splitVariant] ??
+                                        splitVariant)}
                                   </button>
-                                );
-                              })}
+                                  <button
+                                    type="button"
+                                    className={styles.tileSplitButtonChevron}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenDropdownId((prev) =>
+                                        prev === image.id ? null : image.id,
+                                      );
+                                    }}
+                                    aria-label="Select size variant"
+                                  >
+                                    ▾
+                                  </button>
+                                  {isDropdownOpen && (
+                                    <div className={styles.tileSplitDropdown}>
+                                      {sizeVariants.map((v) => (
+                                        <button
+                                          key={v}
+                                          type="button"
+                                          className={`${styles.tileSplitDropdownItem}${v === splitVariant ? ` ${styles.tileSplitDropdownItemActive}` : ""}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setTileSplitVariants((prev) => ({
+                                              ...prev,
+                                              [image.id]: v,
+                                            }));
+                                            setOpenDropdownId(null);
+                                          }}
+                                        >
+                                          {VARIANT_LABEL[v] ?? v}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                           {isOwnTree && (
