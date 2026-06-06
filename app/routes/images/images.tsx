@@ -11,6 +11,7 @@ import { DeleteImageModal } from "./DeleteImageModal";
 import { ImagePreviewModal } from "./ImagePreviewModal";
 import { BulkDeleteModal } from "./BulkDeleteModal";
 import { BulkMoveModal } from "./BulkMoveModal";
+import { AddToNewFolderModal } from "./AddToNewFolderModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -190,6 +191,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [addToNewFolderOpen, setAddToNewFolderOpen] = useState(false);
 
   // ── Multi-select state ──────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -325,6 +327,12 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
     refresh();
   }
 
+  function handleAddToNewFolderSuccess() {
+    setAddToNewFolderOpen(false);
+    clearSelection();
+    refresh();
+  }
+
   function refresh() {
     revalidator.revalidate();
   }
@@ -396,7 +404,11 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
       >
         Delete
       </Button>
-      <Button variant="secondary" type="button" disabled>
+      <Button
+        variant="secondary"
+        type="button"
+        onClick={() => setAddToNewFolderOpen(true)}
+      >
         Add to New Folder
       </Button>
       <button
@@ -506,6 +518,22 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
               currentFolderId={folder?.id ?? null}
               onClose={() => setBulkMoveOpen(false)}
               onSuccess={handleBulkMoveSuccess}
+            />
+          );
+        })()}
+
+      {addToNewFolderOpen &&
+        folder &&
+        (() => {
+          const { imageIds, folderIds } = parseSelection(selected);
+          return (
+            <AddToNewFolderModal
+              isOpen={true}
+              imageIds={imageIds}
+              folderIds={folderIds}
+              currentFolderId={folder.id}
+              onClose={() => setAddToNewFolderOpen(false)}
+              onSuccess={handleAddToNewFolderSuccess}
             />
           );
         })()}
