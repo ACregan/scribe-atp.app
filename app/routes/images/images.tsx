@@ -667,7 +667,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
             const label = crumb.name.startsWith("did:")
               ? crumb.name === currentUserDid
                 ? "My Images"
-                : (profiles[crumb.name]?.displayName ?? crumb.name)
+                : `${profiles[crumb.name]?.displayName ?? crumb.name} Images`
               : crumb.name;
             return (
               <span key={crumb.id}>
