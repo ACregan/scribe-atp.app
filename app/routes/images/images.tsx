@@ -131,8 +131,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     >;
 
     const profiles: Record<string, UserProfile> = {};
-    if (!data.folder && data.subfolders.length > 0) {
-      const uniqueDids = [...new Set(data.subfolders.map((f) => f.user_did))];
+    const didsToResolve = data.folder
+      ? [data.folder.user_did]
+      : [...new Set(data.subfolders.map((f) => f.user_did))];
+    if (didsToResolve.length > 0) {
+      const uniqueDids = didsToResolve;
       try {
         const params = new URLSearchParams();
         uniqueDids.forEach((d) => params.append("actors", d));
@@ -660,21 +663,28 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           <Link to="/images" className={styles.breadcrumbLink}>
             Image Library
           </Link>
-          {breadcrumbs.map((crumb, i) => (
-            <span key={crumb.id}>
-              <span className={styles.breadcrumbSep}>›</span>
-              {i === breadcrumbs.length - 1 ? (
-                <span className={styles.breadcrumbCurrent}>{crumb.name}</span>
-              ) : (
-                <Link
-                  to={`/images?folder=${crumb.id}`}
-                  className={styles.breadcrumbLink}
-                >
-                  {crumb.name}
-                </Link>
-              )}
-            </span>
-          ))}
+          {breadcrumbs.map((crumb, i) => {
+            const label = crumb.name.startsWith("did:")
+              ? crumb.name === currentUserDid
+                ? "My Images"
+                : (profiles[crumb.name]?.displayName ?? crumb.name)
+              : crumb.name;
+            return (
+              <span key={crumb.id}>
+                <span className={styles.breadcrumbSep}>›</span>
+                {i === breadcrumbs.length - 1 ? (
+                  <span className={styles.breadcrumbCurrent}>{label}</span>
+                ) : (
+                  <Link
+                    to={`/images?folder=${crumb.id}`}
+                    className={styles.breadcrumbLink}
+                  >
+                    {label}
+                  </Link>
+                )}
+              </span>
+            );
+          })}
         </nav>
       </PageSection>
 
