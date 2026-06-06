@@ -2,7 +2,10 @@ import sharp from "sharp";
 import path from "node:path";
 import fs from "node:fs/promises";
 
-export type VariantSizes = Record<string, { width: number; height: number }>;
+export type VariantSizes = Record<
+  string,
+  { width: number; height: number; bytes: number }
+>;
 
 const INTERMEDIATE_VARIANTS = [
   { name: "thumb", box: 300 },
@@ -16,7 +19,10 @@ const MAX_BOX_CAP = 3000;
 export async function generateVariants(
   inputBuffer: Buffer,
   outputDir: string,
-  onVariant?: (name: string, dims: { width: number; height: number }) => void
+  onVariant?: (
+    name: string,
+    dims: { width: number; height: number; bytes: number },
+  ) => void,
 ): Promise<{ sizes: VariantSizes; sourceWidth: number; sourceHeight: number }> {
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -35,7 +41,11 @@ export async function generateVariants(
       .webp()
       .toFile(path.join(outputDir, `${name}.webp`));
 
-    sizes[name] = { width: result.width, height: result.height };
+    sizes[name] = {
+      width: result.width,
+      height: result.height,
+      bytes: result.size,
+    };
     onVariant?.(name, sizes[name]);
   }
 
@@ -48,7 +58,11 @@ export async function generateVariants(
           .webp()
           .toFile(path.join(outputDir, "max.webp"));
 
-  sizes["max"] = { width: maxResult.width, height: maxResult.height };
+  sizes["max"] = {
+    width: maxResult.width,
+    height: maxResult.height,
+    bytes: maxResult.size,
+  };
   onVariant?.("max", sizes["max"]);
 
   return { sizes, sourceWidth, sourceHeight };

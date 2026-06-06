@@ -32,7 +32,7 @@ type BrowseImage = {
   original_name: string;
   width: number;
   height: number;
-  sizes: Record<string, { width: number; height: number }>;
+  sizes: Record<string, { width: number; height: number; bytes?: number }>;
   created_at: string;
 };
 
