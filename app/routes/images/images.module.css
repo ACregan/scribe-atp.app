@@ -350,8 +350,9 @@
 }
 
 .tileSplitButtonMain:hover {
-  border-color: var(--blue, #0070f3);
-  color: var(--blue, #0070f3);
+  border-color: var(--blue-ribbon, #0070f3);
+  color: var(--blue-ribbon, #0070f3);
+  box-shadow: inset -0.2rem 0 0 -0.1rem var(--blue-ribbon);
 }
 
 .tileSplitButtonChevron {
