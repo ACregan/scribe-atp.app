@@ -4,12 +4,12 @@ An AT Protocol-driven content management system. Authors write and store article
 
 ## Project documentation
 
-| File | Purpose |
-|---|---|
-| `CLAUDE.md` | This file — architecture, patterns, and conventions for AI-assisted development |
-| `PLANNING.md` | Feature specs and implementation notes (planned and completed) |
+| File                     | Purpose                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| `CLAUDE.md`              | This file — architecture, patterns, and conventions for AI-assisted development  |
+| `PLANNING.md`            | Feature specs and implementation notes (planned and completed)                   |
 | `UBIQUITOUS_LANGUAGE.md` | Canonical glossary of domain terms — use these names in code, UI, and discussion |
-| `docs/adr/` | Architecture Decision Records — why significant structural decisions were made |
+| `docs/adr/`              | Architecture Decision Records — why significant structural decisions were made   |
 
 ## Stack
 
@@ -27,14 +27,14 @@ An AT Protocol-driven content management system. Authors write and store article
 
 ## Environment variables
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `SESSION_SECRET` | Yes | Signs the `__session` cookie — must be 32+ random chars. Also shared with the Image Service for session verification. |
-| `PUBLIC_URL` | Prod | Base URL e.g. `https://scribe-atp.app` — drives `client_id` and `redirect_uri` |
-| `DEV_USE_REAL_OAUTH` | Optional | Set to `"true"` to use real Bluesky OAuth in dev (requires tunnel, see below) |
-| `DEV_PORT` | Optional | Dev server port if not 5173 |
-| `DEV_TUNNEL_HOST` | Optional | Cloudflare tunnel hostname (without `https://`) — added to Vite's `allowedHosts` so the dev server accepts requests from the tunnel URL |
-| `IMAGE_STORAGE_ROOT` | Image Service | Absolute filesystem path where uploaded image Variants are stored (e.g. `/var/scribe/images`). Used by the Image Service only. |
+| Variable             | Required      | Purpose                                                                                                                                 |
+| -------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`     | Yes           | Signs the `__session` cookie — must be 32+ random chars. Also shared with the Image Service for session verification.                   |
+| `PUBLIC_URL`         | Prod          | Base URL e.g. `https://scribe-atp.app` — drives `client_id` and `redirect_uri`                                                          |
+| `DEV_USE_REAL_OAUTH` | Optional      | Set to `"true"` to use real Bluesky OAuth in dev (requires tunnel, see below)                                                           |
+| `DEV_PORT`           | Optional      | Dev server port if not 5173                                                                                                             |
+| `DEV_TUNNEL_HOST`    | Optional      | Cloudflare tunnel hostname (without `https://`) — added to Vite's `allowedHosts` so the dev server accepts requests from the tunnel URL |
+| `IMAGE_STORAGE_ROOT` | Image Service | Absolute filesystem path where uploaded image Variants are stored (e.g. `/var/scribe/images`). Used by the Image Service only.          |
 
 The app will throw on startup if `SESSION_SECRET` is missing.
 
@@ -60,6 +60,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header. It also hosts:
+
 - `<ToastProvider>` — wraps the entire layout so `useToast()` is available on every route
 - `<Spinner overlay />` inside `<main>` — shown whenever `useNavigation().state !== "idle"`, covering the content area during route transitions
 - `<footer id="footer-portal-element">` — the portal target for `FooterPortal`
@@ -69,6 +70,7 @@ Article routes (`/article/*`) are additionally wrapped by a protected layout at 
 Route types are auto-generated — run `npx react-router typegen` after adding a route to `routes.ts`, or they will be generated on the next `dev`/`build`.
 
 When adding a new route, export a `HydrateFallback` that returns `<Spinner />` — this shows during the brief initial hydration window rather than an unstyled blank or text placeholder:
+
 ```tsx
 export function HydrateFallback() {
   return <Spinner size="large" />;
@@ -94,8 +96,11 @@ All auth logic lives in **`app/services/auth.server.ts`** (server-only, never im
 **The `scope` passed to `oauthClient.authorize()` in `login.tsx` is what Bluesky uses for the PAR (Pushed Authorization Request) and what appears on the consent screen.** `clientMetadata.scope` is a secondary fallback that Bluesky may ignore in favour of the per-request scope.
 
 Always pass `OAUTH_SCOPE` explicitly when calling `oauthClient.authorize()`:
+
 ```ts
-const authUrl = await oauthClient.authorize(cleanHandle, { scope: OAUTH_SCOPE });
+const authUrl = await oauthClient.authorize(cleanHandle, {
+  scope: OAUTH_SCOPE,
+});
 ```
 
 If scopes seem wrong on the consent screen after a deployment, the bug is almost certainly here, not in `client-metadata.json`. Changing `client-metadata.json` alone will have no effect.
@@ -108,14 +113,14 @@ Stored fields: `did` (string), `handle` (string).
 
 Key exports from `auth.server.ts`:
 
-| Function | Purpose |
-|---|---|
-| `getAuthSession(request)` | Reads session cookie — returns `{ did, handle, isAuthenticated }` (all optional) |
-| `requireAuth(request)` | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional |
-| `getAtpAgent(did)` | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure |
-| `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects |
-| `destroyAuthSession(request, redirectTo)` | Clears `__session` cookie **and** the SQLite `oauth_session` row so re-login triggers a fresh authorization with current scopes — used by the `/logout` route |
-| `useRealOAuth` | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true` |
+| Function                                                  | Purpose                                                                                                                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAuthSession(request)`                                 | Reads session cookie — returns `{ did, handle, isAuthenticated }` (all optional)                                                                              |
+| `requireAuth(request)`                                    | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional                                         |
+| `getAtpAgent(did)`                                        | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure                                                            |
+| `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects                                                                                                                           |
+| `destroyAuthSession(request, redirectTo)`                 | Clears `__session` cookie **and** the SQLite `oauth_session` row so re-login triggers a fresh authorization with current scopes — used by the `/logout` route |
+| `useRealOAuth`                                            | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true`                                                                                     |
 
 ### Dev bypass (default in development)
 
@@ -135,6 +140,7 @@ npx cloudflared tunnel --url http://localhost:5173
 ```
 
 Then in `.env`:
+
 ```
 DEV_USE_REAL_OAUTH="true"
 PUBLIC_URL="https://abc123.trycloudflare.com"
@@ -176,6 +182,7 @@ The article's `url` field (a lowercase dash-separated slug e.g. `my-article-titl
 ### Renaming a slug
 
 AT Protocol records cannot be moved to a different rkey in-place. Renaming the slug in the edit form triggers:
+
 1. `createRecord` at the new rkey with updated content
 2. `deleteRecord` on the old rkey (best-effort — logged but not fatal if it fails)
 
@@ -184,6 +191,7 @@ This breaks any existing AT URIs pointing to the old rkey.
 ### Collections
 
 **`app.scribe.article`** — article content, rkey = url slug:
+
 ```ts
 {
   $type: "app.scribe.article",
@@ -198,6 +206,7 @@ This breaks any existing AT URIs pointing to the old rkey.
 ```
 
 **`app.scribe.site`** — a managed website, rkey = URL-derived slug (e.g. `norobots-blog`):
+
 ```ts
 {
   $type: "app.scribe.site",
@@ -231,6 +240,7 @@ This breaks any existing AT URIs pointing to the old rkey.
 ```
 
 Key design decisions for `app.scribe.site`:
+
 - `ownerId` is omitted — the owner is whoever's PDS holds the record (their DID is the repo DID)
 - Article refs are objects (not bare AT URIs) with cached metadata to avoid N+1 fetches
 - `cid` is deliberately excluded from article refs — fetch live at deletion to avoid stale `swapRecord` failures
@@ -249,6 +259,7 @@ The site picker renders each site as a `SiteListItem` (from `app/components/Site
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
 Key behaviours on this route:
+
 - **Dirty tracking** — `savedTreeRef` holds the tree as last saved (initialised from loader, updated on successful save). `isDirty` is computed via `useMemo` using `JSON.stringify` comparison. The Save Order button is disabled until `isDirty` is true.
 - **Navigation blocker** — `useBlocker(isDirty)` intercepts any React Router navigation when there are unsaved changes. A modal appears with three options: **Stay** (`blocker.reset()`), **Discard & Leave** (`blocker.proceed()`), **Save & Leave** (triggers save, then calls `blocker.proceed()` from the fetcher effect via `proceedAfterSaveRef`).
 - **Save feedback** — success shows a primary toast (auto-expires); error shows a danger toast with `autoExpire: false` so it persists until dismissed.
@@ -262,10 +273,7 @@ Key behaviours on this route:
 The home page (`/`) contains a developer "Nuke all records" tool. The collections it deletes are defined in `SCRIBE_COLLECTIONS` inside `app/routes/home/home.tsx`:
 
 ```ts
-const SCRIBE_COLLECTIONS = [
-  "app.scribe.article",
-  "app.scribe.site",
-];
+const SCRIBE_COLLECTIONS = ["app.scribe.article", "app.scribe.site"];
 ```
 
 When adding a new collection, add it here too so nuke keeps working.
@@ -316,48 +324,51 @@ await agent.com.atproto.repo.getRecord({ ... });
 
 Reusable UI components live in `app/components/`. Each has a co-located CSS module.
 
-| Component | Path | Props |
-|---|---|---|
-| `Input` | `app/components/Input/Input.tsx` | All `<input>` HTML attrs + `label?: string`, `error?: string` |
-| `Button` | `app/components/Button/Button.tsx` | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) + `icon?: SvgImageListTypes` — when provided, renders the icon in a 1.6rem `inline-flex` span to the left of the label using `fill="currentColor"` so it inherits the button's text colour across all variants |
-| `IconBadge` | `app/components/IconBadge/IconBadge.tsx` | Circular blue badge containing an SVG icon. Props: `icon: SvgImageListTypes`, `size?: "small" \| "large"` (default `"small"`). Small = 3rem × 3rem, large = 6rem × 6rem (matches `headingIconContainer` in `PageContainer`). Use for inline row decoration; `PageContainerHeading` uses equivalent inline styles directly. |
-| `RichTextEditor` | `app/components/RichTextEditor/RichTextEditor.tsx` | `name: string`, `label?: string`, `defaultValue?: string` — drop-in for `<textarea>`, outputs HTML into a hidden field on form submit. Client-only (falls back to plain textarea during SSR). Toolbar implemented in `ToolbarPlugin.tsx` (see below). |
-| `Modal` | `app/components/Modal/Modal.tsx` | `isOpen: boolean`, `onClose: () => void`, `title: string`, `footer?: ReactNode`, `children: ReactNode` — renders via `createPortal` into `document.body`. Closes on Escape key. |
-| `useModal` | `app/components/Modal/useModal.ts` | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state. |
-| `PageContainerHeading` | `app/components/PageContainer/PageContainer.tsx` | Styled page heading with an icon badge. Props: `icon: SvgImageListTypes`, `children: ReactNode`. Renders a circular blue badge containing the icon alongside an `<h1>`. Pass as the `title` prop of `PageContainer` — every app route does this: `<PageContainer title={<PageContainerHeading icon={SvgImageList.Document}>Create Article</PageContainerHeading>}>`. Exported from the same file as `PageContainer`. |
-| `PageContainer` | `app/components/PageContainer/PageContainer.tsx` | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`, `fixed?: boolean`. `bottomButtons` children are spaced with `gap: 1rem`. When `fixed` is true, the container is `position: fixed`, fills the viewport minus the header and aside, and inherits the same grid layout as the standard container — use this for routes that need a full-height scrollable content area. Also exports `PageSection` (a simple content-dividing wrapper; props: `children`, `overflow?: boolean` — when `overflow` is true the section fills the remaining `1fr` grid row and scrolls its content vertically), `PageSectionCell` (a bordered cell within a row, `children` only), `ButtonGroupContainer` (a flex row with `gap: 1rem`, `children` only), and `PageContainerHeading` from the same file. |
-| `ArticleForm` | `app/components/ArticleForm/ArticleForm.tsx` | Shared form fields for article create and edit. Props: `defaultTitle?`, `defaultUrl?`, `defaultSplashImageUrl?`, `defaultContent?`, `sites: SiteOption[]`, `selectedSites: string[]`, `onSitesChange: (rkeys: string[]) => void`, `error?: string`. Renders Title, URL slug, Splash image URL, site multi-select, and RichTextEditor inside `PageSection` wrappers. Re-exports `SiteOption` from `~/components/types`. Hidden fields (`cid`, `oldSiteRkeys`), the submit button, and `FooterPortal` stay in the individual route components. |
-| `ArticleList` | `app/components/ArticleList/ArticleList.tsx` | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`. |
-| `ArticleItem` | `app/components/ArticleItem/ArticleItem.tsx` | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid?`, `mode?: "pds" \| "site"`. `id` is the dnd-kit sortable id (`a:{slug}`). In `"pds"` mode (default): Delete button removes the record from the PDS. In `"site"` mode: Remove button removes the article from the site record only (`_intent=removeArticle, uri`). Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`). |
-| `GroupList` | `app/components/GroupList/GroupList.tsx` | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`. |
-| `GroupItem` | `app/components/GroupItem/GroupItem.tsx` | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`, `onDeleteConfirm?: (slug: string) => void`, `isDeleting?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and re-exports `TreeArticle` from `~/components/types`. `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has articles). When `onDeleteConfirm` is provided, confirmation calls it instead of submitting the form natively — this is the correct path for fetcher-based deletes. `isDeleting` replaces the trash icon with `<Spinner size="small" />` and disables the button. `articleMode` is forwarded to each `ArticleItem` child. |
-| `Select` | `app/components/Select/Select.tsx` | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a dropdown trigger styled like `<select>` that opens a checkbox list on click; collapses showing "Select options" / single label / "{n} selected" summary; closes on click-outside or Escape. Both modes post standard form values under `name` (multi-select uses hidden inputs per selected value). |
-| `AsideMenu` | `app/components/AsideMenu/AsideMenu.tsx` | Navigation sidebar — dashboard, sites (`/sites`), groups (`/groups`), articles (`/article/list` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu. |
-| `SvgIcon` | `app/components/SvgIcon/SvgIcon.tsx` | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`. |
-| `Tooltip` / `TooltipBubble` | `app/components/Tooltip/Tooltip.tsx` | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`. |
-| `SiteTile` | `app/components/SiteTile/SiteTile.tsx` | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Re-exports `SiteData` from `~/components/types`. |
-| `SiteListItem` | `app/components/SiteListItem/SiteListItem.tsx` | Horizontal list-row card for a single site. Props: `site: SiteData`, `onDelete?: (site: SiteData) => void`, `isDeleting?: boolean`. Renders a splash thumbnail with gradient right-edge fade, an overlapping circular logo, site title, composed URL, group/article count badges, and Manage Articles / Configure / Delete actions. `onDelete` is optional — omit it on pages that don't support deletion (e.g. `/article/list`). Re-exports `SiteData` from `~/components/types`. Used alongside `SiteTile` on `/sites` — both lists are always rendered and toggled with `display: none` so background images stay in memory across view switches. |
-| `FooterPortal` | `app/components/FooterPortal/FooterPortal.tsx` | Portals `children` into `<footer id="footer-portal-element">` in the core layout. Default export. Props: `children: ReactNode`. Client-only — uses a `mounted` guard (same pattern as `RichTextEditor`) to avoid SSR crashes from `document.getElementById`. **Note:** portaled buttons must use `form="form-id"` to associate with a `<form>` elsewhere in the DOM — they are no longer DOM descendants of the form. For navigation (non-form) footer actions, wrap `<Button>` in `<Link>` — `core.module.css` handles spacing for the `footer > a > button` selector. |
-| `Spinner` | `app/components/Spinner/Spinner.tsx` | Spinning ring indicator. Props: `overlay?: boolean`, `size?: "small" \| "medium" \| "large"` (default `"medium"`). Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: fixed` overlay sized to the content area (below the header, beside the aside) that dims everything behind it. Used in `core.tsx` as `<Spinner overlay />` during route navigations. Use `size="large"` in `HydrateFallback` exports; use `size="small"` for inline button states. |
-| `Toast` / `ToastContainer` / `Toasts` | `app/components/Toast/Toast.tsx` | `Toast` renders a single notification. Props: all fields from `ToastPropsWithId` (see ToastContext). Auto-dismisses via `useEffect` + `setTimeout` when `autoExpire` is true. Cleanup cancels the timer if the toast is removed manually first. `ToastContainer` is a plain wrapper div. `Toasts` reads all active toasts from context via `useToast()` and renders them. |
-| `ToastProvider` / `useToast` | `app/components/Toast/ToastContext.tsx` | Context provider wired into `core.tsx` — wraps the entire layout so `useToast()` works anywhere in the app. `useToast()` returns `{ toasts, addToast, removeToast }`. `addToast(props: ToastProps)` generates a UUID, binds `removeToast`, and appends to state. `removeToast` is `useCallback`-memoized with `[]` deps so its reference is stable — without this, adding a new toast would reset all existing timers. Exports: `ToastProvider`, `useToast`, `ToastProps`, `ToastPropsWithId`. `ToastProps`: `heading`, `content?`, `autoExpire?` (default `true`), `expireTimeSeconds?` (default `5`), `variant?: "primary" \| "secondary" \| "danger"`. |
+| Component                             | Path                                               | Props                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Input`                               | `app/components/Input/Input.tsx`                   | All `<input>` HTML attrs + `label?: string`, `error?: string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `Button`                              | `app/components/Button/Button.tsx`                 | All `<button>` HTML attrs + `variant?: "primary" \| "secondary" \| "danger"` (default `"primary"`) + `icon?: SvgImageListTypes` — when provided, renders the icon in a 1.6rem `inline-flex` span to the left of the label using `fill="currentColor"` so it inherits the button's text colour across all variants                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `IconBadge`                           | `app/components/IconBadge/IconBadge.tsx`           | Circular blue badge containing an SVG icon. Props: `icon: SvgImageListTypes`, `size?: "small" \| "large"` (default `"small"`). Small = 3rem × 3rem, large = 6rem × 6rem (matches `headingIconContainer` in `PageContainer`). Use for inline row decoration; `PageContainerHeading` uses equivalent inline styles directly.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `RichTextEditor`                      | `app/components/RichTextEditor/RichTextEditor.tsx` | `name: string`, `label?: string`, `defaultValue?: string` — drop-in for `<textarea>`, outputs HTML into a hidden field on form submit. Client-only (falls back to plain textarea during SSR). Toolbar implemented in `ToolbarPlugin.tsx` (see below).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `Modal`                               | `app/components/Modal/Modal.tsx`                   | `isOpen: boolean`, `onClose: () => void`, `title: string`, `footer?: ReactNode`, `children: ReactNode` — renders via `createPortal` into `document.body`. Closes on Escape key.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `useModal`                            | `app/components/Modal/useModal.ts`                 | Hook returning `{ isOpen, open, close }` — use alongside `Modal` to manage open state.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `PageContainerHeading`                | `app/components/PageContainer/PageContainer.tsx`   | Styled page heading with an icon badge. Props: `icon: SvgImageListTypes`, `children: ReactNode`. Renders a circular blue badge containing the icon alongside an `<h1>`. Pass as the `title` prop of `PageContainer` — every app route does this: `<PageContainer title={<PageContainerHeading icon={SvgImageList.Document}>Create Article</PageContainerHeading>}>`. Exported from the same file as `PageContainer`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `PageContainer`                       | `app/components/PageContainer/PageContainer.tsx`   | Page-level layout wrapper. Props: `children`, `title?: ReactNode` (string renders as `<h1>`), `topButtons?: ReactNode`, `bottomButtons?: ReactNode`, `fixed?: boolean`. `bottomButtons` children are spaced with `gap: 1rem`. When `fixed` is true, the container is `position: fixed`, fills the viewport minus the header and aside, and inherits the same grid layout as the standard container — use this for routes that need a full-height scrollable content area. Also exports the following from the same file: `PageSection`, `PageSectionColumns`, `PageSectionColumn`, `PageSectionCell`, `ButtonGroupContainer`, and `PageContainerHeading`.                                                                                                                                                                                                                                                              |
+| `PageSection`                         | `app/components/PageContainer/PageContainer.tsx`   | Content-dividing wrapper with a `border-top` and `1rem 2rem` padding. Props: `children`, `overflow?: boolean`, `fill?: boolean`. `overflow` — fills the remaining `1fr` content row (`flex: 1`) and scrolls vertically; use for routes where the whole content area scrolls as one. `fill` — fills the remaining `1fr` content row without scrolling; use when child `PageSectionColumn` components handle their own overflow. `overflow` and `fill` are mutually exclusive — do not combine them.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `PageSectionColumns`                  | `app/components/PageContainer/PageContainer.tsx`   | 12-column CSS grid wrapper, used as a child of `PageSection fill`. Props: `children`, `breakpoint?: "sm" \| "md" \| "lg" \| "xl" \| "2xl"` (default `"md"`). Below the breakpoint the grid collapses to a single column and all children stack vertically. Breakpoint pixel values: `sm`=640, `md`=768, `lg`=1024, `xl`=1280, `2xl`=1536. Gap is fixed at `2rem`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `PageSectionColumn`                   | `app/components/PageContainer/PageContainer.tsx`   | A single column cell inside `PageSectionColumns`. Props: `children`, `span: number` (1–12 — number of grid columns to occupy, applied as `gridColumn: span N`), `overflow?: boolean` (fills available column height and scrolls vertically — same behaviour as `PageSection overflow` but scoped to the column). Use `overflow` when the column content may exceed the viewport height (e.g. a long form or a rich text editor). Canonical two-column pattern for a fixed-layout route: `<PageSection fill><PageSectionColumns breakpoint="lg"><PageSectionColumn span={4} overflow>…</PageSectionColumn><PageSectionColumn span={8} overflow>…</PageSectionColumn></PageSectionColumns></PageSection>`                                                                                                                                                                                                                |
+| `ArticleForm`                         | `app/components/ArticleForm/ArticleForm.tsx`       | Shared form fields for article create and edit. Props: `defaultTitle?`, `defaultUrl?`, `defaultSplashImageUrl?`, `defaultContent?`, `sites: SiteOption[]`, `selectedSites: string[]`, `onSitesChange: (rkeys: string[]) => void`, `error?: string`. Renders Title, URL slug, Splash image URL, site multi-select, and RichTextEditor inside `PageSection` wrappers. Re-exports `SiteOption` from `~/components/types`. Hidden fields (`cid`, `oldSiteRkeys`), the submit button, and `FooterPortal` stay in the individual route components.                                                                                                                                                                                                                                                                                                                                                                           |
+| `ArticleList`                         | `app/components/ArticleList/ArticleList.tsx`       | `<ul>` wrapper for a list of `ArticleItem` components. Props: `children`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `ArticleItem`                         | `app/components/ArticleItem/ArticleItem.tsx`       | Individual article row. Props: `id`, `uri`, `title`, `createdAt`, `cid?`, `mode?: "pds" \| "site"`. `id` is the dnd-kit sortable id (`a:{slug}`). In `"pds"` mode (default): Delete button removes the record from the PDS. In `"site"` mode: Remove button removes the article from the site record only (`_intent=removeArticle, uri`). Also exports `ArticleItemPreview` (hook-free version for use inside `DragOverlay`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `GroupList`                           | `app/components/GroupList/GroupList.tsx`           | `<ul>` wrapper for a list of `GroupItem` components. Props: `children`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `GroupItem`                           | `app/components/GroupItem/GroupItem.tsx`           | Individual group row. Props: `id`, `uri?`, `cid?`, `title`, `slug`, `articleChildren: TreeArticle[]`, `isRoot?: boolean`, `articleMode?: "pds" \| "site"`, `onDeleteConfirm?: (slug: string) => void`, `isDeleting?: boolean`. Also exports `GroupItemPreview` (hook-free, for `DragOverlay`, `uri?` optional) and re-exports `TreeArticle` from `~/components/types`. `id` is the dnd-kit sortable id (`g:{slug}`). When `isRoot` is true, renders the `title` prop as the heading with no drag handle or delete button. Named groups include a Delete Group button (disabled when group has articles). When `onDeleteConfirm` is provided, confirmation calls it instead of submitting the form natively — this is the correct path for fetcher-based deletes. `isDeleting` replaces the trash icon with `<Spinner size="small" />` and disables the button. `articleMode` is forwarded to each `ArticleItem` child. |
+| `Select`                              | `app/components/Select/Select.tsx`                 | Select input. Exports `SelectOption` interface `{ value: string; label: string }`. Single-select mode: props `name`, `options`, `label?`, `error?`, `id?`, `value?: string`, `onChange?: (value: string) => void` — renders a `<select>` element. Multi-select mode: add `multiple` prop; `value` becomes `string[]`, `onChange` becomes `(value: string[]) => void` — renders a dropdown trigger styled like `<select>` that opens a checkbox list on click; collapses showing "Select options" / single label / "{n} selected" summary; closes on click-outside or Escape. Both modes post standard form values under `name` (multi-select uses hidden inputs per selected value).                                                                                                                                                                                                                                   |
+| `AsideMenu`                           | `app/components/AsideMenu/AsideMenu.tsx`           | Navigation sidebar — dashboard, sites (`/sites`), groups (`/groups`), articles (`/article/list` — navigate from there into a site's article management), create article, logout. Rendered by the core layout. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `SvgIcon`                             | `app/components/SvgIcon/SvgIcon.tsx`               | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `Tooltip` / `TooltipBubble`           | `app/components/Tooltip/Tooltip.tsx`               | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `SiteTile`                            | `app/components/SiteTile/SiteTile.tsx`             | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Re-exports `SiteData` from `~/components/types`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `SiteListItem`                        | `app/components/SiteListItem/SiteListItem.tsx`     | Horizontal list-row card for a single site. Props: `site: SiteData`, `onDelete?: (site: SiteData) => void`, `isDeleting?: boolean`. Renders a splash thumbnail with gradient right-edge fade, an overlapping circular logo, site title, composed URL, group/article count badges, and Manage Articles / Configure / Delete actions. `onDelete` is optional — omit it on pages that don't support deletion (e.g. `/article/list`). Re-exports `SiteData` from `~/components/types`. Used alongside `SiteTile` on `/sites` — both lists are always rendered and toggled with `display: none` so background images stay in memory across view switches.                                                                                                                                                                                                                                                                   |
+| `FooterPortal`                        | `app/components/FooterPortal/FooterPortal.tsx`     | Portals `children` into `<footer id="footer-portal-element">` in the core layout. Default export. Props: `children: ReactNode`. Client-only — uses a `mounted` guard (same pattern as `RichTextEditor`) to avoid SSR crashes from `document.getElementById`. **Note:** portaled buttons must use `form="form-id"` to associate with a `<form>` elsewhere in the DOM — they are no longer DOM descendants of the form. For navigation (non-form) footer actions, wrap `<Button>` in `<Link>` — `core.module.css` handles spacing for the `footer > a > button` selector.                                                                                                                                                                                                                                                                                                                                                |
+| `Spinner`                             | `app/components/Spinner/Spinner.tsx`               | Spinning ring indicator. Props: `overlay?: boolean`, `size?: "small" \| "medium" \| "large"` (default `"medium"`). Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: fixed` overlay sized to the content area (below the header, beside the aside) that dims everything behind it. Used in `core.tsx` as `<Spinner overlay />` during route navigations. Use `size="large"` in `HydrateFallback` exports; use `size="small"` for inline button states.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `Toast` / `ToastContainer` / `Toasts` | `app/components/Toast/Toast.tsx`                   | `Toast` renders a single notification. Props: all fields from `ToastPropsWithId` (see ToastContext). Auto-dismisses via `useEffect` + `setTimeout` when `autoExpire` is true. Cleanup cancels the timer if the toast is removed manually first. `ToastContainer` is a plain wrapper div. `Toasts` reads all active toasts from context via `useToast()` and renders them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `ToastProvider` / `useToast`          | `app/components/Toast/ToastContext.tsx`            | Context provider wired into `core.tsx` — wraps the entire layout so `useToast()` works anywhere in the app. `useToast()` returns `{ toasts, addToast, removeToast }`. `addToast(props: ToastProps)` generates a UUID, binds `removeToast`, and appends to state. `removeToast` is `useCallback`-memoized with `[]` deps so its reference is stable — without this, adding a new toast would reset all existing timers. Exports: `ToastProvider`, `useToast`, `ToastProps`, `ToastPropsWithId`. `ToastProps`: `heading`, `content?`, `autoExpire?` (default `true`), `expireTimeSeconds?` (default `5`), `variant?: "primary" \| "secondary" \| "danger"`.                                                                                                                                                                                                                                                              |
 
 ### RichTextEditor — toolbar
 
 The toolbar lives in `app/components/RichTextEditor/ToolbarPlugin.tsx` and is registered as a Lexical plugin inside `RichTextEditor.tsx`. Features, left to right:
 
-| Section | Controls |
-|---|---|
-| History | Undo, Redo |
-| Block type | Dropdown: Normal, H1–H6, Bullet List, Numbered List, Check List, Quote, Code Block |
-| Font | Family `<select>` (Arial / Courier New / Georgia / Times New Roman / Trebuchet MS / Verdana) |
-| Font size | Number input + − / + step buttons |
-| Inline format | **Bold**, *Italic*, Underline |
-| Code / Link | Inline code `</>`, Link 🔗 (shows URL input inline when inserting) |
-| Colour | Text colour swatch (native colour picker), Background colour swatch |
-| Format ▾ | Strikethrough, Subscript, Superscript, Highlight, Lowercase, Uppercase, Capitalise, Clear formatting |
-| Align ▾ | Left, Center, Right, Justify, Start, End, Outdent, Indent |
-| Speech | 🎤 Speech-to-text via Web Speech API (browser-dependent; inserts recognised text at cursor) |
+| Section       | Controls                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| History       | Undo, Redo                                                                                           |
+| Block type    | Dropdown: Normal, H1–H6, Bullet List, Numbered List, Check List, Quote, Code Block                   |
+| Font          | Family `<select>` (Arial / Courier New / Georgia / Times New Roman / Trebuchet MS / Verdana)         |
+| Font size     | Number input + − / + step buttons                                                                    |
+| Inline format | **Bold**, _Italic_, Underline                                                                        |
+| Code / Link   | Inline code `</>`, Link 🔗 (shows URL input inline when inserting)                                   |
+| Colour        | Text colour swatch (native colour picker), Background colour swatch                                  |
+| Format ▾      | Strikethrough, Subscript, Superscript, Highlight, Lowercase, Uppercase, Capitalise, Clear formatting |
+| Align ▾       | Left, Center, Right, Justify, Start, End, Outdent, Indent                                            |
+| Speech        | 🎤 Speech-to-text via Web Speech API (browser-dependent; inserts recognised text at cursor)          |
 
 Toolbar buttons use `onMouseDown + e.preventDefault()` (not `onClick`) to avoid stealing editor focus.
 
@@ -373,14 +384,15 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 
 `app/constants.ts` is the single source of truth for string literals and regexes that appear in multiple route files. Import from here rather than redeclaring locally:
 
-| Export | Value | Used in |
-|---|---|---|
-| `ARTICLE_COLLECTION` | `"app.scribe.article"` | create, edit, view, home |
-| `SITE_COLLECTION` | `"app.scribe.site"` | sites, site-list, list, configure, create, edit, home |
-| `SLUG_RE` | `/^[a-z0-9]+(?:-[a-z0-9]+)*$/` | article create, edit, site-list group create |
-| `DOMAIN_RE` | `/^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/` | sites, configure |
+| Export               | Value                                           | Used in                                               |
+| -------------------- | ----------------------------------------------- | ----------------------------------------------------- |
+| `ARTICLE_COLLECTION` | `"app.scribe.article"`                          | create, edit, view, home                              |
+| `SITE_COLLECTION`    | `"app.scribe.site"`                             | sites, site-list, list, configure, create, edit, home |
+| `SLUG_RE`            | `/^[a-z0-9]+(?:-[a-z0-9]+)*$/`                  | article create, edit, site-list group create          |
+| `DOMAIN_RE`          | `/^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/` | sites, configure                                      |
 
 `app/services/auth.server.ts` also exports two server-only constants consumed by `client-metadata.ts`:
+
 - `PUBLIC_URL_DEFAULT` — the `"https://scribe-atp.app"` fallback string
 - `OAUTH_METADATA_STATIC` — the stable OAuth client config fields (`grant_types`, `response_types`, etc.) shared between the `NodeOAuthClient` config and the `/client-metadata.json` response
 
@@ -388,13 +400,14 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 
 `app/components/types.ts` is the canonical home for interfaces shared across two or more components or route loaders. Import from here rather than from individual component files:
 
-| Export | Used in |
-|---|---|
-| `SiteData` | `SiteTile`, `SiteListItem`, `sites.tsx` loader, `list.tsx` loader |
-| `SiteOption` | `ArticleForm`, `create.tsx`, `edit.tsx` |
-| `TreeArticle` | `GroupItem`, `site-list.tsx` |
+| Export        | Used in                                                           |
+| ------------- | ----------------------------------------------------------------- |
+| `SiteData`    | `SiteTile`, `SiteListItem`, `sites.tsx` loader, `list.tsx` loader |
+| `SiteOption`  | `ArticleForm`, `create.tsx`, `edit.tsx`                           |
+| `TreeArticle` | `GroupItem`, `site-list.tsx`                                      |
 
 `SiteData` shape:
+
 ```ts
 {
   rkey: string;
@@ -412,8 +425,8 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 
 `app/components/utils.ts` is the canonical home for pure utility functions shared across components:
 
-| Export | Purpose |
-|---|---|
+| Export                        | Purpose                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
 | `composedUrl(site: SiteData)` | Returns `url/urlPrefix` or just `url` when prefix is empty |
 
 Components that originally defined these types/utils inline (`SiteTile`, `ArticleForm`, `GroupItem`) now import from the shared files and re-export for backwards compatibility. When adding a new shared type or utility, add it here rather than inside a component file.
@@ -455,10 +468,10 @@ Use `handleCloseModal` everywhere `close` was previously used (`onClose` prop an
 
 **Current modal-backed routes:**
 
-| `/new` route | Base route | Modal opened |
-|---|---|---|
-| `/sites/new` | `/sites` | Add New Site |
-| `/groups/new` | `/groups` | Add New Group |
+| `/new` route                  | Base route                | Modal opened  |
+| ----------------------------- | ------------------------- | ------------- |
+| `/sites/new`                  | `/sites`                  | Add New Site  |
+| `/groups/new`                 | `/groups`                 | Add New Group |
 | `/article/list/:siteSlug/new` | `/article/list/:siteSlug` | Add New Group |
 
 The dashboard Quick Actions link directly to these `/new` routes. When `useBlocker(isDirty)` is active (e.g. on site-list), navigating to `/new` with unsaved changes correctly triggers the "Unsaved changes" modal before proceeding.
@@ -500,18 +513,18 @@ The `client_id` is a plain URL (`${publicUrl}/client-metadata.json`) with no ver
 
 ### Hooks
 
-| Hook | Signature | Returns |
-|---|---|---|
-| `useSite` | `(author: string, siteSlug: string)` | `{ site: Site \| null, loading: boolean, error: Error \| null }` — fetches the full site manifest (groups, ungrouped articles, metadata) |
-| `useArticle` | `(author: string, articleSlug: string)` | `{ article: Article \| null, loading: boolean, error: Error \| null }` — fetches a single article including HTML content |
+| Hook         | Signature                               | Returns                                                                                                                                  |
+| ------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `useSite`    | `(author: string, siteSlug: string)`    | `{ site: Site \| null, loading: boolean, error: Error \| null }` — fetches the full site manifest (groups, ungrouped articles, metadata) |
+| `useArticle` | `(author: string, articleSlug: string)` | `{ article: Article \| null, loading: boolean, error: Error \| null }` — fetches a single article including HTML content                 |
 
 Both hooks cancel the in-flight fetch on unmount and on parameter change.
 
 ### Helper functions (pure, no hooks)
 
-| Function | Purpose |
-|---|---|
-| `slugFromUri(uri)` | Returns the final path segment of an AT URI (the rkey / article slug) |
+| Function                | Purpose                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `slugFromUri(uri)`      | Returns the final path segment of an AT URI (the rkey / article slug)                                     |
 | `flattenArticles(site)` | Returns all articles from a site in order: each group's articles followed by top-level ungrouped articles |
 
 ### Types (exported from `app/hooks/types.ts`)
@@ -563,13 +576,13 @@ The project uses **Vitest** with **React Testing Library** for component unit te
 
 `app/routes/article/site-list/siteTree.ts` contains the pure data-transformation functions extracted from `site-list.tsx`:
 
-| Export | Purpose |
-|---|---|
-| `buildTreeFromSite(site)` | Converts a `SiteData` record into a `TreeGroupNode[]` DnD tree (root node + named groups) |
-| `treeToSiteData(tree)` | Inverse — converts the DnD tree back to `{ groups, articles }` for writing to the PDS |
-| `toSlug(title)` | Converts a group title to a URL slug (lowercase, spaces→hyphens, strip specials) |
-| `slugFromUri(uri)` | Returns the final path segment of an AT URI |
-| `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`) |
+| Export                              | Purpose                                                                                   |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| `buildTreeFromSite(site)`           | Converts a `SiteData` record into a `TreeGroupNode[]` DnD tree (root node + named groups) |
+| `treeToSiteData(tree)`              | Inverse — converts the DnD tree back to `{ groups, articles }` for writing to the PDS     |
+| `toSlug(title)`                     | Converts a group title to a URL slug (lowercase, spaces→hyphens, strip specials)          |
+| `slugFromUri(uri)`                  | Returns the final path segment of an AT URI                                               |
+| `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`)                                |
 
 **Critical invariant:** `treeToSiteData(buildTreeFromSite(site))` must reproduce the original `{ groups, articles }` exactly — including every `ArticleRef` field (`url`, `synopsis`, `splashImageUrl`, etc.). The round-trip tests in `siteTree.test.ts` enforce this.
 
@@ -585,11 +598,11 @@ npm run test:coverage  # with coverage report
 
 All components in `app/components/` have test suites. Pure function coverage:
 
-| File | What's tested |
-|---|---|
-| `app/constants.test.ts` | `SLUG_RE`, `DOMAIN_RE` valid/invalid cases; collection name constants |
-| `app/hooks/utils.test.ts` | `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier` (DID passthrough, handle fetch, error) |
-| `app/routes/article/site-list/siteTree.test.ts` | `toSlug`, `buildTreeFromSite` field mapping, `treeToSiteData`, full round-trip suite |
+| File                                            | What's tested                                                                                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `app/constants.test.ts`                         | `SLUG_RE`, `DOMAIN_RE` valid/invalid cases; collection name constants                                 |
+| `app/hooks/utils.test.ts`                       | `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier` (DID passthrough, handle fetch, error) |
+| `app/routes/article/site-list/siteTree.test.ts` | `toSlug`, `buildTreeFromSite` field mapping, `treeToSiteData`, full round-trip suite                  |
 
 **Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
 
@@ -611,7 +624,7 @@ Browser
 
 The Image Service reads the `__session` cookie and verifies it using `SESSION_SECRET` — the same secret used by the main app. No separate token exchange. The Image Service rejects requests with a missing or invalid cookie with 401.
 
-**Cookie format:** React Router serialises the session as `btoa(JSON.stringify(data)).hmacSignature` — the JSON is base64-encoded *before* signing, not stored as raw JSON. The Image Service's `auth.ts` replicates this: after `unsign()` verifies the HMAC and returns the signed value, `atob()` must be called before `JSON.parse()`. If you see persistent 401s from the Image Service despite a correct `SESSION_SECRET`, this encoding step is the first thing to check.
+**Cookie format:** React Router serialises the session as `btoa(JSON.stringify(data)).hmacSignature` — the JSON is base64-encoded _before_ signing, not stored as raw JSON. The Image Service's `auth.ts` replicates this: after `unsign()` verifies the HMAC and returns the signed value, `atob()` must be called before `JSON.parse()`. If you see persistent 401s from the Image Service despite a correct `SESSION_SECRET`, this encoding step is the first thing to check.
 
 ### Upload flow
 
