@@ -98,6 +98,7 @@
   composes: pageSection;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
 
 /* <PageSectionColumns> component */
@@ -112,26 +113,36 @@
 @media (max-width: 640px) {
   .columnsBreakpointSm {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
   }
 }
 @media (max-width: 768px) {
   .columnsBreakpointMd {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
   }
 }
 @media (max-width: 1024px) {
   .columnsBreakpointLg {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
   }
 }
 @media (max-width: 1280px) {
   .columnsBreakpointXl {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
   }
 }
 @media (max-width: 1536px) {
   .columnsBreakpoint2xl {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
   }
 }
 
@@ -142,16 +153,6 @@
 .columnOverflow {
   composes: column;
   overflow-y: auto;
-}
-
-.pageSectionWithOverflow::-webkit-scrollbar-track {
-  background: var(--white, #fff);
-}
-.pageSectionWithOverflow::-webkit-scrollbar {
-  background-color: var(--white);
-}
-.pageSectionWithOverflow::-webkit-scrollbar-thumb {
-  -webkit-box-shadow: inset 0 0 0 2px var(--white);
 }
 
 /* <PageSectionCell> component */

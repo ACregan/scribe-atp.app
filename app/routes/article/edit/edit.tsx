@@ -126,7 +126,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     url: String(articleResult.data.value.url ?? params.articleUrl),
     splashImageUrl: String(articleResult.data.value.splashImageUrl ?? ""),
     synopsis: String(articleResult.data.value.synopsis ?? ""),
-    createdAt: String(articleResult.data.value.createdAt ?? new Date().toISOString()),
+    createdAt: String(
+      articleResult.data.value.createdAt ?? new Date().toISOString(),
+    ),
     cid: articleResult.data.cid ?? null,
     sites,
     currentSiteRkeys,
@@ -143,7 +145,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const synopsis = formData.get("synopsis") as string;
   const cid = formData.get("cid") as string | null;
-  const createdAt = (formData.get("createdAt") as string) || new Date().toISOString();
+  const createdAt =
+    (formData.get("createdAt") as string) || new Date().toISOString();
   const oldRkey = params.articleUrl;
   const newSiteRkeys = formData.getAll("sites") as string[];
   const oldSiteRkeys: string[] = JSON.parse(
@@ -364,6 +367,7 @@ export default function EditArticle({
             Edit Article
           </PageContainerHeading>
         }
+        fixed
       >
         <ArticleForm
           defaultTitle={title}
@@ -375,6 +379,7 @@ export default function EditArticle({
           selectedSites={selectedSites}
           onSitesChange={setSelectedSites}
           error={actionData?.error}
+          columnar
         />
       </PageContainer>
 
