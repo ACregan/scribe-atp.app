@@ -1,4 +1,5 @@
 import React from "react";
+import cn from "classnames";
 import styles from "./PageContainer.module.css";
 import SvgIcon, { type SvgImageListTypes } from "../SvgIcon/SvgIcon";
 
@@ -59,18 +60,19 @@ const PageContainer: React.FC<PageContainerProps> = ({
 interface PageSectionProps {
   children: React.ReactNode;
   overflow?: boolean;
+  fill?: boolean;
 }
 const PageSection: React.FC<PageSectionProps> = ({
   children,
   overflow = false,
+  fill = false,
 }) => {
-  return (
-    <div
-      className={overflow ? styles.pageSectionWithOverflow : styles.pageSection}
-    >
-      {children}
-    </div>
-  );
+  const className = overflow
+    ? styles.pageSectionWithOverflow
+    : fill
+      ? styles.pageSectionFill
+      : styles.pageSection;
+  return <div className={className}>{children}</div>;
 };
 interface PageSectionRowProps {
   children: React.ReactNode;
@@ -87,10 +89,57 @@ const ButtonGroupContainer: React.FC<ButtonGroupContainerProps> = ({
 }) => {
   return <div className={styles.buttonGroupContainer}>{children}</div>;
 };
+type Breakpoint = "sm" | "md" | "lg" | "xl" | "2xl";
+
+const breakpointClass: Record<Breakpoint, string> = {
+  sm: styles.columnsBreakpointSm,
+  md: styles.columnsBreakpointMd,
+  lg: styles.columnsBreakpointLg,
+  xl: styles.columnsBreakpointXl,
+  "2xl": styles.columnsBreakpoint2xl,
+};
+
+interface PageSectionColumnsProps {
+  children: React.ReactNode;
+  breakpoint?: Breakpoint;
+}
+const PageSectionColumns: React.FC<PageSectionColumnsProps> = ({
+  children,
+  breakpoint = "md",
+}) => {
+  return (
+    <div className={cn(styles.columns, breakpointClass[breakpoint])}>
+      {children}
+    </div>
+  );
+};
+
+interface PageSectionColumnProps {
+  children: React.ReactNode;
+  span: number;
+  overflow?: boolean;
+}
+const PageSectionColumn: React.FC<PageSectionColumnProps> = ({
+  children,
+  span,
+  overflow = false,
+}) => {
+  return (
+    <div
+      className={overflow ? styles.columnOverflow : styles.column}
+      style={{ gridColumn: `span ${span}` }}
+    >
+      {children}
+    </div>
+  );
+};
+
 export {
   PageContainerHeading,
   PageContainer,
   PageSection,
   PageSectionCell,
   ButtonGroupContainer,
+  PageSectionColumns,
+  PageSectionColumn,
 };

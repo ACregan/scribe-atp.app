@@ -184,6 +184,7 @@ export default function Create({
           selectedSites={selectedSites}
           onSitesChange={setSelectedSites}
           error={actionData?.error}
+          columnar
         />
       </PageContainer>
 

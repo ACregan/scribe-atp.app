@@ -94,6 +94,55 @@
   min-height: 0;
   overflow-y: auto;
 }
+.pageSectionFill {
+  composes: pageSection;
+  flex: 1;
+  min-height: 0;
+}
+
+/* <PageSectionColumns> component */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: 1fr;
+  gap: 2rem;
+  height: 100%;
+}
+
+@media (max-width: 640px) {
+  .columnsBreakpointSm {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 768px) {
+  .columnsBreakpointMd {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 1024px) {
+  .columnsBreakpointLg {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 1280px) {
+  .columnsBreakpointXl {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 1536px) {
+  .columnsBreakpoint2xl {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* <PageSectionColumn> component */
+.column {
+  min-width: 0;
+}
+.columnOverflow {
+  composes: column;
+  overflow-y: auto;
+}
 
 .pageSectionWithOverflow::-webkit-scrollbar-track {
   background: var(--white, #fff);
