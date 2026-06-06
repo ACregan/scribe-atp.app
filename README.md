@@ -29,7 +29,7 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 - Organise articles into sites and named groups with drag-and-drop ordering
 - Assign articles to multiple sites
 - Public read access — no auth required for consumers
-- **Image Library** *(in development)* — upload, organise, and serve images; WebP conversion and multi-size Variant generation via Sharp
+- **Image Library** — upload, organise, and serve images; WebP conversion and multi-size Variant generation via Sharp; multi-select with bulk move, bulk delete, and drag-and-drop; image preview modal with per-Variant copy URLs
 
 ## Getting started
 

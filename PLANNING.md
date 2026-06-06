@@ -239,6 +239,13 @@ Windows Explorer-style grid of images and folders. Behaviour:
 - **Folder deletion** — only empty folders can be deleted (prevents accidental loss).
 - **Image deletion** — deletes all Variant files from the filesystem and the `images` SQLite row. A single confirmation modal warns that any Articles or Sites referencing the image URL will have broken images. No cross-reference check is performed.
 - **Copy URL** — each image shows per-Variant copy buttons (only Variants that were actually generated for that image are shown). User selects which Variant URL to copy to clipboard.
+- **Multi-select** — CTRL+click enters selection mode; Shift+click range-selects by DOM order (folders first, then images); checkboxes appear on hover and on all tiles once any item is selected; Escape or ✕ clears selection. Selection UI is only shown within the user's own tree (`isOwnTree`).
+- **Selection toolbar** — replaces the normal top buttons when a selection is active: Move to, Delete, Add to New Folder, and ✕ N selected.
+- **Bulk move** — moves all selected images and folders to a destination folder chosen from a picker. The picker excludes the current folder, selected folders, and their descendants (cycle-safe). Server-side cycle detection in the endpoint; atomic SQLite transaction.
+- **Bulk delete** — recursive delete with a confirmation modal that dry-runs item counts (POST without `confirm`) before POSTing with `confirm: true`.
+- **Add to New Folder** — compound action: prompts for a folder name, creates the folder in the current location, then bulk-moves all selected items into it in a single flow.
+- **Drag and drop** — dnd-kit `PointerSensor` (8px activation distance to distinguish clicks from drags); folder tiles are drop targets; dragging a selected item moves all selected items; dragging an unselected item moves only that item; `DragOverlay` shows item name or "N items" badge; errors surface as persistent danger toasts.
+- **Image preview modal** — double-click opens a modal showing the image at full width. Variant selector buttons switch the displayed URL and show per-Variant dimensions and file size (KB). Also shows original filename, upload date, and folder path. Prev/Next navigation (arrow keys supported). Own images get inline Delete (with inline confirmation state) and Move actions.
 
 ### Deferred
 
