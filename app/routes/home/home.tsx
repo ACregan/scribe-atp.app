@@ -414,7 +414,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <PageSection fill>
           <PageSectionColumns breakpoint="lg">
             {/* Sites */}
-            <PageSectionColumn span={6} overflow>
+            <PageSectionColumn span={4} overflow>
               <h2 className={styles.sectionTitle}>Sites</h2>
               {isAuthenticated ? (
                 sites.length === 0 ? (
@@ -433,7 +433,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </PageSectionColumn>
 
             {/* Recently Updated */}
-            <PageSectionColumn span={6} overflow>
+            <PageSectionColumn span={4} overflow>
               <h2 className={styles.sectionTitle}>Recently Updated</h2>
               {isAuthenticated ? (
                 recentArticles.length === 0 ? (
@@ -464,6 +464,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 )
               ) : null}
             </PageSectionColumn>
+
+            {/* Third column — reserved */}
+            <PageSectionColumn span={4} overflow />
           </PageSectionColumns>
         </PageSection>
       </PageContainer>
