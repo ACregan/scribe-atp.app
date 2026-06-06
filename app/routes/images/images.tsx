@@ -8,6 +8,7 @@ import { UploadModal } from "./UploadModal";
 import { NewFolderModal } from "./NewFolderModal";
 import { MoveImageModal } from "./MoveImageModal";
 import { DeleteImageModal } from "./DeleteImageModal";
+import { ImagePreviewModal } from "./ImagePreviewModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -183,6 +184,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moveImage, setMoveImage] = useState<BrowseImage | null>(null);
   const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
+  const [previewImage, setPreviewImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // ── Multi-select state ──────────────────────────────────────────────────────
@@ -422,6 +424,17 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         />
       )}
 
+      {previewImage && (
+        <ImagePreviewModal
+          isOpen={true}
+          image={previewImage}
+          images={images}
+          folder={folder}
+          breadcrumbs={breadcrumbs}
+          onClose={() => setPreviewImage(null)}
+        />
+      )}
+
       <PageSection>
         <nav className={styles.breadcrumbs} aria-label="Folder navigation">
           <Link to="/images" className={styles.breadcrumbLink}>
@@ -581,6 +594,10 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                   <div
                     className={`${styles.imageTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}`}
                     onClick={(e) => handleTileClick(itemId, e)}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewImage(image);
+                    }}
                   >
                     {isOwnTree && (
                       <input
