@@ -148,3 +148,37 @@
   min-width: 4rem;
   text-align: center;
 }
+
+.footerOwnerActions {
+  display: flex;
+  gap: 0.8rem;
+  margin-right: auto;
+}
+
+/* ── Inline delete confirmation ──────────────────────────────────────────── */
+
+.deleteConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  width: 100%;
+}
+
+.deleteConfirmText {
+  font-size: 1.4rem;
+  color: var(--black, #111);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.deleteError {
+  color: var(--red, #df2827);
+  font-size: 1.3rem;
+  margin: 0;
+}

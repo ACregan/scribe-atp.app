@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
+import { MoveImageModal } from "./MoveImageModal";
 import styles from "./ImagePreviewModal.module.css";
 
 type BrowseImage = {
@@ -25,7 +26,10 @@ type Props = {
     parent_id: number | null;
   } | null;
   breadcrumbs: Array<{ id: number; name: string }>;
+  currentUserDid: string;
   onClose: () => void;
+  onDelete: (imageId: number) => void;
+  onMove: () => void;
 };
 
 const VARIANT_ORDER = ["thumb", "600", "1200", "1800", "max"];
@@ -53,8 +57,12 @@ export function ImagePreviewModal({
   isOpen,
   image: initialImage,
   images,
+  folder,
   breadcrumbs,
+  currentUserDid,
   onClose,
+  onDelete,
+  onMove,
 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(() =>
     images.findIndex((img) => img.id === initialImage.id),
@@ -63,19 +71,28 @@ export function ImagePreviewModal({
     largestVariant(initialImage.sizes),
   );
   const [copied, setCopied] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
 
   const image = images[currentIndex] ?? initialImage;
+  const isOwn = image.user_did === currentUserDid;
 
   // When the parent opens the modal for a new image, reset to that image's index
   useEffect(() => {
     const idx = images.findIndex((img) => img.id === initialImage.id);
     setCurrentIndex(idx >= 0 ? idx : 0);
     setSelectedVariant(largestVariant(initialImage.sizes));
+    setShowDeleteConfirm(false);
+    setDeleteError(null);
   }, [initialImage.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When navigating to a new image, pick its largest variant
+  // When navigating to a new image, reset variant and delete state
   useEffect(() => {
     setSelectedVariant(largestVariant(image.sizes));
+    setShowDeleteConfirm(false);
+    setDeleteError(null);
   }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const orderedVariants = VARIANT_ORDER.filter((v) => v in image.sizes);
@@ -104,6 +121,31 @@ export function ImagePreviewModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  async function handleDeleteConfirm() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/image-service/images/${image.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        onDelete(image.id);
+      } else {
+        const data = (await res.json()) as { error?: string };
+        setDeleteError(data.error ?? "Delete failed");
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function handleClose() {
+    setShowDeleteConfirm(false);
+    setDeleteError(null);
+    setMoveModalOpen(false);
+    onClose();
+  }
+
   function handleVariantSelect(variant: string) {
     setSelectedVariant(variant);
     setCopied(false);
@@ -131,95 +173,161 @@ export function ImagePreviewModal({
       ? breadcrumbs.map((b) => b.name).join(" › ")
       : "Image Library";
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={image.original_name}
-      footer={
-        <div className={styles.footer}>
-          {images.length > 1 && (
-            <div className={styles.footerNav}>
-              <Button variant="secondary" type="button" onClick={goPrev}>
-                ‹ Prev
-              </Button>
-              <span className={styles.navCounter}>
-                {currentIndex + 1} / {images.length}
-              </span>
-              <Button variant="secondary" type="button" onClick={goNext}>
-                Next ›
-              </Button>
-            </div>
-          )}
-          <Button variant="secondary" type="button" onClick={onClose}>
-            Close
+  const deleteConfirmFooter = (
+    <div className={styles.deleteConfirm}>
+      {deleteError && <p className={styles.deleteError}>{deleteError}</p>}
+      <p className={styles.deleteConfirmText}>
+        Delete this image? This cannot be undone.
+      </p>
+      <div className={styles.deleteConfirmActions}>
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => {
+            setShowDeleteConfirm(false);
+            setDeleteError(null);
+          }}
+          disabled={deleting}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="danger"
+          type="button"
+          onClick={handleDeleteConfirm}
+          disabled={deleting}
+        >
+          {deleting ? "Deleting…" : "Confirm Delete"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const normalFooter = (
+    <div className={styles.footer}>
+      {isOwn && (
+        <div className={styles.footerOwnerActions}>
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={() => setMoveModalOpen(true)}
+          >
+            Move
+          </Button>
+          <Button
+            variant="danger"
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            Delete
           </Button>
         </div>
-      }
-    >
-      <div className={styles.body}>
-        <div className={styles.imageWrap}>
-          <img
-            key={`${image.id}-${selectedVariant}`}
-            src={`/image-storage/${image.user_did}/${image.filename}/max.webp`}
-            alt={image.original_name}
-            className={styles.previewImage}
-            style={{
-              width:
-                displayWidth !== undefined ? `${displayWidth}px` : undefined,
-            }}
-          />
+      )}
+      {images.length > 1 && (
+        <div className={styles.footerNav}>
+          <Button variant="secondary" type="button" onClick={goPrev}>
+            ‹ Prev
+          </Button>
+          <span className={styles.navCounter}>
+            {currentIndex + 1} / {images.length}
+          </span>
+          <Button variant="secondary" type="button" onClick={goNext}>
+            Next ›
+          </Button>
         </div>
+      )}
+      <Button variant="secondary" type="button" onClick={handleClose}>
+        Close
+      </Button>
+    </div>
+  );
 
-        <div className={styles.variantRow}>
-          <div className={styles.variantButtons}>
-            {orderedVariants.map((v) => (
-              <button
-                key={v}
-                type="button"
-                className={`${styles.variantButton}${selectedVariant === v ? ` ${styles.variantButtonActive}` : ""}`}
-                onClick={() => handleVariantSelect(v)}
-              >
-                {VARIANT_LABEL[v] ?? v}
-              </button>
-            ))}
+  return (
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        title={image.original_name}
+        footer={showDeleteConfirm ? deleteConfirmFooter : normalFooter}
+      >
+        <div className={styles.body}>
+          <div className={styles.imageWrap}>
+            <img
+              key={`${image.id}-${selectedVariant}`}
+              src={`/image-storage/${image.user_did}/${image.filename}/max.webp`}
+              alt={image.original_name}
+              className={styles.previewImage}
+              style={{
+                width:
+                  displayWidth !== undefined ? `${displayWidth}px` : undefined,
+              }}
+            />
           </div>
-          <button
-            type="button"
-            className={`${styles.copyButton}${copied ? ` ${styles.copyButtonCopied}` : ""}`}
-            onClick={handleCopy}
-          >
-            {copied ? "Copied!" : "Copy URL"}
-          </button>
+
+          <div className={styles.variantRow}>
+            <div className={styles.variantButtons}>
+              {orderedVariants.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className={`${styles.variantButton}${selectedVariant === v ? ` ${styles.variantButtonActive}` : ""}`}
+                  onClick={() => handleVariantSelect(v)}
+                >
+                  {VARIANT_LABEL[v] ?? v}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className={`${styles.copyButton}${copied ? ` ${styles.copyButtonCopied}` : ""}`}
+              onClick={handleCopy}
+            >
+              {copied ? "Copied!" : "Copy URL"}
+            </button>
+          </div>
+
+          <dl className={styles.meta}>
+            <div className={styles.metaRow}>
+              <dt>Dimensions</dt>
+              <dd>
+                {displayWidth !== undefined && displayHeight !== undefined
+                  ? `${displayWidth} × ${displayHeight} px`
+                  : "—"}
+              </dd>
+            </div>
+            <div className={styles.metaRow}>
+              <dt>File size</dt>
+              <dd>{formatBytes(displayBytes)}</dd>
+            </div>
+            <div className={styles.metaRow}>
+              <dt>Filename</dt>
+              <dd>{image.original_name}</dd>
+            </div>
+            <div className={styles.metaRow}>
+              <dt>Uploaded</dt>
+              <dd>{new Date(image.created_at).toLocaleDateString()}</dd>
+            </div>
+            <div className={styles.metaRow}>
+              <dt>Folder</dt>
+              <dd>{folderPath}</dd>
+            </div>
+          </dl>
         </div>
+      </Modal>
 
-        <dl className={styles.meta}>
-          <div className={styles.metaRow}>
-            <dt>Dimensions</dt>
-            <dd>
-              {displayWidth !== undefined && displayHeight !== undefined
-                ? `${displayWidth} × ${displayHeight} px`
-                : "—"}
-            </dd>
-          </div>
-          <div className={styles.metaRow}>
-            <dt>File size</dt>
-            <dd>{formatBytes(displayBytes)}</dd>
-          </div>
-          <div className={styles.metaRow}>
-            <dt>Filename</dt>
-            <dd>{image.original_name}</dd>
-          </div>
-          <div className={styles.metaRow}>
-            <dt>Uploaded</dt>
-            <dd>{new Date(image.created_at).toLocaleDateString()}</dd>
-          </div>
-          <div className={styles.metaRow}>
-            <dt>Folder</dt>
-            <dd>{folderPath}</dd>
-          </div>
-        </dl>
-      </div>
-    </Modal>
+      {moveModalOpen && (
+        <MoveImageModal
+          isOpen={true}
+          imageId={image.id}
+          imageName={image.original_name}
+          currentFolderId={folder?.id ?? null}
+          onClose={() => setMoveModalOpen(false)}
+          onSuccess={() => {
+            setMoveModalOpen(false);
+            onMove();
+          }}
+        />
+      )}
+    </>
   );
 }

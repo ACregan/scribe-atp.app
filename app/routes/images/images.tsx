@@ -9,6 +9,7 @@ import { NewFolderModal } from "./NewFolderModal";
 import { MoveImageModal } from "./MoveImageModal";
 import { DeleteImageModal } from "./DeleteImageModal";
 import { ImagePreviewModal } from "./ImagePreviewModal";
+import { BulkDeleteModal } from "./BulkDeleteModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -186,6 +187,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
   const [previewImage, setPreviewImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // ── Multi-select state ──────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -296,6 +298,25 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
 
   // ── Normal action handlers ──────────────────────────────────────────────────
 
+  function parseSelection(sel: Set<string>): {
+    imageIds: number[];
+    folderIds: number[];
+  } {
+    const imageIds: number[] = [];
+    const folderIds: number[] = [];
+    for (const id of sel) {
+      if (id.startsWith("i:")) imageIds.push(Number(id.slice(2)));
+      else if (id.startsWith("f:")) folderIds.push(Number(id.slice(2)));
+    }
+    return { imageIds, folderIds };
+  }
+
+  function handleBulkDeleteSuccess() {
+    setBulkDeleteOpen(false);
+    clearSelection();
+    refresh();
+  }
+
   function refresh() {
     revalidator.revalidate();
   }
@@ -356,7 +377,11 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
       <Button variant="secondary" type="button" disabled>
         Move to
       </Button>
-      <Button variant="danger" type="button" disabled>
+      <Button
+        variant="danger"
+        type="button"
+        onClick={() => setBulkDeleteOpen(true)}
+      >
         Delete
       </Button>
       <Button variant="secondary" type="button" disabled>
@@ -431,9 +456,32 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           images={images}
           folder={folder}
           breadcrumbs={breadcrumbs}
+          currentUserDid={currentUserDid}
           onClose={() => setPreviewImage(null)}
+          onDelete={() => {
+            setPreviewImage(null);
+            refresh();
+          }}
+          onMove={() => {
+            setPreviewImage(null);
+            refresh();
+          }}
         />
       )}
+
+      {bulkDeleteOpen &&
+        (() => {
+          const { imageIds, folderIds } = parseSelection(selected);
+          return (
+            <BulkDeleteModal
+              isOpen={true}
+              imageIds={imageIds}
+              folderIds={folderIds}
+              onClose={() => setBulkDeleteOpen(false)}
+              onSuccess={handleBulkDeleteSuccess}
+            />
+          );
+        })()}
 
       <PageSection>
         <nav className={styles.breadcrumbs} aria-label="Folder navigation">
