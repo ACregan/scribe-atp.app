@@ -1,6 +1,6 @@
 import type { Route } from "./+types/images";
 import { Link, useRevalidator } from "react-router";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { requireAuth, useRealOAuth } from "~/services/auth.server";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
@@ -185,6 +185,115 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // ── Multi-select state ──────────────────────────────────────────────────────
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [anchorId, setAnchorId] = useState<string | null>(null);
+  const isSelectionMode = selected.size > 0;
+
+  // Clear selection on folder navigation (loaderData change)
+  useEffect(() => {
+    setSelected(new Set());
+    setAnchorId(null);
+  }, [folder?.id]);
+
+  // Escape key clears selection
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && isSelectionMode) {
+        setSelected(new Set());
+        setAnchorId(null);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSelectionMode]);
+
+  // Ordered list of all item IDs in DOM order (folders first, then images)
+  function allItemIds(): string[] {
+    return [
+      ...subfolders.map((f) => `f:${f.id}`),
+      ...images.map((i) => `i:${i.id}`),
+    ];
+  }
+
+  function toggleItem(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    setAnchorId(id);
+  }
+
+  function selectRange(targetId: string) {
+    const ids = allItemIds();
+    const anchorIdx = anchorId !== null ? ids.indexOf(anchorId) : -1;
+    const targetIdx = ids.indexOf(targetId);
+    if (anchorIdx === -1) {
+      // No anchor — treat as a plain toggle
+      toggleItem(targetId);
+      return;
+    }
+    const [from, to] =
+      anchorIdx <= targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx];
+    const rangeIds = ids.slice(from, to + 1);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      rangeIds.forEach((id) => next.add(id));
+      return next;
+    });
+    // Anchor stays at the original anchor point (not updated on shift-click)
+  }
+
+  const handleTileClick = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+
+      if (isShift && isSelectionMode) {
+        e.preventDefault();
+        selectRange(id);
+        return;
+      }
+
+      if (isCtrl) {
+        e.preventDefault();
+        toggleItem(id);
+        return;
+      }
+
+      // Plain click while in selection mode toggles the item
+      if (isSelectionMode) {
+        e.preventDefault();
+        toggleItem(id);
+        return;
+      }
+
+      // Plain click outside selection mode — let navigation happen normally for
+      // folder tiles; for image tiles there is no navigation so this is a no-op.
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isSelectionMode, anchorId, selected],
+  );
+
+  function handleGridClick(e: React.MouseEvent<HTMLUListElement>) {
+    if (e.target === e.currentTarget) {
+      setSelected(new Set());
+      setAnchorId(null);
+    }
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+    setAnchorId(null);
+  }
+
+  // ── Normal action handlers ──────────────────────────────────────────────────
+
   function refresh() {
     revalidator.revalidate();
   }
@@ -225,6 +334,47 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
     }
   }
 
+  // ── topButtons content ──────────────────────────────────────────────────────
+
+  const normalTopButtons = (
+    <div className={styles.topButtons}>
+      {isOwnTree && folder && (
+        <Button variant="secondary" type="button" onClick={newFolderModal.open}>
+          New Folder
+        </Button>
+      )}
+      <Button type="button" onClick={uploadModal.open}>
+        Upload Images
+      </Button>
+    </div>
+  );
+
+  const selectionToolbar = isOwnTree ? (
+    <div className={styles.selectionToolbar}>
+      <Button variant="secondary" type="button" disabled>
+        Move to
+      </Button>
+      <Button variant="danger" type="button" disabled>
+        Delete
+      </Button>
+      <Button variant="secondary" type="button" disabled>
+        Add to New Folder
+      </Button>
+      <button
+        type="button"
+        className={styles.clearSelectionButton}
+        onClick={clearSelection}
+        aria-label="Clear selection"
+      >
+        <SvgIcon name={SvgImageList.Close} fill="currentColor" />
+        {selected.size} selected
+      </button>
+    </div>
+  ) : null;
+
+  const topButtons =
+    isOwnTree && isSelectionMode ? selectionToolbar : normalTopButtons;
+
   return (
     <PageContainer
       title={
@@ -232,22 +382,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           Image Library
         </PageContainerHeading>
       }
-      topButtons={
-        <div className={styles.topButtons}>
-          {isOwnTree && folder && (
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={newFolderModal.open}
-            >
-              New Folder
-            </Button>
-          )}
-          <Button type="button" onClick={uploadModal.open}>
-            Upload Images
-          </Button>
-        </div>
-      }
+      topButtons={topButtons}
     >
       <UploadModal isOpen={uploadModal.isOpen} onClose={handleUploadClose} />
 
@@ -332,12 +467,14 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         {deleteError && <p className={styles.deleteError}>{deleteError}</p>}
 
         {(subfolders.length > 0 || images.length > 0) && (
-          <ul className={styles.grid}>
+          <ul className={styles.grid} onClick={handleGridClick}>
             {subfolders.map((subfolder) => {
               const avatarUrl =
                 subfolder.parent_id === null
                   ? (profiles[subfolder.user_did]?.avatarUrl ?? null)
                   : null;
+              const itemId = `f:${subfolder.id}`;
+              const isSelected = selected.has(itemId);
               return (
                 <li key={`f-${subfolder.id}`}>
                   {confirmDeleteId === subfolder.id ? (
@@ -364,10 +501,32 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className={styles.folderTileWrap}>
+                    <div
+                      className={`${styles.folderTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}`}
+                    >
+                      {isOwnTree && (
+                        <input
+                          type="checkbox"
+                          className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
+                          checked={isSelected}
+                          aria-label={`Select ${subfolder.name}`}
+                          onChange={() => toggleItem(itemId)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
                       <Link
                         to={`/images?folder=${subfolder.id}`}
-                        className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}`}
+                        className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}${isSelected ? ` ${styles.tileSelected}` : ""}`}
+                        onClick={(e) => {
+                          handleTileClick(itemId, e);
+                          // If we consumed the click for selection, prevent navigation
+                          const isCtrl = e.ctrlKey || e.metaKey;
+                          const isShift = e.shiftKey;
+                          if (isCtrl || isShift || isSelectionMode) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }
+                        }}
                       >
                         <span className={styles.folderIcon}>
                           <SvgIcon
@@ -415,10 +574,27 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
               const orderedVariants = VARIANT_ORDER.filter(
                 (v) => v in image.sizes,
               );
+              const itemId = `i:${image.id}`;
+              const isSelected = selected.has(itemId);
               return (
                 <li key={`i-${image.id}`}>
-                  <div className={styles.imageTileWrap}>
-                    <div className={styles.imageTile}>
+                  <div
+                    className={`${styles.imageTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}`}
+                    onClick={(e) => handleTileClick(itemId, e)}
+                  >
+                    {isOwnTree && (
+                      <input
+                        type="checkbox"
+                        className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
+                        checked={isSelected}
+                        aria-label={`Select ${image.original_name}`}
+                        onChange={() => toggleItem(itemId)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    <div
+                      className={`${styles.imageTile}${isSelected ? ` ${styles.tileSelected}` : ""}`}
+                    >
                       <span className={styles.thumbnailWrap}>
                         <img
                           src={thumbUrl(image)}
@@ -442,7 +618,10 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                               key={v}
                               type="button"
                               className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
-                              onClick={() => handleCopy(image, v)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy(image, v);
+                              }}
                               title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
                             >
                               {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
@@ -456,7 +635,10 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                         <button
                           type="button"
                           className={styles.tileAction}
-                          onClick={() => setMoveImage(image)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMoveImage(image);
+                          }}
                           aria-label={`Move ${image.original_name}`}
                           title="Move to folder"
                         >
@@ -468,7 +650,10 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                         <button
                           type="button"
                           className={`${styles.tileAction} ${styles.tileActionDanger}`}
-                          onClick={() => setDeleteImage(image)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteImage(image);
+                          }}
                           aria-label={`Delete ${image.original_name}`}
                           title="Delete image"
                         >

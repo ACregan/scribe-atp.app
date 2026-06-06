@@ -135,11 +135,82 @@
   gap: 0.8rem;
 }
 
+/* ── Selection toolbar (replaces topButtons when isSelectionMode) ────────── */
+
+.selectionToolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.clearSelectionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--mid-grey, #949494);
+  border-radius: 0.6rem;
+  background: var(--white, #fff);
+  color: var(--dark-grey, #555);
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.clearSelectionButton > svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+}
+
+.clearSelectionButton:hover {
+  border-color: var(--blue, #0070f3);
+  color: var(--blue, #0070f3);
+}
+
 /* ── Tile wrappers with action buttons ───────────────────────────────────── */
 
 .folderTileWrap,
 .imageTileWrap {
   position: relative;
+}
+
+/* ── Selected tile state ─────────────────────────────────────────────────── */
+
+.tileWrapSelected .folderTile,
+.tileWrapSelected .imageTile,
+.tileSelected {
+  border-color: var(--blue, #0070f3) !important;
+  background: #eff6ff;
+}
+
+/* ── Checkbox overlay ────────────────────────────────────────────────────── */
+
+.tileCheckbox {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  z-index: 2;
+  width: 1.6rem;
+  height: 1.6rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  accent-color: var(--blue, #0070f3);
+}
+
+/* Show checkbox on tile hover */
+.folderTileWrap:hover .tileCheckbox,
+.imageTileWrap:hover .tileCheckbox {
+  opacity: 1;
+}
+
+/* Show all checkboxes once any item is selected (isSelectionMode) */
+.tileCheckboxVisible {
+  opacity: 1;
 }
 
 .tileActions {
