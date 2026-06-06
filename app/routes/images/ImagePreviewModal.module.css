@@ -1,22 +1,46 @@
+/* ── Wide modal override ─────────────────────────────────────────────────── */
+
+.previewModal {
+  width: calc(100dvw - 4rem);
+  max-width: calc(100dvw - 4rem);
+  height: calc(100dvh - 4rem);
+  max-height: calc(100dvh - 4rem);
+}
+
+/* Override Modal's body so it never scrolls — image fills the space instead */
+.previewModalBody {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Modal body ──────────────────────────────────────────────────────────── */
 
 .body {
   display: flex;
   flex-direction: column;
   gap: 1.6rem;
+  height: 100%;
+  min-height: 0;
 }
 
 /* ── Image display ───────────────────────────────────────────────────────── */
 
 .imageWrap {
+  flex: 1;
+  min-height: 0;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   overflow: hidden;
+  background: var(--off-white, #f9f9f9);
+  border-radius: 0.4rem;
 }
 
 .previewImage {
   max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
   border-radius: 0.4rem;
   display: block;
@@ -101,29 +125,34 @@
 .meta {
   margin: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  flex-wrap: wrap;
+  gap: 0.4rem 3.2rem;
   border-top: 1px solid var(--light-grey, #e5e7eb);
-  padding-top: 1.2rem;
+  padding-top: 0.8rem;
+  flex-shrink: 0;
 }
 
 .metaRow {
   display: flex;
-  gap: 1rem;
-  font-size: 1.3rem;
-  line-height: 1.5;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .metaRow dt {
+  font-size: 1rem;
+  font-weight: 500;
   color: var(--mid-grey, #6b7280);
-  min-width: 9rem;
-  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .metaRow dd {
   margin: 0;
+  font-size: 1.3rem;
   color: var(--black, #111);
-  word-break: break-all;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */

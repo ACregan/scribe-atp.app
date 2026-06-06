@@ -249,17 +249,21 @@ export function ImagePreviewModal({
         onClose={handleClose}
         title={image.original_name}
         footer={showDeleteConfirm ? deleteConfirmFooter : normalFooter}
+        className={styles.previewModal}
+        bodyClassName={styles.previewModalBody}
       >
         <div className={styles.body}>
           <div className={styles.imageWrap}>
             <img
               key={`${image.id}-${selectedVariant}`}
-              src={`/image-storage/${image.user_did}/${image.filename}/max.webp`}
+              src={`/image-storage/${image.user_did}/${image.filename}/${selectedVariant}.webp`}
               alt={image.original_name}
               className={styles.previewImage}
               style={{
-                width:
-                  displayWidth !== undefined ? `${displayWidth}px` : undefined,
+                maxWidth:
+                  displayWidth !== undefined
+                    ? `min(100%, ${displayWidth}px)`
+                    : undefined,
               }}
             />
           </div>
@@ -300,12 +304,12 @@ export function ImagePreviewModal({
               <dd>{formatBytes(displayBytes)}</dd>
             </div>
             <div className={styles.metaRow}>
-              <dt>Filename</dt>
-              <dd>{image.original_name}</dd>
-            </div>
-            <div className={styles.metaRow}>
               <dt>Uploaded</dt>
               <dd>{new Date(image.created_at).toLocaleDateString()}</dd>
+            </div>
+            <div className={styles.metaRow}>
+              <dt>Filename</dt>
+              <dd>{image.original_name}</dd>
             </div>
             <div className={styles.metaRow}>
               <dt>Folder</dt>
