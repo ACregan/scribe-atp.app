@@ -27,6 +27,8 @@
 | **thumb** | The smallest Variant; 300px Bounding Box. | thumbnail (except colloquially) |
 | **Image Storage** | The URL namespace and filesystem location where Variants are served. Public URL prefix: `/image-storage/{user_did}/{uuid}/{variant}.webp`. Served directly by nginx from the filesystem — the Image Service is not involved in reads. | image CDN, media storage, uploads folder |
 | **User Image Folder** | The top-level folder in the Image Library automatically created on a user's first upload. Contains all images and subfolders owned by that user. Browsable by all authenticated users; only the owning user can upload, delete, move, or create subfolders within it. | User folder, personal folder, user directory |
+| **Image Tile** | The grid card representing a single uploaded image in the Image Library browser. Displays a thumbnail preview, the filename, and Variant copy buttons (a Thumb button and a size split-button). Double-clicking opens the Image Preview Modal. | Image icon, image card, image item |
+| **Folder Tile** | The grid card representing a subfolder in the Image Library browser. Displays a folder icon (with avatar for top-level User Image Folders), the folder name, and a delete action. Clicking navigates into the folder; supports drag-and-drop for moving images or folders. | Folder icon, folder card, folder item |
 
 **Standard Variant set** (generated in ascending order; a Variant is skipped if its Bounding Box exceeds the source image's longest side):
 
