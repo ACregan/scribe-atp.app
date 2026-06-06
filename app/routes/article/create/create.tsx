@@ -177,6 +177,7 @@ export default function Create({
             Create Article
           </PageContainerHeading>
         }
+        fixed
       >
         <ArticleForm
           sites={sites}
