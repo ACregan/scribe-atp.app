@@ -1,0 +1,184 @@
+/* ── Modal body ──────────────────────────────────────────────────────────── */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+/* ── Image display ───────────────────────────────────────────────────────── */
+
+.imageWrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.previewImage {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.4rem;
+  display: block;
+}
+
+/* ── Variant selector row ────────────────────────────────────────────────── */
+
+.variantRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+
+.variantButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.variantButton {
+  font-size: 1.2rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--light-grey, #dedede);
+  border-radius: 0.4rem;
+  background: var(--white, #fff);
+  cursor: pointer;
+  color: var(--mid-grey, #949494);
+  transition:
+    border-color 0.1s,
+    color 0.1s,
+    background 0.1s;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.variantButton:hover {
+  border-color: var(--blue, #0070f3);
+  color: var(--blue, #0070f3);
+}
+
+.variantButtonActive {
+  border-color: var(--blue, #0070f3);
+  color: var(--blue, #0070f3);
+  background: rgba(0, 112, 243, 0.06);
+  font-weight: 600;
+}
+
+/* ── Copy URL button ─────────────────────────────────────────────────────── */
+
+.copyButton {
+  font-size: 1.3rem;
+  padding: 0.4rem 1.2rem;
+  border: 1px solid var(--light-grey, #dedede);
+  border-radius: 0.4rem;
+  background: var(--white, #fff);
+  cursor: pointer;
+  color: var(--mid-grey, #949494);
+  transition:
+    border-color 0.1s,
+    color 0.1s,
+    background 0.1s;
+  white-space: nowrap;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+.copyButton:hover {
+  border-color: var(--blue, #0070f3);
+  color: var(--blue, #0070f3);
+}
+
+.copyButtonCopied {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+/* ── Metadata list ───────────────────────────────────────────────────────── */
+
+.meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-top: 1px solid var(--light-grey, #e5e7eb);
+  padding-top: 1.2rem;
+}
+
+.metaRow {
+  display: flex;
+  gap: 1rem;
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+
+.metaRow dt {
+  color: var(--mid-grey, #6b7280);
+  min-width: 9rem;
+  flex-shrink: 0;
+}
+
+.metaRow dd {
+  margin: 0;
+  color: var(--black, #111);
+  word-break: break-all;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+}
+
+.footerNav {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.navCounter {
+  font-size: 1.3rem;
+  color: var(--mid-grey, #6b7280);
+  min-width: 4rem;
+  text-align: center;
+}
+
+.footerOwnerActions {
+  display: flex;
+  gap: 0.8rem;
+  margin-right: auto;
+}
+
+/* ── Inline delete confirmation ──────────────────────────────────────────── */
+
+.deleteConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  width: 100%;
+}
+
+.deleteConfirmText {
+  font-size: 1.4rem;
+  color: var(--black, #111);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.deleteError {
+  color: var(--red, #df2827);
+  font-size: 1.3rem;
+  margin: 0;
+}

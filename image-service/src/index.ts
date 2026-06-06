@@ -1,9 +1,19 @@
-import express, { type NextFunction, type Request, type Response } from "express";
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import multer from "multer";
 import { getSessionDid } from "./auth.js";
 import { handleUpload } from "./upload.js";
 import { handleBrowse } from "./browse.js";
-import { handleListFolders, handleCreateFolder, handleDeleteFolder, handleMoveImage } from "./folders.js";
+import {
+  handleListFolders,
+  handleCreateFolder,
+  handleDeleteFolder,
+  handleMoveImage,
+} from "./folders.js";
+import { handleBulkMove, handleBulkDelete } from "./bulkOperations.js";
 import { handleDeleteImage } from "./deleteImage.js";
 import { registerSSE } from "./sse.js";
 import { startupCleanup } from "./cleanup.js";
@@ -36,17 +46,26 @@ app.get("/api/image-service/browse", handleBrowse);
 app.get("/api/image-service/folders/mine", handleListFolders);
 app.post("/api/image-service/folders", express.json(), handleCreateFolder);
 app.delete("/api/image-service/folders/:folderId", handleDeleteFolder);
-app.post("/api/image-service/images/:imageId/move", express.json(), handleMoveImage);
+app.post(
+  "/api/image-service/images/:imageId/move",
+  express.json(),
+  handleMoveImage,
+);
+app.post("/api/image-service/bulk-move", express.json(), handleBulkMove);
+app.post("/api/image-service/bulk-delete", express.json(), handleBulkDelete);
 app.delete("/api/image-service/images/:imageId", handleDeleteImage);
 
-app.get("/api/image-service/progress/:uploadId", (req: Request, res: Response) => {
-  const { uploadId } = req.params;
-  if (!uploadId || typeof uploadId !== "string") {
-    res.status(400).json({ error: "Missing uploadId" });
-    return;
-  }
-  registerSSE(uploadId, res);
-});
+app.get(
+  "/api/image-service/progress/:uploadId",
+  (req: Request, res: Response) => {
+    const { uploadId } = req.params;
+    if (!uploadId || typeof uploadId !== "string") {
+      res.status(400).json({ error: "Missing uploadId" });
+      return;
+    }
+    registerSSE(uploadId, res);
+  },
+);
 
 app.post("/api/image-service/upload", upload.single("file"), handleUpload);
 

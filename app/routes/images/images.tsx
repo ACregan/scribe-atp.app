@@ -1,13 +1,29 @@
 import type { Route } from "./+types/images";
 import { Link, useRevalidator } from "react-router";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { requireAuth, useRealOAuth } from "~/services/auth.server";
+import { useToast } from "~/components/Toast/ToastContext";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
 import { UploadModal } from "./UploadModal";
 import { NewFolderModal } from "./NewFolderModal";
 import { MoveImageModal } from "./MoveImageModal";
 import { DeleteImageModal } from "./DeleteImageModal";
+import { ImagePreviewModal } from "./ImagePreviewModal";
+import { BulkDeleteModal } from "./BulkDeleteModal";
+import { BulkMoveModal } from "./BulkMoveModal";
+import { AddToNewFolderModal } from "./AddToNewFolderModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -32,7 +48,7 @@ type BrowseImage = {
   original_name: string;
   width: number;
   height: number;
-  sizes: Record<string, { width: number; height: number }>;
+  sizes: Record<string, { width: number; height: number; bytes?: number }>;
   created_at: string;
 };
 
@@ -161,6 +177,30 @@ function thumbUrl(image: BrowseImage): string {
   return `/image-storage/${image.user_did}/${image.filename}/${variant}.webp`;
 }
 
+function Draggable({
+  id,
+  disabled,
+  children,
+}: {
+  id: string;
+  disabled?: boolean;
+  children: (props: ReturnType<typeof useDraggable>) => React.ReactNode;
+}) {
+  const draggable = useDraggable({ id, disabled });
+  return <>{children(draggable)}</>;
+}
+
+function Droppable({
+  id,
+  children,
+}: {
+  id: string;
+  children: (props: ReturnType<typeof useDroppable>) => React.ReactNode;
+}) {
+  const droppable = useDroppable({ id });
+  return <>{children(droppable)}</>;
+}
+
 export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const { folder, breadcrumbs, subfolders, images, currentUserDid, profiles } =
     loaderData;
@@ -178,12 +218,212 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const uploadModal = useModal();
   const newFolderModal = useModal();
   const revalidator = useRevalidator();
+  const { addToast } = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  function onDragStart({ active }: DragStartEvent) {
+    setActiveId(String(active.id));
+  }
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    setActiveId(null);
+    if (!over) return;
+    const overId = String(over.id);
+    if (!overId.startsWith("drop-f:")) return;
+    const destFolderId = Number(overId.slice("drop-f:".length));
+
+    const dragged = String(active.id);
+    const isMoveSelection = selected.has(dragged);
+    const itemSet = isMoveSelection ? selected : new Set([dragged]);
+    const imageIds = [...itemSet]
+      .filter((id) => id.startsWith("i:"))
+      .map((id) => Number(id.slice(2)));
+    const folderIds = [...itemSet]
+      .filter((id) => id.startsWith("f:"))
+      .map((id) => Number(id.slice(2)));
+
+    if (imageIds.length === 0 && folderIds.length === 0) return;
+
+    fetch("/api/image-service/bulk-move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageIds,
+        folderIds,
+        destinationFolderId: destFolderId,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = (await res.json()) as { error?: string };
+          throw new Error(data.error ?? "Move failed");
+        }
+        if (isMoveSelection) clearSelection();
+        refresh();
+      })
+      .catch((err: unknown) => {
+        addToast({
+          heading: "Move failed",
+          content: err instanceof Error ? err.message : "An error occurred",
+          variant: "danger",
+          autoExpire: false,
+        });
+      });
+  }
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moveImage, setMoveImage] = useState<BrowseImage | null>(null);
   const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
+  const [previewImage, setPreviewImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [addToNewFolderOpen, setAddToNewFolderOpen] = useState(false);
+
+  // ── Multi-select state ──────────────────────────────────────────────────────
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [anchorId, setAnchorId] = useState<string | null>(null);
+  const isSelectionMode = selected.size > 0;
+
+  // Clear selection on folder navigation (loaderData change)
+  useEffect(() => {
+    setSelected(new Set());
+    setAnchorId(null);
+  }, [folder?.id]);
+
+  // Escape key clears selection
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && isSelectionMode) {
+        setSelected(new Set());
+        setAnchorId(null);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSelectionMode]);
+
+  // Ordered list of all item IDs in DOM order (folders first, then images)
+  function allItemIds(): string[] {
+    return [
+      ...subfolders.map((f) => `f:${f.id}`),
+      ...images.map((i) => `i:${i.id}`),
+    ];
+  }
+
+  function toggleItem(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    setAnchorId(id);
+  }
+
+  function selectRange(targetId: string) {
+    const ids = allItemIds();
+    const anchorIdx = anchorId !== null ? ids.indexOf(anchorId) : -1;
+    const targetIdx = ids.indexOf(targetId);
+    if (anchorIdx === -1) {
+      // No anchor — treat as a plain toggle
+      toggleItem(targetId);
+      return;
+    }
+    const [from, to] =
+      anchorIdx <= targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx];
+    const rangeIds = ids.slice(from, to + 1);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      rangeIds.forEach((id) => next.add(id));
+      return next;
+    });
+    // Anchor stays at the original anchor point (not updated on shift-click)
+  }
+
+  const handleTileClick = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+
+      if (isShift && isSelectionMode) {
+        e.preventDefault();
+        selectRange(id);
+        return;
+      }
+
+      if (isCtrl) {
+        e.preventDefault();
+        toggleItem(id);
+        return;
+      }
+
+      // Plain click while in selection mode toggles the item
+      if (isSelectionMode) {
+        e.preventDefault();
+        toggleItem(id);
+        return;
+      }
+
+      // Plain click outside selection mode — let navigation happen normally for
+      // folder tiles; for image tiles there is no navigation so this is a no-op.
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isSelectionMode, anchorId, selected],
+  );
+
+  function handleGridClick(e: React.MouseEvent<HTMLUListElement>) {
+    if (e.target === e.currentTarget) {
+      setSelected(new Set());
+      setAnchorId(null);
+    }
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+    setAnchorId(null);
+  }
+
+  // ── Normal action handlers ──────────────────────────────────────────────────
+
+  function parseSelection(sel: Set<string>): {
+    imageIds: number[];
+    folderIds: number[];
+  } {
+    const imageIds: number[] = [];
+    const folderIds: number[] = [];
+    for (const id of sel) {
+      if (id.startsWith("i:")) imageIds.push(Number(id.slice(2)));
+      else if (id.startsWith("f:")) folderIds.push(Number(id.slice(2)));
+    }
+    return { imageIds, folderIds };
+  }
+
+  function handleBulkDeleteSuccess() {
+    setBulkDeleteOpen(false);
+    clearSelection();
+    refresh();
+  }
+
+  function handleBulkMoveSuccess() {
+    setBulkMoveOpen(false);
+    clearSelection();
+    refresh();
+  }
+
+  function handleAddToNewFolderSuccess() {
+    setAddToNewFolderOpen(false);
+    clearSelection();
+    refresh();
+  }
 
   function refresh() {
     revalidator.revalidate();
@@ -225,6 +465,59 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
     }
   }
 
+  // ── topButtons content ──────────────────────────────────────────────────────
+
+  const normalTopButtons = (
+    <div className={styles.topButtons}>
+      {isOwnTree && folder && (
+        <Button variant="secondary" type="button" onClick={newFolderModal.open}>
+          New Folder
+        </Button>
+      )}
+      <Button type="button" onClick={uploadModal.open}>
+        Upload Images
+      </Button>
+    </div>
+  );
+
+  const selectionToolbar = isOwnTree ? (
+    <div className={styles.selectionToolbar}>
+      <Button
+        variant="secondary"
+        type="button"
+        onClick={() => setBulkMoveOpen(true)}
+      >
+        Move to
+      </Button>
+      <Button
+        variant="danger"
+        type="button"
+        onClick={() => setBulkDeleteOpen(true)}
+      >
+        Delete
+      </Button>
+      <Button
+        variant="secondary"
+        type="button"
+        onClick={() => setAddToNewFolderOpen(true)}
+      >
+        Add to New Folder
+      </Button>
+      <button
+        type="button"
+        className={styles.clearSelectionButton}
+        onClick={clearSelection}
+        aria-label="Clear selection"
+      >
+        <SvgIcon name={SvgImageList.Close} fill="currentColor" />
+        {selected.size} selected
+      </button>
+    </div>
+  ) : null;
+
+  const topButtons =
+    isOwnTree && isSelectionMode ? selectionToolbar : normalTopButtons;
+
   return (
     <PageContainer
       title={
@@ -232,22 +525,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           Image Library
         </PageContainerHeading>
       }
-      topButtons={
-        <div className={styles.topButtons}>
-          {isOwnTree && folder && (
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={newFolderModal.open}
-            >
-              New Folder
-            </Button>
-          )}
-          <Button type="button" onClick={uploadModal.open}>
-            Upload Images
-          </Button>
-        </div>
-      }
+      topButtons={topButtons}
     >
       <UploadModal isOpen={uploadModal.isOpen} onClose={handleUploadClose} />
 
@@ -286,6 +564,71 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           }}
         />
       )}
+
+      {previewImage && (
+        <ImagePreviewModal
+          isOpen={true}
+          image={previewImage}
+          images={images}
+          folder={folder}
+          breadcrumbs={breadcrumbs}
+          currentUserDid={currentUserDid}
+          onClose={() => setPreviewImage(null)}
+          onDelete={() => {
+            setPreviewImage(null);
+            refresh();
+          }}
+          onMove={() => {
+            setPreviewImage(null);
+            refresh();
+          }}
+        />
+      )}
+
+      {bulkDeleteOpen &&
+        (() => {
+          const { imageIds, folderIds } = parseSelection(selected);
+          return (
+            <BulkDeleteModal
+              isOpen={true}
+              imageIds={imageIds}
+              folderIds={folderIds}
+              onClose={() => setBulkDeleteOpen(false)}
+              onSuccess={handleBulkDeleteSuccess}
+            />
+          );
+        })()}
+
+      {bulkMoveOpen &&
+        (() => {
+          const { imageIds, folderIds } = parseSelection(selected);
+          return (
+            <BulkMoveModal
+              isOpen={true}
+              imageIds={imageIds}
+              folderIds={folderIds}
+              currentFolderId={folder?.id ?? null}
+              onClose={() => setBulkMoveOpen(false)}
+              onSuccess={handleBulkMoveSuccess}
+            />
+          );
+        })()}
+
+      {addToNewFolderOpen &&
+        folder &&
+        (() => {
+          const { imageIds, folderIds } = parseSelection(selected);
+          return (
+            <AddToNewFolderModal
+              isOpen={true}
+              imageIds={imageIds}
+              folderIds={folderIds}
+              currentFolderId={folder.id}
+              onClose={() => setAddToNewFolderOpen(false)}
+              onSuccess={handleAddToNewFolderSuccess}
+            />
+          );
+        })()}
 
       <PageSection>
         <nav className={styles.breadcrumbs} aria-label="Folder navigation">
@@ -332,158 +675,263 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         {deleteError && <p className={styles.deleteError}>{deleteError}</p>}
 
         {(subfolders.length > 0 || images.length > 0) && (
-          <ul className={styles.grid}>
-            {subfolders.map((subfolder) => {
-              const avatarUrl =
-                subfolder.parent_id === null
-                  ? (profiles[subfolder.user_did]?.avatarUrl ?? null)
-                  : null;
-              return (
-                <li key={`f-${subfolder.id}`}>
-                  {confirmDeleteId === subfolder.id ? (
-                    <div className={styles.deleteConfirm}>
-                      <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
-                      <div className={styles.deleteConfirmActions}>
-                        <Button
-                          variant="danger"
-                          type="button"
-                          onClick={() => handleDeleteFolder(subfolder.id)}
-                        >
-                          Delete
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          type="button"
-                          onClick={() => {
-                            setConfirmDeleteId(null);
-                            setDeleteError(null);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={styles.folderTileWrap}>
-                      <Link
-                        to={`/images?folder=${subfolder.id}`}
-                        className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}`}
-                      >
-                        <span className={styles.folderIcon}>
-                          <SvgIcon
-                            name={SvgImageList.Folder}
-                            fill="var(--blue)"
-                          />
-                          {avatarUrl && (
-                            <img
-                              src={avatarUrl}
-                              alt=""
-                              className={styles.folderAvatar}
-                            />
-                          )}
-                        </span>
-                        <span className={styles.tileName}>
-                          {folderLabel(subfolder)}
-                        </span>
-                      </Link>
-                      {isOwnTree && (
-                        <div className={styles.tileActions}>
-                          <button
+          <DndContext
+            sensors={sensors}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onDragCancel={() => setActiveId(null)}
+          >
+            <ul className={styles.grid} onClick={handleGridClick}>
+              {subfolders.map((subfolder) => {
+                const avatarUrl =
+                  subfolder.parent_id === null
+                    ? (profiles[subfolder.user_did]?.avatarUrl ?? null)
+                    : null;
+                const itemId = `f:${subfolder.id}`;
+                const isSelected = selected.has(itemId);
+                const isDeleting = confirmDeleteId === subfolder.id;
+                return (
+                  <li key={`f-${subfolder.id}`}>
+                    {isDeleting ? (
+                      <div className={styles.deleteConfirm}>
+                        <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
+                        <div className={styles.deleteConfirmActions}>
+                          <Button
+                            variant="danger"
                             type="button"
-                            className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                            onClick={() => handleDeleteFolder(subfolder.id)}
+                          >
+                            Delete
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            type="button"
                             onClick={() => {
-                              setConfirmDeleteId(subfolder.id);
+                              setConfirmDeleteId(null);
                               setDeleteError(null);
                             }}
-                            aria-label={`Delete ${subfolder.name}`}
-                            title="Delete folder"
                           >
-                            <SvgIcon
-                              name={SvgImageList.Trash}
-                              fill="currentColor"
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Droppable id={`drop-f:${subfolder.id}`}>
+                        {(droppable) => (
+                          <Draggable id={itemId} disabled={isDeleting}>
+                            {(draggable) => (
+                              <div
+                                ref={(node) => {
+                                  draggable.setNodeRef(node);
+                                  droppable.setNodeRef(node);
+                                }}
+                                {...draggable.attributes}
+                                {...draggable.listeners}
+                                className={`${styles.folderTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}${droppable.isOver ? ` ${styles.folderTileDragOver}` : ""}${draggable.isDragging ? ` ${styles.tileIsDragging}` : ""}`}
+                              >
+                                {isOwnTree && (
+                                  <input
+                                    type="checkbox"
+                                    className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
+                                    checked={isSelected}
+                                    aria-label={`Select ${subfolder.name}`}
+                                    onChange={() => toggleItem(itemId)}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                )}
+                                <Link
+                                  to={`/images?folder=${subfolder.id}`}
+                                  className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}${isSelected ? ` ${styles.tileSelected}` : ""}`}
+                                  onClick={(e) => {
+                                    handleTileClick(itemId, e);
+                                    // If we consumed the click for selection, prevent navigation
+                                    const isCtrl = e.ctrlKey || e.metaKey;
+                                    const isShift = e.shiftKey;
+                                    if (isCtrl || isShift || isSelectionMode) {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }
+                                  }}
+                                >
+                                  <span className={styles.folderIcon}>
+                                    <SvgIcon
+                                      name={SvgImageList.Folder}
+                                      fill="var(--blue)"
+                                    />
+                                    {avatarUrl && (
+                                      <img
+                                        src={avatarUrl}
+                                        alt=""
+                                        className={styles.folderAvatar}
+                                      />
+                                    )}
+                                  </span>
+                                  <span className={styles.tileName}>
+                                    {folderLabel(subfolder)}
+                                  </span>
+                                </Link>
+                                {isOwnTree && (
+                                  <div className={styles.tileActions}>
+                                    <button
+                                      type="button"
+                                      className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                                      onClick={() => {
+                                        setConfirmDeleteId(subfolder.id);
+                                        setDeleteError(null);
+                                      }}
+                                      aria-label={`Delete ${subfolder.name}`}
+                                      title="Delete folder"
+                                    >
+                                      <SvgIcon
+                                        name={SvgImageList.Trash}
+                                        fill="currentColor"
+                                      />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
+                        )}
+                      </Droppable>
+                    )}
+                  </li>
+                );
+              })}
+
+              {images.map((image) => {
+                const orderedVariants = VARIANT_ORDER.filter(
+                  (v) => v in image.sizes,
+                );
+                const itemId = `i:${image.id}`;
+                const isSelected = selected.has(itemId);
+                return (
+                  <li key={`i-${image.id}`}>
+                    <Draggable id={itemId}>
+                      {(draggable) => (
+                        <div
+                          ref={draggable.setNodeRef}
+                          {...draggable.attributes}
+                          {...draggable.listeners}
+                          className={`${styles.imageTileWrap}${isSelected ? ` ${styles.tileWrapSelected}` : ""}${draggable.isDragging ? ` ${styles.tileIsDragging}` : ""}`}
+                          onClick={(e) => handleTileClick(itemId, e)}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(image);
+                          }}
+                        >
+                          {isOwnTree && (
+                            <input
+                              type="checkbox"
+                              className={`${styles.tileCheckbox}${isSelectionMode ? ` ${styles.tileCheckboxVisible}` : ""}`}
+                              checked={isSelected}
+                              aria-label={`Select ${image.original_name}`}
+                              onChange={() => toggleItem(itemId)}
+                              onClick={(e) => e.stopPropagation()}
                             />
-                          </button>
+                          )}
+                          <div
+                            className={`${styles.imageTile}${isSelected ? ` ${styles.tileSelected}` : ""}`}
+                          >
+                            <span className={styles.thumbnailWrap}>
+                              <img
+                                src={thumbUrl(image)}
+                                alt={image.original_name}
+                                className={styles.thumbnail}
+                                loading="lazy"
+                              />
+                            </span>
+                            <span
+                              className={styles.tileName}
+                              title={image.original_name}
+                            >
+                              {image.original_name}
+                            </span>
+                            <div className={styles.variantButtons}>
+                              {orderedVariants.map((v) => {
+                                const key = `${image.id}:${v}`;
+                                const copied = copiedKey === key;
+                                return (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopy(image, v);
+                                    }}
+                                    title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
+                                  >
+                                    {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {isOwnTree && (
+                            <div className={styles.tileActions}>
+                              <button
+                                type="button"
+                                className={styles.tileAction}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMoveImage(image);
+                                }}
+                                aria-label={`Move ${image.original_name}`}
+                                title="Move to folder"
+                              >
+                                <SvgIcon
+                                  name={SvgImageList.Folder}
+                                  fill="currentColor"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteImage(image);
+                                }}
+                                aria-label={`Delete ${image.original_name}`}
+                                title="Delete image"
+                              >
+                                <SvgIcon
+                                  name={SvgImageList.Trash}
+                                  fill="currentColor"
+                                />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
+                    </Draggable>
+                  </li>
+                );
+              })}
+            </ul>
 
-            {images.map((image) => {
-              const orderedVariants = VARIANT_ORDER.filter(
-                (v) => v in image.sizes,
-              );
-              return (
-                <li key={`i-${image.id}`}>
-                  <div className={styles.imageTileWrap}>
-                    <div className={styles.imageTile}>
-                      <span className={styles.thumbnailWrap}>
-                        <img
-                          src={thumbUrl(image)}
-                          alt={image.original_name}
-                          className={styles.thumbnail}
-                          loading="lazy"
-                        />
-                      </span>
-                      <span
-                        className={styles.tileName}
-                        title={image.original_name}
-                      >
-                        {image.original_name}
-                      </span>
-                      <div className={styles.variantButtons}>
-                        {orderedVariants.map((v) => {
-                          const key = `${image.id}:${v}`;
-                          const copied = copiedKey === key;
-                          return (
-                            <button
-                              key={v}
-                              type="button"
-                              className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
-                              onClick={() => handleCopy(image, v)}
-                              title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
-                            >
-                              {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {isOwnTree && (
-                      <div className={styles.tileActions}>
-                        <button
-                          type="button"
-                          className={styles.tileAction}
-                          onClick={() => setMoveImage(image)}
-                          aria-label={`Move ${image.original_name}`}
-                          title="Move to folder"
-                        >
-                          <SvgIcon
-                            name={SvgImageList.Folder}
-                            fill="currentColor"
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.tileAction} ${styles.tileActionDanger}`}
-                          onClick={() => setDeleteImage(image)}
-                          aria-label={`Delete ${image.original_name}`}
-                          title="Delete image"
-                        >
-                          <SvgIcon
-                            name={SvgImageList.Trash}
-                            fill="currentColor"
-                          />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+            <DragOverlay>
+              {activeId
+                ? (() => {
+                    const isMoveAll =
+                      selected.has(activeId) && selected.size > 1;
+                    if (isMoveAll) {
+                      return (
+                        <div className={styles.dragBadge}>
+                          {selected.size} items
+                        </div>
+                      );
+                    }
+                    const label = activeId.startsWith("i:")
+                      ? (images.find((img) => `i:${img.id}` === activeId)
+                          ?.original_name ?? activeId)
+                      : (subfolders.find((f) => `f:${f.id}` === activeId)
+                          ?.name ?? activeId);
+                    return <div className={styles.dragBadge}>{label}</div>;
+                  })()
+                : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </PageSection>
     </PageContainer>

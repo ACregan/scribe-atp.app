@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(npx prettier *)",
-      "Bash(npx tsx *)"
+      "Bash(npx tsx *)",
+      "Bash(gh repo *)",
+      "Bash(gh issue *)",
+      "Bash(glab auth *)",
+      "Bash(npm run *)",
+      "Bash(glab issue *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit *)"
     ]
   }
 }
