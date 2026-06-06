@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { MoveImageModal } from "./MoveImageModal";
+import { useToast } from "~/components/Toast/ToastContext";
 import styles from "./ImagePreviewModal.module.css";
 
 type BrowseImage = {
@@ -71,6 +72,7 @@ export function ImagePreviewModal({
     largestVariant(initialImage.sizes),
   );
   const [copied, setCopied] = useState(false);
+  const { addToast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -158,6 +160,12 @@ export function ImagePreviewModal({
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied((prev) => (prev ? false : prev)), 2000);
+        addToast({
+          heading: "URL copied to clipboard",
+          content: `${image.original_name} — ${VARIANT_LABEL[selectedVariant] ?? selectedVariant}`,
+          variant: "primary",
+          expireTimeSeconds: 10,
+        });
       })
       .catch(() => {
         /* clipboard denied */

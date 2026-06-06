@@ -467,6 +467,12 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           () => setCopiedKey((prev) => (prev === key ? null : prev)),
           2000,
         );
+        addToast({
+          heading: "URL copied to clipboard",
+          content: `${image.original_name} — ${VARIANT_LABEL[variant] ?? variant}`,
+          variant: "primary",
+          expireTimeSeconds: 10,
+        });
       })
       .catch(() => {
         /* clipboard denied — no visual change */
