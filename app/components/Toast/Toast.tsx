@@ -115,7 +115,9 @@ const Toast: React.FC<ToastPropsWithId> = ({
       <div className={styles.toastHeaderContainer}>
         <span className={styles.toastHeader}>{heading}</span>
         <div className={styles.closeButtonContainer}>
-          <CountdownSvg percent={pct} {...countdownConfig[variant]} />
+          {autoExpire && (
+            <CountdownSvg percent={pct} {...countdownConfig[variant]} />
+          )}
           <button
             type="button"
             onClick={() => removeToast(id)}
