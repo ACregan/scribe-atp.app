@@ -1,5 +1,5 @@
 import { reactRouter } from "@react-router/dev/vite";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type ViteDevServer } from "vite";
 import path from "path";
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => {
         ? [
             {
               name: "image-storage-static",
-              configureServer(server) {
+              configureServer(server: ViteDevServer) {
                 server.middlewares.use(
                   "/image-storage",
                   imageStorageMiddleware(env.IMAGE_STORAGE_ROOT),

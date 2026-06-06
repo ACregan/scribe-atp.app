@@ -36,12 +36,18 @@ type BrowseImage = {
   created_at: string;
 };
 
+type UserProfile = {
+  displayName: string | null;
+  avatarUrl: string | null;
+};
+
 type LoaderData = {
   currentUserDid: string;
   folder: BrowseFolder | null;
   breadcrumbs: Array<{ id: number; name: string }>;
   subfolders: BrowseFolder[];
   images: BrowseImage[];
+  profiles: Record<string, UserProfile>;
 };
 
 const VARIANT_ORDER = ["thumb", "600", "1200", "1800", "max"];
@@ -55,20 +61,21 @@ const VARIANT_LABEL: Record<string, string> = {
 
 const DEV_DID = "did:dev:user";
 
+const DEV_OTHER_DID = "did:plc:otheruser456789abcdefgh";
+
 const DEV_MOCK: LoaderData = {
   currentUserDid: DEV_DID,
   folder: null,
   breadcrumbs: [],
   subfolders: [
     { id: 1, user_did: DEV_DID, name: DEV_DID, parent_id: null },
-    {
-      id: 2,
-      user_did: "did:plc:otheruser456789abcdefgh",
-      name: "did:plc:otheruser456789abcdefgh",
-      parent_id: null,
-    },
+    { id: 2, user_did: DEV_OTHER_DID, name: DEV_OTHER_DID, parent_id: null },
   ],
   images: [],
+  profiles: {
+    [DEV_DID]: { displayName: "Dev User", avatarUrl: null },
+    [DEV_OTHER_DID]: { displayName: "Another Writer", avatarUrl: null },
+  },
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -94,8 +101,41 @@ export async function loader({ request }: Route.LoaderArgs) {
     });
     if (!response.ok)
       throw new Error(`Image Service returned ${response.status}`);
-    const data = (await response.json()) as Omit<LoaderData, "currentUserDid">;
-    return { ...data, currentUserDid: did };
+    const data = (await response.json()) as Omit<
+      LoaderData,
+      "currentUserDid" | "profiles"
+    >;
+
+    const profiles: Record<string, UserProfile> = {};
+    if (!data.folder && data.subfolders.length > 0) {
+      const uniqueDids = [...new Set(data.subfolders.map((f) => f.user_did))];
+      try {
+        const params = new URLSearchParams();
+        uniqueDids.forEach((d) => params.append("actors", d));
+        const profileRes = await fetch(
+          `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfiles?${params}`,
+        );
+        if (profileRes.ok) {
+          const { profiles: fetched } = (await profileRes.json()) as {
+            profiles: Array<{
+              did: string;
+              displayName?: string;
+              avatar?: string;
+            }>;
+          };
+          for (const p of fetched) {
+            profiles[p.did] = {
+              displayName: p.displayName ?? null,
+              avatarUrl: p.avatar ?? null,
+            };
+          }
+        }
+      } catch {
+        // Profile resolution is best-effort; falls back to DID display
+      }
+    }
+
+    return { ...data, currentUserDid: did, profiles };
   } catch (err) {
     console.error("[images loader]", err);
     return {
@@ -104,6 +144,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       subfolders: [],
       images: [],
       currentUserDid: did,
+      profiles: {},
     } satisfies LoaderData;
   }
 }
@@ -121,7 +162,7 @@ function thumbUrl(image: BrowseImage): string {
 }
 
 export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
-  const { folder, breadcrumbs, subfolders, images, currentUserDid } =
+  const { folder, breadcrumbs, subfolders, images, currentUserDid, profiles } =
     loaderData;
   const isEmpty = subfolders.length === 0 && images.length === 0;
   const isOwnTree = folder?.user_did === currentUserDid;
@@ -129,6 +170,8 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   function folderLabel(sub: BrowseFolder): string {
     if (sub.parent_id !== null) return sub.name;
     if (sub.user_did === currentUserDid) return "My Images";
+    const displayName = profiles[sub.user_did]?.displayName;
+    if (displayName) return `${displayName} Images`;
     return sub.name.length > 20 ? `${sub.name.slice(0, 20)}…` : sub.name;
   }
 
@@ -290,70 +333,83 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
 
         {(subfolders.length > 0 || images.length > 0) && (
           <ul className={styles.grid}>
-            {subfolders.map((subfolder) => (
-              <li key={`f-${subfolder.id}`}>
-                {confirmDeleteId === subfolder.id ? (
-                  <div className={styles.deleteConfirm}>
-                    <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
-                    <div className={styles.deleteConfirmActions}>
-                      <Button
-                        variant="danger"
-                        type="button"
-                        onClick={() => handleDeleteFolder(subfolder.id)}
-                      >
-                        Delete
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        type="button"
-                        onClick={() => {
-                          setConfirmDeleteId(null);
-                          setDeleteError(null);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className={styles.folderTileWrap}>
-                    <Link
-                      to={`/images?folder=${subfolder.id}`}
-                      className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}`}
-                    >
-                      <span className={styles.folderIcon}>
-                        <SvgIcon
-                          name={SvgImageList.Folder}
-                          fill="var(--blue)"
-                        />
-                      </span>
-                      <span className={styles.tileName}>
-                        {folderLabel(subfolder)}
-                      </span>
-                    </Link>
-                    {isOwnTree && (
-                      <div className={styles.tileActions}>
-                        <button
+            {subfolders.map((subfolder) => {
+              const avatarUrl =
+                subfolder.parent_id === null
+                  ? (profiles[subfolder.user_did]?.avatarUrl ?? null)
+                  : null;
+              return (
+                <li key={`f-${subfolder.id}`}>
+                  {confirmDeleteId === subfolder.id ? (
+                    <div className={styles.deleteConfirm}>
+                      <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
+                      <div className={styles.deleteConfirmActions}>
+                        <Button
+                          variant="danger"
                           type="button"
-                          className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                          onClick={() => handleDeleteFolder(subfolder.id)}
+                        >
+                          Delete
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          type="button"
                           onClick={() => {
-                            setConfirmDeleteId(subfolder.id);
+                            setConfirmDeleteId(null);
                             setDeleteError(null);
                           }}
-                          aria-label={`Delete ${subfolder.name}`}
-                          title="Delete folder"
                         >
-                          <SvgIcon
-                            name={SvgImageList.Trash}
-                            fill="currentColor"
-                          />
-                        </button>
+                          Cancel
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
+                    </div>
+                  ) : (
+                    <div className={styles.folderTileWrap}>
+                      <Link
+                        to={`/images?folder=${subfolder.id}`}
+                        className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}`}
+                      >
+                        <span className={styles.folderIcon}>
+                          <SvgIcon
+                            name={SvgImageList.Folder}
+                            fill="var(--blue)"
+                          />
+                          {avatarUrl && (
+                            <img
+                              src={avatarUrl}
+                              alt=""
+                              className={styles.folderAvatar}
+                            />
+                          )}
+                        </span>
+                        <span className={styles.tileName}>
+                          {folderLabel(subfolder)}
+                        </span>
+                      </Link>
+                      {isOwnTree && (
+                        <div className={styles.tileActions}>
+                          <button
+                            type="button"
+                            className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                            onClick={() => {
+                              setConfirmDeleteId(subfolder.id);
+                              setDeleteError(null);
+                            }}
+                            aria-label={`Delete ${subfolder.name}`}
+                            title="Delete folder"
+                          >
+                            <SvgIcon
+                              name={SvgImageList.Trash}
+                              fill="currentColor"
+                            />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
 
             {images.map((image) => {
               const orderedVariants = VARIANT_ORDER.filter(

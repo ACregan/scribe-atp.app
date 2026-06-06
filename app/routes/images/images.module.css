@@ -55,7 +55,9 @@
   cursor: pointer;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .folderTile:hover,
@@ -71,6 +73,7 @@
 }
 
 .folderIcon {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,6 +84,17 @@
 .folderIcon > svg {
   width: 5rem;
   height: 5rem;
+}
+
+.folderAvatar {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 2px solid var(--white, #fff);
+  object-fit: cover;
 }
 
 /* ── Image tile ──────────────────────────────────────────────────────────── */
@@ -153,7 +167,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .tileAction > svg {
@@ -211,7 +227,9 @@
   background: var(--white, #fff);
   cursor: pointer;
   color: var(--mid-grey, #949494);
-  transition: border-color 0.1s, color 0.1s;
+  transition:
+    border-color 0.1s,
+    color 0.1s;
   line-height: 1.4;
   white-space: nowrap;
 }
