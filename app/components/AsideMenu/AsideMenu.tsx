@@ -70,7 +70,7 @@ const MENU_CONFIG: AsideMenuItemProps[] = [
   },
   {
     id: "image-library",
-    icon: SvgImageList.Tiles,
+    icon: SvgImageList.Image,
     label: "Image Library",
     to: "/images",
   },

@@ -15,6 +15,7 @@ export const SvgImageList = {
   Close: "Close",
   Tiles: "Tiles",
   List: "List",
+  Image: "Image",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -199,6 +200,20 @@ const SvgIcon: React.FC<SVGiconProp> = ({
           fill={fill}
         >
           <path d="M19 23h8v8h-8zm0 11h8v8h-8zm12-11h26v8H31zM19 45h8v8h-8zm12-11h26v8H31zm0 11h26v8H31z"></path>
+        </svg>
+      );
+
+    case SvgImageList.Image:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+          fill={fill}
+        >
+          <path
+            fillRule="evenodd"
+            d="M64 448V64h384v384zm109.227-198.4-66.561 106.948v48.785h298.667v-33.92l-64-64-65.493 65.494zm232.106-142.934H106.666v169.211l61.44-98.81 110.72 132.693 62.507-62.507 64 64zm-96 42.667c17.673 0 32 14.327 32 32s-14.327 32-32 32-32-14.327-32-32 14.327-32 32-32"
+          ></path>
         </svg>
       );
 

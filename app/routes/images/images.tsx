@@ -61,7 +61,12 @@ const DEV_MOCK: LoaderData = {
   breadcrumbs: [],
   subfolders: [
     { id: 1, user_did: DEV_DID, name: DEV_DID, parent_id: null },
-    { id: 2, user_did: "did:plc:otheruser456789abcdefgh", name: "did:plc:otheruser456789abcdefgh", parent_id: null },
+    {
+      id: 2,
+      user_did: "did:plc:otheruser456789abcdefgh",
+      name: "did:plc:otheruser456789abcdefgh",
+      parent_id: null,
+    },
   ],
   images: [],
 };
@@ -87,25 +92,37 @@ export async function loader({ request }: Route.LoaderArgs) {
     const response = await fetch(apiUrl, {
       headers: { Cookie: request.headers.get("Cookie") ?? "" },
     });
-    if (!response.ok) throw new Error(`Image Service returned ${response.status}`);
-    const data = await response.json() as Omit<LoaderData, "currentUserDid">;
+    if (!response.ok)
+      throw new Error(`Image Service returned ${response.status}`);
+    const data = (await response.json()) as Omit<LoaderData, "currentUserDid">;
     return { ...data, currentUserDid: did };
   } catch (err) {
     console.error("[images loader]", err);
-    return { folder: null, breadcrumbs: [], subfolders: [], images: [], currentUserDid: did } satisfies LoaderData;
+    return {
+      folder: null,
+      breadcrumbs: [],
+      subfolders: [],
+      images: [],
+      currentUserDid: did,
+    } satisfies LoaderData;
   }
 }
 
 function thumbUrl(image: BrowseImage): string {
-  const variant = "thumb" in image.sizes ? "thumb"
-    : "600" in image.sizes ? "600"
-    : "1200" in image.sizes ? "1200"
-    : "max";
+  const variant =
+    "thumb" in image.sizes
+      ? "thumb"
+      : "600" in image.sizes
+        ? "600"
+        : "1200" in image.sizes
+          ? "1200"
+          : "max";
   return `/image-storage/${image.user_did}/${image.filename}/${variant}.webp`;
 }
 
 export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
-  const { folder, breadcrumbs, subfolders, images, currentUserDid } = loaderData;
+  const { folder, breadcrumbs, subfolders, images, currentUserDid } =
+    loaderData;
   const isEmpty = subfolders.length === 0 && images.length === 0;
   const isOwnTree = folder?.user_did === currentUserDid;
 
@@ -125,27 +142,42 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [deleteImage, setDeleteImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  function refresh() { revalidator.revalidate(); }
+  function refresh() {
+    revalidator.revalidate();
+  }
 
   function handleCopy(image: BrowseImage, variant: string) {
     const url = `${window.location.origin}/image-storage/${image.user_did}/${image.filename}/${variant}.webp`;
-    navigator.clipboard.writeText(url).then(() => {
-      const key = `${image.id}:${variant}`;
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey(prev => prev === key ? null : prev), 2000);
-    }).catch(() => { /* clipboard denied — no visual change */ });
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        const key = `${image.id}:${variant}`;
+        setCopiedKey(key);
+        setTimeout(
+          () => setCopiedKey((prev) => (prev === key ? null : prev)),
+          2000,
+        );
+      })
+      .catch(() => {
+        /* clipboard denied — no visual change */
+      });
   }
 
-  function handleUploadClose() { uploadModal.close(); refresh(); }
+  function handleUploadClose() {
+    uploadModal.close();
+    refresh();
+  }
 
   async function handleDeleteFolder(folderId: number) {
     setDeleteError(null);
-    const res = await fetch(`/api/image-service/folders/${folderId}`, { method: "DELETE" });
+    const res = await fetch(`/api/image-service/folders/${folderId}`, {
+      method: "DELETE",
+    });
     if (res.ok) {
       setConfirmDeleteId(null);
       refresh();
     } else {
-      const data = await res.json() as { error?: string };
+      const data = (await res.json()) as { error?: string };
       setDeleteError(data.error ?? "Delete failed");
     }
   }
@@ -153,18 +185,24 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   return (
     <PageContainer
       title={
-        <PageContainerHeading icon={SvgImageList.Tiles}>
+        <PageContainerHeading icon={SvgImageList.Image}>
           Image Library
         </PageContainerHeading>
       }
       topButtons={
         <div className={styles.topButtons}>
           {isOwnTree && folder && (
-            <Button variant="secondary" type="button" onClick={newFolderModal.open}>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={newFolderModal.open}
+            >
               New Folder
             </Button>
           )}
-          <Button type="button" onClick={uploadModal.open}>Upload Images</Button>
+          <Button type="button" onClick={uploadModal.open}>
+            Upload Images
+          </Button>
         </div>
       }
     >
@@ -186,7 +224,10 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           imageName={moveImage.original_name}
           currentFolderId={folder?.id ?? null}
           onClose={() => setMoveImage(null)}
-          onSuccess={() => { setMoveImage(null); refresh(); }}
+          onSuccess={() => {
+            setMoveImage(null);
+            refresh();
+          }}
         />
       )}
 
@@ -196,20 +237,28 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           imageId={deleteImage.id}
           imageName={deleteImage.original_name}
           onClose={() => setDeleteImage(null)}
-          onSuccess={() => { setDeleteImage(null); refresh(); }}
+          onSuccess={() => {
+            setDeleteImage(null);
+            refresh();
+          }}
         />
       )}
 
       <PageSection>
         <nav className={styles.breadcrumbs} aria-label="Folder navigation">
-          <Link to="/images" className={styles.breadcrumbLink}>Image Library</Link>
+          <Link to="/images" className={styles.breadcrumbLink}>
+            Image Library
+          </Link>
           {breadcrumbs.map((crumb, i) => (
             <span key={crumb.id}>
               <span className={styles.breadcrumbSep}>›</span>
               {i === breadcrumbs.length - 1 ? (
                 <span className={styles.breadcrumbCurrent}>{crumb.name}</span>
               ) : (
-                <Link to={`/images?folder=${crumb.id}`} className={styles.breadcrumbLink}>
+                <Link
+                  to={`/images?folder=${crumb.id}`}
+                  className={styles.breadcrumbLink}
+                >
                   {crumb.name}
                 </Link>
               )}
@@ -237,9 +286,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           </div>
         )}
 
-        {deleteError && (
-          <p className={styles.deleteError}>{deleteError}</p>
-        )}
+        {deleteError && <p className={styles.deleteError}>{deleteError}</p>}
 
         {(subfolders.length > 0 || images.length > 0) && (
           <ul className={styles.grid}>
@@ -249,8 +296,23 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                   <div className={styles.deleteConfirm}>
                     <span>Delete &ldquo;{subfolder.name}&rdquo;?</span>
                     <div className={styles.deleteConfirmActions}>
-                      <Button variant="danger" type="button" onClick={() => handleDeleteFolder(subfolder.id)}>Delete</Button>
-                      <Button variant="secondary" type="button" onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}>Cancel</Button>
+                      <Button
+                        variant="danger"
+                        type="button"
+                        onClick={() => handleDeleteFolder(subfolder.id)}
+                      >
+                        Delete
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        type="button"
+                        onClick={() => {
+                          setConfirmDeleteId(null);
+                          setDeleteError(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -260,20 +322,31 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                       className={`${styles.folderTile}${subfolder.parent_id === null && subfolder.user_did === currentUserDid ? ` ${styles.folderTileOwn}` : ""}`}
                     >
                       <span className={styles.folderIcon}>
-                        <SvgIcon name={SvgImageList.Folder} fill="var(--blue)" />
+                        <SvgIcon
+                          name={SvgImageList.Folder}
+                          fill="var(--blue)"
+                        />
                       </span>
-                      <span className={styles.tileName}>{folderLabel(subfolder)}</span>
+                      <span className={styles.tileName}>
+                        {folderLabel(subfolder)}
+                      </span>
                     </Link>
                     {isOwnTree && (
                       <div className={styles.tileActions}>
                         <button
                           type="button"
                           className={`${styles.tileAction} ${styles.tileActionDanger}`}
-                          onClick={() => { setConfirmDeleteId(subfolder.id); setDeleteError(null); }}
+                          onClick={() => {
+                            setConfirmDeleteId(subfolder.id);
+                            setDeleteError(null);
+                          }}
                           aria-label={`Delete ${subfolder.name}`}
                           title="Delete folder"
                         >
-                          <SvgIcon name={SvgImageList.Trash} fill="currentColor" />
+                          <SvgIcon
+                            name={SvgImageList.Trash}
+                            fill="currentColor"
+                          />
                         </button>
                       </div>
                     )}
@@ -283,64 +356,75 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
             ))}
 
             {images.map((image) => {
-              const orderedVariants = VARIANT_ORDER.filter(v => v in image.sizes);
+              const orderedVariants = VARIANT_ORDER.filter(
+                (v) => v in image.sizes,
+              );
               return (
-              <li key={`i-${image.id}`}>
-                <div className={styles.imageTileWrap}>
-                  <div className={styles.imageTile}>
-                    <span className={styles.thumbnailWrap}>
-                      <img
-                        src={thumbUrl(image)}
-                        alt={image.original_name}
-                        className={styles.thumbnail}
-                        loading="lazy"
-                      />
-                    </span>
-                    <span className={styles.tileName} title={image.original_name}>
-                      {image.original_name}
-                    </span>
-                    <div className={styles.variantButtons}>
-                      {orderedVariants.map(v => {
-                        const key = `${image.id}:${v}`;
-                        const copied = copiedKey === key;
-                        return (
-                          <button
-                            key={v}
-                            type="button"
-                            className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
-                            onClick={() => handleCopy(image, v)}
-                            title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
-                          >
-                            {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
-                          </button>
-                        );
-                      })}
+                <li key={`i-${image.id}`}>
+                  <div className={styles.imageTileWrap}>
+                    <div className={styles.imageTile}>
+                      <span className={styles.thumbnailWrap}>
+                        <img
+                          src={thumbUrl(image)}
+                          alt={image.original_name}
+                          className={styles.thumbnail}
+                          loading="lazy"
+                        />
+                      </span>
+                      <span
+                        className={styles.tileName}
+                        title={image.original_name}
+                      >
+                        {image.original_name}
+                      </span>
+                      <div className={styles.variantButtons}>
+                        {orderedVariants.map((v) => {
+                          const key = `${image.id}:${v}`;
+                          const copied = copiedKey === key;
+                          return (
+                            <button
+                              key={v}
+                              type="button"
+                              className={`${styles.variantButton}${copied ? ` ${styles.variantButtonCopied}` : ""}`}
+                              onClick={() => handleCopy(image, v)}
+                              title={`Copy ${VARIANT_LABEL[v] ?? v} URL`}
+                            >
+                              {copied ? "✓" : (VARIANT_LABEL[v] ?? v)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
+                    {isOwnTree && (
+                      <div className={styles.tileActions}>
+                        <button
+                          type="button"
+                          className={styles.tileAction}
+                          onClick={() => setMoveImage(image)}
+                          aria-label={`Move ${image.original_name}`}
+                          title="Move to folder"
+                        >
+                          <SvgIcon
+                            name={SvgImageList.Folder}
+                            fill="currentColor"
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.tileAction} ${styles.tileActionDanger}`}
+                          onClick={() => setDeleteImage(image)}
+                          aria-label={`Delete ${image.original_name}`}
+                          title="Delete image"
+                        >
+                          <SvgIcon
+                            name={SvgImageList.Trash}
+                            fill="currentColor"
+                          />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {isOwnTree && (
-                    <div className={styles.tileActions}>
-                      <button
-                        type="button"
-                        className={styles.tileAction}
-                        onClick={() => setMoveImage(image)}
-                        aria-label={`Move ${image.original_name}`}
-                        title="Move to folder"
-                      >
-                        <SvgIcon name={SvgImageList.Folder} fill="currentColor" />
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.tileAction} ${styles.tileActionDanger}`}
-                        onClick={() => setDeleteImage(image)}
-                        aria-label={`Delete ${image.original_name}`}
-                        title="Delete image"
-                      >
-                        <SvgIcon name={SvgImageList.Trash} fill="currentColor" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </li>
+                </li>
               );
             })}
           </ul>
