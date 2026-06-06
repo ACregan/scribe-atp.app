@@ -28,6 +28,7 @@ interface PageContainerProps {
   title?: React.ReactNode;
   topButtons?: React.ReactNode;
   bottomButtons?: React.ReactNode;
+  fixed?: boolean;
 }
 
 const PageContainer: React.FC<PageContainerProps> = ({
@@ -35,9 +36,10 @@ const PageContainer: React.FC<PageContainerProps> = ({
   title,
   topButtons,
   bottomButtons,
+  fixed = false,
 }) => {
   return (
-    <div className={styles.pageContainer}>
+    <div className={fixed ? styles.fixedPageContainer : styles.pageContainer}>
       {title && (
         <div className={styles.headingContainer}>
           {typeof title === "string" ? <h1>{title}</h1> : title}
@@ -56,9 +58,19 @@ const PageContainer: React.FC<PageContainerProps> = ({
 };
 interface PageSectionProps {
   children: React.ReactNode;
+  overflow?: boolean;
 }
-const PageSection: React.FC<PageSectionProps> = ({ children }) => {
-  return <div className={styles.pageSection}>{children}</div>;
+const PageSection: React.FC<PageSectionProps> = ({
+  children,
+  overflow = false,
+}) => {
+  return (
+    <div
+      className={overflow ? styles.pageSectionWithOverflow : styles.pageSection}
+    >
+      {children}
+    </div>
+  );
 };
 interface PageSectionRowProps {
   children: React.ReactNode;

@@ -526,6 +526,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         </PageContainerHeading>
       }
       topButtons={topButtons}
+      fixed
     >
       <UploadModal isOpen={uploadModal.isOpen} onClose={handleUploadClose} />
 
@@ -653,7 +654,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
         </nav>
       </PageSection>
 
-      <PageSection>
+      <PageSection overflow>
         {!folder && isEmpty && (
           <div className={styles.emptyState}>
             <p className={styles.emptyStateHeading}>No images yet</p>
