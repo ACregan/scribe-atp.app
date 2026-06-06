@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./Modal.module.css";
 
@@ -10,6 +10,8 @@ type ModalProps = {
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  style?: CSSProperties;
+  bodyStyle?: CSSProperties;
 };
 
 export function Modal({
@@ -20,6 +22,8 @@ export function Modal({
   children,
   className,
   bodyClassName,
+  style,
+  bodyStyle,
 }: ModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -41,6 +45,7 @@ export function Modal({
     >
       <div
         className={`${styles.modal}${className ? ` ${className}` : ""}`}
+        style={style}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.header}>
@@ -55,6 +60,7 @@ export function Modal({
         </div>
         <div
           className={`${styles.body}${bodyClassName ? ` ${bodyClassName}` : ""}`}
+          style={bodyStyle}
         >
           {children}
         </div>

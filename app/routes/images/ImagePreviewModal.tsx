@@ -257,8 +257,17 @@ export function ImagePreviewModal({
         onClose={handleClose}
         title={image.original_name}
         footer={showDeleteConfirm ? deleteConfirmFooter : normalFooter}
-        className={styles.previewModal}
-        bodyClassName={styles.previewModalBody}
+        style={{
+          width: "calc(100dvw - 4rem)",
+          maxWidth: "calc(100dvw - 4rem)",
+          height: "calc(100dvh - 4rem)",
+          maxHeight: "calc(100dvh - 4rem)",
+        }}
+        bodyStyle={{
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         <div className={styles.body}>
           <div className={styles.imageWrap}>
