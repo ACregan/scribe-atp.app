@@ -10,6 +10,7 @@ import { MoveImageModal } from "./MoveImageModal";
 import { DeleteImageModal } from "./DeleteImageModal";
 import { ImagePreviewModal } from "./ImagePreviewModal";
 import { BulkDeleteModal } from "./BulkDeleteModal";
+import { BulkMoveModal } from "./BulkMoveModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -188,6 +189,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
   const [previewImage, setPreviewImage] = useState<BrowseImage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
 
   // ── Multi-select state ──────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -317,6 +319,12 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
     refresh();
   }
 
+  function handleBulkMoveSuccess() {
+    setBulkMoveOpen(false);
+    clearSelection();
+    refresh();
+  }
+
   function refresh() {
     revalidator.revalidate();
   }
@@ -374,7 +382,11 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
 
   const selectionToolbar = isOwnTree ? (
     <div className={styles.selectionToolbar}>
-      <Button variant="secondary" type="button" disabled>
+      <Button
+        variant="secondary"
+        type="button"
+        onClick={() => setBulkMoveOpen(true)}
+      >
         Move to
       </Button>
       <Button
@@ -479,6 +491,21 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
               folderIds={folderIds}
               onClose={() => setBulkDeleteOpen(false)}
               onSuccess={handleBulkDeleteSuccess}
+            />
+          );
+        })()}
+
+      {bulkMoveOpen &&
+        (() => {
+          const { imageIds, folderIds } = parseSelection(selected);
+          return (
+            <BulkMoveModal
+              isOpen={true}
+              imageIds={imageIds}
+              folderIds={folderIds}
+              currentFolderId={folder?.id ?? null}
+              onClose={() => setBulkMoveOpen(false)}
+              onSuccess={handleBulkMoveSuccess}
             />
           );
         })()}
