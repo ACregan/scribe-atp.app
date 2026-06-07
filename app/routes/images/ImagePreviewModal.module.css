@@ -19,6 +19,35 @@
   overflow: hidden;
   background: var(--off-white, #f9f9f9);
   border-radius: 0.4rem;
+  position: relative;
+}
+
+.fullscreenButton {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  width: 3.2rem;
+  height: 3.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  color: #fff;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
+}
+
+.imageWrap:hover .fullscreenButton {
+  opacity: 1;
+}
+
+.fullscreenButton:hover {
+  background: rgba(0, 0, 0, 0.7);
 }
 
 .previewImage {

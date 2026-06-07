@@ -652,6 +652,36 @@ All components in `app/components/` have test suites. Pure function coverage:
 
 **Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
 
+## FullscreenImageViewer
+
+`app/routes/images/FullscreenImageViewer.tsx` — purely presentational component. Props: `image: BrowseImage`, `images: BrowseImage[]`, `breadcrumbs: Array<{ id: number; name: string }>`, `onExit: () => void`.
+
+**Fullscreen lifecycle is owned entirely by `ImagePreviewModal`**, not by this component. This separation is required because the browser's user-gesture activation window expires before any React effect fires — `requestFullscreen()` must be called synchronously inside the click handler.
+
+`ImagePreviewModal` manages fullscreen via:
+
+- A **permanent portal container** (`position: fixed; inset: 0; z-index: -1; background: #000`) portaled to `document.body` whenever `isOpen` is true. `z-index: -1` keeps it invisible behind page content when not in the browser's fullscreen top layer.
+- A `handleOpenFullscreen` click handler that calls `flushSync(() => setFsOpen(true))` (synchronously renders `FullscreenImageViewer` content into the container) then immediately calls `container.requestFullscreen()` — both within the gesture window.
+- A `fullscreenchange` listener that sets `fsOpen = false` when `document.fullscreenElement` is null, handling Escape key and all other native exits.
+
+`FullscreenImageViewer`'s `onExit` prop is wired to `document.exitFullscreen()` in the parent; the `fullscreenchange` listener then unmounts the component.
+
+**Image display:** always loads the `max` Variant. Two modes toggled by clicking the image:
+
+- **Fit** (initial): centered, cursor `zoom-in`
+- **Actual**: 1:1 pixel ratio, scrollable, cursor `zoom-out`
+
+Mode resets to fit when navigating to a new image.
+
+**Info pane:** fixed to the bottom of the fullscreen container, semi-transparent black background (`rgba(0,0,0,0.5)`), initially hidden. Slides in/out with a CSS `translateY` transition. Contains: filename, dimensions, file size, upload date, folder path, and Prev / Next / Close action buttons. The actions row has `padding-right: 4.8rem` to keep the Close button clear of the floating chevron. Prev/Next wrap around and are hidden when there is only one image. Close calls `onExit` (which calls `document.exitFullscreen()` in the parent) and uses the `FullscreenClose` icon.
+
+**Chevron toggle:** circular button at `bottom: 1.2rem; right: 1.2rem`, z-index above the info pane. Shows `ChevronUp` when pane is closed, `ChevronDown` when open. Visibility is device-adaptive:
+
+- `pointer: fine` (mouse): hidden by default; appears on `mousemove`; auto-hides after 3 s of inactivity
+- `pointer: coarse` (touch): always visible via `@media (pointer: coarse)` CSS override
+
+`BrowseImage` type is exported from `ImagePreviewModal.tsx` and shared by both components.
+
 ## Image Service
 
 The Image Library feature is backed by a **dedicated Express service** running on port 3009, separate from the main React Router app. See `docs/adr/0001-separate-image-service.md` for why a separate process was chosen over a custom server entry. See `UBIQUITOUS_LANGUAGE.md` for canonical definitions of Image Library terms (Variant, Bounding Box, max, thumb, User Image Folder, Image Storage).

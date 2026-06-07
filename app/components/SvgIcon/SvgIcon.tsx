@@ -16,6 +16,10 @@ export const SvgImageList = {
   Tiles: "Tiles",
   List: "List",
   Image: "Image",
+  FullscreenOpen: "FullscreenOpen",
+  FullscreenClose: "FullscreenClose",
+  ChevronUp: "ChevronUp",
+  ChevronDown: "ChevronDown",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -213,6 +217,62 @@ const SvgIcon: React.FC<SVGiconProp> = ({
           <path
             fillRule="evenodd"
             d="M64 448V64h384v384zm109.227-198.4-66.561 106.948v48.785h298.667v-33.92l-64-64-65.493 65.494zm232.106-142.934H106.666v169.211l61.44-98.81 110.72 132.693 62.507-62.507 64 64zm-96 42.667c17.673 0 32 14.327 32 32s-14.327 32-32 32-32-14.327-32-32 14.327-32 32-32"
+          ></path>
+        </svg>
+      );
+
+    case SvgImageList.FullscreenOpen:
+      return (
+        <svg
+          fill={fill}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+        >
+          <path
+            fillRule="evenodd"
+            d="M106.667 64H64v128h42.667v-85.333H192V64zm0 256H64v128h128v-42.667h-85.333zM320 64v42.667h85.333V192H448V64zm85.333 341.333H320V448h128V320h-42.667z"
+          ></path>
+        </svg>
+      );
+
+    case SvgImageList.FullscreenClose:
+      return (
+        <svg
+          fill={fill}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+        >
+          <path
+            fillRule="evenodd"
+            d="m192 64-.001 85.333H192V192l-.001-.001.001.001h-42.667v-.001L64 192v-42.667h85.333V64zm0 256v42.667l-.001-.001L192 448h-42.667v-85.334H64V320zM362.667 64l-.001 85.333H448V192l-85.334-.001V192H320V64zM448 320v42.667l-85.334-.001V448H320V320z"
+          ></path>
+        </svg>
+      );
+
+    case SvgImageList.ChevronUp:
+      return (
+        <svg
+          fill={fill}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+        >
+          <path
+            fillRule="evenodd"
+            d="m400.853 362.695 30.17-30.17L255.938 157.44 80.853 332.525l30.17 30.17 144.915-144.898z"
+          ></path>
+        </svg>
+      );
+
+    case SvgImageList.ChevronDown:
+      return (
+        <svg
+          fill={fill}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+        >
+          <path
+            fillRule="evenodd"
+            d="m400.915 157.44 30.17 30.17L256 362.695 80.915 187.61l30.17-30.17L256 302.338z"
           ></path>
         </svg>
       );

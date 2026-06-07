@@ -1,12 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal, flushSync } from "react-dom";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { MoveImageModal } from "./MoveImageModal";
+import { FullscreenImageViewer } from "./FullscreenImageViewer";
 import { useToast } from "~/components/Toast/ToastContext";
 import { deleteImage } from "~/services/imageServiceClient";
+import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import styles from "./ImagePreviewModal.module.css";
 
-type BrowseImage = {
+export type BrowseImage = {
   id: number;
   user_did: string;
   filename: string;
@@ -78,6 +81,13 @@ export function ImagePreviewModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [fsOpen, setFsOpen] = useState(false);
+
+  // Ref for the always-present fullscreen container portal.
+  // requestFullscreen() must be called directly in the click handler (within
+  // the browser's user-gesture activation window). Using a permanent container
+  // that's already in the DOM avoids any async React render cycle.
+  const fsContainerRef = useRef<HTMLDivElement>(null);
 
   const image = images[currentIndex] ?? initialImage;
   const isOwn = image.user_did === currentUserDid;
@@ -97,6 +107,17 @@ export function ImagePreviewModal({
     setShowDeleteConfirm(false);
     setDeleteError(null);
   }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync fsOpen with the browser's actual fullscreen state so Escape key
+  // and other native exits (browser UI, programmatic exitFullscreen) are handled.
+  useEffect(() => {
+    function handleFullscreenChange() {
+      if (!document.fullscreenElement) setFsOpen(false);
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   const orderedVariants = VARIANT_ORDER.filter((v) => v in image.sizes);
 
@@ -123,6 +144,16 @@ export function ImagePreviewModal({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  function handleOpenFullscreen() {
+    const container = fsContainerRef.current;
+    if (!container) return;
+    // flushSync renders FullscreenImageViewer into the container synchronously
+    // before requestFullscreen() is called, so content is ready when the browser
+    // enters fullscreen. Both calls happen within the click handler's gesture window.
+    flushSync(() => setFsOpen(true));
+    container.requestFullscreen().catch(() => setFsOpen(false));
+  }
 
   async function handleDeleteConfirm() {
     setDeleting(true);
@@ -279,6 +310,15 @@ export function ImagePreviewModal({
                     : undefined,
               }}
             />
+            <button
+              type="button"
+              className={styles.fullscreenButton}
+              onClick={handleOpenFullscreen}
+              title="View fullscreen"
+              aria-label="View fullscreen"
+            >
+              <SvgIcon name={SvgImageList.FullscreenOpen} fill="currentColor" />
+            </button>
           </div>
 
           <div className={styles.variantRow}>
@@ -331,6 +371,33 @@ export function ImagePreviewModal({
           </dl>
         </div>
       </Modal>
+
+      {/* Permanent fullscreen host — always in the DOM when the modal is open so
+          requestFullscreen() can be called synchronously from the click handler.
+          z-index: -1 keeps it invisible behind page content when not fullscreen;
+          the browser top layer overrides z-index when fullscreen is active. */}
+      {isOpen &&
+        createPortal(
+          <div
+            ref={fsContainerRef}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "#000",
+              zIndex: -1,
+            }}
+          >
+            {fsOpen && (
+              <FullscreenImageViewer
+                image={image}
+                images={images}
+                breadcrumbs={breadcrumbs}
+                onExit={() => document.exitFullscreen().catch(() => {})}
+              />
+            )}
+          </div>,
+          document.body,
+        )}
 
       {moveModalOpen && (
         <MoveImageModal
