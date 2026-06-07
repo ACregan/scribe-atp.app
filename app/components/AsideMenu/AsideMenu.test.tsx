@@ -44,7 +44,7 @@ vi.mock("../SvgIcon/SvgIcon", () => ({
     Folder: "folder",
     Documents: "documents",
     Document: "document",
-    Tiles: "tiles",
+    Image: "image",
     Exit: "exit",
   },
 }));
@@ -120,7 +120,7 @@ describe("AsideMenu", () => {
       expect(screen.getByTestId("icon-folder")).toBeInTheDocument();
       expect(screen.getByTestId("icon-documents")).toBeInTheDocument();
       expect(screen.getByTestId("icon-document")).toBeInTheDocument();
-      expect(screen.getByTestId("icon-tiles")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-image")).toBeInTheDocument();
       expect(screen.getByTestId("icon-exit")).toBeInTheDocument();
     });
 
@@ -361,7 +361,7 @@ describe("AsideMenu", () => {
       expect(screen.getByTestId("icon-folder")).toBeInTheDocument();
       expect(screen.getByTestId("icon-documents")).toBeInTheDocument();
       expect(screen.getByTestId("icon-document")).toBeInTheDocument();
-      expect(screen.getByTestId("icon-tiles")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-image")).toBeInTheDocument();
     });
   });
 });
