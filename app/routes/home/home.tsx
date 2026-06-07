@@ -6,6 +6,7 @@ import {
   getAuthSession,
   useRealOAuth,
 } from "~/services/auth.server";
+import { redirect } from "react-router";
 import { useModal } from "~/components/Modal/useModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
@@ -70,23 +71,15 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { handle, isAuthenticated, did } = await getAuthSession(request);
+  const { handle, did } = await getAuthSession(request);
 
-  if (!isAuthenticated || !did) {
-    return {
-      userName: handle ?? null,
-      isAuthenticated,
-      isDev: IS_DEV,
-      recentArticles: [] as RecentArticle[],
-      orphanedArticleCount: 0,
-      sites: [] as SiteWithGroups[],
-    };
+  if (!did) {
+    throw redirect("/login");
   }
 
   if (!useRealOAuth) {
     return {
       userName: handle ?? null,
-      isAuthenticated,
       isDev: IS_DEV,
       recentArticles: [
         {
@@ -207,7 +200,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   return {
     userName: handle ?? null,
-    isAuthenticated,
     isDev: IS_DEV,
     recentArticles,
     orphanedArticleCount,
@@ -317,13 +309,7 @@ function GroupSiteItem({
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const {
-    isAuthenticated,
-    isDev,
-    recentArticles,
-    orphanedArticleCount,
-    sites,
-  } = loaderData;
+  const { isDev, recentArticles, orphanedArticleCount, sites } = loaderData;
   const nukeModal = useModal();
   const devToolsModal = useModal();
   const fetcher = useFetcher<{
@@ -406,7 +392,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </>
         }
       >
-        {isAuthenticated && orphanedArticleCount > 0 && (
+        {orphanedArticleCount > 0 && (
           <PageSection>
             <Link to="/article/list" className={styles.orphanAlert}>
               <Pill variant="danger">
@@ -422,57 +408,53 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             {/* Sites */}
             <PageSectionColumn span={4} overflow>
               <h2 className={styles.sectionTitle}>Sites</h2>
-              {isAuthenticated ? (
-                sites.length === 0 ? (
-                  <p className={styles.emptyState}>
-                    No sites yet.{" "}
-                    <Link to="/sites/new">Create your first site</Link>.
-                  </p>
-                ) : (
-                  <ul className={styles.siteList}>
-                    {sites.map((site) => (
-                      <GroupSiteItem
-                        key={site.rkey}
-                        site={site}
-                        showGroups={false}
-                      />
-                    ))}
-                  </ul>
-                )
-              ) : null}
+              {sites.length === 0 ? (
+                <p className={styles.emptyState}>
+                  No sites yet.{" "}
+                  <Link to="/sites/new">Create your first site</Link>.
+                </p>
+              ) : (
+                <ul className={styles.siteList}>
+                  {sites.map((site) => (
+                    <GroupSiteItem
+                      key={site.rkey}
+                      site={site}
+                      showGroups={false}
+                    />
+                  ))}
+                </ul>
+              )}
             </PageSectionColumn>
 
             {/* Recently Updated */}
             <PageSectionColumn span={4} overflow>
               <h2 className={styles.sectionTitle}>Recently Updated</h2>
-              {isAuthenticated ? (
-                recentArticles.length === 0 ? (
-                  <p className={styles.emptyState}>
-                    No articles yet. Create your first one.
-                  </p>
-                ) : (
-                  <ul className={styles.recentList}>
-                    {recentArticles.map((article) => (
-                      <li key={article.uri} className={styles.recentItem}>
-                        <IconBadge icon={SvgImageList.Document} />
-                        <span className={styles.recentTitle}>
-                          {article.title}
-                        </span>
-                        <Pill>
-                          {formatArticleDate(
-                            article.updatedAt ?? article.createdAt,
-                          )}
-                        </Pill>
-                        <Link to={`/article/edit/${article.url}`}>
-                          <Button type="button" variant="secondary">
-                            Edit
-                          </Button>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )
-              ) : null}
+              {recentArticles.length === 0 ? (
+                <p className={styles.emptyState}>
+                  No articles yet. Create your first one.
+                </p>
+              ) : (
+                <ul className={styles.recentList}>
+                  {recentArticles.map((article) => (
+                    <li key={article.uri} className={styles.recentItem}>
+                      <IconBadge icon={SvgImageList.Document} />
+                      <span className={styles.recentTitle}>
+                        {article.title}
+                      </span>
+                      <Pill>
+                        {formatArticleDate(
+                          article.updatedAt ?? article.createdAt,
+                        )}
+                      </Pill>
+                      <Link to={`/article/edit/${article.url}`}>
+                        <Button type="button" variant="secondary">
+                          Edit
+                        </Button>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </PageSectionColumn>
 
             {/* Third column — reserved */}
