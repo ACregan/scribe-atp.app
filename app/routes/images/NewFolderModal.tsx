@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { Input } from "~/components/Input/Input";
+import { createFolder } from "~/services/imageServiceClient";
 import styles from "./FolderModals.module.css";
 
 type Props = {
@@ -11,30 +12,31 @@ type Props = {
   onSuccess: () => void;
 };
 
-export function NewFolderModal({ isOpen, parentFolderId, onClose, onSuccess }: Props) {
+export function NewFolderModal({
+  isOpen,
+  parentFolderId,
+  onClose,
+  onSuccess,
+}: Props) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { setError("Folder name is required"); return; }
+    if (!name.trim()) {
+      setError("Folder name is required");
+      return;
+    }
     setSaving(true);
     setError(undefined);
     try {
-      const res = await fetch("/api/image-service/folders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), parentId: parentFolderId }),
-      });
-      if (res.ok) {
-        setName("");
-        onSuccess();
-        onClose();
-      } else {
-        const data = await res.json() as { error?: string };
-        setError(data.error ?? "Failed to create folder");
-      }
+      await createFolder(name.trim(), parentFolderId);
+      setName("");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create folder");
     } finally {
       setSaving(false);
     }
@@ -53,7 +55,9 @@ export function NewFolderModal({ isOpen, parentFolderId, onClose, onSuccess }: P
       title="New Folder"
       footer={
         <div className={styles.footer}>
-          <Button variant="secondary" type="button" onClick={handleClose}>Cancel</Button>
+          <Button variant="secondary" type="button" onClick={handleClose}>
+            Cancel
+          </Button>
           <Button type="submit" form="new-folder-form" disabled={saving}>
             {saving ? "Creating…" : "Create Folder"}
           </Button>
@@ -64,7 +68,7 @@ export function NewFolderModal({ isOpen, parentFolderId, onClose, onSuccess }: P
         <Input
           label="Folder name"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           error={error}
           autoFocus
         />
