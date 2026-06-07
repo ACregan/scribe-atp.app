@@ -24,6 +24,7 @@ import { ImagePreviewModal } from "./ImagePreviewModal";
 import { BulkDeleteModal } from "./BulkDeleteModal";
 import { BulkMoveModal } from "./BulkMoveModal";
 import { AddToNewFolderModal } from "./AddToNewFolderModal";
+import { bulkMove, deleteFolder } from "~/services/imageServiceClient";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -259,20 +260,8 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
 
     if (imageIds.length === 0 && folderIds.length === 0) return;
 
-    fetch("/api/image-service/bulk-move", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        imageIds,
-        folderIds,
-        destinationFolderId: destFolderId,
-      }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const data = (await res.json()) as { error?: string };
-          throw new Error(data.error ?? "Move failed");
-        }
+    bulkMove(imageIds, folderIds, destFolderId)
+      .then(() => {
         if (isMoveSelection) clearSelection();
         refresh();
       })
@@ -486,15 +475,12 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
 
   async function handleDeleteFolder(folderId: number) {
     setDeleteError(null);
-    const res = await fetch(`/api/image-service/folders/${folderId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
+    try {
+      await deleteFolder(folderId);
       setConfirmDeleteId(null);
       refresh();
-    } else {
-      const data = (await res.json()) as { error?: string };
-      setDeleteError(data.error ?? "Delete failed");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
     }
   }
 

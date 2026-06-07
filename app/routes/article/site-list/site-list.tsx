@@ -1,6 +1,18 @@
 import type { Route } from "./+types/site-list";
-import { redirect, useFetcher, useBlocker, useNavigate, useLocation, Link } from "react-router";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import {
+  redirect,
+  useFetcher,
+  useBlocker,
+  useNavigate,
+  useLocation,
+  Link,
+} from "react-router";
+import {
+  getAtpAgent,
+  requireAuth,
+  requireAtpAgent,
+  useRealOAuth,
+} from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Input } from "~/components/Input/Input";
@@ -39,9 +51,8 @@ import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
 import { SITE_COLLECTION, SLUG_RE } from "~/constants";
+import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
-  type SiteArticleRef,
-  type SiteGroup,
   type SiteData,
   type TreeArticleNode,
   type TreeGroupNode,
@@ -71,7 +82,6 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { did } = await requireAuth(request);
   const siteSlug = params.siteSlug;
 
   if (!useRealOAuth) {
@@ -116,7 +126,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 
   try {
-    const agent = await getAtpAgent(did);
+    const { agent, did } = await requireAtpAgent(request);
     const record = await agent.com.atproto.repo.getRecord({
       repo: did,
       collection: SITE_COLLECTION,
@@ -133,7 +143,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         title: String(value.title ?? ""),
         urlPrefix: String(value.urlPrefix ?? ""),
         groups: (value.groups as SiteGroup[]) ?? [],
-        articles: (value.articles as SiteArticleRef[]) ?? [],
+        articles: (value.articles as ArticleRef[]) ?? [],
       } as SiteData,
     };
   } catch {
@@ -234,7 +244,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         const val = rec.data.value as Record<string, unknown>;
         const { groups, articles } = JSON.parse(siteDataJson) as {
           groups: SiteGroup[];
-          articles: SiteArticleRef[];
+          articles: ArticleRef[];
         };
         await agent.com.atproto.repo.putRecord({
           repo: did,

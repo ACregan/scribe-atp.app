@@ -1,9 +1,15 @@
 import type { Route } from "./+types/edit";
 import { Form, redirect, useNavigate } from "react-router";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import {
+  validateArticleFields,
+  buildArticleRecord,
+  buildArticleRef,
+  addArticleToSites,
+} from "~/services/article.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageContainerHeading,
@@ -16,53 +22,17 @@ import {
 } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-import { type ArticleRef } from "~/hooks/types";
-
-type SiteRecord = {
-  articles: ArticleRef[];
-  groups: Array<{ articles: ArticleRef[] } & Record<string, unknown>>;
-} & Record<string, unknown>;
-
-function removeArticleFromSiteValue(
-  siteValue: SiteRecord,
-  articleUri: string,
-): SiteRecord {
-  return {
-    ...siteValue,
-    articles: (siteValue.articles ?? []).filter((a) => a.uri !== articleUri),
-    groups: (siteValue.groups ?? []).map((g) => ({
-      ...g,
-      articles: (g.articles ?? []).filter((a) => a.uri !== articleUri),
-    })),
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function updateArticleUriInSiteValue(
-  siteValue: SiteRecord,
-  oldUri: string,
-  newRef: ArticleRef,
-): SiteRecord {
-  return {
-    ...siteValue,
-    articles: (siteValue.articles ?? []).map((a) =>
-      a.uri === oldUri ? newRef : a,
-    ),
-    groups: (siteValue.groups ?? []).map((g) => ({
-      ...g,
-      articles: (g.articles ?? []).map((a) => (a.uri === oldUri ? newRef : a)),
-    })),
-    updatedAt: new Date().toISOString(),
-  };
-}
+import {
+  removeArticleRef,
+  updateArticleRef,
+  type SiteRecordValue,
+} from "~/routes/article/site-list/siteTree";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Edit Article" }];
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { did } = await requireAuth(request);
-
   if (!useRealOAuth) {
     return {
       rkey: params.articleUrl,
@@ -84,7 +54,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     };
   }
 
-  const agent = await getAtpAgent(did);
+  const { agent, did } = await requireAtpAgent(request);
   const articleUri = `at://${did}/${ARTICLE_COLLECTION}/${params.articleUrl}`;
 
   const [articleResult, sitesResult] = await Promise.all([
@@ -100,7 +70,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     }),
   ]);
 
-  const sites: SiteOption[] = sitesResult.data.records.map((record) => ({
+  const sites = sitesResult.data.records.map((record) => ({
     rkey: record.uri.split("/").pop()!,
     title: String((record.value as Record<string, unknown>).title ?? ""),
     url: String((record.value as Record<string, unknown>).url ?? ""),
@@ -108,7 +78,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const currentSiteRkeys = sitesResult.data.records
     .filter((record) => {
-      const value = record.value as SiteRecord;
+      const value = record.value as SiteRecordValue;
       const inTopLevel = (value.articles ?? []).some(
         (a) => a.uri === articleUri,
       );
@@ -136,8 +106,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const { did } = await requireAuth(request);
-
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
@@ -153,32 +121,26 @@ export async function action({ request, params }: Route.ActionArgs) {
     (formData.get("oldSiteRkeys") as string) || "[]",
   );
 
-  if (!title?.trim()) return { error: "Title is required." };
-  if (!newUrl?.trim()) return { error: "URL slug is required." };
-  if (!SLUG_RE.test(newUrl))
-    return {
-      error:
-        "URL slug must be lowercase letters, numbers, and hyphens only (e.g. my-article).",
-    };
+  const validationError = validateArticleFields(title, newUrl);
+  if (validationError) return { error: validationError };
 
   if (!useRealOAuth) return redirect("/article/list");
 
-  const agent = await getAtpAgent(did);
+  const { agent, did } = await requireAtpAgent(request);
   const oldArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${oldRkey}`;
   const newArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${newUrl}`;
   const slugChanged = newUrl !== oldRkey;
 
   const now = new Date().toISOString();
-  const record = {
-    $type: ARTICLE_COLLECTION,
+  const record = buildArticleRecord({
     title,
     content,
     url: newUrl,
-    splashImageUrl: splashImageUrl?.trim() || undefined,
-    synopsis: synopsis?.trim() || undefined,
+    splashImageUrl,
+    synopsis,
     createdAt,
     updatedAt: now,
-  };
+  });
 
   try {
     if (slugChanged) {
@@ -227,15 +189,15 @@ export async function action({ request, params }: Route.ActionArgs) {
     (r) => newSiteRkeys.includes(r) && !slugChanged,
   );
 
-  const newArticleRef: ArticleRef = {
+  const newArticleRef = buildArticleRef({
     uri: newArticleUri,
     title,
     url: newUrl,
-    splashImageUrl: splashImageUrl?.trim() || null,
-    synopsis: synopsis?.trim() || null,
+    splashImageUrl,
+    synopsis,
     createdAt,
     updatedAt: now,
-  };
+  });
 
   await Promise.allSettled([
     ...sitesToRemove.map(async (siteRkey) => {
@@ -244,8 +206,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const updated = removeArticleFromSiteValue(
-        rec.data.value as SiteRecord,
+      const updated = removeArticleRef(
+        rec.data.value as SiteRecordValue,
         oldArticleUri,
       );
       await agent.com.atproto.repo.putRecord({
@@ -263,8 +225,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const updated = updateArticleUriInSiteValue(
-        rec.data.value as SiteRecord,
+      const updated = updateArticleRef(
+        rec.data.value as SiteRecordValue,
         oldArticleUri,
         newArticleRef,
       );
@@ -283,8 +245,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const updated = updateArticleUriInSiteValue(
-        rec.data.value as SiteRecord,
+      const updated = updateArticleRef(
+        rec.data.value as SiteRecordValue,
         oldArticleUri,
         newArticleRef,
       );
@@ -296,27 +258,9 @@ export async function action({ request, params }: Route.ActionArgs) {
         swapRecord: rec.data.cid,
       });
     }),
-
-    ...sitesToAdd.map(async (siteRkey) => {
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-      });
-      const siteValue = rec.data.value as SiteRecord;
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-        record: {
-          ...siteValue,
-          articles: [...(siteValue.articles ?? []), newArticleRef],
-          updatedAt: new Date().toISOString(),
-        },
-        swapRecord: rec.data.cid,
-      });
-    }),
   ]);
+
+  await addArticleToSites(agent, did, sitesToAdd, newArticleRef);
 
   return { ok: true, title };
 }

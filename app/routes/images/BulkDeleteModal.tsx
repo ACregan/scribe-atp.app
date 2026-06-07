@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
+import {
+  getBulkDeleteCounts,
+  bulkDelete,
+  type BulkCounts,
+} from "~/services/imageServiceClient";
 import styles from "./FolderModals.module.css";
 
 type Props = {
@@ -11,11 +16,6 @@ type Props = {
   onSuccess: () => void;
 };
 
-type CountsResult = {
-  folderCount: number;
-  imageCount: number;
-};
-
 export function BulkDeleteModal({
   isOpen,
   imageIds,
@@ -23,7 +23,7 @@ export function BulkDeleteModal({
   onClose,
   onSuccess,
 }: Props) {
-  const [counts, setCounts] = useState<CountsResult | null>(null);
+  const [counts, setCounts] = useState<BulkCounts | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -35,35 +35,14 @@ export function BulkDeleteModal({
     setLoading(true);
     setError(undefined);
     setCounts(null);
-    fetch("/api/image-service/bulk-delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageIds, folderIds }),
-    })
-      .then((res) => {
-        if (!res.ok)
-          return res
-            .json()
-            .then((d: { error?: string }) =>
-              Promise.reject(d.error ?? "Request failed"),
-            );
-        return res.json() as Promise<{
-          ok: false;
-          folderCount: number;
-          imageCount: number;
-        }>;
-      })
+    getBulkDeleteCounts(imageIds, folderIds)
       .then((data) => {
-        if (!cancelled)
-          setCounts({
-            folderCount: data.folderCount,
-            imageCount: data.imageCount,
-          });
+        if (!cancelled) setCounts(data);
       })
       .catch((err: unknown) => {
         if (!cancelled)
           setError(
-            typeof err === "string" ? err : "Failed to fetch item counts",
+            err instanceof Error ? err.message : "Failed to fetch item counts",
           );
       })
       .finally(() => {
@@ -78,20 +57,11 @@ export function BulkDeleteModal({
     setDeleting(true);
     setError(undefined);
     try {
-      const res = await fetch("/api/image-service/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageIds, folderIds, confirm: true }),
-      });
-      if (res.ok) {
-        onSuccess();
-        onClose();
-      } else {
-        const data = (await res.json()) as { error?: string };
-        setError(data.error ?? "Delete failed");
-      }
-    } catch {
-      setError("Delete failed");
+      await bulkDelete(imageIds, folderIds);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setDeleting(false);
     }

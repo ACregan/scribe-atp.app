@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { Input } from "~/components/Input/Input";
+import { createFolder, bulkMove } from "~/services/imageServiceClient";
 import styles from "./FolderModals.module.css";
 
 type Props = {
@@ -34,37 +35,16 @@ export function AddToNewFolderModal({
     setSaving(true);
     setError(undefined);
     try {
-      const createRes = await fetch("/api/image-service/folders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), parentId: currentFolderId }),
-      });
-      if (!createRes.ok) {
-        const data = (await createRes.json()) as { error?: string };
-        setError(data.error ?? "Failed to create folder");
-        return;
-      }
-      const { folder } = (await createRes.json()) as {
-        folder: { id: number };
-      };
-
-      const moveRes = await fetch("/api/image-service/bulk-move", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageIds,
-          folderIds,
-          destinationFolderId: folder.id,
-        }),
-      });
-      if (moveRes.ok) {
-        setName("");
-        onSuccess();
-        onClose();
-      } else {
-        const data = (await moveRes.json()) as { error?: string };
-        setError(data.error ?? "Failed to move items");
-      }
+      const { id: newFolderId } = await createFolder(
+        name.trim(),
+        currentFolderId,
+      );
+      await bulkMove(imageIds, folderIds, newFolderId);
+      setName("");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Operation failed");
     } finally {
       setSaving(false);
     }

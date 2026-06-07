@@ -113,14 +113,15 @@ Stored fields: `did` (string), `handle` (string).
 
 Key exports from `auth.server.ts`:
 
-| Function                                                  | Purpose                                                                                                                                                       |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getAuthSession(request)`                                 | Reads session cookie — returns `{ did, handle, isAuthenticated }` (all optional)                                                                              |
-| `requireAuth(request)`                                    | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional                                         |
-| `getAtpAgent(did)`                                        | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure                                                            |
-| `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects                                                                                                                           |
-| `destroyAuthSession(request, redirectTo)`                 | Clears `__session` cookie **and** the SQLite `oauth_session` row so re-login triggers a fresh authorization with current scopes — used by the `/logout` route |
-| `useRealOAuth`                                            | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true`                                                                                     |
+| Function                                                  | Purpose                                                                                                                                                                                             |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAuthSession(request)`                                 | Reads session cookie — returns `{ did, handle, isAuthenticated }` (all optional)                                                                                                                    |
+| `requireAuth(request)`                                    | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional                                                                               |
+| `getAtpAgent(did)`                                        | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure                                                                                                  |
+| `requireAtpAgent(request)`                                | Combines `requireAuth` + `getAtpAgent` — returns `{ agent, did, handle }`. Use in route loaders/actions: check `useRealOAuth` and return mock first, then call `requireAtpAgent` for the real path. |
+| `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects                                                                                                                                                                 |
+| `destroyAuthSession(request, redirectTo)`                 | Clears `__session` cookie **and** the SQLite `oauth_session` row so re-login triggers a fresh authorization with current scopes — used by the `/logout` route                                       |
+| `useRealOAuth`                                            | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true`                                                                                                                           |
 
 ### Dev bypass (default in development)
 
@@ -247,7 +248,7 @@ Key design decisions for `app.scribe.site`:
 - Groups and article order within groups are authoritative — the site record is the manifest
 - `updatedAt` is useful for cache invalidation by public readers
 - Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
-- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. Current mirrored fields: `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`. When adding a new article field, add it to `ArticleRef` in the same PR and update the four construction/propagation sites: `create.tsx` (articleRef), `edit.tsx` (newArticleRef), and `siteTree.ts` (`SiteArticleRef` type + `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps).
+- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. Current mirrored fields: `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`. When adding a new article field, also add it to `ArticleRef` in `app/hooks/types.ts` in the same PR, then update the construction/propagation sites: `buildArticleRef` in `app/services/article.server.ts` (called by `create.tsx` and `edit.tsx`), and the `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps in `app/routes/article/site-list/siteTree.ts`.
 - **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every site the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member sites without any manual re-ordering.
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
@@ -307,10 +308,15 @@ This means a separate read-only frontend (public blog, etc.) can fetch and displ
 
 ### Making authenticated AT Protocol calls
 
-```ts
-import { getAtpAgent } from "~/services/auth.server";
+Prefer `requireAtpAgent` in route loaders and actions — it combines `requireAuth` + `getAtpAgent` into one call. Pattern:
 
-const agent = await getAtpAgent(did); // restores OAuth session from SQLite; throws redirect("/login") if missing
+```ts
+import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+
+// Check dev bypass first (return mock data early), then get agent for the real path:
+if (!useRealOAuth) { return mockData; }
+const { agent, did, handle } = await requireAtpAgent(request);
+
 await agent.com.atproto.repo.createRecord({ ... });
 await agent.com.atproto.repo.putRecord({ ... });
 await agent.com.atproto.repo.deleteRecord({ ... });
@@ -318,7 +324,7 @@ await agent.com.atproto.repo.listRecords({ ... });
 await agent.com.atproto.repo.getRecord({ ... });
 ```
 
-`getAtpAgent` automatically redirects to `/login` if the session is missing — callers do not need to handle this error.
+Use `getAtpAgent(did)` directly only when you already have a `did` from a separate `requireAuth` call (e.g. when the dev-bypass path needs `did` to construct a mock AT URI). Both automatically redirect to `/login` if the session is missing.
 
 ## Components
 
@@ -431,7 +437,45 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 
 Components that originally defined these types/utils inline (`SiteTile`, `ArticleForm`, `GroupItem`) now import from the shared files and re-export for backwards compatibility. When adding a new shared type or utility, add it here rather than inside a component file.
 
-**Note:** `app/routes/article/site-list/siteTree.ts` has its own `SiteData` type (with `groups`/`articles` arrays for the DnD tree) that is structurally different from the component-layer `SiteData` above. These serve different purposes and are intentionally kept separate to avoid cross-layer coupling.
+**Note:** `app/routes/article/site-list/siteTree.ts` has its own `SiteData` type (with `groups`/`articles` arrays for the DnD tree) that is structurally different from the component-layer `SiteData` above. These serve different purposes and are intentionally kept separate to avoid cross-layer coupling. `ArticleRef` and `SiteGroup` are defined in `app/hooks/types.ts` — the canonical source used by both the public hooks and the server-side code. `siteTree.ts` re-exports them from `~/hooks/types` for backwards compatibility.
+
+## Server services
+
+### `app/services/article.server.ts`
+
+Shared server logic for article create and edit operations. Server-only — never imported client-side.
+
+| Export                                          | Purpose                                                                                                                             |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `validateArticleFields(title, url)`             | Validates title and URL slug — returns an error string or `null`                                                                    |
+| `buildArticleRecord(fields)`                    | Constructs the `app.scribe.article` PDS record object from article fields                                                           |
+| `buildArticleRef(fields)`                       | Constructs an `ArticleRef` (cached snapshot) from article fields — return type is `ArticleRef` from `~/hooks/types`                 |
+| `loadSiteOptions(agent, did)`                   | Fetches all `app.scribe.site` records and returns `SiteOption[]` for the multi-select                                               |
+| `addArticleToSites(agent, did, siteRkeys, ref)` | Appends an `ArticleRef` to the `articles` array of each named site record — used when creating an article and assigning it to sites |
+
+`buildArticleRef` is the single construction point for `ArticleRef` values. Always use it when creating or refreshing article refs to ensure all fields are correctly populated.
+
+### `app/services/imageServiceClient.ts`
+
+Client-side module (browser only) that centralises all HTTP calls to the Image Service (`/api/image-service/*`). Throws `ImageServiceError` on non-OK responses so callers can distinguish Image Service failures from other errors.
+
+| Export                                               | Purpose                                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `FolderOption`                                       | `{ id: number; name: string; parent_id: number \| null }`                       |
+| `BulkCounts`                                         | `{ folderCount: number; imageCount: number }`                                   |
+| `ImageServiceError`                                  | Error subclass thrown on non-OK responses; message is the server's error string |
+| `UPLOAD_URL`                                         | `"/api/image-service/upload"` — POST target for XHR uploads                     |
+| `progressUrl(uploadId)`                              | Returns the SSE endpoint URL for a given upload UUID                            |
+| `getMyFolders()`                                     | Lists the current user's folders                                                |
+| `createFolder(name, parentId)`                       | Creates a new folder, returns `{ id: number }`                                  |
+| `deleteFolder(folderId)`                             | Deletes a folder and its contents                                               |
+| `deleteImage(imageId)`                               | Deletes a single image                                                          |
+| `moveImage(imageId, folderId)`                       | Moves a single image to a folder                                                |
+| `bulkMove(imageIds, folderIds, destinationFolderId)` | Moves images and/or folders in bulk                                             |
+| `getBulkDeleteCounts(imageIds, folderIds)`           | Returns counts of what would be deleted (for confirmation UI)                   |
+| `bulkDelete(imageIds, folderIds)`                    | Permanently deletes images and/or folders in bulk                               |
+
+Upload progress is tracked client-side via XHR `upload.progress` events (not this module) and SSE events from `progressUrl(uploadId)`. This module only provides the URL constants — `UploadModal.tsx` owns the XHR and SSE lifecycle.
 
 ## Modal-backed route pattern
 
@@ -585,6 +629,8 @@ The project uses **Vitest** with **React Testing Library** for component unit te
 | `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`)                                |
 
 **Critical invariant:** `treeToSiteData(buildTreeFromSite(site))` must reproduce the original `{ groups, articles }` exactly — including every `ArticleRef` field (`url`, `synopsis`, `splashImageUrl`, etc.). The round-trip tests in `siteTree.test.ts` enforce this.
+
+**Types:** `ArticleRef` and `SiteGroup` are imported from `~/hooks/types` (not defined locally) and re-exported for backwards compatibility. The local `SiteData` type (DnD tree form with `groups`/`articles` arrays) is private to this module and distinct from the component-layer `SiteData` in `app/components/types.ts`.
 
 ### Running tests
 

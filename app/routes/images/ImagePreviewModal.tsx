@@ -3,6 +3,7 @@ import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { MoveImageModal } from "./MoveImageModal";
 import { useToast } from "~/components/Toast/ToastContext";
+import { deleteImage } from "~/services/imageServiceClient";
 import styles from "./ImagePreviewModal.module.css";
 
 type BrowseImage = {
@@ -127,15 +128,10 @@ export function ImagePreviewModal({
     setDeleting(true);
     setDeleteError(null);
     try {
-      const res = await fetch(`/api/image-service/images/${image.id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        onDelete(image.id);
-      } else {
-        const data = (await res.json()) as { error?: string };
-        setDeleteError(data.error ?? "Delete failed");
-      }
+      await deleteImage(image.id);
+      onDelete(image.id);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setDeleting(false);
     }

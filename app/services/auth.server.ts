@@ -1,6 +1,4 @@
-import {
-  NodeOAuthClient,
-} from "@atproto/oauth-client-node";
+import { NodeOAuthClient } from "@atproto/oauth-client-node";
 import { Agent } from "@atproto/api";
 import { createCookieSessionStorage, redirect } from "react-router";
 import { oauthStateStore, oauthSessionStore } from "~/services/db.server";
@@ -45,9 +43,12 @@ global.__oauthLocks ??= new Map();
 
 function requestLock<T>(key: string, fn: () => T | PromiseLike<T>): Promise<T> {
   const current = global.__oauthLocks!.get(key) ?? Promise.resolve();
-  const next = current.then(() => fn()).finally(() => {
-    if (global.__oauthLocks!.get(key) === next) global.__oauthLocks!.delete(key);
-  });
+  const next = current
+    .then(() => fn())
+    .finally(() => {
+      if (global.__oauthLocks!.get(key) === next)
+        global.__oauthLocks!.delete(key);
+    });
   global.__oauthLocks!.set(key, next);
   return next;
 }
@@ -101,7 +102,7 @@ export async function getAuthSession(request: Request) {
 }
 
 export async function requireAuth(
-  request: Request
+  request: Request,
 ): Promise<{ did: string; handle: string }> {
   const { did, handle, isAuthenticated } = await getAuthSession(request);
   if (!isAuthenticated || !did) throw redirect("/login");
@@ -111,7 +112,7 @@ export async function requireAuth(
 export async function createAuthSession(
   request: Request,
   { did, handle }: { did: string; handle: string },
-  redirectTo: string
+  redirectTo: string,
 ) {
   const session = await getSession(request.headers.get("Cookie"));
   session.set("did", did);
@@ -133,10 +134,15 @@ export async function getAtpAgent(did: string) {
   }
 }
 
-export async function destroyAuthSession(
+export async function requireAtpAgent(
   request: Request,
-  redirectTo: string
-) {
+): Promise<{ agent: Agent; did: string; handle: string }> {
+  const { did, handle } = await requireAuth(request);
+  const agent = await getAtpAgent(did);
+  return { agent, did, handle };
+}
+
+export async function destroyAuthSession(request: Request, redirectTo: string) {
   const session = await getSession(request.headers.get("Cookie"));
   const did = session.get("did") as string | undefined;
 

@@ -3,21 +3,8 @@
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type SiteArticleRef = {
-  uri: string;
-  title: string;
-  url?: string;
-  splashImageUrl: string | null;
-  synopsis?: string | null;
-  createdAt: string;
-  updatedAt?: string;
-};
-
-export type SiteGroup = {
-  slug: string;
-  title: string;
-  articles: SiteArticleRef[];
-};
+export type { ArticleRef, SiteGroup } from "~/hooks/types";
+import type { ArticleRef, SiteGroup } from "~/hooks/types";
 
 export type SiteData = {
   rkey: string;
@@ -26,7 +13,7 @@ export type SiteData = {
   title: string;
   urlPrefix: string;
   groups: SiteGroup[];
-  articles: SiteArticleRef[];
+  articles: ArticleRef[];
 };
 
 export type TreeArticleNode = {
@@ -70,6 +57,50 @@ export function toSlug(title: string): string {
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-");
+}
+
+// ── Site record mutations ─────────────────────────────────────────────────────
+//
+// These operate on the raw AT Protocol Site record value (not the normalised
+// SiteData shape) so that unknown fields are preserved when the record is
+// written back to the PDS via putRecord.
+
+export type SiteRecordValue = {
+  articles: ArticleRef[];
+  groups: Array<{ articles: ArticleRef[] } & Record<string, unknown>>;
+} & Record<string, unknown>;
+
+export function removeArticleRef(
+  record: SiteRecordValue,
+  uri: string,
+): SiteRecordValue {
+  return {
+    ...record,
+    articles: (record.articles ?? []).filter((a) => a.uri !== uri),
+    groups: (record.groups ?? []).map((g) => ({
+      ...g,
+      articles: (g.articles ?? []).filter((a) => a.uri !== uri),
+    })),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function updateArticleRef(
+  record: SiteRecordValue,
+  oldUri: string,
+  newRef: ArticleRef,
+): SiteRecordValue {
+  return {
+    ...record,
+    articles: (record.articles ?? []).map((a) =>
+      a.uri === oldUri ? newRef : a,
+    ),
+    groups: (record.groups ?? []).map((g) => ({
+      ...g,
+      articles: (g.articles ?? []).map((a) => (a.uri === oldUri ? newRef : a)),
+    })),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 // ── Tree builders ─────────────────────────────────────────────────────────────
@@ -116,10 +147,10 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
 
 export function treeToSiteData(tree: TreeGroupNode[]): {
   groups: SiteGroup[];
-  articles: SiteArticleRef[];
+  articles: ArticleRef[];
 } {
   const groups: SiteGroup[] = [];
-  const articles: SiteArticleRef[] = [];
+  const articles: ArticleRef[] = [];
 
   for (const node of tree) {
     if (node.id === "g:root") {

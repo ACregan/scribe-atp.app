@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
+import {
+  getMyFolders,
+  bulkMove,
+  type FolderOption,
+} from "~/services/imageServiceClient";
 import styles from "./FolderModals.module.css";
-
-type FolderOption = { id: number; name: string; parent_id: number | null };
 
 type Props = {
   isOpen: boolean;
@@ -61,9 +64,8 @@ export function BulkMoveModal({
     if (!isOpen) return;
     setSelectedId(null);
     setError(undefined);
-    fetch("/api/image-service/folders/mine")
-      .then((r) => r.json() as Promise<{ folders: FolderOption[] }>)
-      .then((data) => setFolders(data.folders))
+    getMyFolders()
+      .then((folders) => setFolders(folders))
       .catch(() => setError("Could not load folders"));
   }, [isOpen]);
 
@@ -76,22 +78,11 @@ export function BulkMoveModal({
     setSaving(true);
     setError(undefined);
     try {
-      const res = await fetch("/api/image-service/bulk-move", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageIds,
-          folderIds,
-          destinationFolderId: selectedId,
-        }),
-      });
-      if (res.ok) {
-        onSuccess();
-        onClose();
-      } else {
-        const data = (await res.json()) as { error?: string };
-        setError(data.error ?? "Move failed");
-      }
+      await bulkMove(imageIds, folderIds, selectedId);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Move failed");
     } finally {
       setSaving(false);
     }
