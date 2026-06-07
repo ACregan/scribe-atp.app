@@ -652,6 +652,28 @@ All components in `app/components/` have test suites. Pure function coverage:
 
 **Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
 
+## FullscreenImageViewer
+
+`app/routes/images/FullscreenImageViewer.tsx` — browser-native fullscreen experience entered from `ImagePreviewModal`. Props: `image: BrowseImage`, `images: BrowseImage[]`, `breadcrumbs: Array<{ id: number; name: string }>`, `onExit: () => void`.
+
+On mount calls `requestFullscreen()` on its container div and listens to `fullscreenchange` to call `onExit()` when the browser exits fullscreen (including Escape key). The component's state is completely isolated from `ImagePreviewModal` — exiting returns the modal unchanged.
+
+**Image display:** always loads the `max` Variant. Two modes toggled by clicking the image:
+
+- **Fit** (initial): `object-fit: contain`, centered, cursor `zoom-in`
+- **Actual**: 1:1 pixel ratio, scrollable, cursor `zoom-out`
+
+Mode resets to fit when navigating to a new image.
+
+**Info pane:** fixed to the bottom of the fullscreen container, opaque black background, initially hidden. Slides in/out with a CSS `translateY` transition. Contains: filename, dimensions, file size, upload date, folder path, and Prev / Next / Close action buttons. Prev/Next wrap around and are hidden when there is only one image. Close calls `document.exitFullscreen()` and uses the `FullscreenClose` icon.
+
+**Chevron toggle:** circular button at `bottom: 1.2rem; right: 1.2rem`, z-index above the info pane. Shows `ChevronUp` when pane is closed, `ChevronDown` when open. Visibility is device-adaptive:
+
+- `pointer: fine` (mouse): hidden by default; appears on `mousemove`; auto-hides after 3 s of inactivity
+- `pointer: coarse` (touch): always visible via `@media (pointer: coarse)` CSS override
+
+`BrowseImage` type is exported from `ImagePreviewModal.tsx` and shared by both components.
+
 ## Image Service
 
 The Image Library feature is backed by a **dedicated Express service** running on port 3009, separate from the main React Router app. See `docs/adr/0001-separate-image-service.md` for why a separate process was chosen over a custom server entry. See `UBIQUITOUS_LANGUAGE.md` for canonical definitions of Image Library terms (Variant, Bounding Box, max, thumb, User Image Folder, Image Storage).

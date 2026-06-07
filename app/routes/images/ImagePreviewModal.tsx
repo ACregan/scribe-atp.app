@@ -345,7 +345,12 @@ export function ImagePreviewModal({
       </Modal>
 
       {fsOpen && (
-        <FullscreenImageViewer image={image} onExit={() => setFsOpen(false)} />
+        <FullscreenImageViewer
+          image={image}
+          images={images}
+          breadcrumbs={breadcrumbs}
+          onExit={() => setFsOpen(false)}
+        />
       )}
 
       {moveModalOpen && (
