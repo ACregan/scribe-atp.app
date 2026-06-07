@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { Modal } from "~/components/Modal/Modal";
 import { Button } from "~/components/Button/Button";
 import { MoveImageModal } from "./MoveImageModal";
+import { FullscreenImageViewer } from "./FullscreenImageViewer";
 import { useToast } from "~/components/Toast/ToastContext";
 import { deleteImage } from "~/services/imageServiceClient";
+import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import styles from "./ImagePreviewModal.module.css";
 
-type BrowseImage = {
+export type BrowseImage = {
   id: number;
   user_did: string;
   filename: string;
@@ -78,6 +80,7 @@ export function ImagePreviewModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [fsOpen, setFsOpen] = useState(false);
 
   const image = images[currentIndex] ?? initialImage;
   const isOwn = image.user_did === currentUserDid;
@@ -279,6 +282,15 @@ export function ImagePreviewModal({
                     : undefined,
               }}
             />
+            <button
+              type="button"
+              className={styles.fullscreenButton}
+              onClick={() => setFsOpen(true)}
+              title="View fullscreen"
+              aria-label="View fullscreen"
+            >
+              <SvgIcon name={SvgImageList.FullscreenOpen} fill="currentColor" />
+            </button>
           </div>
 
           <div className={styles.variantRow}>
@@ -331,6 +343,10 @@ export function ImagePreviewModal({
           </dl>
         </div>
       </Modal>
+
+      {fsOpen && (
+        <FullscreenImageViewer image={image} onExit={() => setFsOpen(false)} />
+      )}
 
       {moveModalOpen && (
         <MoveImageModal
