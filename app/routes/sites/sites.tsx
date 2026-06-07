@@ -74,7 +74,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const sites: SiteData[] = result.data.records.map((record) => {
     const v = record.value as Record<string, unknown>;
     const groups = (v.groups as Array<{ articles: unknown[] }>) ?? [];
-    const topArticles = (v.articles as unknown[]) ?? [];
+    const topArticles = (v.ungroupedArticles as unknown[]) ?? [];
     return {
       rkey: record.uri.split("/").pop()!,
       cid: record.cid,

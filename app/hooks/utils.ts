@@ -7,7 +7,7 @@ export function slugFromUri(uri: string): string {
 
 /** Returns all article refs from a site as a flat array (grouped first, then ungrouped). */
 export function flattenArticles(site: Site): ArticleRef[] {
-  return [...site.groups.flatMap((g) => g.articles), ...site.articles];
+  return [...site.groups.flatMap((g) => g.articles), ...site.ungroupedArticles];
 }
 
 // ─── internal ────────────────────────────────────────────────────────────────

@@ -36,7 +36,7 @@ const emptySite: SiteData = {
   title: "My Site",
   urlPrefix: "blog",
   groups: [],
-  articles: [],
+  ungroupedArticles: [],
 };
 
 // ─── slugFromUri ──────────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ describe("buildTreeFromSite", () => {
   it("maps ungrouped articles into the root node's children", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("hello-world"), ref("second-post")],
+      ungroupedArticles: [ref("hello-world"), ref("second-post")],
     };
     const tree = buildTreeFromSite(site);
     expect(tree[0].children).toHaveLength(2);
@@ -132,7 +132,7 @@ describe("buildTreeFromSite", () => {
   it("assigns each article a DnD id derived from the URI slug", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("my-article")],
+      ungroupedArticles: [ref("my-article")],
     };
     const tree = buildTreeFromSite(site);
     expect(tree[0].children[0].id).toBe("a:my-article");
@@ -180,7 +180,7 @@ describe("buildTreeFromSite", () => {
   it("preserves the url field on article nodes", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("my-post", { url: "my-post" })],
+      ungroupedArticles: [ref("my-post", { url: "my-post" })],
     };
     const tree = buildTreeFromSite(site);
     expect(tree[0].children[0].url).toBe("my-post");
@@ -189,7 +189,7 @@ describe("buildTreeFromSite", () => {
   it("preserves the synopsis field on article nodes", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("my-post", { synopsis: "A short summary" })],
+      ungroupedArticles: [ref("my-post", { synopsis: "A short summary" })],
     };
     const tree = buildTreeFromSite(site);
     expect(tree[0].children[0].synopsis).toBe("A short summary");
@@ -198,7 +198,7 @@ describe("buildTreeFromSite", () => {
   it("preserves splashImageUrl on article nodes", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [
+      ungroupedArticles: [
         ref("my-post", { splashImageUrl: "https://example.com/img.jpg" }),
       ],
     };
@@ -211,7 +211,7 @@ describe("buildTreeFromSite", () => {
   it("preserves createdAt on article nodes", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("my-post", { createdAt: "2025-06-01T12:00:00.000Z" })],
+      ungroupedArticles: [ref("my-post", { createdAt: "2025-06-01T12:00:00.000Z" })],
     };
     const tree = buildTreeFromSite(site);
     expect(tree[0].children[0].createdAt).toBe("2025-06-01T12:00:00.000Z");
@@ -231,7 +231,7 @@ describe("treeToSiteData", () => {
         children: [],
       },
     ];
-    expect(treeToSiteData(tree)).toEqual({ groups: [], articles: [] });
+    expect(treeToSiteData(tree)).toEqual({ groups: [], ungroupedArticles: [] });
   });
 
   it("places root children into the articles array", () => {
@@ -255,10 +255,10 @@ describe("treeToSiteData", () => {
         ],
       },
     ];
-    const { articles, groups } = treeToSiteData(tree);
+    const { ungroupedArticles, groups } = treeToSiteData(tree);
     expect(groups).toHaveLength(0);
-    expect(articles).toHaveLength(1);
-    expect(articles[0].uri).toBe("at://did/col/my-post");
+    expect(ungroupedArticles).toHaveLength(1);
+    expect(ungroupedArticles[0].uri).toBe("at://did/col/my-post");
   });
 
   it("places non-root nodes into the groups array", () => {
@@ -293,7 +293,7 @@ const makeRecord = (
   title: "My Site",
   url: "example.com",
   urlPrefix: "blog",
-  articles: [],
+  ungroupedArticles: [],
   groups: [],
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T00:00:00.000Z",
@@ -302,10 +302,10 @@ const makeRecord = (
 
 describe("removeArticleRef", () => {
   it("removes a matching ref from top-level articles", () => {
-    const record = makeRecord({ articles: [ref("keep"), ref("remove")] });
+    const record = makeRecord({ ungroupedArticles: [ref("keep"), ref("remove")] });
     const result = removeArticleRef(record, ref("remove").uri);
-    expect(result.articles).toHaveLength(1);
-    expect(result.articles[0].uri).toBe(ref("keep").uri);
+    expect(result.ungroupedArticles).toHaveLength(1);
+    expect(result.ungroupedArticles[0].uri).toBe(ref("keep").uri);
   });
 
   it("removes a matching ref from inside a group", () => {
@@ -324,9 +324,9 @@ describe("removeArticleRef", () => {
   });
 
   it("leaves articles with non-matching URIs untouched", () => {
-    const record = makeRecord({ articles: [ref("keep-a"), ref("keep-b")] });
+    const record = makeRecord({ ungroupedArticles: [ref("keep-a"), ref("keep-b")] });
     const result = removeArticleRef(record, "at://did/col/ghost");
-    expect(result.articles).toHaveLength(2);
+    expect(result.ungroupedArticles).toHaveLength(2);
   });
 
   it("preserves unknown fields on the record", () => {
@@ -370,10 +370,10 @@ describe("updateArticleRef", () => {
   };
 
   it("replaces a matching ref in top-level articles", () => {
-    const record = makeRecord({ articles: [ref("old"), ref("other")] });
+    const record = makeRecord({ ungroupedArticles: [ref("old"), ref("other")] });
     const result = updateArticleRef(record, ref("old").uri, newRef);
-    expect(result.articles[0].uri).toBe(newRef.uri);
-    expect(result.articles[1].uri).toBe(ref("other").uri);
+    expect(result.ungroupedArticles[0].uri).toBe(newRef.uri);
+    expect(result.ungroupedArticles[1].uri).toBe(ref("other").uri);
   });
 
   it("replaces a matching ref inside a group", () => {
@@ -392,9 +392,9 @@ describe("updateArticleRef", () => {
   });
 
   it("is a no-op when the URI is not found", () => {
-    const record = makeRecord({ articles: [ref("keep")] });
+    const record = makeRecord({ ungroupedArticles: [ref("keep")] });
     const result = updateArticleRef(record, "at://did/col/ghost", newRef);
-    expect(result.articles[0].uri).toBe(ref("keep").uri);
+    expect(result.ungroupedArticles[0].uri).toBe(ref("keep").uri);
   });
 
   it("preserves unknown fields on the record", () => {
@@ -421,7 +421,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   it("reproduces the original ungrouped articles unchanged", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [
+      ungroupedArticles: [
         ref("post-one", {
           url: "post-one",
           synopsis: "First summary",
@@ -430,8 +430,8 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
         ref("post-two", { url: "post-two", synopsis: null }),
       ],
     };
-    const { articles } = treeToSiteData(buildTreeFromSite(site));
-    expect(articles).toEqual(site.articles);
+    const { ungroupedArticles } = treeToSiteData(buildTreeFromSite(site));
+    expect(ungroupedArticles).toEqual(site.ungroupedArticles);
   });
 
   it("reproduces the original groups and their articles unchanged", () => {
@@ -460,19 +460,19 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   it("preserves url on ungrouped articles through the round-trip", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("my-post", { url: "my-post" })],
+      ungroupedArticles: [ref("my-post", { url: "my-post" })],
     };
-    const { articles } = treeToSiteData(buildTreeFromSite(site));
-    expect(articles[0].url).toBe("my-post");
+    const { ungroupedArticles } = treeToSiteData(buildTreeFromSite(site));
+    expect(ungroupedArticles[0].url).toBe("my-post");
   });
 
   it("preserves synopsis on ungrouped articles through the round-trip", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("my-post", { synopsis: "A short summary of the post" })],
+      ungroupedArticles: [ref("my-post", { synopsis: "A short summary of the post" })],
     };
-    const { articles } = treeToSiteData(buildTreeFromSite(site));
-    expect(articles[0].synopsis).toBe("A short summary of the post");
+    const { ungroupedArticles } = treeToSiteData(buildTreeFromSite(site));
+    expect(ungroupedArticles[0].synopsis).toBe("A short summary of the post");
   });
 
   it("preserves url on articles inside named groups through the round-trip", () => {
@@ -508,7 +508,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   it("handles a full site with both ungrouped articles and named groups", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("standalone", { url: "standalone", synopsis: "Solo" })],
+      ungroupedArticles: [ref("standalone", { url: "standalone", synopsis: "Solo" })],
       groups: [
         {
           slug: "series",
@@ -518,7 +518,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
       ],
     };
     const result = treeToSiteData(buildTreeFromSite(site));
-    expect(result.articles).toEqual(site.articles);
+    expect(result.ungroupedArticles).toEqual(site.ungroupedArticles);
     expect(result.groups).toEqual(site.groups);
   });
 });

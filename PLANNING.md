@@ -83,7 +83,7 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
       ]
     }
   ],
-  "articles": [
+  "ungroupedArticles": [
     {
       "uri": "at://did:plc:ownerId/app.scribe.article/ungrouped-post",
       "title": "Ungrouped Post",
@@ -111,7 +111,7 @@ Notes:
 - Cached metadata may go stale if the author edits their article — the edit action always refreshes `ArticleRef` entries in every site the article belongs to on save (`sitesToRefresh`), keeping refs current without manual re-ordering
 - `cid` is deliberately excluded from `ArticleRef` — storing it would cause `swapRecord` failures after any edit to the article; fetch it live at the point of deletion
 - Every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef` — `content` is excluded because it can be arbitrarily large
-- `articles` at the top level holds ungrouped articles (same role as the ROOT virtual group in the current list view)
+- `ungroupedArticles` at the top level holds articles assigned to this site but not placed in any named group (same role as the ROOT virtual group in the current list view)
 - `groups` order is significant — it determines display order on the site
 - `updatedAt` is useful for cache invalidation by public readers
 

@@ -105,7 +105,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     const siteRkey = record.uri.split("/").pop()!;
     const siteTitle = String(value.title ?? "");
 
-    for (const a of (value.articles as Array<{ uri: string }>) ?? []) {
+    for (const a of (value.ungroupedArticles as Array<{ uri: string }>) ?? []) {
       referencedUris.add(a.uri);
       const list = assignmentMap.get(a.uri) ?? [];
       list.push({ siteTitle, siteRkey });

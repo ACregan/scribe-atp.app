@@ -22,7 +22,7 @@ export interface Site {
   splashImageUrl?: string;
   logoImageUrl?: string;
   groups: SiteGroup[];
-  articles: ArticleRef[];
+  ungroupedArticles: ArticleRef[];
 }
 
 export interface Article {

@@ -13,7 +13,7 @@ export type SiteData = {
   title: string;
   urlPrefix: string;
   groups: SiteGroup[];
-  articles: ArticleRef[];
+  ungroupedArticles: ArticleRef[];
 };
 
 export type TreeArticleNode = {
@@ -66,7 +66,7 @@ export function toSlug(title: string): string {
 // written back to the PDS via putRecord.
 
 export type SiteRecordValue = {
-  articles: ArticleRef[];
+  ungroupedArticles: ArticleRef[];
   groups: Array<{ articles: ArticleRef[] } & Record<string, unknown>>;
 } & Record<string, unknown>;
 
@@ -76,7 +76,7 @@ export function removeArticleRef(
 ): SiteRecordValue {
   return {
     ...record,
-    articles: (record.articles ?? []).filter((a) => a.uri !== uri),
+    ungroupedArticles: (record.ungroupedArticles ?? []).filter((a) => a.uri !== uri),
     groups: (record.groups ?? []).map((g) => ({
       ...g,
       articles: (g.articles ?? []).filter((a) => a.uri !== uri),
@@ -92,7 +92,7 @@ export function updateArticleRef(
 ): SiteRecordValue {
   return {
     ...record,
-    articles: (record.articles ?? []).map((a) =>
+    ungroupedArticles: (record.ungroupedArticles ?? []).map((a) =>
       a.uri === oldUri ? newRef : a,
     ),
     groups: (record.groups ?? []).map((g) => ({
@@ -111,7 +111,7 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
     id: "g:root",
     slug: "root",
     title: "Ungrouped",
-    children: (site.articles ?? []).map((a) => ({
+    children: (site.ungroupedArticles ?? []).map((a) => ({
       kind: "article",
       id: articleId(slugFromUri(a.uri)),
       uri: a.uri,
@@ -147,15 +147,15 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
 
 export function treeToSiteData(tree: TreeGroupNode[]): {
   groups: SiteGroup[];
-  articles: ArticleRef[];
+  ungroupedArticles: ArticleRef[];
 } {
   const groups: SiteGroup[] = [];
-  const articles: ArticleRef[] = [];
+  const ungroupedArticles: ArticleRef[] = [];
 
   for (const node of tree) {
     if (node.id === "g:root") {
       for (const child of node.children) {
-        articles.push({
+        ungroupedArticles.push({
           uri: child.uri,
           title: child.title,
           url: child.url,
@@ -182,5 +182,5 @@ export function treeToSiteData(tree: TreeGroupNode[]): {
     }
   }
 
-  return { groups, articles };
+  return { groups, ungroupedArticles };
 }

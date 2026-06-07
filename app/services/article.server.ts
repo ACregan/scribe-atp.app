@@ -92,7 +92,7 @@ export async function addArticleToSites(
         rkey: siteRkey,
         record: {
           ...siteValue,
-          articles: [...(siteValue.articles ?? []), articleRef],
+          ungroupedArticles: [...(siteValue.ungroupedArticles ?? []), articleRef],
           updatedAt: new Date().toISOString(),
         },
         swapRecord: rec.data.cid,

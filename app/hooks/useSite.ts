@@ -20,7 +20,7 @@ async function fetchSite(author: string, siteSlug: string): Promise<Site> {
     splashImageUrl: value.splashImageUrl,
     logoImageUrl: value.logoImageUrl,
     groups: value.groups ?? [],
-    articles: value.articles ?? [],
+    ungroupedArticles: value.ungroupedArticles ?? [],
   };
 }
 

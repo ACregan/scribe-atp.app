@@ -223,7 +223,7 @@ This breaks any existing AT URIs pointing to the old rkey.
     title: string,
     articles: ArticleRef[],
   }>,
-  articles: ArticleRef[], // top-level ungrouped articles
+  ungroupedArticles: ArticleRef[], // top-level ungrouped articles
   createdAt: string,
   updatedAt: string,
 }
@@ -253,7 +253,7 @@ Key design decisions for `app.scribe.site`:
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
 
-The `/article/list` route shows two sections: a site picker (links to `/article/list/:siteSlug` for each site) and an **Unassigned Articles** section listing any `app.scribe.article` records not referenced in any site's `articles` or `groups[x].articles`. The loader fetches both article and site records in parallel, builds a `Set` of referenced URIs from all site values, and returns the difference as `orphanedArticles`. The route has a `deleteArticle` action for removing orphaned articles directly. The section is hidden when there are no orphans.
+The `/article/list` route shows two sections: a site picker (links to `/article/list/:siteSlug` for each site) and an **Unassigned Articles** section listing any `app.scribe.article` records not referenced in any site's `ungroupedArticles` or `groups[x].articles`. The loader fetches both article and site records in parallel, builds a `Set` of referenced URIs from all site values, and returns the difference as `orphanedArticles`. The route has a `deleteArticle` action for removing orphaned articles directly. The section is hidden when there are no orphans.
 
 The site picker renders each site as a `SiteListItem` (from `app/components/SiteListItem/`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, the site title, composed URL, and group/article count badges. The loader maps all `SiteData` fields from the site record. Both image fields fall back to a CSS gradient when absent. `onDelete` is not passed here — deletion is only available on `/sites`.
 
@@ -576,7 +576,7 @@ Both hooks cancel the in-flight fetch on unmount and on parameter change.
 ```ts
 ArticleRef  { uri, title, url?, splashImageUrl, synopsis?, createdAt, updatedAt? }
 SiteGroup   { slug, title, articles: ArticleRef[] }
-Site        { title, url, urlPrefix, description?, splashImageUrl?, logoImageUrl?, groups: SiteGroup[], articles: ArticleRef[] }
+Site        { title, url, urlPrefix, description?, splashImageUrl?, logoImageUrl?, groups: SiteGroup[], ungroupedArticles: ArticleRef[] }
 Article     { title, content, url, splashImageUrl?, synopsis?, createdAt, updatedAt? }
 ```
 
@@ -623,7 +623,7 @@ The project uses **Vitest** with **React Testing Library** for component unit te
 | Export                              | Purpose                                                                                   |
 | ----------------------------------- | ----------------------------------------------------------------------------------------- |
 | `buildTreeFromSite(site)`           | Converts a `SiteData` record into a `TreeGroupNode[]` DnD tree (root node + named groups) |
-| `treeToSiteData(tree)`              | Inverse — converts the DnD tree back to `{ groups, articles }` for writing to the PDS     |
+| `treeToSiteData(tree)`              | Inverse — converts the DnD tree back to `{ groups, ungroupedArticles }` for writing to the PDS     |
 | `toSlug(title)`                     | Converts a group title to a URL slug (lowercase, spaces→hyphens, strip specials)          |
 | `slugFromUri(uri)`                  | Returns the final path segment of an AT URI                                               |
 | `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`)                                |

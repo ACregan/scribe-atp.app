@@ -171,7 +171,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     const groups = value.groups as
       | Array<{ articles?: Array<{ uri: string }> }>
       | undefined;
-    const topArticles = value.articles as Array<{ uri: string }> | undefined;
+    const topArticles = value.ungroupedArticles as Array<{ uri: string }> | undefined;
     groups?.forEach((g) =>
       g.articles?.forEach((a) => referencedUris.add(a.uri)),
     );

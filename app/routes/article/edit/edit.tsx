@@ -79,7 +79,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const currentSiteRkeys = sitesResult.data.records
     .filter((record) => {
       const value = record.value as SiteRecordValue;
-      const inTopLevel = (value.articles ?? []).some(
+      const inTopLevel = (value.ungroupedArticles ?? []).some(
         (a) => a.uri === articleUri,
       );
       const inGroups = (value.groups ?? []).some((g) =>

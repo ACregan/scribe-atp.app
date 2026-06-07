@@ -107,7 +107,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
             ],
           },
         ],
-        articles: [
+        ungroupedArticles: [
           {
             uri: "at://did:dev:user/app.scribe.article/getting-started",
             title: "Getting Started with AT Protocol",
@@ -143,7 +143,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         title: String(value.title ?? ""),
         urlPrefix: String(value.urlPrefix ?? ""),
         groups: (value.groups as SiteGroup[]) ?? [],
-        articles: (value.articles as ArticleRef[]) ?? [],
+        ungroupedArticles: (value.ungroupedArticles as ArticleRef[]) ?? [],
       } as SiteData,
     };
   } catch {
@@ -242,9 +242,9 @@ export async function action({ request, params }: Route.ActionArgs) {
           rkey: siteSlug,
         });
         const val = rec.data.value as Record<string, unknown>;
-        const { groups, articles } = JSON.parse(siteDataJson) as {
+        const { groups, ungroupedArticles } = JSON.parse(siteDataJson) as {
           groups: SiteGroup[];
-          articles: ArticleRef[];
+          ungroupedArticles: ArticleRef[];
         };
         await agent.com.atproto.repo.putRecord({
           repo: did,
@@ -253,7 +253,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           record: {
             ...val,
             groups,
-            articles,
+            ungroupedArticles,
             updatedAt: new Date().toISOString(),
           },
           swapRecord: rec.data.cid,
@@ -286,7 +286,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           rkey: siteSlug,
           record: {
             ...val,
-            articles: (val.articles ?? []).filter((a) => a.uri !== uri),
+            ungroupedArticles: (val.ungroupedArticles ?? []).filter((a) => a.uri !== uri),
             groups: (val.groups ?? []).map((g) => ({
               ...g,
               articles: (g.articles ?? []).filter((a) => a.uri !== uri),

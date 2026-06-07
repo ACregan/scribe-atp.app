@@ -33,7 +33,7 @@ const baseSite: Site = {
   url: "example.com",
   urlPrefix: "blog",
   groups: [],
-  articles: [],
+  ungroupedArticles: [],
 };
 
 describe("flattenArticles", () => {
@@ -44,9 +44,9 @@ describe("flattenArticles", () => {
   it("returns ungrouped articles when there are no groups", () => {
     const site: Site = {
       ...baseSite,
-      articles: [articleRef("post-a"), articleRef("post-b")],
+      ungroupedArticles: [articleRef("post-a"), articleRef("post-b")],
     };
-    expect(flattenArticles(site)).toEqual(site.articles);
+    expect(flattenArticles(site)).toEqual(site.ungroupedArticles);
   });
 
   it("returns group articles before ungrouped articles", () => {
@@ -55,7 +55,7 @@ describe("flattenArticles", () => {
     const site: Site = {
       ...baseSite,
       groups: [{ slug: "eng", title: "Engineering", articles: [grouped] }],
-      articles: [ungrouped],
+      ungroupedArticles: [ungrouped],
     };
     const result = flattenArticles(site);
     expect(result[0].uri).toBe(grouped.uri);
@@ -83,7 +83,7 @@ describe("flattenArticles", () => {
       groups: [
         { slug: "g1", title: "Group 1", articles: [articleRef("a"), articleRef("b")] },
       ],
-      articles: [articleRef("c")],
+      ungroupedArticles: [articleRef("c")],
     };
     expect(flattenArticles(site)).toHaveLength(3);
   });
