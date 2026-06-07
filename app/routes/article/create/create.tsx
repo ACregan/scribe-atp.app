@@ -5,9 +5,16 @@ import {
   PageContainerHeading,
 } from "~/components/PageContainer/PageContainer";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import {
+  validateArticleFields,
+  buildArticleRecord,
+  buildArticleRef,
+  loadSiteOptions,
+  addArticleToSites,
+} from "~/services/article.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import { ARTICLE_COLLECTION } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { Button } from "~/components/Button/Button";
 import {
@@ -36,18 +43,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const agent = await getAtpAgent(did);
-  const sitesResult = await agent.com.atproto.repo.listRecords({
-    repo: did,
-    collection: SITE_COLLECTION,
-    limit: 100,
-  });
-
-  const sites: SiteOption[] = sitesResult.data.records.map((record) => ({
-    rkey: record.uri.split("/").pop()!,
-    title: String((record.value as Record<string, unknown>).title ?? ""),
-    url: String((record.value as Record<string, unknown>).url ?? ""),
-  }));
-
+  const sites = await loadSiteOptions(agent, did);
   const preselectedSite = sites.some((s) => s.rkey === preselect)
     ? preselect
     : undefined;
@@ -66,13 +62,8 @@ export async function action({ request }: Route.ActionArgs) {
   const synopsis = formData.get("synopsis") as string;
   const selectedSiteRkeys = formData.getAll("sites") as string[];
 
-  if (!title?.trim()) return { error: "Title is required." };
-  if (!url?.trim()) return { error: "URL slug is required." };
-  if (!SLUG_RE.test(url))
-    return {
-      error:
-        "URL slug must be lowercase letters, numbers, and hyphens only (e.g. my-article).",
-    };
+  const validationError = validateArticleFields(title, url);
+  if (validationError) return { error: validationError };
 
   if (!useRealOAuth) {
     return {
@@ -89,53 +80,28 @@ export async function action({ request }: Route.ActionArgs) {
       repo: did,
       collection: ARTICLE_COLLECTION,
       rkey: url,
-      record: {
-        $type: ARTICLE_COLLECTION,
+      record: buildArticleRecord({
         title,
         content,
         url,
-        splashImageUrl: splashImageUrl?.trim() || undefined,
-        synopsis: synopsis?.trim() || undefined,
+        splashImageUrl,
+        synopsis,
         createdAt: now,
         updatedAt: now,
-      },
+      }),
     });
 
     if (selectedSiteRkeys.length > 0) {
-      const articleRef = {
+      const articleRef = buildArticleRef({
         uri: result.data.uri,
         title,
         url,
-        splashImageUrl: splashImageUrl?.trim() || null,
-        synopsis: synopsis?.trim() || null,
+        splashImageUrl,
+        synopsis,
         createdAt: now,
         updatedAt: now,
-      };
-
-      await Promise.allSettled(
-        selectedSiteRkeys.map(async (siteRkey) => {
-          const siteRecord = await agent.com.atproto.repo.getRecord({
-            repo: did,
-            collection: SITE_COLLECTION,
-            rkey: siteRkey,
-          });
-          const siteValue = siteRecord.data.value as Record<string, unknown>;
-          await agent.com.atproto.repo.putRecord({
-            repo: did,
-            collection: SITE_COLLECTION,
-            rkey: siteRkey,
-            record: {
-              ...siteValue,
-              articles: [
-                ...((siteValue.articles as unknown[]) ?? []),
-                articleRef,
-              ],
-              updatedAt: new Date().toISOString(),
-            },
-            swapRecord: siteRecord.data.cid,
-          });
-        }),
-      );
+      });
+      await addArticleToSites(agent, did, selectedSiteRkeys, articleRef);
     }
 
     return { uri: result.data.uri, devMode: false, title };

@@ -1,9 +1,15 @@
 import type { Route } from "./+types/edit";
 import { Form, redirect, useNavigate } from "react-router";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import {
+  validateArticleFields,
+  buildArticleRecord,
+  buildArticleRef,
+  addArticleToSites,
+} from "~/services/article.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageContainerHeading,
@@ -19,7 +25,6 @@ import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import {
   removeArticleRef,
   updateArticleRef,
-  type SiteArticleRef,
   type SiteRecordValue,
 } from "~/routes/article/site-list/siteTree";
 
@@ -67,7 +72,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     }),
   ]);
 
-  const sites: SiteOption[] = sitesResult.data.records.map((record) => ({
+  const sites = sitesResult.data.records.map((record) => ({
     rkey: record.uri.split("/").pop()!,
     title: String((record.value as Record<string, unknown>).title ?? ""),
     url: String((record.value as Record<string, unknown>).url ?? ""),
@@ -120,13 +125,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     (formData.get("oldSiteRkeys") as string) || "[]",
   );
 
-  if (!title?.trim()) return { error: "Title is required." };
-  if (!newUrl?.trim()) return { error: "URL slug is required." };
-  if (!SLUG_RE.test(newUrl))
-    return {
-      error:
-        "URL slug must be lowercase letters, numbers, and hyphens only (e.g. my-article).",
-    };
+  const validationError = validateArticleFields(title, newUrl);
+  if (validationError) return { error: validationError };
 
   if (!useRealOAuth) return redirect("/article/list");
 
@@ -136,16 +136,15 @@ export async function action({ request, params }: Route.ActionArgs) {
   const slugChanged = newUrl !== oldRkey;
 
   const now = new Date().toISOString();
-  const record = {
-    $type: ARTICLE_COLLECTION,
+  const record = buildArticleRecord({
     title,
     content,
     url: newUrl,
-    splashImageUrl: splashImageUrl?.trim() || undefined,
-    synopsis: synopsis?.trim() || undefined,
+    splashImageUrl,
+    synopsis,
     createdAt,
     updatedAt: now,
-  };
+  });
 
   try {
     if (slugChanged) {
@@ -194,15 +193,15 @@ export async function action({ request, params }: Route.ActionArgs) {
     (r) => newSiteRkeys.includes(r) && !slugChanged,
   );
 
-  const newArticleRef: SiteArticleRef = {
+  const newArticleRef = buildArticleRef({
     uri: newArticleUri,
     title,
     url: newUrl,
-    splashImageUrl: splashImageUrl?.trim() || null,
-    synopsis: synopsis?.trim() || null,
+    splashImageUrl,
+    synopsis,
     createdAt,
     updatedAt: now,
-  };
+  });
 
   await Promise.allSettled([
     ...sitesToRemove.map(async (siteRkey) => {
@@ -263,27 +262,9 @@ export async function action({ request, params }: Route.ActionArgs) {
         swapRecord: rec.data.cid,
       });
     }),
-
-    ...sitesToAdd.map(async (siteRkey) => {
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-      });
-      const siteValue = rec.data.value as SiteRecordValue;
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-        record: {
-          ...siteValue,
-          articles: [...(siteValue.articles ?? []), newArticleRef],
-          updatedAt: new Date().toISOString(),
-        },
-        swapRecord: rec.data.cid,
-      });
-    }),
   ]);
+
+  await addArticleToSites(agent, did, sitesToAdd, newArticleRef);
 
   return { ok: true, title };
 }
