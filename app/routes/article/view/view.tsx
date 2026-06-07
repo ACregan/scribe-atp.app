@@ -1,6 +1,6 @@
 import type { Route } from "./+types/view";
 import { Link } from "react-router";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
 import { ARTICLE_COLLECTION } from "~/constants";
 import {
@@ -14,8 +14,6 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { did } = await requireAuth(request);
-
   if (!useRealOAuth) {
     return {
       title: "Dev mode article",
@@ -27,7 +25,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     };
   }
 
-  const agent = await getAtpAgent(did);
+  const { agent, did } = await requireAtpAgent(request);
   const result = await agent.com.atproto.repo.getRecord({
     repo: did,
     collection: ARTICLE_COLLECTION,

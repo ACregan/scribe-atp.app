@@ -1,7 +1,7 @@
 import type { Route } from "./+types/list";
 import { Form, Link } from "react-router";
 import { useRef, useState } from "react";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -37,8 +37,6 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { did } = await requireAuth(request);
-
   if (!useRealOAuth) {
     return {
       assignedArticles: [
@@ -84,7 +82,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   }
 
-  const agent = await getAtpAgent(did);
+  const { agent, did } = await requireAtpAgent(request);
 
   const [articlesResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
@@ -160,14 +158,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const { did } = await requireAuth(request);
   const formData = await request.formData();
-
   if (!useRealOAuth) return { ok: true };
 
+  const { agent, did } = await requireAtpAgent(request);
   const rkey = formData.get("rkey") as string;
   const cid = formData.get("cid") as string | null;
-  const agent = await getAtpAgent(did);
   await agent.com.atproto.repo.deleteRecord({
     repo: did,
     collection: ARTICLE_COLLECTION,

@@ -1,6 +1,18 @@
 import type { Route } from "./+types/site-list";
-import { redirect, useFetcher, useBlocker, useNavigate, useLocation, Link } from "react-router";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import {
+  redirect,
+  useFetcher,
+  useBlocker,
+  useNavigate,
+  useLocation,
+  Link,
+} from "react-router";
+import {
+  getAtpAgent,
+  requireAuth,
+  requireAtpAgent,
+  useRealOAuth,
+} from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Input } from "~/components/Input/Input";
@@ -71,7 +83,6 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { did } = await requireAuth(request);
   const siteSlug = params.siteSlug;
 
   if (!useRealOAuth) {
@@ -116,7 +127,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 
   try {
-    const agent = await getAtpAgent(did);
+    const { agent, did } = await requireAtpAgent(request);
     const record = await agent.com.atproto.repo.getRecord({
       repo: did,
       collection: SITE_COLLECTION,

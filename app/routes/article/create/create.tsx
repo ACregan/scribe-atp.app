@@ -4,7 +4,12 @@ import {
   PageContainer,
   PageContainerHeading,
 } from "~/components/PageContainer/PageContainer";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import {
+  getAtpAgent,
+  requireAuth,
+  requireAtpAgent,
+  useRealOAuth,
+} from "~/services/auth.server";
 import {
   validateArticleFields,
   buildArticleRecord,
@@ -24,7 +29,6 @@ import {
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { did } = await requireAuth(request);
   const preselect = new URL(request.url).searchParams.get("site") ?? undefined;
 
   if (!useRealOAuth) {
@@ -42,7 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { sites, preselectedSite };
   }
 
-  const agent = await getAtpAgent(did);
+  const { agent, did } = await requireAtpAgent(request);
   const sites = await loadSiteOptions(agent, did);
   const preselectedSite = sites.some((s) => s.rkey === preselect)
     ? preselect

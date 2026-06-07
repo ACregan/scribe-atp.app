@@ -113,14 +113,15 @@ Stored fields: `did` (string), `handle` (string).
 
 Key exports from `auth.server.ts`:
 
-| Function                                                  | Purpose                                                                                                                                                       |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getAuthSession(request)`                                 | Reads session cookie — returns `{ did, handle, isAuthenticated }` (all optional)                                                                              |
-| `requireAuth(request)`                                    | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional                                         |
-| `getAtpAgent(did)`                                        | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure                                                            |
-| `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects                                                                                                                           |
-| `destroyAuthSession(request, redirectTo)`                 | Clears `__session` cookie **and** the SQLite `oauth_session` row so re-login triggers a fresh authorization with current scopes — used by the `/logout` route |
-| `useRealOAuth`                                            | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true`                                                                                     |
+| Function                                                  | Purpose                                                                                                                                                                                             |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getAuthSession(request)`                                 | Reads session cookie — returns `{ did, handle, isAuthenticated }` (all optional)                                                                                                                    |
+| `requireAuth(request)`                                    | Like `getAuthSession` but throws a redirect to `/login` if not authenticated — returns `{ did, handle }` non-optional                                                                               |
+| `getAtpAgent(did)`                                        | Restores OAuth session from SQLite and returns an `Agent` — throws redirect to `/login` on failure                                                                                                  |
+| `requireAtpAgent(request)`                                | Combines `requireAuth` + `getAtpAgent` — returns `{ agent, did, handle }`. Use in route loaders/actions: check `useRealOAuth` and return mock first, then call `requireAtpAgent` for the real path. |
+| `createAuthSession(request, { did, handle }, redirectTo)` | Writes session cookie and redirects                                                                                                                                                                 |
+| `destroyAuthSession(request, redirectTo)`                 | Clears `__session` cookie **and** the SQLite `oauth_session` row so re-login triggers a fresh authorization with current scopes — used by the `/logout` route                                       |
+| `useRealOAuth`                                            | Boolean constant — `true` in production or when `DEV_USE_REAL_OAUTH=true`                                                                                                                           |
 
 ### Dev bypass (default in development)
 
@@ -307,10 +308,15 @@ This means a separate read-only frontend (public blog, etc.) can fetch and displ
 
 ### Making authenticated AT Protocol calls
 
-```ts
-import { getAtpAgent } from "~/services/auth.server";
+Prefer `requireAtpAgent` in route loaders and actions — it combines `requireAuth` + `getAtpAgent` into one call. Pattern:
 
-const agent = await getAtpAgent(did); // restores OAuth session from SQLite; throws redirect("/login") if missing
+```ts
+import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+
+// Check dev bypass first (return mock data early), then get agent for the real path:
+if (!useRealOAuth) { return mockData; }
+const { agent, did, handle } = await requireAtpAgent(request);
+
 await agent.com.atproto.repo.createRecord({ ... });
 await agent.com.atproto.repo.putRecord({ ... });
 await agent.com.atproto.repo.deleteRecord({ ... });
@@ -318,7 +324,7 @@ await agent.com.atproto.repo.listRecords({ ... });
 await agent.com.atproto.repo.getRecord({ ... });
 ```
 
-`getAtpAgent` automatically redirects to `/login` if the session is missing — callers do not need to handle this error.
+Use `getAtpAgent(did)` directly only when you already have a `did` from a separate `requireAuth` call (e.g. when the dev-bypass path needs `did` to construct a mock AT URI). Both automatically redirect to `/login` if the session is missing.
 
 ## Components
 

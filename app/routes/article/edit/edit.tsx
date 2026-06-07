@@ -1,6 +1,6 @@
 import type { Route } from "./+types/edit";
 import { Form, redirect, useNavigate } from "react-router";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
   buildArticleRecord,
@@ -33,8 +33,6 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { did } = await requireAuth(request);
-
   if (!useRealOAuth) {
     return {
       rkey: params.articleUrl,
@@ -56,7 +54,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     };
   }
 
-  const agent = await getAtpAgent(did);
+  const { agent, did } = await requireAtpAgent(request);
   const articleUri = `at://${did}/${ARTICLE_COLLECTION}/${params.articleUrl}`;
 
   const [articleResult, sitesResult] = await Promise.all([
@@ -108,8 +106,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const { did } = await requireAuth(request);
-
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
@@ -130,7 +126,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (!useRealOAuth) return redirect("/article/list");
 
-  const agent = await getAtpAgent(did);
+  const { agent, did } = await requireAtpAgent(request);
   const oldArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${oldRkey}`;
   const newArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${newUrl}`;
   const slugChanged = newUrl !== oldRkey;
