@@ -1,9 +1,8 @@
-/* ── Fullscreen container ────────────────────────────────────────────────── */
+/* ── Content fills the fullscreen host (the host is managed by ImagePreviewModal) */
 
-.container {
+.content {
   width: 100%;
   height: 100%;
-  background: #000;
   position: relative;
   overflow: hidden;
 }
@@ -41,6 +40,19 @@
   padding: 2rem;
   box-sizing: border-box;
 }
+.imageWrapActual::-webkit-scrollbar-track {
+  border-radius: 10px;
+  background-color: black;
+}
+.imageWrapActual::-webkit-scrollbar {
+  width: 12px;
+  background-color: black;
+}
+.imageWrapActual::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  -webkit-box-shadow: inset 0 0 0 2px black;
+  background-color: var(--red);
+}
 
 .imageActual {
   display: block;
@@ -56,7 +68,7 @@
   left: 0;
   right: 0;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(0, 0, 0, 0.5);
   padding: 1.6rem 2rem;
   display: flex;
   flex-direction: column;
@@ -107,6 +119,10 @@
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  /* Reserve space on the right for the floating chevron button.
+     Chevron: right: 1.2rem, width: 3.6rem → left edge at 4.8rem from viewport edge.
+     infoPane already has 2rem right padding, so 2.8rem here clears the chevron. */
+  padding-right: 4.8rem;
 }
 
 .actionButton {
@@ -134,6 +150,7 @@
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
+  user-select: none;
 }
 
 .closeButton svg {

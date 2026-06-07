@@ -15,16 +15,15 @@ function formatBytes(bytes: number | undefined): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
+// Purely presentational — no Fullscreen API calls.
+// The parent (ImagePreviewModal) manages entering/exiting fullscreen and
+// mounts/unmounts this component by watching the fullscreenchange event.
 export function FullscreenImageViewer({
   image,
   images,
   breadcrumbs,
   onExit,
 }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const onExitRef = useRef(onExit);
-  onExitRef.current = onExit;
-
   const [currentIndex, setCurrentIndex] = useState(() =>
     Math.max(
       0,
@@ -44,26 +43,6 @@ export function FullscreenImageViewer({
       ? breadcrumbs.map((b) => b.name).join(" › ")
       : "Image Library";
 
-  // Fullscreen lifecycle
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    el.requestFullscreen().catch(() => onExitRef.current());
-
-    function handleFullscreenChange() {
-      if (!document.fullscreenElement) onExitRef.current();
-    }
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
-    };
-  }, []);
-
   // Chevron auto-hide on pointer:fine devices
   const hideTimerRef = useRef<number | undefined>(undefined);
   useEffect(() => {
@@ -75,7 +54,6 @@ export function FullscreenImageViewer({
         3000,
       );
     }
-
     document.addEventListener("mousemove", handleMouseMove);
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
@@ -97,12 +75,8 @@ export function FullscreenImageViewer({
     setViewMode("fit");
   }
 
-  function handleClose() {
-    document.exitFullscreen().catch(() => {});
-  }
-
   return (
-    <div ref={containerRef} className={styles.container}>
+    <div className={styles.content}>
       {/* Image area */}
       <div
         className={
@@ -175,7 +149,7 @@ export function FullscreenImageViewer({
           <button
             type="button"
             className={`${styles.actionButton} ${styles.closeButton}`}
-            onClick={handleClose}
+            onClick={onExit}
             aria-label="Exit fullscreen"
           >
             <SvgIcon name={SvgImageList.FullscreenClose} fill="currentColor" />
