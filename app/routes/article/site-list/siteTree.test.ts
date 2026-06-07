@@ -6,14 +6,20 @@ import {
   toSlug,
   buildTreeFromSite,
   treeToSiteData,
+  removeArticleRef,
+  updateArticleRef,
   type SiteData,
   type SiteArticleRef,
+  type SiteRecordValue,
   type TreeGroupNode,
 } from "./siteTree";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const ref = (slug: string, overrides: Partial<SiteArticleRef> = {}): SiteArticleRef => ({
+const ref = (
+  slug: string,
+  overrides: Partial<SiteArticleRef> = {},
+): SiteArticleRef => ({
   uri: `at://did:plc:test/app.scribe.article/${slug}`,
   title: `Article: ${slug}`,
   url: slug,
@@ -37,7 +43,9 @@ const emptySite: SiteData = {
 
 describe("slugFromUri", () => {
   it("returns the final path segment of an AT URI", () => {
-    expect(slugFromUri("at://did:plc:abc/app.scribe.article/my-post")).toBe("my-post");
+    expect(slugFromUri("at://did:plc:abc/app.scribe.article/my-post")).toBe(
+      "my-post",
+    );
   });
 
   it("works for any URI depth", () => {
@@ -190,10 +198,14 @@ describe("buildTreeFromSite", () => {
   it("preserves splashImageUrl on article nodes", () => {
     const site: SiteData = {
       ...emptySite,
-      articles: [ref("my-post", { splashImageUrl: "https://example.com/img.jpg" })],
+      articles: [
+        ref("my-post", { splashImageUrl: "https://example.com/img.jpg" }),
+      ],
     };
     const tree = buildTreeFromSite(site);
-    expect(tree[0].children[0].splashImageUrl).toBe("https://example.com/img.jpg");
+    expect(tree[0].children[0].splashImageUrl).toBe(
+      "https://example.com/img.jpg",
+    );
   });
 
   it("preserves createdAt on article nodes", () => {
@@ -211,7 +223,13 @@ describe("buildTreeFromSite", () => {
 describe("treeToSiteData", () => {
   it("returns empty groups and articles for a tree with only an empty root", () => {
     const tree: TreeGroupNode[] = [
-      { kind: "group", id: "g:root", slug: "root", title: "Ungrouped", children: [] },
+      {
+        kind: "group",
+        id: "g:root",
+        slug: "root",
+        title: "Ungrouped",
+        children: [],
+      },
     ];
     expect(treeToSiteData(tree)).toEqual({ groups: [], articles: [] });
   });
@@ -245,12 +263,155 @@ describe("treeToSiteData", () => {
 
   it("places non-root nodes into the groups array", () => {
     const tree: TreeGroupNode[] = [
-      { kind: "group", id: "g:root", slug: "root", title: "Ungrouped", children: [] },
-      { kind: "group", id: "g:engineering", slug: "engineering", title: "Engineering", children: [] },
+      {
+        kind: "group",
+        id: "g:root",
+        slug: "root",
+        title: "Ungrouped",
+        children: [],
+      },
+      {
+        kind: "group",
+        id: "g:engineering",
+        slug: "engineering",
+        title: "Engineering",
+        children: [],
+      },
     ];
     const { groups } = treeToSiteData(tree);
     expect(groups).toHaveLength(1);
     expect(groups[0].slug).toBe("engineering");
+  });
+});
+
+// ─── removeArticleRef ─────────────────────────────────────────────────────────
+
+const makeRecord = (
+  overrides: Partial<SiteRecordValue> = {},
+): SiteRecordValue => ({
+  $type: "app.scribe.site",
+  title: "My Site",
+  url: "example.com",
+  urlPrefix: "blog",
+  articles: [],
+  groups: [],
+  createdAt: "2024-01-01T00:00:00.000Z",
+  updatedAt: "2024-01-01T00:00:00.000Z",
+  ...overrides,
+});
+
+describe("removeArticleRef", () => {
+  it("removes a matching ref from top-level articles", () => {
+    const record = makeRecord({ articles: [ref("keep"), ref("remove")] });
+    const result = removeArticleRef(record, ref("remove").uri);
+    expect(result.articles).toHaveLength(1);
+    expect(result.articles[0].uri).toBe(ref("keep").uri);
+  });
+
+  it("removes a matching ref from inside a group", () => {
+    const record = makeRecord({
+      groups: [
+        {
+          slug: "eng",
+          title: "Engineering",
+          articles: [ref("keep"), ref("remove")],
+        },
+      ],
+    });
+    const result = removeArticleRef(record, ref("remove").uri);
+    expect(result.groups[0].articles).toHaveLength(1);
+    expect(result.groups[0].articles[0].uri).toBe(ref("keep").uri);
+  });
+
+  it("leaves articles with non-matching URIs untouched", () => {
+    const record = makeRecord({ articles: [ref("keep-a"), ref("keep-b")] });
+    const result = removeArticleRef(record, "at://did/col/ghost");
+    expect(result.articles).toHaveLength(2);
+  });
+
+  it("preserves unknown fields on the record", () => {
+    const record = makeRecord({
+      contributors: ["did:plc:alice"],
+    } as Partial<SiteRecordValue>);
+    const result = removeArticleRef(record, "at://did/col/ghost");
+    expect((result as Record<string, unknown>).contributors).toEqual([
+      "did:plc:alice",
+    ]);
+  });
+
+  it("preserves unknown fields on groups", () => {
+    const record = makeRecord({
+      groups: [
+        { slug: "eng", title: "Engineering", articles: [], someFlag: true },
+      ],
+    });
+    const result = removeArticleRef(record, "at://did/col/ghost");
+    expect((result.groups[0] as Record<string, unknown>).someFlag).toBe(true);
+  });
+
+  it("updates updatedAt on the record", () => {
+    const before = "2024-01-01T00:00:00.000Z";
+    const record = makeRecord({ updatedAt: before });
+    const result = removeArticleRef(record, "at://did/col/ghost");
+    expect(result.updatedAt).not.toBe(before);
+  });
+});
+
+// ─── updateArticleRef ─────────────────────────────────────────────────────────
+
+describe("updateArticleRef", () => {
+  const newRef: SiteArticleRef = {
+    uri: "at://did:plc:test/app.scribe.article/renamed",
+    title: "Renamed",
+    url: "renamed",
+    splashImageUrl: null,
+    synopsis: null,
+    createdAt: "2024-01-01T00:00:00.000Z",
+  };
+
+  it("replaces a matching ref in top-level articles", () => {
+    const record = makeRecord({ articles: [ref("old"), ref("other")] });
+    const result = updateArticleRef(record, ref("old").uri, newRef);
+    expect(result.articles[0].uri).toBe(newRef.uri);
+    expect(result.articles[1].uri).toBe(ref("other").uri);
+  });
+
+  it("replaces a matching ref inside a group", () => {
+    const record = makeRecord({
+      groups: [
+        {
+          slug: "eng",
+          title: "Engineering",
+          articles: [ref("old"), ref("other")],
+        },
+      ],
+    });
+    const result = updateArticleRef(record, ref("old").uri, newRef);
+    expect(result.groups[0].articles[0].uri).toBe(newRef.uri);
+    expect(result.groups[0].articles[1].uri).toBe(ref("other").uri);
+  });
+
+  it("is a no-op when the URI is not found", () => {
+    const record = makeRecord({ articles: [ref("keep")] });
+    const result = updateArticleRef(record, "at://did/col/ghost", newRef);
+    expect(result.articles[0].uri).toBe(ref("keep").uri);
+  });
+
+  it("preserves unknown fields on the record", () => {
+    const record = makeRecord({
+      contributors: ["did:plc:alice"],
+    } as Partial<SiteRecordValue>);
+    const result = updateArticleRef(record, "at://did/col/ghost", newRef);
+    expect((result as Record<string, unknown>).contributors).toEqual([
+      "did:plc:alice",
+    ]);
+  });
+
+  it("updates updatedAt on the record", () => {
+    const before = "2024-01-01T00:00:00.000Z";
+    const record = makeRecord({ updatedAt: before });
+    const result = updateArticleRef(record, "at://did/col/ghost", newRef);
+    expect(result.updatedAt).not.toBe(before);
   });
 });
 
@@ -261,7 +422,11 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
     const site: SiteData = {
       ...emptySite,
       articles: [
-        ref("post-one", { url: "post-one", synopsis: "First summary", splashImageUrl: "https://img.example.com/1.jpg" }),
+        ref("post-one", {
+          url: "post-one",
+          synopsis: "First summary",
+          splashImageUrl: "https://img.example.com/1.jpg",
+        }),
         ref("post-two", { url: "post-two", synopsis: null }),
       ],
     };

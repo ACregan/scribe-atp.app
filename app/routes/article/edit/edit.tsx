@@ -16,45 +16,12 @@ import {
 } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-import { type ArticleRef } from "~/hooks/types";
-
-type SiteRecord = {
-  articles: ArticleRef[];
-  groups: Array<{ articles: ArticleRef[] } & Record<string, unknown>>;
-} & Record<string, unknown>;
-
-function removeArticleFromSiteValue(
-  siteValue: SiteRecord,
-  articleUri: string,
-): SiteRecord {
-  return {
-    ...siteValue,
-    articles: (siteValue.articles ?? []).filter((a) => a.uri !== articleUri),
-    groups: (siteValue.groups ?? []).map((g) => ({
-      ...g,
-      articles: (g.articles ?? []).filter((a) => a.uri !== articleUri),
-    })),
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function updateArticleUriInSiteValue(
-  siteValue: SiteRecord,
-  oldUri: string,
-  newRef: ArticleRef,
-): SiteRecord {
-  return {
-    ...siteValue,
-    articles: (siteValue.articles ?? []).map((a) =>
-      a.uri === oldUri ? newRef : a,
-    ),
-    groups: (siteValue.groups ?? []).map((g) => ({
-      ...g,
-      articles: (g.articles ?? []).map((a) => (a.uri === oldUri ? newRef : a)),
-    })),
-    updatedAt: new Date().toISOString(),
-  };
-}
+import {
+  removeArticleRef,
+  updateArticleRef,
+  type SiteArticleRef,
+  type SiteRecordValue,
+} from "~/routes/article/site-list/siteTree";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Edit Article" }];
@@ -108,7 +75,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const currentSiteRkeys = sitesResult.data.records
     .filter((record) => {
-      const value = record.value as SiteRecord;
+      const value = record.value as SiteRecordValue;
       const inTopLevel = (value.articles ?? []).some(
         (a) => a.uri === articleUri,
       );
@@ -227,7 +194,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     (r) => newSiteRkeys.includes(r) && !slugChanged,
   );
 
-  const newArticleRef: ArticleRef = {
+  const newArticleRef: SiteArticleRef = {
     uri: newArticleUri,
     title,
     url: newUrl,
@@ -244,8 +211,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const updated = removeArticleFromSiteValue(
-        rec.data.value as SiteRecord,
+      const updated = removeArticleRef(
+        rec.data.value as SiteRecordValue,
         oldArticleUri,
       );
       await agent.com.atproto.repo.putRecord({
@@ -263,8 +230,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const updated = updateArticleUriInSiteValue(
-        rec.data.value as SiteRecord,
+      const updated = updateArticleRef(
+        rec.data.value as SiteRecordValue,
         oldArticleUri,
         newArticleRef,
       );
@@ -283,8 +250,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const updated = updateArticleUriInSiteValue(
-        rec.data.value as SiteRecord,
+      const updated = updateArticleRef(
+        rec.data.value as SiteRecordValue,
         oldArticleUri,
         newArticleRef,
       );
@@ -303,7 +270,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const siteValue = rec.data.value as SiteRecord;
+      const siteValue = rec.data.value as SiteRecordValue;
       await agent.com.atproto.repo.putRecord({
         repo: did,
         collection: SITE_COLLECTION,

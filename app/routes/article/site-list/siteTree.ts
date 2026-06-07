@@ -72,6 +72,50 @@ export function toSlug(title: string): string {
     .replace(/\s+/g, "-");
 }
 
+// ── Site record mutations ─────────────────────────────────────────────────────
+//
+// These operate on the raw AT Protocol Site record value (not the normalised
+// SiteData shape) so that unknown fields are preserved when the record is
+// written back to the PDS via putRecord.
+
+export type SiteRecordValue = {
+  articles: SiteArticleRef[];
+  groups: Array<{ articles: SiteArticleRef[] } & Record<string, unknown>>;
+} & Record<string, unknown>;
+
+export function removeArticleRef(
+  record: SiteRecordValue,
+  uri: string,
+): SiteRecordValue {
+  return {
+    ...record,
+    articles: (record.articles ?? []).filter((a) => a.uri !== uri),
+    groups: (record.groups ?? []).map((g) => ({
+      ...g,
+      articles: (g.articles ?? []).filter((a) => a.uri !== uri),
+    })),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function updateArticleRef(
+  record: SiteRecordValue,
+  oldUri: string,
+  newRef: SiteArticleRef,
+): SiteRecordValue {
+  return {
+    ...record,
+    articles: (record.articles ?? []).map((a) =>
+      a.uri === oldUri ? newRef : a,
+    ),
+    groups: (record.groups ?? []).map((g) => ({
+      ...g,
+      articles: (g.articles ?? []).map((a) => (a.uri === oldUri ? newRef : a)),
+    })),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 // ── Tree builders ─────────────────────────────────────────────────────────────
 
 export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
