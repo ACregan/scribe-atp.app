@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { ArticleRef } from "~/hooks/types";
 import {
   slugFromUri,
   articleId,
@@ -9,7 +10,6 @@ import {
   removeArticleRef,
   updateArticleRef,
   type SiteData,
-  type SiteArticleRef,
   type SiteRecordValue,
   type TreeGroupNode,
 } from "./siteTree";
@@ -18,8 +18,8 @@ import {
 
 const ref = (
   slug: string,
-  overrides: Partial<SiteArticleRef> = {},
-): SiteArticleRef => ({
+  overrides: Partial<ArticleRef> = {},
+): ArticleRef => ({
   uri: `at://did:plc:test/app.scribe.article/${slug}`,
   title: `Article: ${slug}`,
   url: slug,
@@ -360,7 +360,7 @@ describe("removeArticleRef", () => {
 // ─── updateArticleRef ─────────────────────────────────────────────────────────
 
 describe("updateArticleRef", () => {
-  const newRef: SiteArticleRef = {
+  const newRef: ArticleRef = {
     uri: "at://did:plc:test/app.scribe.article/renamed",
     title: "Renamed",
     url: "renamed",

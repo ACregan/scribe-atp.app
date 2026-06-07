@@ -3,21 +3,8 @@
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type SiteArticleRef = {
-  uri: string;
-  title: string;
-  url?: string;
-  splashImageUrl: string | null;
-  synopsis?: string | null;
-  createdAt: string;
-  updatedAt?: string;
-};
-
-export type SiteGroup = {
-  slug: string;
-  title: string;
-  articles: SiteArticleRef[];
-};
+export type { ArticleRef, SiteGroup } from "~/hooks/types";
+import type { ArticleRef, SiteGroup } from "~/hooks/types";
 
 export type SiteData = {
   rkey: string;
@@ -26,7 +13,7 @@ export type SiteData = {
   title: string;
   urlPrefix: string;
   groups: SiteGroup[];
-  articles: SiteArticleRef[];
+  articles: ArticleRef[];
 };
 
 export type TreeArticleNode = {
@@ -79,8 +66,8 @@ export function toSlug(title: string): string {
 // written back to the PDS via putRecord.
 
 export type SiteRecordValue = {
-  articles: SiteArticleRef[];
-  groups: Array<{ articles: SiteArticleRef[] } & Record<string, unknown>>;
+  articles: ArticleRef[];
+  groups: Array<{ articles: ArticleRef[] } & Record<string, unknown>>;
 } & Record<string, unknown>;
 
 export function removeArticleRef(
@@ -101,7 +88,7 @@ export function removeArticleRef(
 export function updateArticleRef(
   record: SiteRecordValue,
   oldUri: string,
-  newRef: SiteArticleRef,
+  newRef: ArticleRef,
 ): SiteRecordValue {
   return {
     ...record,
@@ -160,10 +147,10 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
 
 export function treeToSiteData(tree: TreeGroupNode[]): {
   groups: SiteGroup[];
-  articles: SiteArticleRef[];
+  articles: ArticleRef[];
 } {
   const groups: SiteGroup[] = [];
-  const articles: SiteArticleRef[] = [];
+  const articles: ArticleRef[] = [];
 
   for (const node of tree) {
     if (node.id === "g:root") {

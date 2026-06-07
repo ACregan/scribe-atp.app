@@ -21,7 +21,7 @@ import { useToast } from "~/components/Toast/ToastContext";
 import { toSlug } from "~/routes/article/site-list/siteTree";
 import styles from "./groups.module.css";
 
-type SiteGroup = {
+type GroupSummary = {
   slug: string;
   title: string;
   articleCount: number;
@@ -34,7 +34,7 @@ type SiteWithGroups = {
   urlPrefix: string;
   splashImageUrl?: string;
   logoImageUrl?: string;
-  groups: SiteGroup[];
+  groups: GroupSummary[];
 };
 
 type GroupSiteItemProps = {
@@ -196,7 +196,11 @@ function CreateGroupModal({
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.ok) {
-      addToast({ heading: "Group created", content: title, variant: "primary" });
+      addToast({
+        heading: "Group created",
+        content: title,
+        variant: "primary",
+      });
       onCloseRef.current();
     }
   }, [fetcher.state, fetcher.data]);
@@ -368,8 +372,15 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
         )}
       </PageSection>
 
-      <Modal isOpen={isOpen} onClose={handleCloseModal} title="Add new group" footer={null}>
-        {isOpen && <CreateGroupModal sites={sites} onClose={handleCloseModal} />}
+      <Modal
+        isOpen={isOpen}
+        onClose={handleCloseModal}
+        title="Add new group"
+        footer={null}
+      >
+        {isOpen && (
+          <CreateGroupModal sites={sites} onClose={handleCloseModal} />
+        )}
       </Modal>
     </PageContainer>
   );
