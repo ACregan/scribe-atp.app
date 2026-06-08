@@ -1,12 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx *)",
       "Bash(npm *)",
+      "Bash(npx *)",
       "Bash(git *)",
       "Bash(gh *)",
       "Bash(glab *)",
-      "Bash(xdg-open *)"
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(xdg-open *)",
+      "Read(/home/c0un7z3r0/.claude/skills/**)",
+      "Read(/home/c0un7z3r0/.agents/skills/**)"
     ],
     "additionalDirectories": [
       "/tmp"
