@@ -17,6 +17,7 @@ import {
   loadSiteOptions,
 } from "~/services/article.server";
 import { addArticleToSites } from "~/services/articleSiteSync.server";
+import { devCreateLoader } from "~/services/devFixtures.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION } from "~/constants";
@@ -31,20 +32,7 @@ import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 export async function loader({ request }: Route.LoaderArgs) {
   const preselect = new URL(request.url).searchParams.get("site") ?? undefined;
 
-  if (!useRealOAuth) {
-    const sites: SiteOption[] = [
-      { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
-      {
-        rkey: "perpetualsummer-ltd",
-        title: "Perpetual Summer LTD",
-        url: "perpetualsummer.ltd",
-      },
-    ];
-    const preselectedSite = sites.some((s) => s.rkey === preselect)
-      ? preselect
-      : undefined;
-    return { sites, preselectedSite };
-  }
+  if (!useRealOAuth) return devCreateLoader(preselect);
 
   const { agent, did } = await requireAtpAgent(request);
   const sites = await loadSiteOptions(agent, did);

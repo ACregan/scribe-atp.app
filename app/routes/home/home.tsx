@@ -6,6 +6,7 @@ import {
   getAuthSession,
   useRealOAuth,
 } from "~/services/auth.server";
+import { devHomeLoader } from "~/services/devFixtures.server";
 import { redirect } from "react-router";
 import { useModal } from "~/components/Modal/useModal";
 import { Spinner } from "~/components/Spinner/Spinner";
@@ -77,54 +78,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw redirect("/login");
   }
 
-  if (!useRealOAuth) {
-    return {
-      userName: handle ?? null,
-      isDev: IS_DEV,
-      recentArticles: [
-        {
-          uri: "at://did:dev:alice/app.scribe.article/my-first-post",
-          title: "My First Post",
-          url: "my-first-post",
-          createdAt: "2025-06-01T09:00:00.000Z",
-          updatedAt: "2025-06-04T10:00:00.000Z",
-        },
-        {
-          uri: "at://did:dev:alice/app.scribe.article/design-principles",
-          title: "Design Principles",
-          url: "design-principles",
-          createdAt: "2025-05-20T08:00:00.000Z",
-          updatedAt: "2025-06-01T09:00:00.000Z",
-        },
-        {
-          uri: "at://did:dev:alice/app.scribe.article/getting-started",
-          title: "Getting Started with AT Protocol",
-          url: "getting-started",
-          createdAt: "2025-05-28T14:00:00.000Z",
-        },
-      ] as RecentArticle[],
-      orphanedArticleCount: 2,
-      sites: [
-        {
-          rkey: "norobots-blog",
-          title: "NoRobots.blog",
-          groups: [
-            { slug: "engineering", title: "Engineering", articleCount: 4 },
-            {
-              slug: "getting-started",
-              title: "Getting Started",
-              articleCount: 2,
-            },
-          ],
-        },
-        {
-          rkey: "perpetualsummer-ltd",
-          title: "Perpetual Summer LTD",
-          groups: [],
-        },
-      ] as SiteWithGroups[],
-    };
-  }
+  if (!useRealOAuth) return devHomeLoader(handle);
 
   const agent = await getAtpAgent(did);
   const [articlesResult, sitesResult] = await Promise.all([

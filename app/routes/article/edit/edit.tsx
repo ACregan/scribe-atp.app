@@ -11,6 +11,7 @@ import {
   syncSiteArticleRefs,
 } from "~/services/articleSiteSync.server";
 import { type SiteRecordValue } from "~/routes/article/site-list/siteTree";
+import { devEditLoader } from "~/services/devFixtures.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
@@ -32,26 +33,7 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  if (!useRealOAuth) {
-    return {
-      rkey: params.articleUrl,
-      title: "Dev mode article",
-      content: "Dev mode content",
-      url: params.articleUrl,
-      splashImageUrl: "",
-      synopsis: "",
-      cid: "dev-cid",
-      sites: [
-        { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
-        {
-          rkey: "perpetualsummer-ltd",
-          title: "Perpetual Summer LTD",
-          url: "perpetualsummer.ltd",
-        },
-      ] as SiteOption[],
-      currentSiteRkeys: [] as string[],
-    };
-  }
+  if (!useRealOAuth) return devEditLoader(params.articleUrl);
 
   const { agent, did } = await requireAtpAgent(request);
   const articleUri = `at://${did}/${ARTICLE_COLLECTION}/${params.articleUrl}`;

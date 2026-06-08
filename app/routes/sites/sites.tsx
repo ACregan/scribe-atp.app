@@ -16,6 +16,7 @@ import { useFetcher, useLocation, useNavigate } from "react-router";
 import { useToast } from "~/components/Toast/ToastContext";
 import styles from "./sites.module.css";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { devSitesLoader } from "~/services/devFixtures.server";
 import { SiteTile } from "~/components/SiteTile/SiteTile";
 import { type SiteData } from "~/components/types";
 
@@ -32,37 +33,7 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
 
-  if (!useRealOAuth) {
-    return {
-      sites: [
-        {
-          rkey: "norobots-blog",
-          cid: "dev-cid-s1",
-          title: "NoRobots.blog",
-          url: "norobots.blog",
-          urlPrefix: "blog",
-          description:
-            "A personal blog about technology, the open web, and avoiding robots.",
-          splashImageUrl: "",
-          logoImageUrl: "",
-          groupCount: 2,
-          articleCount: 7,
-        },
-        {
-          rkey: "perpetualsummer-ltd",
-          cid: "dev-cid-s2",
-          title: "Perpetual Summer LTD",
-          url: "perpetualsummer.ltd",
-          urlPrefix: "articles",
-          description: "",
-          splashImageUrl: "",
-          logoImageUrl: "",
-          groupCount: 0,
-          articleCount: 3,
-        },
-      ] as SiteData[],
-    };
-  }
+  if (!useRealOAuth) return devSitesLoader();
 
   const agent = await getAtpAgent(did);
   const result = await agent.com.atproto.repo.listRecords({

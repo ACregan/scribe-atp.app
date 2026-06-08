@@ -66,6 +66,7 @@ import {
   removeArticleRef,
 } from "./siteTree";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
+import { devSiteListLoader } from "~/services/devFixtures.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 function findArticleLocation(
@@ -87,46 +88,7 @@ export function meta({ data }: Route.MetaArgs) {
 export async function loader({ request, params }: Route.LoaderArgs) {
   const siteSlug = params.siteSlug;
 
-  if (!useRealOAuth) {
-    return {
-      devMode: true,
-      site: {
-        rkey: siteSlug,
-        cid: "dev-cid-site",
-        url: "norobots.blog",
-        title: "NoRobots.blog (Dev)",
-        urlPrefix: "blog",
-        groups: [
-          {
-            slug: "engineering",
-            title: "Engineering",
-            articles: [
-              {
-                uri: "at://did:dev:user/app.scribe.article/hello-world",
-                title: "Hello World",
-                splashImageUrl: null,
-                createdAt: "2025-01-01T00:00:00.000Z",
-              },
-            ],
-          },
-        ],
-        ungroupedArticles: [
-          {
-            uri: "at://did:dev:user/app.scribe.article/getting-started",
-            title: "Getting Started with AT Protocol",
-            splashImageUrl: null,
-            createdAt: "2025-02-01T00:00:00.000Z",
-          },
-          {
-            uri: "at://did:dev:user/app.scribe.article/lexical-editor",
-            title: "Building a Rich Text Editor with Lexical",
-            splashImageUrl: null,
-            createdAt: "2025-03-20T00:00:00.000Z",
-          },
-        ],
-      } as SiteData,
-    };
-  }
+  if (!useRealOAuth) return devSiteListLoader(siteSlug);
 
   try {
     const { agent, did } = await requireAtpAgent(request);

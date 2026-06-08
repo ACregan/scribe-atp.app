@@ -2,6 +2,7 @@ import type { Route } from "./+types/groups";
 import { Link, useFetcher, useNavigate, useLocation } from "react-router";
 import { useState, useRef, useEffect } from "react";
 import { requireAuth, getAtpAgent, useRealOAuth } from "~/services/auth.server";
+import { devGroupsLoader } from "~/services/devFixtures.server";
 import { Button } from "~/components/Button/Button";
 import { Input } from "~/components/Input/Input";
 import { Select } from "~/components/Select/Select";
@@ -48,33 +49,7 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
 
-  if (!useRealOAuth) {
-    return {
-      sites: [
-        {
-          rkey: "norobots-blog",
-          title: "NoRobots.blog",
-          url: "norobots.blog",
-          urlPrefix: "blog",
-          groups: [
-            { slug: "engineering", title: "Engineering", articleCount: 4 },
-            {
-              slug: "getting-started",
-              title: "Getting Started",
-              articleCount: 2,
-            },
-          ],
-        },
-        {
-          rkey: "perpetualsummer-ltd",
-          title: "Perpetual Summer LTD",
-          url: "perpetualsummer.ltd",
-          urlPrefix: "",
-          groups: [],
-        },
-      ] as SiteWithGroups[],
-    };
-  }
+  if (!useRealOAuth) return devGroupsLoader();
 
   const agent = await getAtpAgent(did);
   const result = await agent.com.atproto.repo.listRecords({
