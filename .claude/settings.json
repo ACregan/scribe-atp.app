@@ -14,7 +14,8 @@
       "Read(/home/c0un7z3r0/.agents/skills/**)"
     ],
     "additionalDirectories": [
-      "/tmp"
+      "/tmp",
+      "/home/c0un7z3r0/.claude"
     ]
   }
 }
