@@ -15,7 +15,7 @@ import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-type Article = {
+type ArticleListItem = {
   rkey: string;
   uri: string;
   title: string;
@@ -30,8 +30,8 @@ type Assignment = {
   groupSlug?: string;
 };
 
-type AssignedArticle = Article & { assignments: Assignment[] };
-type OrphanedArticle = Article;
+type AssignedArticle = ArticleListItem & { assignments: Assignment[] };
+type OrphanedArticle = ArticleListItem;
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP - Article List" }];
@@ -94,7 +94,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   for (const record of articlesResult.data.records) {
     const value = record.value as Record<string, unknown>;
-    const article: Article = {
+    const article: ArticleListItem = {
       rkey: record.uri.split("/").pop()!,
       uri: record.uri,
       title: String(value.title ?? ""),

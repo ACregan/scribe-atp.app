@@ -45,7 +45,7 @@ function formatArticleDate(iso: string): string {
 
 const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, SITE_COLLECTION];
 
-type RecentArticle = {
+type RecentArticleItem = {
   uri: string;
   title: string;
   url: string;
@@ -132,7 +132,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     topArticles?.forEach((a) => referencedUris.add(a.uri));
   }
 
-  const recentArticles: RecentArticle[] = articlesResult.data.records
+  const recentArticles: RecentArticleItem[] = articlesResult.data.records
     .map((record) => {
       const value = record.value as Record<string, unknown>;
       return {
