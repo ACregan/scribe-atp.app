@@ -41,11 +41,11 @@
 }
 .signUp > a {
   font-weight: 700;
-  color: var(--blue-ribbon);
+  color: var(--action-primary);
   text-decoration: none;
 }
 .signUp > a:hover {
-  color: var(--blue-ribbon);
-  text-decoration-color: var(--blue-ribbon);
+  color: var(--action-primary);
+  text-decoration-color: var(--action-primary);
   text-decoration: underline;
 }

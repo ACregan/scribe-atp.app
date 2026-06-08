@@ -19,3 +19,12 @@
   width: 6rem;
   padding: 0.75rem;
 }
+
+/* ── DARK MODIFIERS ────────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] {
+  .badge {
+    background: var(--flamingo);
+    border: 0.2rem solid var(--white);
+  }
+}
