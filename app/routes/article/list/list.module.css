@@ -8,7 +8,7 @@
 
 .sectionNote {
   font-size: 1.3rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   margin: 0 0 1.2rem;
 }
 
@@ -28,7 +28,7 @@
   grid-template-areas:
     "Title Buttons"
     "Info  Buttons";
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 0.6rem;
   box-sizing: border-box;
 }
@@ -76,5 +76,5 @@
   gap: 0.8rem;
   padding: 3.2rem;
   text-align: center;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }

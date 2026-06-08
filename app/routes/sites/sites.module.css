@@ -33,14 +33,14 @@
   gap: 0.8rem;
   padding: 3.2rem;
   text-align: center;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 .emptyStateHeading {
   font-size: 1.8rem;
   font-weight: 600;
   margin: 0;
-  color: var(--black);
+  color: var(--text-primary);
 }
 
 .emptyStateBody {
@@ -67,7 +67,7 @@
 
 .deleteWarning {
   font-size: 1.3rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   margin-top: 0.8rem;
 }
 

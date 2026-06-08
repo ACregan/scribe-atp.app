@@ -12,7 +12,7 @@
 
 .empty {
   font-size: 1.4rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -34,7 +34,9 @@
   border-radius: 0.6rem;
   font-size: 1.4rem;
   cursor: pointer;
-  transition: border-color 0.1s, background 0.1s;
+  transition:
+    border-color 0.1s,
+    background 0.1s;
 }
 
 .folderOption:hover {

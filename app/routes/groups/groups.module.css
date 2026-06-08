@@ -10,7 +10,7 @@
 }
 
 .siteItem {
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 0.6rem;
   overflow: hidden;
 }
@@ -56,7 +56,7 @@
   right: -2rem;
   width: 5rem;
   height: 5rem;
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 50%;
   box-sizing: border-box;
   background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
@@ -108,5 +108,5 @@
 .emptyState {
   padding: 3.2rem;
   text-align: center;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }

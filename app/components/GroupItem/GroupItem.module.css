@@ -17,7 +17,7 @@
     "GroupItem_root_Heading"
     "GroupItem_ArticleList ";
 
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 1.2rem;
   /* background: var(--groupItem_root-background-colour); */
   margin-top: 1rem;
@@ -31,16 +31,16 @@
   display: inline-block;
   transform: translateY(-2rem);
   padding: 0 0.5rem;
-  background: var(--white);
+  background: var(--surface-page);
 }
 
 .groupHeading {
   font-size: 2.4rem;
-  color: black;
+  color: var(--text-primary);
   /* display: inline-block;
   transform: translateY(-2rem);
   padding: 0 0.5rem;
-  background: var(--white); */
+  background: var(--surface-page); */
 }
 
 .groupItem {
@@ -61,7 +61,7 @@
     "GroupItem_Handle GroupItem_Uri GroupItem_Buttons"
     "GroupItem_ArticleList GroupItem_ArticleList GroupItem_ArticleList ";
 
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 1.2rem;
   background: var(--groupItem-background-colour);
 }
@@ -127,8 +127,8 @@
   margin: 0 1rem 1rem 1rem;
   padding: 0.2rem;
 
-  border: 0.2rem solid var(--black);
-  background: var(--white);
+  border: 0.2rem solid var(--border-color);
+  background: var(--surface-page);
 
   display: flex;
   gap: 0.2rem 0;
@@ -141,15 +141,15 @@
   align-items: center;
   justify-content: center;
   min-height: 6rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   font-size: 1.4rem;
-  border: 0.2rem dashed var(--mid-grey);
+  border: 0.2rem dashed var(--border-color);
   border-radius: 0.6rem;
   margin: 0.4rem;
 }
 
 .dropZoneOver {
-  border-color: var(--black);
-  background: var(--mid-grey);
-  color: var(--white);
+  border-color: var(--border-color);
+  background: var(--text-secondary);
+  color: var(--text-on-dark);
 }

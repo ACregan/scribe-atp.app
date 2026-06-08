@@ -15,8 +15,8 @@
   font-family: inherit;
   border: 1px solid var(--border, #ccc);
   border-radius: 4px;
-  background: var(--white);
-  color: var(--black, #000);
+  background: var(--surface-input);
+  color: var(--text-primary);
   width: auto;
   box-sizing: border-box;
   resize: vertical;

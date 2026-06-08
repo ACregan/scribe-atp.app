@@ -6,7 +6,9 @@
   padding: 3.2rem 1.6rem;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .dropZone:hover,
@@ -42,7 +44,7 @@
   padding: 0.8rem;
   border: 1px solid var(--light-grey);
   border-radius: 0.6rem;
-  background: var(--white);
+  background: var(--surface-page);
 }
 
 .filePreview {
@@ -89,7 +91,7 @@
 
 .removeBtn:hover {
   background: var(--light-grey);
-  color: var(--black);
+  color: var(--text-primary);
 }
 
 /* ── Progress rows (progress phase) ─────────────────────────────────────── */
@@ -148,7 +150,9 @@
   border-radius: 0.4rem;
   background: var(--light-grey);
   color: var(--mid-grey);
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .variantChipDone {

@@ -6,7 +6,7 @@
   flex-wrap: wrap;
   gap: 0.2rem;
   font-size: 1.4rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 .breadcrumbLink {
@@ -20,11 +20,11 @@
 
 .breadcrumbSep {
   margin: 0 0.4rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 .breadcrumbCurrent {
-  color: var(--black);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -52,7 +52,7 @@
   height: 22rem;
   border: 1px solid var(--light-grey);
   border-radius: 0.8rem;
-  background: var(--white);
+  background: var(--surface-page);
   cursor: pointer;
   text-decoration: none;
   color: inherit;
@@ -426,14 +426,14 @@
   gap: 0.8rem;
   padding: 3.2rem;
   text-align: center;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 .emptyStateHeading {
   font-size: 1.8rem;
   font-weight: 600;
   margin: 0;
-  color: var(--black);
+  color: var(--text-primary);
 }
 
 .emptyStateBody {

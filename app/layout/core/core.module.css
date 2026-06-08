@@ -14,11 +14,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--white);
-  color: var(--black);
+  background: var(--surface-header);
+  color: var(--text-primary);
   padding: 0 2rem;
   box-shadow: 0 -20px 6px -20px rgba(0, 0, 0, 0.5) inset;
-  border-bottom: 0.1rem solid var(--mid-grey);
+  border-bottom: 0.1rem solid var(--border-color);
 }
 /* ScribeCMS LOGO */
 .logoContainer > h4 {
@@ -42,6 +42,11 @@
 }
 
 /* HEADER Right-aligned container */
+.rightAlignedItems {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 .userContainer {
   display: flex;
   align-items: center;
@@ -67,7 +72,7 @@
 .userProfile > .userName > span.handle {
   font-size: 1.1rem;
   margin-right: 1rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 .userProfile > img.userAvatar {
   height: 5rem;
@@ -94,8 +99,8 @@
 
   height: auto;
   grid-area: main;
-  background: var(--black);
-  color: var(--white);
+  background: var(--surface-app);
+  color: var(--text-on-dark);
 
   display: flex;
   flex-direction: column;
@@ -105,15 +110,15 @@
 }
 .coreLayout_container > main::-webkit-scrollbar-track {
   border-radius: 10px;
-  background-color: var(--black);
+  background-color: var(--surface-app);
 }
 .coreLayout_container > main::-webkit-scrollbar {
   width: 12px;
-  background-color: var(--black);
+  background-color: var(--surface-app);
 }
 .coreLayout_container > main::-webkit-scrollbar-thumb {
   border-radius: 10px;
-  -webkit-box-shadow: inset 0 0 0 2px var(--black);
+  -webkit-box-shadow: inset 0 0 0 2px var(--surface-app);
   background-color: var(--red);
 }
 
@@ -121,7 +126,7 @@
 .coreLayout_container > footer {
   grid-area: footer;
   box-shadow: 0 20px 6px -20px rgba(0, 0, 0, 0.5) inset;
-  border-top: 0.1rem solid var(--mid-grey);
+  border-top: 0.1rem solid var(--border-color);
 
   display: flex;
   align-items: center;

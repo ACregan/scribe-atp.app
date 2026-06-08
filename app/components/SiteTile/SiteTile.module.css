@@ -6,7 +6,7 @@
   border: 0.1rem solid var(--border, #e5e7eb);
   border-radius: 0.8rem;
   overflow: hidden;
-  background: var(--white);
+  background: var(--surface-page);
   height: stretch;
 }
 
@@ -53,12 +53,12 @@
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
-  color: var(--black);
+  color: var(--text-primary);
 }
 
 .tileDescription {
   font-size: 1.3rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
   display: -webkit-box;
@@ -70,7 +70,7 @@
 .tileUrl {
   font-size: 1.2rem;
   font-family: monospace;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   margin-top: auto;
 }
 

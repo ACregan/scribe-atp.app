@@ -9,7 +9,7 @@
 }
 
 .modal {
-  background: var(--white, #fff);
+  background: var(--surface-page);
   border-radius: 0.6rem;
   box-shadow: 0 0.8rem 3.2rem rgba(0, 0, 0, 0.2);
   width: 100%;
@@ -41,13 +41,13 @@
   font-size: 2.4rem;
   line-height: 1;
   cursor: pointer;
-  color: var(--mid-grey, #6b7280);
+  color: var(--text-secondary);
   padding: 0 0.4rem;
   transition: color 0.15s ease;
 }
 
 .close:hover {
-  color: var(--black, #000);
+  color: var(--text-primary);
 }
 
 .body {

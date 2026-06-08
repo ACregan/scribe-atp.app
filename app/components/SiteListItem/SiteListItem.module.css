@@ -46,7 +46,7 @@
   right: -2rem;
   width: 5rem;
   height: 5rem;
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 50%;
   box-sizing: border-box;
   background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
@@ -72,7 +72,7 @@
 .siteUrl {
   font-size: 1.3rem;
   line-height: 1.3rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   font-family: monospace;
 }
 
