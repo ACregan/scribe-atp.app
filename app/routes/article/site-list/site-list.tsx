@@ -54,6 +54,7 @@ import { SITE_COLLECTION, SLUG_RE } from "~/constants";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
   type SiteData,
+  type SiteRecordValue,
   type TreeArticleNode,
   type TreeGroupNode,
   slugFromUri,
@@ -62,7 +63,9 @@ import {
   toSlug,
   buildTreeFromSite,
   treeToSiteData,
+  removeArticleRef,
 } from "./siteTree";
+import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 function findArticleLocation(
@@ -203,23 +206,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
-        const rec = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-        });
-        const val = rec.data.value as SiteData;
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-          record: {
-            ...val,
-            groups: (val.groups ?? []).filter((g) => g.slug !== rkey),
-            updatedAt: new Date().toISOString(),
-          },
-          swapRecord: rec.data.cid,
-        });
+        await mutateSiteRecord(agent, did, siteSlug, (val) => ({
+          ...val,
+          groups: (val.groups ?? []).filter((g) => g.slug !== rkey),
+          updatedAt: new Date().toISOString(),
+        }));
       } catch (err) {
         console.error("Failed to delete group:", err);
         return { ok: false, error: `Failed to delete group: ${String(err)}` };
@@ -236,28 +227,16 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
-        const rec = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-        });
-        const val = rec.data.value as Record<string, unknown>;
         const { groups, ungroupedArticles } = JSON.parse(siteDataJson) as {
           groups: SiteGroup[];
           ungroupedArticles: ArticleRef[];
         };
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-          record: {
-            ...val,
-            groups,
-            ungroupedArticles,
-            updatedAt: new Date().toISOString(),
-          },
-          swapRecord: rec.data.cid,
-        });
+        await mutateSiteRecord(agent, did, siteSlug, (val) => ({
+          ...val,
+          groups: groups as SiteRecordValue["groups"],
+          ungroupedArticles,
+          updatedAt: new Date().toISOString(),
+        }));
       } catch (err) {
         console.error("Failed to save site:", err);
         return { error: `Failed to save order: ${String(err)}` };
@@ -274,27 +253,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
-        const rec = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-        });
-        const val = rec.data.value as SiteData;
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-          record: {
-            ...val,
-            ungroupedArticles: (val.ungroupedArticles ?? []).filter((a) => a.uri !== uri),
-            groups: (val.groups ?? []).map((g) => ({
-              ...g,
-              articles: (g.articles ?? []).filter((a) => a.uri !== uri),
-            })),
-            updatedAt: new Date().toISOString(),
-          },
-          swapRecord: rec.data.cid,
-        });
+        await mutateSiteRecord(agent, did, siteSlug, (val) =>
+          removeArticleRef(val, uri),
+        );
       } catch (err) {
         console.error("Failed to remove article:", err);
       }

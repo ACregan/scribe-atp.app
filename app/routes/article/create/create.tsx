@@ -15,8 +15,8 @@ import {
   buildArticleRecord,
   buildArticleRef,
   loadSiteOptions,
-  addArticleToSites,
 } from "~/services/article.server";
+import { addArticleToSites } from "~/services/articleSiteSync.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION } from "~/constants";

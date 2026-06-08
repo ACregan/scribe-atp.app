@@ -2,7 +2,6 @@ import { Agent } from "@atproto/api";
 import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 import type { SiteOption } from "~/components/types";
 import type { ArticleRef } from "~/hooks/types";
-import { type SiteRecordValue } from "~/routes/article/site-list/siteTree";
 
 export function validateArticleFields(
   title: string,
@@ -72,31 +71,3 @@ export async function loadSiteOptions(
   }));
 }
 
-export async function addArticleToSites(
-  agent: Agent,
-  did: string,
-  siteRkeys: string[],
-  articleRef: ArticleRef,
-): Promise<void> {
-  await Promise.allSettled(
-    siteRkeys.map(async (siteRkey) => {
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-      });
-      const siteValue = rec.data.value as SiteRecordValue;
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-        record: {
-          ...siteValue,
-          ungroupedArticles: [...(siteValue.ungroupedArticles ?? []), articleRef],
-          updatedAt: new Date().toISOString(),
-        },
-        swapRecord: rec.data.cid,
-      });
-    }),
-  );
-}
