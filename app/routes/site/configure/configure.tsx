@@ -8,6 +8,7 @@ import {
 import { Input } from "~/components/Input/Input";
 import { Button } from "~/components/Button/Button";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import { devConfigureLoader } from "~/services/devFixtures.server";
 import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
@@ -20,20 +21,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
   const { siteSlug } = params;
 
-  if (!useRealOAuth) {
-    return {
-      site: {
-        rkey: siteSlug,
-        title: "NoRobots.blog",
-        url: "norobots.blog",
-        urlPrefix: "blog",
-        description:
-          "A personal blog about technology, the open web, and avoiding robots.",
-        splashImageUrl: "",
-        logoImageUrl: "",
-      },
-    };
-  }
+  if (!useRealOAuth) return devConfigureLoader(siteSlug);
 
   const agent = await getAtpAgent(did);
   const record = await agent.com.atproto.repo.getRecord({

@@ -1,6 +1,7 @@
 import type { Route } from "./+types/view";
 import { Link } from "react-router";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import { devViewLoader } from "~/services/devFixtures.server";
 import { Button } from "~/components/Button/Button";
 import { ARTICLE_COLLECTION } from "~/constants";
 import {
@@ -14,16 +15,7 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  if (!useRealOAuth) {
-    return {
-      title: "Dev mode article",
-      content: "This is placeholder content for dev mode.",
-      splashImageUrl: "",
-      synopsis: "",
-      createdAt: new Date().toISOString(),
-      url: params.articleUrl,
-    };
-  }
+  if (!useRealOAuth) return devViewLoader(params.articleUrl);
 
   const { agent, did } = await requireAtpAgent(request);
   const result = await agent.com.atproto.repo.getRecord({

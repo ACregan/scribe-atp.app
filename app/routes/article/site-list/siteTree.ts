@@ -67,7 +67,7 @@ export function toSlug(title: string): string {
 
 export type SiteRecordValue = {
   ungroupedArticles: ArticleRef[];
-  groups: Array<{ articles: ArticleRef[] } & Record<string, unknown>>;
+  groups: Array<{ slug: string; title: string; articles: ArticleRef[] } & Record<string, unknown>>;
 } & Record<string, unknown>;
 
 export function removeArticleRef(

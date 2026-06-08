@@ -5,8 +5,13 @@ import {
   validateArticleFields,
   buildArticleRecord,
   buildArticleRef,
-  addArticleToSites,
 } from "~/services/article.server";
+import {
+  computeSiteAssignmentChanges,
+  syncSiteArticleRefs,
+} from "~/services/articleSiteSync.server";
+import { type SiteRecordValue } from "~/routes/article/site-list/siteTree";
+import { devEditLoader } from "~/services/devFixtures.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
@@ -22,37 +27,13 @@ import {
 } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-import {
-  removeArticleRef,
-  updateArticleRef,
-  type SiteRecordValue,
-} from "~/routes/article/site-list/siteTree";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Edit Article" }];
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  if (!useRealOAuth) {
-    return {
-      rkey: params.articleUrl,
-      title: "Dev mode article",
-      content: "Dev mode content",
-      url: params.articleUrl,
-      splashImageUrl: "",
-      synopsis: "",
-      cid: "dev-cid",
-      sites: [
-        { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
-        {
-          rkey: "perpetualsummer-ltd",
-          title: "Perpetual Summer LTD",
-          url: "perpetualsummer.ltd",
-        },
-      ] as SiteOption[],
-      currentSiteRkeys: [] as string[],
-    };
-  }
+  if (!useRealOAuth) return devEditLoader(params.articleUrl);
 
   const { agent, did } = await requireAtpAgent(request);
   const articleUri = `at://${did}/${ARTICLE_COLLECTION}/${params.articleUrl}`;
@@ -179,16 +160,6 @@ export async function action({ request, params }: Route.ActionArgs) {
     };
   }
 
-  // Update site assignments
-  const sitesToAdd = newSiteRkeys.filter((r) => !oldSiteRkeys.includes(r));
-  const sitesToRemove = oldSiteRkeys.filter((r) => !newSiteRkeys.includes(r));
-  const sitesToUpdate = oldSiteRkeys.filter(
-    (r) => newSiteRkeys.includes(r) && slugChanged,
-  );
-  const sitesToRefresh = oldSiteRkeys.filter(
-    (r) => newSiteRkeys.includes(r) && !slugChanged,
-  );
-
   const newArticleRef = buildArticleRef({
     uri: newArticleUri,
     title,
@@ -199,68 +170,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     updatedAt: now,
   });
 
-  await Promise.allSettled([
-    ...sitesToRemove.map(async (siteRkey) => {
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-      });
-      const updated = removeArticleRef(
-        rec.data.value as SiteRecordValue,
-        oldArticleUri,
-      );
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-        record: updated,
-        swapRecord: rec.data.cid,
-      });
-    }),
-
-    ...sitesToUpdate.map(async (siteRkey) => {
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-      });
-      const updated = updateArticleRef(
-        rec.data.value as SiteRecordValue,
-        oldArticleUri,
-        newArticleRef,
-      );
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-        record: updated,
-        swapRecord: rec.data.cid,
-      });
-    }),
-
-    ...sitesToRefresh.map(async (siteRkey) => {
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-      });
-      const updated = updateArticleRef(
-        rec.data.value as SiteRecordValue,
-        oldArticleUri,
-        newArticleRef,
-      );
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-        record: updated,
-        swapRecord: rec.data.cid,
-      });
-    }),
-  ]);
-
-  await addArticleToSites(agent, did, sitesToAdd, newArticleRef);
+  const siteChanges = computeSiteAssignmentChanges(oldSiteRkeys, newSiteRkeys);
+  await syncSiteArticleRefs(agent, did, siteChanges, oldArticleUri, newArticleRef);
 
   return { ok: true, title };
 }

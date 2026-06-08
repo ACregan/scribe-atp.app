@@ -1,0 +1,428 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scribe-atp.app — Architecture Review</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+    .badge-strong { background: #dc2626; color: #fff; }
+    .badge-worth { background: #d97706; color: #fff; }
+    .badge-speculative { background: #475569; color: #e2e8f0; }
+    .before-box { background: #1a1a2e; border: 1px solid #ef4444; border-radius: 8px; }
+    .after-box { background: #0a1628; border: 1px solid #22c55e; border-radius: 8px; }
+    .label-before { color: #ef4444; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .label-after { color: #22c55e; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .file-chip { background: #0f172a; border: 1px solid #475569; border-radius: 4px; padding: 2px 8px; font-size: 0.72rem; font-family: monospace; color: #94a3b8; display: inline-block; }
+    .arrow { color: #64748b; font-size: 1.2rem; }
+    .mermaid { background: transparent !important; }
+    h1 { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; }
+    h2 { font-size: 1.1rem; font-weight: 700; }
+    h3 { font-size: 0.95rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
+    .depth-bar-outer { background: #0f172a; border-radius: 99px; height: 6px; width: 100%; }
+    .depth-bar-inner { background: linear-gradient(90deg, #ef4444, #f97316); height: 6px; border-radius: 99px; }
+    .severity-high { border-left: 3px solid #ef4444; }
+    .severity-med { border-left: 3px solid #f97316; }
+    .severity-low { border-left: 3px solid #eab308; }
+    code { font-family: 'Menlo', 'Fira Code', monospace; font-size: 0.8rem; background: #0f172a; padding: 1px 5px; border-radius: 3px; color: #a5f3fc; }
+    .module-box { border: 1px solid #475569; border-radius: 6px; padding: 6px 12px; font-size: 0.78rem; font-family: monospace; background: #0f172a; text-align: center; }
+    .module-deep { border-color: #22c55e; background: #052e16; color: #86efac; }
+    .module-shallow { border-color: #ef4444; background: #1a0a0a; color: #fca5a5; }
+    .arrow-flow { color: #64748b; font-size: 0.9rem; text-align: center; }
+    .connector { border-left: 2px dashed #475569; margin-left: 50%; height: 16px; }
+    .top-rec { background: linear-gradient(135deg, #1e1b4b, #0c1a3b); border: 1px solid #6366f1; border-radius: 12px; }
+    summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="min-h-screen p-8">
+  <div class="max-w-5xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-10">
+      <div class="text-xs text-slate-500 mb-2 font-mono">scribe-atp.app · Architecture Review · 2026-06-08</div>
+      <h1 class="text-slate-100 mb-3">Deepening Opportunities</h1>
+      <p class="text-slate-400 text-sm max-w-2xl">Five candidates where the codebase is carrying complexity at the wrong altitude — either scattered across callers or locked inside route actions where it can't be tested. Presented in priority order.</p>
+      <div class="mt-4 flex gap-3 flex-wrap text-xs">
+        <span class="badge-strong px-2 py-1 rounded font-semibold">Strong</span>
+        <span class="badge-worth px-2 py-1 rounded font-semibold">Worth exploring</span>
+        <span class="badge-speculative px-2 py-1 rounded font-semibold">Speculative</span>
+      </div>
+    </div>
+
+    <!-- ===== CANDIDATE 1: ArticleRef Propagation ===== -->
+    <div class="card p-6 mb-6 severity-high">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500 mb-1">CANDIDATE 1</div>
+          <h2 class="text-slate-100">ArticleRef Propagation</h2>
+          <p class="text-slate-400 text-sm mt-1">The keep-alive pattern is load-bearing but fragmented across 4 files with duplicated mutation loops</p>
+        </div>
+        <span class="badge-strong px-3 py-1 rounded text-sm font-bold whitespace-nowrap ml-4">Strong</span>
+      </div>
+
+      <div class="mb-4 flex flex-wrap gap-2">
+        <span class="file-chip">services/article.server.ts</span>
+        <span class="file-chip">routes/article/create/create.tsx</span>
+        <span class="file-chip">routes/article/edit/edit.tsx</span>
+        <span class="file-chip">routes/article/site-list/siteTree.ts</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div>
+          <div class="label-before mb-2">Problem</div>
+          <p class="text-slate-300 text-sm">The logic for "keep all ArticleRefs in sync" is scattered across 4 files. To understand what happens when an article is saved, you must read <code>edit.tsx</code>'s diffing logic (~80 lines), <code>siteTree.ts</code>'s two mutation functions (each loops over groups + ungroupedArticles), and the service's <code>buildArticleRef</code>. The mutation loops in <code>removeArticleRef</code> and <code>updateArticleRef</code> are structurally identical — both walk groups and ungrouped. Adding a new ArticleRef field requires touching 5 locations (CLAUDE.md documents this burden explicitly).</p>
+        </div>
+        <div>
+          <div class="label-after mb-2">Solution</div>
+          <p class="text-slate-300 text-sm">Extract two pure functions from the route action into a service module: <code>computeSiteAssignmentChanges(oldRkeys, newRkeys, slugChanged)</code> returns a typed diff; a second function takes a <code>SiteRecord</code> and applies an ArticleRef mutation (add/remove/update) with one traversal. The <code>edit.tsx</code> action then becomes: compute diff → fetch sites → apply mutations → write back. The mutation logic has a single home and can be tested in isolation with no React Router harness.</p>
+        </div>
+      </div>
+
+      <!-- Before/After diagram -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="before-box p-4">
+          <div class="label-before mb-3">Before — scattered</div>
+          <!-- Diagram: 4 files each with partial responsibility -->
+          <div class="space-y-2">
+            <div class="module-box module-shallow">edit.tsx action (159 LOC)<br/><span class="text-xs opacity-60">diff logic · 3× allSettled · slug handling</span></div>
+            <div class="arrow-flow">↓ calls</div>
+            <div class="flex gap-2">
+              <div class="module-box module-shallow flex-1">siteTree.ts<br/><span class="text-xs opacity-60">removeArticleRef<br/>updateArticleRef<br/>— loops duplicated</span></div>
+              <div class="module-box module-shallow flex-1">article.server.ts<br/><span class="text-xs opacity-60">buildArticleRef<br/>addArticleToSites</span></div>
+            </div>
+            <div class="arrow-flow">↓ also</div>
+            <div class="module-box module-shallow">create.tsx action<br/><span class="text-xs opacity-60">own copy of addArticleToSites call</span></div>
+          </div>
+          <div class="mt-3 p-2 rounded" style="background:#2d0a0a; border:1px solid #7f1d1d">
+            <div class="text-xs text-red-400">5 sites to touch when adding an ArticleRef field</div>
+          </div>
+        </div>
+        <div class="after-box p-4">
+          <div class="label-after mb-3">After — deep ArticleRef module</div>
+          <div class="space-y-2">
+            <div class="flex gap-2">
+              <div class="module-box flex-1" style="border-color:#6366f1; background:#1e1b4b; color:#c7d2fe">edit.tsx action<br/><span class="text-xs opacity-60">~30 LOC<br/>orchestrate only</span></div>
+              <div class="module-box flex-1" style="border-color:#6366f1; background:#1e1b4b; color:#c7d2fe">create.tsx action<br/><span class="text-xs opacity-60">~15 LOC<br/>orchestrate only</span></div>
+            </div>
+            <div class="arrow-flow">↓ calls one module</div>
+            <div class="module-box module-deep" style="padding: 12px">article-site-sync.server.ts<br/><span class="text-xs opacity-60 block mt-1">computeSiteAssignmentChanges()</span><span class="text-xs opacity-60 block">applyArticleRefToSite()</span><span class="text-xs opacity-60 block">buildArticleRef()</span><span class="text-xs opacity-60 block">— single traversal, pure functions</span></div>
+          </div>
+          <div class="mt-3 p-2 rounded" style="background:#052e16; border:1px solid #166534">
+            <div class="text-xs text-green-400">1 site to touch when adding an ArticleRef field · unit-testable</div>
+          </div>
+        </div>
+      </div>
+
+      <details class="mt-4">
+        <summary class="text-slate-400 text-sm cursor-pointer hover:text-slate-200">▶ Benefits in depth</summary>
+        <div class="mt-3 text-slate-300 text-sm space-y-2">
+          <p><strong>Locality:</strong> the entire "keep ArticleRefs consistent" concern lives in one file. A future developer — or a future AI — can read it once and trust it. Today you need to mentally assemble four files plus a CLAUDE.md paragraph.</p>
+          <p><strong>Leverage:</strong> <code>computeSiteAssignmentChanges</code> is pure: given old and new rkey lists and a slugChanged bool, it returns a typed diff. A 20-line test file covers every case — add, remove, rename, refresh, no-op.</p>
+          <p><strong>Tests that currently don't exist could:</strong> verify slug rename produces an update (not a remove+add), verify a no-op save still refreshes all member sites, verify that removing the last site also removes the ungrouped article ref. These are the cases most likely to silently break.</p>
+        </div>
+      </details>
+    </div>
+
+    <!-- ===== CANDIDATE 2: Business Logic in Route Actions ===== -->
+    <div class="card p-6 mb-6 severity-high">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500 mb-1">CANDIDATE 2</div>
+          <h2 class="text-slate-100">Business Logic Locked in Route Actions</h2>
+          <p class="text-slate-400 text-sm mt-1">Intent dispatch, site assignment diffing, and rkey generation are embedded in actions — tested routes cover 0% of this logic</p>
+        </div>
+        <span class="badge-strong px-3 py-1 rounded text-sm font-bold whitespace-nowrap ml-4">Strong</span>
+      </div>
+
+      <div class="mb-4 flex flex-wrap gap-2">
+        <span class="file-chip">routes/article/edit/edit.tsx</span>
+        <span class="file-chip">routes/article/site-list/site-list.tsx</span>
+        <span class="file-chip">routes/sites/sites.tsx</span>
+        <span class="file-chip">routes/article/list/list.tsx</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div>
+          <div class="label-before mb-2">Problem</div>
+          <p class="text-slate-300 text-sm">Route loaders and actions are the hardest things to unit-test in React Router — you need the full framework harness. Currently the logic for computing which sites to add/remove, generating site rkeys from domains, filtering orphaned articles, and dispatching multi-intent actions is all embedded inside these functions. The test suite has zero route tests. The logic most likely to produce a silent data corruption bug (the wrong ArticleRef updated, a site record overwritten) has no test coverage at all.</p>
+        </div>
+        <div>
+          <div class="label-after mb-2">Solution</div>
+          <p class="text-slate-300 text-sm">Apply a consistent extraction pattern: pure helper functions for the logic, thin action wrappers for the I/O. Concrete extractions: <code>computeSiteAssignmentChanges()</code> (from Candidate 1), <code>generateSiteRkey(domain)</code> (<code>"norobots.blog" → "norobots-blog"</code>), <code>buildArticleIndex(articles, sites)</code> for orphan detection, and intent handler functions (<code>handleCreateGroup</code>, <code>handleDeleteGroup</code>, etc.) that take agent + data and return the updated record value without performing the write.</p>
+        </div>
+      </div>
+
+      <!-- Mass diagram: where logic lives now vs. where it should -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="before-box p-4">
+          <div class="label-before mb-3">Before — logic mass in routes</div>
+          <div class="space-y-1">
+            <!-- Visual mass bars -->
+            <div class="flex items-center gap-2 text-xs">
+              <div class="w-24 text-right text-slate-400 font-mono">edit.tsx</div>
+              <div style="width:180px; height:18px; background:#7f1d1d; border-radius:3px; display:flex; align-items:center; padding-left:6px; color:#fca5a5; font-size:0.7rem">159 LOC business logic</div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <div class="w-24 text-right text-slate-400 font-mono">site-list.tsx</div>
+              <div style="width:140px; height:18px; background:#7f1d1d; border-radius:3px; display:flex; align-items:center; padding-left:6px; color:#fca5a5; font-size:0.7rem">154 LOC business logic</div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <div class="w-24 text-right text-slate-400 font-mono">sites.tsx</div>
+              <div style="width:80px; height:18px; background:#7f1d1d; border-radius:3px; display:flex; align-items:center; padding-left:6px; color:#fca5a5; font-size:0.7rem">74 LOC</div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <div class="w-24 text-right text-slate-400 font-mono">list.tsx</div>
+              <div style="width:90px; height:18px; background:#7f1d1d; border-radius:3px; display:flex; align-items:center; padding-left:6px; color:#fca5a5; font-size:0.7rem">83 LOC</div>
+            </div>
+          </div>
+          <div class="mt-3 p-2 rounded" style="background:#2d0a0a; border:1px solid #7f1d1d">
+            <div class="text-xs text-red-400">~470 LOC of logic with 0 test files</div>
+          </div>
+        </div>
+        <div class="after-box p-4">
+          <div class="label-after mb-3">After — logic in service layer</div>
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 text-xs">
+              <div class="w-24 text-right text-slate-400 font-mono">edit.tsx</div>
+              <div style="width:40px; height:18px; background:#166534; border-radius:3px; display:flex; align-items:center; padding-left:6px; color:#86efac; font-size:0.7rem">~30</div>
+              <div class="text-slate-500">orchestrate</div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <div class="w-24 text-right text-slate-400 font-mono">site-list.tsx</div>
+              <div style="width:40px; height:18px; background:#166534; border-radius:3px; display:flex; align-items:center; padding-left:6px; color:#86efac; font-size:0.7rem">~40</div>
+              <div class="text-slate-500">dispatch</div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <div class="w-24 text-right text-slate-400 font-mono">services/</div>
+              <div style="width:160px; height:18px; background:#1d4ed8; border-radius:3px; display:flex; align-items:center; padding-left:6px; color:#bfdbfe; font-size:0.7rem">logic — pure + testable</div>
+            </div>
+          </div>
+          <div class="mt-3 p-2 rounded" style="background:#052e16; border:1px solid #166534">
+            <div class="text-xs text-green-400">Pure functions = vitest tests with no HTTP/framework overhead</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CANDIDATE 3: Dev Mode Fallback Duplication ===== -->
+    <div class="card p-6 mb-6 severity-high">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500 mb-1">CANDIDATE 3</div>
+          <h2 class="text-slate-100">Dev Mode Fallback Duplication</h2>
+          <p class="text-slate-400 text-sm mt-1"><code>useRealOAuth</code> is checked in ~9 routes; each owns its own fallback data</p>
+        </div>
+        <span class="badge-worth px-3 py-1 rounded text-sm font-bold whitespace-nowrap ml-4">Worth exploring</span>
+      </div>
+
+      <div class="mb-4 flex flex-wrap gap-2">
+        <span class="file-chip">routes/article/create/create.tsx</span>
+        <span class="file-chip">routes/article/edit/edit.tsx</span>
+        <span class="file-chip">routes/article/list/list.tsx</span>
+        <span class="file-chip">routes/article/site-list/site-list.tsx</span>
+        <span class="file-chip">routes/sites/sites.tsx</span>
+        <span class="file-chip">routes/groups/groups.tsx</span>
+        <span class="file-chip">routes/home/home.tsx</span>
+        <span class="file-chip">routes/images/images.tsx</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div>
+          <div class="label-before mb-2">Problem</div>
+          <p class="text-slate-300 text-sm">Every route that touches the PDS has its own <code>if (!useRealOAuth) return devData</code> block. The dev data structures are duplicated (e.g. the same site shape appears in <code>sites.tsx</code>, <code>site-list.tsx</code>, and <code>list.tsx</code>). When you add a new field to <code>SiteData</code> or change what a loader returns, you touch 8+ files. When dev mode breaks (a rare fallback returns the wrong shape), the symptom is a runtime error in development with no obvious cause.</p>
+        </div>
+        <div>
+          <div class="label-after mb-2">Solution</div>
+          <p class="text-slate-300 text-sm">Extract a <code>devFixtures.server.ts</code> module that exports typed fixture factory functions: <code>devSites()</code>, <code>devArticles()</code>, <code>devSiteWithGroups(slug)</code> etc. Routes check <code>useRealOAuth</code> once per loader and delegate to the fixture factory. All fixture data lives in one file; a type mismatch at the call site is a compile error rather than a runtime surprise. As a bonus, this file doubles as the canonical reference for "what shape does the dev environment use?"</p>
+        </div>
+      </div>
+
+      <!-- Flow diagram -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="before-box p-4">
+          <div class="label-before mb-3">Before</div>
+          <div class="space-y-1 text-xs">
+            <div class="module-box module-shallow">sites.tsx → if (!useRealOAuth) { return { sites: [{rkey:"dev-site", ...}] } }</div>
+            <div class="module-box module-shallow">list.tsx → if (!useRealOAuth) { return { sites: [{rkey:"dev-site", ...}] } }</div>
+            <div class="module-box module-shallow">site-list.tsx → if (!useRealOAuth) { return { site: {groups:[...], ...} } }</div>
+            <div class="module-box module-shallow">home.tsx → if (!useRealOAuth) { return { articles: [...] } }</div>
+            <div class="text-slate-500 text-center">... 4 more routes</div>
+          </div>
+        </div>
+        <div class="after-box p-4">
+          <div class="label-after mb-3">After</div>
+          <div class="space-y-2 text-xs">
+            <div class="module-box module-deep">devFixtures.server.ts<br/><span class="opacity-60">devSites() · devArticles() · devSiteWithGroups()</span></div>
+            <div class="arrow-flow">↑ imported by</div>
+            <div class="flex gap-2">
+              <div class="module-box flex-1" style="border-color:#6366f1;background:#1e1b4b;color:#c7d2fe">sites.tsx<br/><span class="opacity-60">1-liner</span></div>
+              <div class="module-box flex-1" style="border-color:#6366f1;background:#1e1b4b;color:#c7d2fe">list.tsx<br/><span class="opacity-60">1-liner</span></div>
+              <div class="module-box flex-1" style="border-color:#6366f1;background:#1e1b4b;color:#c7d2fe">home.tsx<br/><span class="opacity-60">1-liner</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <details class="mt-4">
+        <summary class="text-slate-400 text-sm cursor-pointer hover:text-slate-200">▶ Tradeoffs</summary>
+        <div class="mt-3 text-slate-300 text-sm">
+          <p>This is a <em>medium</em> priority because dev mode is rarely the source of production bugs. The main payoff is compile-time safety — if a route's loader return type and the fixture don't match, TypeScript catches it at build time. The work is also mechanical: search-and-replace with a thin factory layer. Cost is low; benefit is concentrated in developer ergonomics rather than correctness.</p>
+        </div>
+      </details>
+    </div>
+
+    <!-- ===== CANDIDATE 4: Image Service Auth Replication ===== -->
+    <div class="card p-6 mb-6 severity-med">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500 mb-1">CANDIDATE 4</div>
+          <h2 class="text-slate-100">Image Service Auth — Replicated Cookie Verification</h2>
+          <p class="text-slate-400 text-sm mt-1">The session cookie is verified by two separate implementations that must stay in sync manually</p>
+        </div>
+        <span class="badge-worth px-3 py-1 rounded text-sm font-bold whitespace-nowrap ml-4">Worth exploring</span>
+      </div>
+
+      <div class="mb-4 flex flex-wrap gap-2">
+        <span class="file-chip">app/services/auth.server.ts</span>
+        <span class="file-chip">image-service/src/auth.ts</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div>
+          <div class="label-before mb-2">Problem</div>
+          <p class="text-slate-300 text-sm">The main app uses React Router's <code>createCookieSessionStorage</code>. The Image Service has a 69-line manual HMAC-SHA256 implementation that reverse-engineers the same cookie format. The two must stay in sync. CLAUDE.md documents the encoding: <em>"React Router serialises the session as <code>btoa(JSON.stringify(data)).hmacSignature</code>"</em> — this is an undocumented internal contract with the framework. If React Router changes its cookie format, the Image Service silently starts returning 401s with no obvious cause. There is no test verifying the two agree.</p>
+        </div>
+        <div>
+          <div class="label-after mb-2">Solution</div>
+          <p class="text-slate-300 text-sm">Extract the cookie verification into a shared TypeScript module in a <code>shared/</code> or <code>packages/auth/</code> directory used by both processes. The module exports a single function: <code>verifyScribeSession(cookieHeader, secret): string | null</code> (returns DID or null). Both the main app (where applicable) and the Image Service import it. A single unit test verifies the encoding and HMAC logic. This is a one-seam, two-adapter situation — the seam already exists implicitly; this makes it explicit.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="before-box p-4">
+          <div class="label-before mb-3">Before — implicit coupling</div>
+          <div class="space-y-3">
+            <div>
+              <div class="text-xs text-slate-400 mb-1">React Router app</div>
+              <div class="module-box module-shallow">auth.server.ts<br/><span class="text-xs opacity-60">createCookieSessionStorage (opaque)</span></div>
+            </div>
+            <div class="text-center text-slate-600 text-xs">↕ implicit contract: btoa(JSON) + HMAC-SHA256<br/>— undocumented, can drift</div>
+            <div>
+              <div class="text-xs text-slate-400 mb-1">Image Service</div>
+              <div class="module-box module-shallow">image-service/src/auth.ts<br/><span class="text-xs opacity-60">69 LOC manual HMAC reverse-engineer</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="after-box p-4">
+          <div class="label-after mb-3">After — explicit seam</div>
+          <div class="space-y-3">
+            <div class="module-box module-deep">shared/session.ts<br/><span class="text-xs opacity-60">verifyScribeSession(cookie, secret): string | null<br/>— tested, single implementation</span></div>
+            <div class="flex gap-2 mt-2">
+              <div class="module-box flex-1" style="border-color:#6366f1;background:#1e1b4b;color:#c7d2fe">auth.server.ts<br/><span class="text-xs opacity-60">imports ↑</span></div>
+              <div class="module-box flex-1" style="border-color:#6366f1;background:#1e1b4b;color:#c7d2fe">image-service/auth.ts<br/><span class="text-xs opacity-60">imports ↑</span></div>
+            </div>
+          </div>
+          <div class="mt-3 p-2 rounded" style="background:#052e16; border:1px solid #166534">
+            <div class="text-xs text-green-400">Framework upgrade breaks one file, not two — detected at compile time</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 p-3 rounded" style="background:#1c1917; border:1px solid #78350f">
+        <div class="text-xs text-amber-500 font-semibold mb-1">⚠ Practical note</div>
+        <div class="text-xs text-amber-200/80">Sharing code across the monorepo boundary requires a decision: a <code>shared/</code> directory at the repo root with a path alias in both <code>tsconfig.json</code> files, or a small local <code>packages/auth</code> with its own <code>package.json</code>. The simpler option (shared dir + aliases) avoids a build step. Either way, <em>this is a one-time, low-risk change</em> — the Image Service auth.ts is self-contained and doesn't entangle with anything else.</div>
+      </div>
+    </div>
+
+    <!-- ===== CANDIDATE 5: Type Definition Scatter ===== -->
+    <div class="card p-6 mb-6 severity-med">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500 mb-1">CANDIDATE 5</div>
+          <h2 class="text-slate-100">Type Definition Scatter</h2>
+          <p class="text-slate-400 text-sm mt-1">Local <code>Article</code>/<code>SiteData</code> types are re-declared in individual route files, diverging from the canonical definitions</p>
+        </div>
+        <span class="badge-speculative px-3 py-1 rounded text-sm font-bold whitespace-nowrap ml-4">Speculative</span>
+      </div>
+
+      <div class="mb-4 flex flex-wrap gap-2">
+        <span class="file-chip">app/hooks/types.ts</span>
+        <span class="file-chip">app/components/types.ts</span>
+        <span class="file-chip">routes/article/list/list.tsx</span>
+        <span class="file-chip">routes/home/home.tsx</span>
+        <span class="file-chip">routes/article/site-list/siteTree.ts</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div>
+          <div class="label-before mb-2">Problem</div>
+          <p class="text-slate-300 text-sm">The canonical Article type lives in <code>hooks/types.ts</code> but a different <code>Article</code> type is locally declared in <code>list.tsx</code> (<code>{ rkey, uri, title, cid, createdAt }</code>) and a <code>RecentArticle</code> type in <code>home.tsx</code>. These are narrower projections of the same domain concept. The two <code>SiteData</code> shapes (component layer vs DnD tree layer) are an intentional seam documented in CLAUDE.md — less of an issue. The per-route re-declarations are the pain point: a reader has to mentally reconcile "is this the real Article or a local one?"</p>
+        </div>
+        <div>
+          <div class="label-after mb-2">Solution</div>
+          <p class="text-slate-300 text-sm">The projections are legitimate (routes only need a subset of fields from the PDS). The fix is naming discipline rather than structural change: rename the local types to be explicitly projections — <code>ArticleListItem</code>, <code>RecentArticleItem</code> — so it's obvious at a glance they are display-layer views of an Article, not a competing definition of the concept. <code>hooks/types.ts</code> remains the canonical source for the full domain types. No structural change needed; this is a rename + import-from-canonical pattern.</p>
+        </div>
+      </div>
+
+      <!-- Type map diagram -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="before-box p-4">
+          <div class="label-before mb-3">Before — ambiguous names</div>
+          <div class="space-y-1 text-xs">
+            <div class="module-box" style="border-color:#f59e0b; background:#1c1108">hooks/types.ts → Article (full, canonical)</div>
+            <div class="module-box module-shallow">list.tsx → type Article = {rkey, uri, title, cid} ← <span style="color:#ef4444">same name, different shape</span></div>
+            <div class="module-box module-shallow">home.tsx → type RecentArticle = {rkey, title, updatedAt} ← <span style="color:#f97316">novel name, unclear lineage</span></div>
+          </div>
+        </div>
+        <div class="after-box p-4">
+          <div class="label-after mb-3">After — projection names</div>
+          <div class="space-y-1 text-xs">
+            <div class="module-box module-deep">hooks/types.ts → Article (canonical)</div>
+            <div class="arrow-flow">↓ projected to</div>
+            <div class="flex gap-2">
+              <div class="module-box flex-1" style="border-color:#6366f1;background:#1e1b4b;color:#c7d2fe">ArticleListItem<br/><span class="opacity-60">list.tsx</span></div>
+              <div class="module-box flex-1" style="border-color:#6366f1;background:#1e1b4b;color:#c7d2fe">RecentArticleItem<br/><span class="opacity-60">home.tsx</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TOP RECOMMENDATION ===== -->
+    <div class="top-rec p-6 mb-6">
+      <div class="text-xs text-indigo-400 font-semibold mb-2 uppercase tracking-widest">Top Recommendation</div>
+      <h2 class="text-slate-100 mb-3">Start with Candidate 1 + 2 together</h2>
+      <p class="text-slate-300 text-sm mb-4">Candidates 1 and 2 are the same problem from two angles: business logic that belongs in a service layer is living in route actions. Candidate 1 (<em>ArticleRef propagation</em>) is the highest-value extraction because it has a documented test-coverage gap (CLAUDE.md explicitly lists 5 mutation sites), a clear pure-function shape, and a known failure mode (silent data corruption if a new field isn't mirrored). Doing Candidate 2 broadly at the same time (extracting intent handlers from <code>site-list.tsx</code>) gets you 80% of the untested surface in one pass.</p>
+
+      <div class="grid grid-cols-3 gap-3 text-sm">
+        <div class="p-3 rounded" style="background:#0f172a; border:1px solid #334155">
+          <div class="text-slate-400 text-xs mb-1">Effort</div>
+          <div class="text-slate-200">~1–2 sessions</div>
+        </div>
+        <div class="p-3 rounded" style="background:#0f172a; border:1px solid #334155">
+          <div class="text-slate-400 text-xs mb-1">Risk</div>
+          <div class="text-slate-200">Low — pure extraction, no behaviour change</div>
+        </div>
+        <div class="p-3 rounded" style="background:#0f172a; border:1px solid #334155">
+          <div class="text-slate-400 text-xs mb-1">Payoff</div>
+          <div class="text-slate-200">Unit tests for the most dangerous path in the codebase</div>
+        </div>
+      </div>
+
+      <div class="mt-4 text-sm text-slate-400">
+        Candidates 3 and 4 are worth a conversation — 3 is mechanical (find/replace with factory), 4 requires a structural decision about the monorepo. Candidate 5 is the lowest priority: it's a naming discipline change with no structural impact.
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-600 text-center mt-8 mb-4">scribe-atp.app · Architecture Review · Claude Sonnet 4.6 · 2026-06-08</div>
+  </div>
+
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+  </script>
+</body>
+</html>

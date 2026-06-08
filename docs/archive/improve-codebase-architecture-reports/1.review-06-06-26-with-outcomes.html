@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scribe ATP — Architecture Review · 2026-06-08</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .badge-strong    { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .badge-exploring { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
+    .badge-speculative { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+    .status-done    { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .mermaid svg { max-width: 100%; }
+    pre.before-after { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; font-size: 12px; line-height: 1.5; overflow-x: auto; }
+    .diagram-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+    .arrow { color: #9ca3af; font-size: 1.1em; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen p-8">
+
+  <div class="max-w-5xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-10">
+      <p class="text-sm text-gray-400 font-mono mb-1">Scribe ATP · Architecture Review</p>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Deepening Opportunities</h1>
+      <p class="text-gray-500 text-sm">Session: 2026-06-08 &nbsp;·&nbsp; All five candidates implemented during this session.</p>
+    </div>
+
+    <!-- Summary table -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-10 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left px-5 py-3 font-semibold text-gray-600">#</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-600">Candidate</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-600">Strength</th>
+            <th class="text-left px-5 py-3 font-semibold text-gray-600">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr>
+            <td class="px-5 py-3 text-gray-400 font-mono">1</td>
+            <td class="px-5 py-3 font-medium">ArticleRef Propagation</td>
+            <td class="px-5 py-3"><span class="badge-strong text-xs font-semibold px-2 py-0.5 rounded-full">Strong</span></td>
+            <td class="px-5 py-3"><span class="status-done text-xs font-semibold px-2 py-0.5 rounded-full">Implemented</span></td>
+          </tr>
+          <tr>
+            <td class="px-5 py-3 text-gray-400 font-mono">2</td>
+            <td class="px-5 py-3 font-medium">Business Logic in Route Actions</td>
+            <td class="px-5 py-3"><span class="badge-strong text-xs font-semibold px-2 py-0.5 rounded-full">Strong</span></td>
+            <td class="px-5 py-3"><span class="status-done text-xs font-semibold px-2 py-0.5 rounded-full">Implemented</span></td>
+          </tr>
+          <tr>
+            <td class="px-5 py-3 text-gray-400 font-mono">3</td>
+            <td class="px-5 py-3 font-medium">Dev Mode Fallback Duplication</td>
+            <td class="px-5 py-3"><span class="badge-exploring text-xs font-semibold px-2 py-0.5 rounded-full">Worth exploring</span></td>
+            <td class="px-5 py-3"><span class="status-done text-xs font-semibold px-2 py-0.5 rounded-full">Implemented</span></td>
+          </tr>
+          <tr>
+            <td class="px-5 py-3 text-gray-400 font-mono">4</td>
+            <td class="px-5 py-3 font-medium">Image Service Auth Replication</td>
+            <td class="px-5 py-3"><span class="badge-exploring text-xs font-semibold px-2 py-0.5 rounded-full">Worth exploring</span></td>
+            <td class="px-5 py-3"><span class="status-done text-xs font-semibold px-2 py-0.5 rounded-full">Implemented</span></td>
+          </tr>
+          <tr>
+            <td class="px-5 py-3 text-gray-400 font-mono">5</td>
+            <td class="px-5 py-3 font-medium">Type Definition Scatter</td>
+            <td class="px-5 py-3"><span class="badge-speculative text-xs font-semibold px-2 py-0.5 rounded-full">Speculative</span></td>
+            <td class="px-5 py-3"><span class="status-done text-xs font-semibold px-2 py-0.5 rounded-full">Implemented</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ─────────────────────────────────────────── Candidate 1 -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
+      <div class="flex items-start justify-between px-6 py-5 border-b border-gray-100">
+        <div>
+          <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Candidate 1</span>
+          <h2 class="text-xl font-bold mt-0.5">ArticleRef Propagation</h2>
+        </div>
+        <span class="badge-strong text-xs font-semibold px-3 py-1 rounded-full mt-1">Strong</span>
+      </div>
+      <div class="px-6 py-5 space-y-5">
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Files</h3>
+          <div class="flex flex-wrap gap-2">
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/edit/edit.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/create/create.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/site-list/site-list.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/services/article.server.ts</code>
+            <code class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded border border-blue-100">app/services/articleSiteSync.server.ts ✦ new</code>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Problem</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            The ArticleRef keep-alive pattern — fetching a site record, mutating it, writing it back — was duplicated across three route actions (<code class="bg-gray-100 px-1 rounded text-xs">edit</code>, <code class="bg-gray-100 px-1 rounded text-xs">create</code>, <code class="bg-gray-100 px-1 rounded text-xs">site-list</code>) in slightly different forms. Each file owned its own version of the get→transform→put loop, its own <code class="bg-gray-100 px-1 rounded text-xs">removeArticleRef</code>/<code class="bg-gray-100 px-1 rounded text-xs">updateArticleRef</code> calls, and its own <code class="bg-gray-100 px-1 rounded text-xs">sitesToAdd</code>/<code class="bg-gray-100 px-1 rounded text-xs">sitesToRemove</code>/<code class="bg-gray-100 px-1 rounded text-xs">sitesToRefresh</code> partition logic. The deletion test: removing any one copy would have forced the others to diverge silently. The seam existed (ArticleRef mutation is a coherent concept) but there was no module behind it.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Solution</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            Extract into <code class="bg-gray-100 px-1 rounded text-xs">articleSiteSync.server.ts</code>: a <code class="bg-gray-100 px-1 rounded text-xs">mutateSiteRecord</code> atomic helper (get → transform → put with <code class="bg-gray-100 px-1 rounded text-xs">swapRecord</code> CID), a pure <code class="bg-gray-100 px-1 rounded text-xs">computeSiteAssignmentChanges</code> function that partitions rkey lists into add/remove/sync, and a <code class="bg-gray-100 px-1 rounded text-xs">syncSiteArticleRefs</code> orchestrator for the two-phase edit flow. Route actions shrink to three lines.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Before / After</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-red-500 mb-3">Before — scattered mutation loops</p>
+              <div class="mermaid text-xs">
+graph TD
+  A[edit.tsx action] -->|inline loop| S1[site A: get+put]
+  A -->|inline loop| S2[site B: get+put]
+  A -->|inline loop| S3[site C: get+put]
+  B[create.tsx action] -->|own copy| S4[site X: get+put]
+  C[site-list.tsx action] -->|own copy| S5[site Y: get+put]
+  style A fill:#fee2e2,stroke:#fca5a5
+  style B fill:#fee2e2,stroke:#fca5a5
+  style C fill:#fee2e2,stroke:#fca5a5
+              </div>
+            </div>
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-green-600 mb-3">After — single deep module</p>
+              <div class="mermaid text-xs">
+graph TD
+  A[edit.tsx action] -->|3 lines| M[syncSiteArticleRefs]
+  B[create.tsx action] -->|1 line| N[addArticleToSites]
+  C[site-list.tsx action] -->|1 line| P[mutateSiteRecord]
+  M --> Q[computeSiteAssignmentChanges]
+  M --> P
+  style M fill:#dcfce7,stroke:#86efac
+  style N fill:#dcfce7,stroke:#86efac
+  style P fill:#dcfce7,stroke:#86efac
+  style Q fill:#dcfce7,stroke:#86efac
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Benefits</h3>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>Locality:</strong> all ArticleRef mutation logic is in one file — a bug in the get/put loop is fixed once, everywhere.</li>
+            <li><strong>Testability:</strong> <code class="bg-gray-100 px-1 rounded text-xs">computeSiteAssignmentChanges</code> is a pure function; 7 tests cover add/remove/sync/rename/empty cases with no mocking.</li>
+            <li><strong>Leverage:</strong> the 80-line edit action sync block became 3 lines; the seam now has a name in the domain language.</li>
+          </ul>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm">
+          <p class="font-semibold text-blue-800 mb-1">Outcome</p>
+          <p class="text-blue-700">Implemented. New file: <code class="bg-blue-100 px-1 rounded text-xs">app/services/articleSiteSync.server.ts</code>. Test suite: <code class="bg-blue-100 px-1 rounded text-xs">app/services/articleSiteSync.test.ts</code> (7 tests). <code class="bg-blue-100 px-1 rounded text-xs">SiteRecordValue.groups</code> type expanded to expose <code class="bg-blue-100 px-1 rounded text-xs">slug</code>/<code class="bg-blue-100 px-1 rounded text-xs">title</code> so callbacks can filter without casting.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── Candidate 2 -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
+      <div class="flex items-start justify-between px-6 py-5 border-b border-gray-100">
+        <div>
+          <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Candidate 2</span>
+          <h2 class="text-xl font-bold mt-0.5">Business Logic in Route Actions</h2>
+        </div>
+        <span class="badge-strong text-xs font-semibold px-3 py-1 rounded-full mt-1">Strong</span>
+      </div>
+      <div class="px-6 py-5 space-y-5">
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Files</h3>
+          <div class="flex flex-wrap gap-2">
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/site-list/site-list.tsx</code>
+            <code class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded border border-blue-100">app/services/articleSiteSync.server.ts ✦ new</code>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Problem</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            Three intents in <code class="bg-gray-100 px-1 rounded text-xs">site-list.tsx</code> (<code class="bg-gray-100 px-1 rounded text-xs">deleteGroup</code>, <code class="bg-gray-100 px-1 rounded text-xs">saveSite</code>, <code class="bg-gray-100 px-1 rounded text-xs">removeArticle</code>) each contained manual get→transform→put sequences. The transformation logic — filtering groups by slug, merging group/article arrays, removing article refs — was inlined directly in the action switch statement. None of it was testable without an HTTP request and a real AT Protocol agent.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Solution</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            The <code class="bg-gray-100 px-1 rounded text-xs">mutateSiteRecord(agent, did, siteRkey, mutate)</code> helper introduced in Candidate 1 absorbs the get→transform→put boilerplate. Each intent becomes a pure transform callback: <code class="bg-gray-100 px-1 rounded text-xs">(record) =&gt; ({ ...record, groups: record.groups.filter(...) })</code>. The route action becomes a thin dispatcher; the transformation is the testable unit.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Before / After</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-red-500 mb-2">Before — logic inside HTTP handler</p>
+              <pre class="before-after">// deleteGroup intent (~15 lines)
+const rec = await agent.com.atproto
+  .repo.getRecord({ ... });
+const val = rec.data.value as SiteRecord;
+await agent.com.atproto.repo.putRecord({
+  record: {
+    ...val,
+    groups: val.groups.filter(
+      g => g.slug !== rkey
+    ),
+    updatedAt: now,
+  },
+  swapRecord: rec.data.cid
+});</pre>
+            </div>
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-green-600 mb-2">After — pure transform callback</p>
+              <pre class="before-after">// deleteGroup intent (3 lines)
+await mutateSiteRecord(
+  agent, did, siteSlug,
+  (val) => ({
+    ...val,
+    groups: val.groups.filter(
+      (g) => g.slug !== rkey
+    ),
+    updatedAt: now,
+  })
+);</pre>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Benefits</h3>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>Locality:</strong> the CID swap and error handling are in one place; each intent only states its transform.</li>
+            <li><strong>Leverage:</strong> adding a new site mutation requires one callback, not a full get/put scaffold.</li>
+            <li><strong>Correctness:</strong> the <code class="bg-gray-100 px-1 rounded text-xs">swapRecord</code> CID is always fresh — fetched inside <code class="bg-gray-100 px-1 rounded text-xs">mutateSiteRecord</code>, not passed in stale from the loader.</li>
+          </ul>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm">
+          <p class="font-semibold text-blue-800 mb-1">Outcome</p>
+          <p class="text-blue-700">Implemented alongside Candidate 1. <code class="bg-blue-100 px-1 rounded text-xs">deleteGroup</code>, <code class="bg-blue-100 px-1 rounded text-xs">saveSite</code>, and <code class="bg-blue-100 px-1 rounded text-xs">removeArticle</code> in <code class="bg-blue-100 px-1 rounded text-xs">site-list.tsx</code> each reduced to a single <code class="bg-blue-100 px-1 rounded text-xs">mutateSiteRecord</code> call with an inline transform. <code class="bg-blue-100 px-1 rounded text-xs">createGroup</code> was left unchanged (conditional validation logic doesn't fit the helper cleanly).</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── Candidate 3 -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
+      <div class="flex items-start justify-between px-6 py-5 border-b border-gray-100">
+        <div>
+          <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Candidate 3</span>
+          <h2 class="text-xl font-bold mt-0.5">Dev Mode Fallback Duplication</h2>
+        </div>
+        <span class="badge-exploring text-xs font-semibold px-3 py-1 rounded-full mt-1">Worth exploring</span>
+      </div>
+      <div class="px-6 py-5 space-y-5">
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Files</h3>
+          <div class="flex flex-wrap gap-2">
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/home/home.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/sites/sites.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/groups/groups.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/list/list.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/create/create.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/edit/edit.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/view/view.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/site-list/site-list.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/site/configure/configure.tsx</code>
+            <code class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded border border-blue-100">app/services/devFixtures.server.ts ✦ new</code>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Problem</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            Nine route loaders each owned their own inline dev-bypass block: a multi-line object literal returning mock data when <code class="bg-gray-100 px-1 rounded text-xs">!useRealOAuth</code>. These blocks were untyped (or typed implicitly) against the loader's real return shape, so a shape change in the real loader would silently leave the dev fixture returning stale or missing fields. One route (<code class="bg-gray-100 px-1 rounded text-xs">edit.tsx</code>) was silently omitting <code class="bg-gray-100 px-1 rounded text-xs">createdAt</code> — a field the component destructured — with no TypeScript error.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Solution</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            Consolidate all dev fixture data into <code class="bg-gray-100 px-1 rounded text-xs">app/services/devFixtures.server.ts</code>. One typed factory function per loader (e.g. <code class="bg-gray-100 px-1 rounded text-xs">devEditLoader(articleUrl)</code>), with an explicit return type that mirrors the real loader's shape. TypeScript now catches shape mismatches at the fixture's definition rather than at runtime in the browser.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Before / After</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-red-500 mb-2">Before — inline, untyped fixture</p>
+              <pre class="before-after">// edit.tsx loader (partial)
+if (!useRealOAuth) {
+  return {
+    rkey: params.articleUrl,
+    title: "Dev mode article",
+    content: "Dev mode content",
+    url: params.articleUrl,
+    splashImageUrl: "",
+    synopsis: "",
+    // ⚠️ createdAt silently missing
+    cid: "dev-cid",
+    sites: [...],
+    currentSiteRkeys: [],
+  };
+}</pre>
+            </div>
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-green-600 mb-2">After — typed factory, shape verified</p>
+              <pre class="before-after">// devFixtures.server.ts
+export function devEditLoader(
+  articleUrl: string
+): {
+  rkey: string; title: string;
+  content: string; url: string;
+  splashImageUrl: string;
+  synopsis: string;
+  createdAt: string; // ✓ required
+  cid: string;
+  sites: SiteOption[];
+  currentSiteRkeys: string[];
+} { return { ... }; }
+
+// edit.tsx loader (1 line)
+if (!useRealOAuth)
+  return devEditLoader(params.articleUrl);</pre>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Benefits</h3>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>Correctness:</strong> explicit return types on each factory mean a real loader shape change produces a TypeScript error at the fixture, not a silent runtime mismatch.</li>
+            <li><strong>Locality:</strong> all dev fixture data is in one file — easy to find, update, and keep consistent.</li>
+            <li><strong>Leverage:</strong> each route loader collapses from 10–20 lines of mock data to a one-liner.</li>
+          </ul>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm">
+          <p class="font-semibold text-blue-800 mb-1">Outcome</p>
+          <p class="text-blue-700">Implemented. New file: <code class="bg-blue-100 px-1 rounded text-xs">app/services/devFixtures.server.ts</code> with 9 typed factory functions. Pre-existing silent bug in <code class="bg-blue-100 px-1 rounded text-xs">devEditLoader</code> (missing <code class="bg-blue-100 px-1 rounded text-xs">createdAt</code>) caught and fixed by the explicit return type. <code class="bg-blue-100 px-1 rounded text-xs">images.tsx</code> skipped — already had a module-level <code class="bg-blue-100 px-1 rounded text-xs">DEV_MOCK</code> constant.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── Candidate 4 -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
+      <div class="flex items-start justify-between px-6 py-5 border-b border-gray-100">
+        <div>
+          <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Candidate 4</span>
+          <h2 class="text-xl font-bold mt-0.5">Image Service Auth Replication</h2>
+        </div>
+        <span class="badge-exploring text-xs font-semibold px-3 py-1 rounded-full mt-1">Worth exploring</span>
+      </div>
+      <div class="px-6 py-5 space-y-5">
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Files</h3>
+          <div class="flex flex-wrap gap-2">
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">image-service/src/auth.ts</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/services/auth.server.ts</code>
+            <code class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded border border-blue-100">shared/cookieSession.ts ✦ new</code>
+            <code class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded border border-blue-100">shared/cookieSession.test.ts ✦ new</code>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Problem</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            The Image Service (port 3009, a separate Express process) needed to verify the same <code class="bg-gray-100 px-1 rounded text-xs">__session</code> cookie that React Router signs in the main app. React Router's session storage is opaque — it doesn't export its signing primitives — so <code class="bg-gray-100 px-1 rounded text-xs">image-service/src/auth.ts</code> contained a 69-line manual reimplementation of the HMAC-SHA256 signing format, including the non-obvious encoding detail that the JSON is <code class="bg-gray-100 px-1 rounded text-xs">btoa()</code>-encoded <em>before</em> signing. If React Router ever changed this format, the Image Service would silently start returning 401s with no obvious connection to the root cause.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Solution</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            Extract into <code class="bg-gray-100 px-1 rounded text-xs">shared/cookieSession.ts</code> — a single implementation of <code class="bg-gray-100 px-1 rounded text-xs">verifyScribeSession(cookieHeader, secret)</code> that encodes the contract in one place. <code class="bg-gray-100 px-1 rounded text-xs">image-service/src/auth.ts</code> becomes a 9-line adapter that reads <code class="bg-gray-100 px-1 rounded text-xs">SESSION_SECRET</code> from env and delegates. The shared module is covered by 8 Vitest tests that exercise the contract directly, including the btoa encoding edge case.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Before / After</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-red-500 mb-3">Before — two processes, duplicated contract</p>
+              <div class="mermaid text-xs">
+graph LR
+  A[React Router\nmain app :3008] -->|signs| C[__session cookie]
+  B[Image Service\n:3009] -->|69 LOC manual\nreplica| C
+  C -->|used by| D[Browser]
+  style B fill:#fee2e2,stroke:#fca5a5
+              </div>
+            </div>
+            <div class="diagram-box">
+              <p class="text-xs font-semibold text-green-600 mb-3">After — single shared module</p>
+              <div class="mermaid text-xs">
+graph LR
+  A[React Router\nmain app :3008] -->|signs| C[__session cookie]
+  B[Image Service\n:3009] -->|9 LOC adapter| S[shared/\ncookieSession.ts]
+  S -->|verifies| C
+  C -->|used by| D[Browser]
+  style S fill:#dcfce7,stroke:#86efac
+  style B fill:#f0fdf4,stroke:#86efac
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Benefits</h3>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>Locality:</strong> the undocumented <code class="bg-gray-100 px-1 rounded text-xs">btoa</code>-before-sign encoding contract lives in exactly one place with a comment explaining why.</li>
+            <li><strong>Testability:</strong> 8 tests cover valid sessions, tampered signatures, wrong secrets, missing cookies, and multi-cookie headers — none of which were tested before.</li>
+            <li><strong>Safety:</strong> <code class="bg-gray-100 px-1 rounded text-xs">secret</code> is a parameter (not read from env inside the shared fn) so it's trivially injectable in tests.</li>
+          </ul>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm">
+          <p class="font-semibold text-blue-800 mb-1">Outcome</p>
+          <p class="text-blue-700">Implemented. <code class="bg-blue-100 px-1 rounded text-xs">shared/cookieSession.ts</code> exports <code class="bg-blue-100 px-1 rounded text-xs">verifyScribeSession(cookieHeader, secret)</code>. <code class="bg-blue-100 px-1 rounded text-xs">image-service/src/auth.ts</code> reduced from 69 to 9 lines. 8 tests in <code class="bg-blue-100 px-1 rounded text-xs">shared/cookieSession.test.ts</code>, all passing. Both the root <code class="bg-blue-100 px-1 rounded text-xs">tsconfig.json</code> (via <code class="bg-blue-100 px-1 rounded text-xs">**/*</code>) and the image-service tsconfig (via relative import reference) see the shared file without config changes. CLAUDE.md updated.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── Candidate 5 -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8 overflow-hidden">
+      <div class="flex items-start justify-between px-6 py-5 border-b border-gray-100">
+        <div>
+          <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Candidate 5</span>
+          <h2 class="text-xl font-bold mt-0.5">Type Definition Scatter</h2>
+        </div>
+        <span class="badge-speculative text-xs font-semibold px-3 py-1 rounded-full mt-1">Speculative</span>
+      </div>
+      <div class="px-6 py-5 space-y-5">
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Files</h3>
+          <div class="flex flex-wrap gap-2">
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/article/list/list.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/routes/home/home.tsx</code>
+            <code class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">app/hooks/types.ts</code>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Problem</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            The canonical <code class="bg-gray-100 px-1 rounded text-xs">Article</code> type in <code class="bg-gray-100 px-1 rounded text-xs">app/hooks/types.ts</code> (full record including <code class="bg-gray-100 px-1 rounded text-xs">content</code>) coexists with a local <code class="bg-gray-100 px-1 rounded text-xs">type Article</code> in <code class="bg-gray-100 px-1 rounded text-xs">list.tsx</code> (a list-row projection with <code class="bg-gray-100 px-1 rounded text-xs">rkey</code>/<code class="bg-gray-100 px-1 rounded text-xs">uri</code>/<code class="bg-gray-100 px-1 rounded text-xs">cid</code>, no <code class="bg-gray-100 px-1 rounded text-xs">content</code>). Same name, structurally different shapes, different files. A developer importing the hooks type and the route type into the same file would face a name collision, and reading either in isolation gives no signal that a canonical version exists.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Solution</h3>
+          <p class="text-gray-700 text-sm leading-relaxed">
+            Rename local route-scoped types to names that reflect their purpose and scope, disambiguating from the canonical hooks type:
+          </p>
+          <div class="mt-2 space-y-1">
+            <div class="flex items-center gap-3 text-sm font-mono">
+              <code class="bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100">type Article</code>
+              <span class="arrow">→</span>
+              <code class="bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-100">type ArticleListItem</code>
+              <span class="text-gray-400 text-xs font-sans">list.tsx</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm font-mono">
+              <code class="bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100">type RecentArticle</code>
+              <span class="arrow">→</span>
+              <code class="bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-100">type RecentArticleItem</code>
+              <span class="text-gray-400 text-xs font-sans">home.tsx</span>
+            </div>
+          </div>
+          <p class="text-gray-600 text-sm mt-3">Both types remain local to their routes — this is purely a clarity rename, not a shared-type extraction.</p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Benefits</h3>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>Clarity:</strong> the <code class="bg-gray-100 px-1 rounded text-xs">Item</code> suffix signals "view model / projection" rather than "domain record" — no name collision with the hooks type.</li>
+            <li><strong>AI navigability:</strong> a search for <code class="bg-gray-100 px-1 rounded text-xs">ArticleListItem</code> finds exactly the list-route shape; a search for <code class="bg-gray-100 px-1 rounded text-xs">Article</code> finds the canonical hooks type.</li>
+          </ul>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm">
+          <p class="font-semibold text-blue-800 mb-1">Outcome</p>
+          <p class="text-blue-700">Implemented. <code class="bg-blue-100 px-1 rounded text-xs">type Article</code> → <code class="bg-blue-100 px-1 rounded text-xs">type ArticleListItem</code> in <code class="bg-blue-100 px-1 rounded text-xs">list.tsx</code> (including the <code class="bg-blue-100 px-1 rounded text-xs">const article: Article</code> annotation and the <code class="bg-blue-100 px-1 rounded text-xs">AssignedArticle</code>/<code class="bg-blue-100 px-1 rounded text-xs">OrphanedArticle</code> base type). <code class="bg-blue-100 px-1 rounded text-xs">type RecentArticle</code> → <code class="bg-blue-100 px-1 rounded text-xs">type RecentArticleItem</code> in <code class="bg-blue-100 px-1 rounded text-xs">home.tsx</code> (all 3 occurrences). Typecheck clean.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── Top Recommendation -->
+    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm mb-8 p-6">
+      <h2 class="text-lg font-bold text-green-900 mb-3">★ Top Recommendation</h2>
+      <p class="text-green-800 text-sm leading-relaxed">
+        <strong>Candidate 1 + 2 together</strong> — ArticleRef Propagation and Business Logic in Route Actions. They share the same seam (<code class="bg-green-100 px-1 rounded text-xs">mutateSiteRecord</code>) and their combined cost is lower than implementing them separately. The <code class="bg-green-100 px-1 rounded text-xs">computeSiteAssignmentChanges</code> pure function gives an immediate high-value test target. Candidates 3 and 4 are solid follow-ons once the core sync logic is clean.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center text-xs text-gray-400 mt-8 pb-4">
+      Generated by Claude Code · 2026-06-08 · All five candidates implemented ✓
+    </div>
+
+  </div>
+</body>
+</html>

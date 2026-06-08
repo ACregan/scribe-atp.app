@@ -7,6 +7,9 @@
       "Bash(gh *)",
       "Bash(glab *)",
       "Bash(xdg-open *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }

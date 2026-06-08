@@ -2,6 +2,7 @@ import type { Route } from "./+types/list";
 import { Form, Link } from "react-router";
 import { useRef, useState } from "react";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import { devArticleListLoader } from "~/services/devFixtures.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -14,7 +15,7 @@ import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-type Article = {
+type ArticleListItem = {
   rkey: string;
   uri: string;
   title: string;
@@ -29,58 +30,15 @@ type Assignment = {
   groupSlug?: string;
 };
 
-type AssignedArticle = Article & { assignments: Assignment[] };
-type OrphanedArticle = Article;
+type AssignedArticle = ArticleListItem & { assignments: Assignment[] };
+type OrphanedArticle = ArticleListItem;
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP - Article List" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  if (!useRealOAuth) {
-    return {
-      assignedArticles: [
-        {
-          rkey: "my-first-post",
-          uri: "at://did:dev:test/app.scribe.article/my-first-post",
-          title: "My First Post",
-          cid: "dev-cid-a1",
-          createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-          assignments: [
-            {
-              siteTitle: "NoRobots.blog",
-              siteRkey: "norobots-blog",
-              groupTitle: "Getting Started",
-              groupSlug: "getting-started",
-            },
-          ],
-        },
-        {
-          rkey: "second-post",
-          uri: "at://did:dev:test/app.scribe.article/second-post",
-          title: "Second Post",
-          cid: "dev-cid-a2",
-          createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-          assignments: [
-            { siteTitle: "NoRobots.blog", siteRkey: "norobots-blog" },
-            {
-              siteTitle: "Perpetual Summer LTD",
-              siteRkey: "perpetualsummer-ltd",
-            },
-          ],
-        },
-      ] as AssignedArticle[],
-      orphanedArticles: [
-        {
-          rkey: "dev-orphan",
-          uri: "at://did:dev:test/app.scribe.article/dev-orphan",
-          title: "Dev Orphan Article",
-          cid: "dev-cid",
-          createdAt: new Date().toISOString(),
-        },
-      ] as OrphanedArticle[],
-    };
-  }
+  if (!useRealOAuth) return devArticleListLoader();
 
   const { agent, did } = await requireAtpAgent(request);
 
@@ -136,7 +94,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   for (const record of articlesResult.data.records) {
     const value = record.value as Record<string, unknown>;
-    const article: Article = {
+    const article: ArticleListItem = {
       rkey: record.uri.split("/").pop()!,
       uri: record.uri,
       title: String(value.title ?? ""),
