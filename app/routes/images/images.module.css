@@ -10,7 +10,7 @@
 }
 
 .breadcrumbLink {
-  color: var(--blue);
+  color: var(--action-primary);
   text-decoration: none;
 }
 
@@ -50,7 +50,7 @@
   gap: 0.8rem;
   padding: 1.2rem;
   height: 22rem;
-  border: 1px solid var(--light-grey);
+  border: 1px solid var(--border-color);
   border-radius: 0.8rem;
   background: var(--surface-page);
   cursor: pointer;
@@ -63,7 +63,7 @@
 
 .folderTile:hover,
 .imageTile:hover {
-  border-color: var(--blue);
+  border-color: var(--action-primary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -76,7 +76,7 @@
 }
 
 .folderTileOwn {
-  border-color: var(--blue, #0070f3);
+  border-color: var(--action-primary);
 }
 
 .folderIcon {
@@ -113,7 +113,7 @@
   min-height: 0;
   overflow: hidden;
   border-radius: 0.4rem;
-  background: var(--light-grey);
+  background: var(--surface-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -129,7 +129,7 @@
 
 .tileName {
   font-size: 1.2rem;
-  color: var(--dark-grey);
+  color: var(--text-secondary);
   text-align: center;
   width: 100%;
   white-space: nowrap;
@@ -158,10 +158,10 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 1rem;
-  border: 1px solid var(--mid-grey, #949494);
+  border: 1px solid var(--border-color);
   border-radius: 0.6rem;
   background: var(--white, #fff);
-  color: var(--dark-grey, #555);
+  color: var(--text-secondary);
   font-size: 1.4rem;
   cursor: pointer;
   transition:
@@ -177,8 +177,8 @@
 }
 
 .clearSelectionButton:hover {
-  border-color: var(--blue, #0070f3);
-  color: var(--blue, #0070f3);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
 }
 
 /* ── Tile wrappers with action buttons ───────────────────────────────────── */
@@ -193,7 +193,7 @@
 .tileWrapSelected .folderTile,
 .tileWrapSelected .imageTile,
 .tileSelected {
-  border-color: var(--blue, #0070f3) !important;
+  border-color: var(--action-primary) !important;
   background: #eff6ff;
 }
 
@@ -209,7 +209,7 @@
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s;
-  accent-color: var(--blue, #0070f3);
+  accent-color: var(--action-primary);
 }
 
 /* Show checkbox on tile hover */
@@ -240,11 +240,11 @@
 
 .tileAction {
   background: var(--white, #fff);
-  border: 1px solid var(--light-grey, #dedede);
+  border: 1px solid var(--border-color);
   border-radius: 0.4rem;
   padding: 0.3rem;
   cursor: pointer;
-  color: var(--mid-grey, #949494);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -259,13 +259,13 @@
 }
 
 .tileAction:hover {
-  color: var(--blue, #0070f3);
-  border-color: var(--blue, #0070f3);
+  color: var(--action-primary);
+  border-color: var(--action-primary);
 }
 
 .tileActionDanger:hover {
-  color: var(--red, #df2827);
-  border-color: var(--red, #df2827);
+  color: var(--action-danger);
+  border-color: var(--action-danger);
 }
 
 /* ── Delete confirmation inline ──────────────────────────────────────────── */
@@ -275,7 +275,7 @@
   flex-direction: column;
   gap: 0.8rem;
   padding: 1.2rem;
-  border: 1px solid var(--red);
+  border: 1px solid var(--action-danger);
   border-radius: 0.8rem;
   font-size: 1.3rem;
 }
@@ -286,7 +286,7 @@
 }
 
 .deleteError {
-  color: var(--red);
+  color: var(--action-danger);
   font-size: 1.3rem;
   margin: 0 0 1.2rem;
 }
@@ -303,11 +303,11 @@
 .variantButton {
   font-size: 1.1rem;
   padding: 0.2rem 0.6rem;
-  border: 1px solid var(--light-grey, #dedede);
+  border: 1px solid var(--border-color);
   border-radius: 0.4rem;
   background: var(--white, #fff);
   cursor: pointer;
-  color: var(--mid-grey, #949494);
+  color: var(--text-secondary);
   transition:
     border-color 0.1s,
     color 0.1s;
@@ -316,8 +316,8 @@
 }
 
 .variantButton:hover {
-  border-color: var(--blue, #0070f3);
-  color: var(--blue, #0070f3);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
 }
 
 .variantButtonCopied {
@@ -336,12 +336,12 @@
 .tileSplitButtonMain {
   font-size: 1.1rem;
   padding: 0.2rem 0.6rem;
-  border: 1px solid var(--light-grey, #dedede);
+  border: 1px solid var(--border-color);
   border-right: none;
   border-radius: 0.4rem 0 0 0.4rem;
   background: var(--white, #fff);
   cursor: pointer;
-  color: var(--mid-grey, #949494);
+  color: var(--text-secondary);
   transition:
     border-color 0.1s,
     color 0.1s;
@@ -358,11 +358,11 @@
 .tileSplitButtonChevron {
   font-size: 0.9rem;
   padding: 0.2rem 0.4rem;
-  border: 1px solid var(--light-grey, #dedede);
+  border: 1px solid var(--border-color);
   border-radius: 0 0.4rem 0.4rem 0;
   background: var(--white, #fff);
   cursor: pointer;
-  color: var(--mid-grey, #949494);
+  color: var(--text-secondary);
   transition:
     border-color 0.1s,
     color 0.1s,
@@ -373,9 +373,9 @@
 }
 
 .tileSplitButtonChevron:hover {
-  border-color: var(--blue, #0070f3);
-  color: var(--blue, #0070f3);
-  background: var(--off-white, #f5f5f5);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+  background: var(--surface-muted);
 }
 
 .tileSplitDropdown {
@@ -384,7 +384,7 @@
   left: 0;
   z-index: 200;
   background: var(--white, #fff);
-  border: 1px solid var(--light-grey, #dedede);
+  border: 1px solid var(--border-color);
   border-radius: 0.4rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   display: flex;
@@ -399,7 +399,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--mid-grey, #949494);
+  color: var(--text-secondary);
   text-align: left;
   white-space: nowrap;
   transition:
@@ -408,12 +408,12 @@
 }
 
 .tileSplitDropdownItem:hover {
-  background: var(--off-white, #f5f5f5);
-  color: var(--blue, #0070f3);
+  background: var(--surface-muted);
+  color: var(--action-primary);
 }
 
 .tileSplitDropdownItemActive {
-  color: var(--blue, #0070f3);
+  color: var(--action-primary);
   font-weight: 600;
   background: rgba(0, 112, 243, 0.06);
 }
@@ -447,7 +447,7 @@
 /* ── Drag and drop ───────────────────────────────────────────────────────── */
 
 .folderTileDragOver .folderTile {
-  border-color: var(--blue);
+  border-color: var(--action-primary);
   background: rgba(0, 112, 243, 0.06);
 }
 
@@ -456,7 +456,7 @@
 }
 
 .dragBadge {
-  background: var(--blue);
+  background: var(--action-primary);
   color: #fff;
   font-size: 1.3rem;
   font-weight: 600;

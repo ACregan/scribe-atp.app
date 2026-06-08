@@ -22,21 +22,21 @@
 }
 
 .primary {
-  background: var(--blue, #0070f3);
-  border: 0.2rem solid var(--blue);
+  background: var(--action-primary);
+  border: 0.2rem solid var(--action-primary);
   color: var(--white, #fff);
 }
 
 .secondary {
   background: transparent;
-  color: var(--black, #000);
-  border: 0.2rem solid var(--blue);
-  color: var(--blue);
+  color: var(--text-primary);
+  border: 0.2rem solid var(--action-primary);
+  color: var(--action-primary);
 }
 
 .danger {
-  background: var(--error, #d32f2f);
-  border: 0.2rem solid var(--error, #d32f2f);
+  background: var(--action-danger);
+  border: 0.2rem solid var(--action-danger);
   color: var(--white, #fff);
 }
 

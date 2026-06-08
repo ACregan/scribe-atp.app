@@ -31,12 +31,12 @@
   text-align: center;
 }
 .tooltipBubble.primaryVariant {
-  background: var(--blue);
+  background: var(--action-primary);
   color: var(--white);
 }
 .tooltipBubble.secondaryVariant {
   background: var(--white);
-  color: var(--blue);
+  color: var(--action-primary);
 }
 .tooltipBubble.dangerVariant {
   background: var(--danger-background-colour);
@@ -53,7 +53,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-bottom-color: var(--blue);
+  border-bottom-color: var(--action-primary);
   border-top: 0;
   margin-left: -10px;
   margin-top: -10px;
@@ -66,7 +66,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-left-color: var(--blue);
+  border-left-color: var(--action-primary);
   border-right: 0;
   margin-top: -10px;
   margin-right: -10px;
@@ -79,7 +79,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-top-color: var(--blue);
+  border-top-color: var(--action-primary);
   border-bottom: 0;
   margin-left: -10px;
   margin-bottom: -10px;
@@ -93,7 +93,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-right-color: var(--blue);
+  border-right-color: var(--action-primary);
   border-left: 0;
   margin-top: -10px;
   margin-left: -10px;
@@ -107,7 +107,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-bottom-color: var(--blue);
+  border-bottom-color: var(--action-primary);
   border-top: 0;
   border-right: 0;
   margin-left: -10px;
@@ -121,7 +121,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-bottom-color: var(--blue);
+  border-bottom-color: var(--action-primary);
   border-top: 0;
   border-left: 0;
   margin-left: -5px;
@@ -136,7 +136,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-top-color: var(--blue);
+  border-top-color: var(--action-primary);
   border-bottom: 0;
   border-left: 0;
   margin-left: -5px;
@@ -150,7 +150,7 @@
   width: 0;
   height: 0;
   border: 10px solid transparent;
-  border-top-color: var(--blue);
+  border-top-color: var(--action-primary);
   border-bottom: 0;
   border-right: 0;
   margin-left: -5px;

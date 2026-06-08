@@ -25,7 +25,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.6rem 2rem;
-  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+  border-bottom: 0.1rem solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -63,6 +63,6 @@
   justify-content: flex-end;
   gap: 1rem;
   padding: 1.6rem 2rem;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
   flex-shrink: 0;
 }

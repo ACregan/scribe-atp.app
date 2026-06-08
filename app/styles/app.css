@@ -90,19 +90,19 @@ body {
 /* LINK STYLES */
 p a {
   color: var(--white);
-  text-decoration-color: var(--red);
+  text-decoration-color: var(--action-danger);
 }
 
 p a:active,
 p a:hover {
   color: var(--white);
-  text-decoration-color: var(--red);
+  text-decoration-color: var(--action-danger);
 }
 
 /* SELECTION */
 ::selection {
-  color: var(--black);
-  background: var(--red);
+  color: var(--text-primary);
+  background: var(--action-danger);
 }
 
 /* GLOBAL RESPONSIVE STYLES */

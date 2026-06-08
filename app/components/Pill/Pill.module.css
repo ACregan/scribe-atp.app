@@ -8,19 +8,19 @@
 }
 
 .default {
-  background: var(--mid-grey);
+  background: var(--surface-neutral);
 }
 
 .primary {
-  background: var(--blue);
+  background: var(--action-primary);
 }
 
 .secondary {
   background: transparent;
-  color: var(--blue);
-  border: 0.1rem solid var(--blue);
+  color: var(--action-primary);
+  border: 0.1rem solid var(--action-primary);
 }
 
 .danger {
-  background: var(--error);
+  background: var(--action-danger);
 }

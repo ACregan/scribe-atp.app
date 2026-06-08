@@ -783,7 +783,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                                   <span className={styles.folderIcon}>
                                     <SvgIcon
                                       name={SvgImageList.Folder}
-                                      fill="var(--blue)"
+                                      fill="var(--action-primary)"
                                     />
                                     {avatarUrl && (
                                       <img

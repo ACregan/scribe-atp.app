@@ -58,7 +58,7 @@
 }
 .topButtonPanel {
   grid-area: PageContainer_TopButtons;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
   padding: 1rem 2rem;
 
   display: flex;
@@ -78,14 +78,14 @@
   grid-area: PageContainer_BottomButtons;
   display: flex;
   justify-content: flex-end;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
   padding: 2rem;
   gap: 1rem;
 }
 
 /* <PageSection> component */
 .pageSection {
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
   padding: 1rem 2rem;
 }
 .pageSection:last-of-type {
@@ -159,7 +159,7 @@
 
 /* <PageSectionCell> component */
 .pageSectionCell {
-  border-left: 0.1rem solid var(--border, #e5e7eb);
+  border-left: 0.1rem solid var(--border-color);
 }
 
 /* <ButtonGroupContainer> component */

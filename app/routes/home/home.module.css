@@ -43,7 +43,7 @@
   align-items: center;
   gap: 1.6rem;
   padding: 1rem 0;
-  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+  border-bottom: 0.1rem solid var(--border-color);
 }
 
 .recentItem:last-child {
@@ -90,7 +90,7 @@
   width: 15rem;
   height: 100%;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  background: linear-gradient(135deg, #ddeeff 0%, var(--surface-muted) 100%);
   background-size: cover;
   background-position: top center;
 }
@@ -120,7 +120,7 @@
   border: 0.2rem solid var(--border-color);
   border-radius: 50%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  background: linear-gradient(135deg, #ddeeff 0%, var(--surface-muted) 100%);
   background-size: cover;
   background-position: top center;
   z-index: 100;
@@ -140,12 +140,12 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
 }
 
 .groupItem {
   padding: 0.6rem 1.2rem 0.6rem 1.6rem;
-  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+  border-bottom: 0.1rem solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 0.8rem;
@@ -179,7 +179,7 @@
   font-size: 1.4rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--red);
+  color: var(--action-danger);
   margin: 0;
 }
 

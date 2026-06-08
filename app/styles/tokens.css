@@ -10,6 +10,10 @@
   --surface-page: var(--white);
   --surface-input: var(--white);
   --surface-aside: var(--blue-ribbon);
+  /* Toolbar bg, code blocks, hover states — slightly off --surface-page */
+  --surface-muted: var(--wild-sand);
+  /* Neutral badge / inactive state backgrounds (with --text-on-dark text) */
+  --surface-neutral: var(--gray);
 
   /* Text */
   --text-primary: var(--mine-shaft);
@@ -24,19 +28,6 @@
   /* Actions / brand */
   --action-primary: var(--blue-ribbon);
   --action-danger: var(--cinnabar);
-
-  /* === COMPAT ALIASES ===
-   * Legacy names still referenced in components. Migrate components to the
-   * semantic tokens above over time; these exist to avoid a flag-day rewrite. */
-  --black: var(--mine-shaft);
-  --mid-grey: var(--gray);
-  --off-white: var(--wild-sand);
-  --red: var(--cinnabar);
-  --error: var(--cinnabar);
-  --blue: var(--blue-ribbon);
-  --light-grey: var(--alto);
-  --dark-grey: var(--dorado);
-  --border: var(--alto);
 }
 
 [data-theme="dark"] {
@@ -44,6 +35,10 @@
   --surface-header: var(--mine-shaft);
   --surface-page: var(--charcoal);
   --surface-input: var(--charcoal);
+  /* Slightly darker than --charcoal for inset/muted surfaces */
+  --surface-muted: var(--mine-shaft);
+  /* Medium grey for neutral state backgrounds on dark pages */
+  --surface-neutral: var(--dorado);
   /* --surface-app and --surface-aside are intentionally unchanged */
 
   /* Text */
@@ -53,11 +48,4 @@
   /* Borders */
   --border-color: var(--dorado);
   --border-subtle: var(--dorado);
-
-  /* Compat aliases that flip in dark mode */
-  --mid-grey: var(--silver);
-  --off-white: var(--dorado);
-  --light-grey: var(--dorado);
-  --dark-grey: var(--silver);
-  --border: var(--dorado);
 }

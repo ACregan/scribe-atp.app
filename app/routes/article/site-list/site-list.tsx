@@ -291,16 +291,34 @@ function CreateGroupModal({
         }
       />
       {slug && slugValid && (
-        <p style={{ fontSize: "1.2rem", color: "var(--mid-grey)", margin: 0 }}>
+        <p
+          style={{
+            fontSize: "1.2rem",
+            color: "var(--text-secondary)",
+            margin: 0,
+          }}
+        >
           Path: <code>{composedPath}</code>
         </p>
       )}
       {fetcher.data?.error && (
-        <p style={{ fontSize: "1.3rem", color: "var(--red)", margin: 0 }}>
+        <p
+          style={{
+            fontSize: "1.3rem",
+            color: "var(--action-danger)",
+            margin: 0,
+          }}
+        >
           {fetcher.data.error}
         </p>
       )}
-      <p style={{ fontSize: "1.2rem", color: "var(--mid-grey)", margin: 0 }}>
+      <p
+        style={{
+          fontSize: "1.2rem",
+          color: "var(--text-secondary)",
+          margin: 0,
+        }}
+      >
         The URL path cannot be changed after the group is created.
       </p>
       <Button

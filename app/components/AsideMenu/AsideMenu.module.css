@@ -30,7 +30,7 @@
   cursor: pointer;
   width: 5rem;
   height: 5rem;
-  background: var(--blue);
+  background: var(--action-primary);
   border: 0.2rem solid var(--white);
 
   border-radius: 0.3rem;
@@ -43,10 +43,10 @@
   cursor: pointer;
   width: 5rem;
   height: 5rem;
-  background: var(--blue);
+  background: var(--action-primary);
   border: 0.2rem solid var(--white);
   box-shadow:
-    inset 0 0 0 0.2rem var(--blue),
+    inset 0 0 0 0.2rem var(--action-primary),
     inset 0 0 0 0.3rem var(--white);
 }
 .menuItemLink > button:hover > svg {
@@ -65,7 +65,7 @@
   box-shadow: none;
 }
 .menuItemLink[aria-current="page"] > button > svg {
-  fill: var(--blue);
+  fill: var(--action-primary);
 }
 
 /* LOGOUT BUTTON */
