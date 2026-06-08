@@ -110,3 +110,15 @@
   text-align: center;
   color: var(--text-secondary);
 }
+
+/* ── DARK MODIFIERS ────────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] {
+  .splashContainer::after {
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      var(--surface-page) 100%
+    );
+  }
+}

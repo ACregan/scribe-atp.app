@@ -23,6 +23,7 @@ import { type SiteData } from "~/components/types";
 import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import SiteListItem from "~/components/SiteListItem/SiteListItem";
+import { useTheme } from "~/context/ThemeContext";
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -211,6 +212,9 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
 
   const [viewType, setViewType] = useState<"list" | "tiles">("tiles");
 
+  const { theme } = useTheme();
+  const darkMode = theme === "dark";
+
   return (
     <PageContainer
       title={
@@ -233,7 +237,11 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
               <SvgIcon
                 name={SvgImageList.Tiles}
                 fill={
-                  viewType === "tiles" ? "var(--white)" : "var(--blue-ribbon)"
+                  viewType === "tiles"
+                    ? "var(--white)"
+                    : darkMode
+                      ? "var(--flamingo)"
+                      : "var(--blue-ribbon)"
                 }
               />
             </Button>
@@ -246,7 +254,11 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
               <SvgIcon
                 name={SvgImageList.List}
                 fill={
-                  viewType === "list" ? "var(--white)" : "var(--blue-ribbon)"
+                  viewType === "list"
+                    ? "var(--white)"
+                    : darkMode
+                      ? "var(--flamingo)"
+                      : "var(--blue-ribbon)"
                 }
               />
             </Button>

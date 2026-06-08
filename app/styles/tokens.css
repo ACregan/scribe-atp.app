@@ -32,6 +32,18 @@
   /* Actions / brand */
   --action-primary: var(--blue-ribbon);
   --action-danger: var(--cinnabar);
+
+  /* Component Specific */
+  /* <SiteTile /> */
+  --site-tile-description-panel-background: none;
+  --site-tile-action-panel-background: var(--surface-muted);
+
+  /* <SiteListItem /> */
+  --site-list-item-background: none;
+  --site-list-item-border: var(--silver);
+
+  /* Home.tsx <SiteItem /> */
+  --home-site-item-background: none;
 }
 
 [data-theme="dark"] {
@@ -62,4 +74,16 @@
   /* Actions / brand */
   --action-primary: var(--flamingo);
   --action-danger: var(--cinnabar);
+
+  /* Component Specific */
+  /* <SiteTile /> */
+  --site-tile-description-panel-background: var(--jaguar);
+  --site-tile-action-panel-background: var(--stratos);
+
+  /* <SiteListItem /> */
+  --site-list-item-background: var(--mirage);
+  --site-list-item-border: var(--jaguar);
+
+  /* Home.tsx <SiteItem /> */
+  --home-site-item-background: var(--mirage);
 }

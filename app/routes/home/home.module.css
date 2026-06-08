@@ -73,6 +73,7 @@
 }
 
 .siteItem {
+  background: var(--home-site-item-background);
   border: 0.2rem solid var(--border-color);
   border-radius: 0.6rem;
   overflow: hidden;

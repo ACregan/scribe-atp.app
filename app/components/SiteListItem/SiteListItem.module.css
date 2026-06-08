@@ -117,3 +117,20 @@
   height: 2rem;
   width: 2.5rem;
 }
+
+/* ── DARK MODIFIERS ────────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] {
+  .siteItem {
+    background: var(--mirage);
+    border: 0.1rem solid var(--jaguar);
+  }
+
+  .splashContainer::after {
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      var(--mirage) 100%
+    );
+  }
+}
