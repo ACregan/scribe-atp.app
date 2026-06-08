@@ -5,13 +5,22 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useRouteLoaderData,
 } from "react-router";
 import "./styles/colours.css";
+import "./styles/tokens.css";
 import "./styles/typography.css";
 import "./styles/app.css";
 import "./styles/scrollbars.css";
 
 import type { Route } from "./+types/root";
+import { getTheme } from "./services/theme.server";
+import type { Theme } from "./services/theme.server";
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const theme = getTheme(request);
+  return { theme };
+}
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -27,13 +36,23 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const data = useRouteLoaderData<{ theme: Theme }>("root");
+  const theme = data?.theme ?? "light";
+
   return (
-    <html lang="en">
+    <html lang="en" data-theme={theme}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        {/* Applies prefers-color-scheme on the very first visit before the
+            theme cookie exists, preventing a flash of the wrong theme. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(!document.cookie.match(/(?:^|;\\s*)theme=/)){var dark=window.matchMedia('(prefers-color-scheme: dark)').matches;if(dark){document.documentElement.setAttribute('data-theme','dark');}}}catch(e){}})();`,
+          }}
+        />
       </head>
       <body>
         {children}

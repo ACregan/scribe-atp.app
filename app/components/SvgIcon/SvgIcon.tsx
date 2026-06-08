@@ -20,6 +20,8 @@ export const SvgImageList = {
   FullscreenClose: "FullscreenClose",
   ChevronUp: "ChevronUp",
   ChevronDown: "ChevronDown",
+  DarkMode: "DarkMode",
+  LightMode: "LightMode",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -274,6 +276,28 @@ const SvgIcon: React.FC<SVGiconProp> = ({
             fillRule="evenodd"
             d="m400.915 157.44 30.17 30.17L256 362.695 80.915 187.61l30.17-30.17L256 302.338z"
           ></path>
+        </svg>
+      );
+
+    case SvgImageList.LightMode:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill={fill}
+          viewBox="0 -960 960 960"
+        >
+          <path d="M338.5-338.5Q280-397 280-480t58.5-141.5T480-680t141.5 58.5T680-480t-58.5 141.5T480-280t-141.5-58.5M200-440H40v-80h160zm720 0H760v-80h160zM440-760v-160h80v160zm0 720v-160h80v160zM256-650l-101-97 57-59 96 100zm492 496-97-101 53-55 101 97zm-98-550 97-101 59 57-100 96zM154-212l101-97 55 53-97 101z"></path>
+        </svg>
+      );
+
+    case SvgImageList.DarkMode:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill={fill}
+          viewBox="0 -960 960 960"
+        >
+          <path d="M480-120q-150 0-255-105T120-480t105-255 255-105q14 0 27.5 1t26.5 3q-41 29-65.5 75.5T444-660q0 90 63 153t153 63q55 0 101-24.5t75-65.5q2 13 3 26.5t1 27.5q0 150-105 255T480-120"></path>
         </svg>
       );
 
