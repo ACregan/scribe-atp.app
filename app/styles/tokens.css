@@ -14,6 +14,9 @@
   --surface-muted: var(--wild-sand);
   /* Neutral badge / inactive state backgrounds (with --text-on-dark text) */
   --surface-neutral: var(--gray);
+  --surface-shadow-color: rgba(0, 0, 0, 0.5);
+  --aside-background: var(--blue-ribbon);
+  --aside-color: var(--white);
 
   /* Text */
   --text-primary: var(--mine-shaft);
@@ -24,6 +27,7 @@
   /* Borders */
   --border-color: var(--alto);
   --border-subtle: var(--silver);
+  --border-light: var(--alto);
 
   /* Actions / brand */
   --action-primary: var(--blue-ribbon);
@@ -32,20 +36,30 @@
 
 [data-theme="dark"] {
   /* Surfaces */
-  --surface-header: var(--mine-shaft);
-  --surface-page: var(--charcoal);
+  --surface-app: var(--jacaranda);
+  --surface-header: var(--ebony-clay);
+  --surface-page: var(--cloud-burst);
   --surface-input: var(--charcoal);
   /* Slightly darker than --charcoal for inset/muted surfaces */
   --surface-muted: var(--mine-shaft);
   /* Medium grey for neutral state backgrounds on dark pages */
   --surface-neutral: var(--dorado);
   /* --surface-app and --surface-aside are intentionally unchanged */
+  --surface-shadow-color: rgba(255, 255, 255, 0.1);
+
+  --aside-background: var(--stratos);
+  --aside-color: var(--flamingo);
 
   /* Text */
   --text-primary: var(--white);
   --text-secondary: var(--silver);
 
   /* Borders */
-  --border-color: var(--dorado);
+  --border-color: var(--jacaranda);
   --border-subtle: var(--dorado);
+  --border-light: var(--white);
+
+  /* Actions / brand */
+  --action-primary: var(--flamingo);
+  --action-danger: var(--cinnabar);
 }
