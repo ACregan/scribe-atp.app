@@ -17,7 +17,7 @@
   background: var(--surface-header);
   color: var(--text-primary);
   padding: 0 2rem;
-  box-shadow: 0 -20px 6px -20px rgba(0, 0, 0, 0.5) inset;
+  box-shadow: 0 -20px 6px -20px var(--surface-shadow-color) inset;
   border-bottom: 0.1rem solid var(--border-color);
 }
 /* ScribeCMS LOGO */
@@ -90,7 +90,7 @@
 /* ASIDE Menu container */
 .coreLayout_container > aside {
   grid-area: aside;
-  background: var(--action-primary);
+  background: var(--aside-background);
   width: 6rem;
 }
 
@@ -125,13 +125,14 @@
 /* Footer container */
 .coreLayout_container > footer {
   grid-area: footer;
-  box-shadow: 0 20px 6px -20px rgba(0, 0, 0, 0.5) inset;
+  box-shadow: 0 20px 6px -20px var(--surface-shadow-color) inset;
   border-top: 0.1rem solid var(--border-color);
 
   display: flex;
   align-items: center;
   justify-content: flex-end;
   padding: 0 1rem;
+  background: var(--surface-header);
 }
 .coreLayout_container > footer > a > button,
 .coreLayout_container > footer > button {

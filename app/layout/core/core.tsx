@@ -87,7 +87,10 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
             <h6>
               Powered By{" "}
               <span>
-                <SvgIcon name={SvgImageList.ATProtoLogo} />
+                <SvgIcon
+                  name={SvgImageList.ATProtoLogo}
+                  fill={"var(--text-secondary)"}
+                />
               </span>
             </h6>
           </div>
