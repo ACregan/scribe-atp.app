@@ -11,7 +11,9 @@
       "Bash(ls *)",
       "Bash(xdg-open *)",
       "Read(/home/c0un7z3r0/.claude/skills/**)",
-      "Read(/home/c0un7z3r0/.agents/skills/**)"
+      "Read(/home/c0un7z3r0/.agents/skills/**)",
+      "Read(//home/c0un7z3r0/.claude/skills/grill-with-docs/**)",
+      "Read(//home/c0un7z3r0/.agents/skills/grill-with-docs/**)"
     ],
     "additionalDirectories": [
       "/tmp",

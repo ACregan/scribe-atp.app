@@ -23,6 +23,7 @@ An AT Protocol-driven content management system. Authors write and store article
 - **@dnd-kit/core**, **@dnd-kit/sortable**, **@dnd-kit/utilities** — drag-and-drop for article/group reordering on `/article/list`
 - **classnames** — CSS class composition utility
 - **vitest** + **@testing-library/react** + **@testing-library/jest-dom** — unit/component testing
+- **@playwright/test** — E2E browser testing (Chromium)
 - Production server: `react-router-serve` on port 3008
 
 ## Environment variables
@@ -736,6 +737,59 @@ All components in `app/components/` have test suites. Pure function coverage:
 
 **Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
 
+## E2E tests (Playwright)
+
+Full-journey browser tests that run against a **production build** with Chromium. 41 tests across 10 spec files covering all major user journeys. Decision rationale and considered alternatives are in `docs/adr/0006-e2e-testing-strategy.md`.
+
+### Config
+
+- `playwright.config.ts` — Chromium only; `reuseExistingServer: !CI`; 1 retry on CI; `storageState` set globally so all tests start authenticated
+- `e2e/global-setup.ts` — logs in once before the test suite and saves the browser session to `e2e/.auth/session.json` (gitignored)
+- `e2e/*.spec.ts` — one spec file per route area
+
+### Auth mechanism
+
+The `playwright.config.ts` `webServer.env` block sets `E2E=true`. This triggers a conditional in `app/services/auth.server.ts`:
+
+```ts
+export const useRealOAuth =
+  (isProduction && process.env.E2E !== "true") ||
+  process.env.DEV_USE_REAL_OAUTH === "true";
+```
+
+`react-router-serve` sets `NODE_ENV=production`, which would normally enable real OAuth. The `E2E=true` escape hatch forces dev-bypass mode so the global setup can log in by just submitting a handle — no Bluesky account or tunnel required.
+
+### Spec files
+
+| File                          | Route(s)                             | Tests |
+| ----------------------------- | ------------------------------------ | ----- |
+| `e2e/login.spec.ts`           | `/login`                             | 2     |
+| `e2e/home.spec.ts`            | `/`                                  | 5     |
+| `e2e/create-article.spec.ts`  | `/article/create`                    | 5     |
+| `e2e/edit-article.spec.ts`    | `/article/edit/:url`                 | 4     |
+| `e2e/view-article.spec.ts`    | `/article/view/:url`                 | 3     |
+| `e2e/article-list.spec.ts`    | `/article/list`                      | 2     |
+| `e2e/sites.spec.ts`           | `/sites`, `/sites/new`               | 6     |
+| `e2e/site-management.spec.ts` | `/groups`, `/article/list/:siteSlug` | 8     |
+| `e2e/configure-site.spec.ts`  | `/site/:siteSlug/configure`          | 4     |
+| `e2e/images.spec.ts`          | `/images`                            | 3     |
+
+### Selector conventions
+
+- **Lexical editor**: use `'[contenteditable="true"]'` — CSS module class names are hashed in production builds
+- **Aside menu collisions**: scope to `page.locator('main')` when a link text also appears in the aside (e.g. `"Image Library"` is both a quick action and an aside nav item)
+- **Accessible labels on icon-only buttons**: `aria-label` is required — `SiteTile` and `SiteListItem` use `aria-label="Delete site"` on their icon-only danger buttons
+- **Input label association**: `Input` components need an explicit `id` prop for `getByLabel()` to work — pass `id` matching `name` on all route-level `Input` usages
+
+### Running E2E tests
+
+```bash
+npx playwright test              # full suite (builds + starts server if needed)
+npx playwright test e2e/home.spec.ts  # single spec
+npx playwright test --ui         # interactive UI mode
+npx playwright show-report       # open last HTML report
+```
+
 ## FullscreenImageViewer
 
 `app/routes/images/FullscreenImageViewer.tsx` — purely presentational component. Props: `image: BrowseImage`, `images: BrowseImage[]`, `breadcrumbs: Array<{ id: number; name: string }>`, `onExit: () => void`.
@@ -831,7 +885,8 @@ npm run dev          # start dev server (port 5173)
 npm run build        # production build
 npm run start        # serve production build (port 3008)
 npm run typecheck    # react-router typegen + tsc
-npm test             # run tests in watch mode
-npm run test:run     # run tests once (CI)
+npm test             # run unit tests in watch mode
+npm run test:run     # run unit tests once (CI)
+npx playwright test  # run E2E suite (builds + starts server if not running)
 npx react-router typegen  # regenerate route types after adding routes
 ```

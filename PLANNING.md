@@ -293,3 +293,18 @@ Client-side, `app/context/ThemeContext.tsx` provides `ThemeProvider` / `useTheme
 All component CSS modules use semantic tokens (`var(--surface-page)`, `var(--text-primary)`, etc.) — never hardcoded palette names.
 
 See the **Theming** section in CLAUDE.md for the full token reference and implementation details.
+
+## FEATURE: E2E Testing
+
+### Status: Implemented (June 2026)
+
+Full Playwright E2E suite covering all major user journeys. 41 tests across 10 spec files, all running against a production build with Chromium.
+
+### Design decisions
+
+- **Framework**: Playwright — built-in auto-wait, reliable cross-browser support, good TypeScript integration
+- **Auth strategy**: dev-bypass mode activated by `E2E=true` env var (escape hatch in `auth.server.ts`). `global-setup.ts` logs in once; `storageState` reuses the session across all specs without re-authenticating per test
+- **Build target**: production build (`react-router-serve`) — catches CSS module class hashing issues invisible in dev mode, and tests the real code path
+- **Scope**: happy path + key regression guards (e.g. "Add New Group modal opens when button is clicked" — the exact regression that motivated the suite)
+
+See `docs/adr/0006-e2e-testing-strategy.md` for the full decision record.
