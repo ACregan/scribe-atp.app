@@ -78,11 +78,11 @@
 .variantButton {
   font-size: 1.2rem;
   padding: 0.3rem 0.8rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--variant-button-border-color);
   border-radius: 0.4rem;
-  background: var(--white, #fff);
+  background: var(--variant-button-background-color);
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--variant-button-text-color);
   transition:
     border-color 0.1s,
     color 0.1s,
@@ -92,14 +92,14 @@
 }
 
 .variantButton:hover {
-  border-color: var(--action-primary);
-  color: var(--action-primary);
+  border-color: var(--variant-button-border-color_hover);
+  color: var(--variant-button-background-color_hover);
 }
 
 .variantButtonActive {
-  border-color: var(--action-primary);
-  color: var(--action-primary);
-  background: rgba(0, 112, 243, 0.06);
+  border-color: var(--variant-button-border-color_active);
+  color: var(--variant-button-text-color_active);
+  background: var(--variant-button-background-color_active);
   font-weight: 600;
 }
 
@@ -108,11 +108,11 @@
 .copyButton {
   font-size: 1.3rem;
   padding: 0.4rem 1.2rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--copy-url-button-border-color);
   border-radius: 0.4rem;
-  background: var(--white, #fff);
+  background: var(--copy-url-button-background-color);
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--copy-url-button-text-color);
   transition:
     border-color 0.1s,
     color 0.1s,
@@ -123,8 +123,8 @@
 }
 
 .copyButton:hover {
-  border-color: var(--action-primary);
-  color: var(--action-primary);
+  border-color: var(--copy-url-button-border-color_hover);
+  color: var(--copy-url-button-background-color_hover);
 }
 
 .copyButtonCopied {

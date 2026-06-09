@@ -10,7 +10,7 @@
 }
 
 .siteItem {
-  border: 0.2rem solid var(--border-color);
+  border: 0.2rem solid var(--group-site-item-border-colour);
   border-radius: 0.6rem;
   overflow: hidden;
   background: var(--site-list-item-background);
@@ -68,9 +68,12 @@
 
 /* ── Info / actions ──────────────────────────────────────────────────────────── */
 
+.iconBadgeSite {
+  margin-left: 3rem;
+}
 .siteTitle {
   font-size: 1.8rem;
-  padding-left: 3rem;
+  padding-left: 1rem;
   flex: 1;
 }
 

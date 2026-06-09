@@ -1,11 +1,3 @@
-:root {
-  --toast-primary-background-colour: var(--blue-ribbon);
-  --toast-primary-text-colour: var(--white);
-  --toast-secondary-background-colour: var(--white);
-  --toast-secondary-text-colour: var(--blue-ribbon);
-  --toast-danger-background-color: var(--cinnabar);
-}
-
 .toastContainer {
   position: absolute;
   bottom: 6rem;

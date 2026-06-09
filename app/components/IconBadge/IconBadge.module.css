@@ -14,6 +14,12 @@
   padding: 0.4rem;
 }
 
+.medium {
+  height: 4.5rem;
+  width: 4.5rem;
+  padding: 0.5rem;
+}
+
 .large {
   height: 6rem;
   width: 6rem;

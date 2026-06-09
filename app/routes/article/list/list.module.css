@@ -28,7 +28,7 @@
   grid-template-areas:
     "Title Buttons"
     "Info  Buttons";
-  border: 0.2rem solid var(--border-color);
+  border: 0.2rem solid var(--group-site-item-border-colour);
   background: var(--site-list-item-background);
   border-radius: 0.6rem;
   box-sizing: border-box;

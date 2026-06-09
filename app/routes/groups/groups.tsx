@@ -288,6 +288,11 @@ const GroupSiteItem: React.FC<GroupSiteItemProps> = ({ site }) => {
             }
           />
         </div>
+        <IconBadge
+          icon={SvgImageList.Website}
+          size="medium"
+          className={styles.iconBadgeSite}
+        />
         <strong className={styles.siteTitle}>{site.title}</strong>
         <div className={styles.siteActions}>
           <Link to={`/article/list/${site.rkey}`}>

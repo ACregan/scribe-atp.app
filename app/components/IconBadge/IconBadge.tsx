@@ -3,12 +3,15 @@ import SvgIcon, { type SvgImageListTypes } from "~/components/SvgIcon/SvgIcon";
 
 type IconBadgeProps = {
   icon: SvgImageListTypes;
-  size?: "small" | "large";
+  size?: "small" | "medium" | "large";
+  className?: string;
 };
 
-export function IconBadge({ icon, size = "small" }: IconBadgeProps) {
+export function IconBadge({ icon, size = "small", className }: IconBadgeProps) {
   return (
-    <div className={`${styles.badge} ${styles[size]}`}>
+    <div
+      className={`${styles.badge} ${styles[size]}${className ? ` ${className}` : ""}`}
+    >
       <SvgIcon name={icon} fill="var(--white)" />
     </div>
   );

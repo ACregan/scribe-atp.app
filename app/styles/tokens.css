@@ -36,8 +36,10 @@
 
   /* Component Specific */
 
-  /* <PageContainer> */
-  /* <IconBadge > */
+  /* groups.tsx <GroupSiteItem /> & article/list.tsx .articleItem*/
+  --group-site-item-border-colour: var(--mine-shaft);
+
+  /* <PageContainer> & <IconBadge > */
   --heading-icon-background: var(--blue-ribbon);
   --heading-icon-border: var(--mine-shaft);
 
@@ -82,6 +84,35 @@
   --action-button-border_hover: var(--action-primary);
   --action-button-text_hover: var(--blue-ribbon);
   --action-button-danger_hover: var(--white);
+
+  /* <Toast /> */
+  --toast-primary-background-colour: var(--blue-ribbon);
+  --toast-primary-text-colour: var(--white);
+  --toast-secondary-background-colour: var(--white);
+  --toast-secondary-text-colour: var(--blue-ribbon);
+  --toast-danger-background-color: var(--cinnabar);
+
+  /* ImagePreviewModal */
+  --variant-button-border-color: var(--border-color);
+  --variant-button-background-color: var(--white, #fff);
+  --variant-button-text-color: var(--text-secondary);
+
+  --variant-button-border-color_hover: var(--action-primary);
+  --variant-button-background-color_hover: var(--action-primary);
+  /* --variant-button-text-color_hover:  */
+
+  --variant-button-border-color_active: var(--action-primary);
+  --variant-button-background-color_active: rgba(0, 112, 243, 0.06);
+  --variant-button-text-color_active: var(--action-primary);
+
+  /* ImagePreviewModal - copy URL button */
+  --copy-url-button-border-color: var(--border-color);
+  --copy-url-button-background-color: var(--white);
+  --copy-url-button-text-color: var(--text-secondary);
+
+  --copy-url-button-border-color_hover: var(--action-primary);
+  --copy-url-button-background-color_hover: var(--action-primary);
+  /* --copy-url-button-text-color_hover: var(); */
 }
 
 [data-theme="dark"] {
@@ -114,6 +145,9 @@
   --action-danger: var(--cinnabar);
 
   /* Component Specific */
+  /* groups.tsx <GroupSiteItem /> */
+  --group-site-item-border-colour: var(--jacaranda);
+
   /* <PageContainer> */
   --heading-icon-background: var(--flamingo);
   --heading-icon-border: var(--white);
@@ -159,4 +193,33 @@
   --action-button-border_hover: var(--white);
   --action-button-text_hover: var(--white);
   --action-button-danger_hover: var(--cinnabar);
+
+  /* <Toast /> */
+  --toast-primary-background-colour: var(--flamingo);
+  --toast-primary-text-colour: var(--white);
+  --toast-secondary-background-colour: var(--white);
+  --toast-secondary-text-colour: var(--flamingo);
+  --toast-danger-background-color: var(--cinnabar);
+
+  /* ImagePreviewModal - size buttons */
+  --variant-button-border-color: var(--flamingo);
+  --variant-button-background-color: var(--mirage);
+  --variant-button-text-color: var(--flamingo);
+
+  --variant-button-border-color_hover: var(--white);
+  --variant-button-background-color_hover: var(--white);
+  /* --variant-button-text-color_hover:  */
+
+  --variant-button-border-color_active: var(--mirage);
+  --variant-button-background-color_active: var(--flamingo);
+  --variant-button-text-color_active: var(--mirage);
+
+  /* ImagePreviewModal - copy URL button */
+  --copy-url-button-border-color: var(--mirage);
+  --copy-url-button-background-color: var(--flamingo);
+  --copy-url-button-text-color: var(--mirage);
+
+  --copy-url-button-border-color_hover: var(--white);
+  --copy-url-button-background-color_hover: var(--white);
+  /* --copy-url-button-text-color_hover: var(); */
 }
