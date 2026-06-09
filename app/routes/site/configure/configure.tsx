@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router";
-import { useEffect } from "react";
+import { useNavigate, useBlocker } from "react-router";
+import { useEffect, useState, useMemo } from "react";
 import {
   PageContainer,
   PageContainerHeading,
@@ -7,6 +7,7 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import { Input } from "~/components/Input/Input";
 import { Button } from "~/components/Button/Button";
+import { Modal } from "~/components/Modal/Modal";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { devConfigureLoader } from "~/services/devFixtures.server";
 import type { Route } from "./+types/configure";
@@ -125,15 +126,43 @@ export default function ConfigureSite({
   const navigate = useNavigate();
   const { addToast } = useToast();
 
+  const initialValues = useMemo(
+    () => ({
+      title: site.title,
+      url: site.url,
+      urlPrefix: site.urlPrefix,
+      description: site.description,
+      splashImageUrl: site.splashImageUrl,
+      logoImageUrl: site.logoImageUrl,
+    }),
+    [],
+  );
+
+  const [formValues, setFormValues] = useState(initialValues);
+
+  const isDirty = useMemo(
+    () => JSON.stringify(formValues) !== JSON.stringify(initialValues),
+    [formValues],
+  );
+
+  // Don't block navigation once the save has succeeded — the effect below
+  // will programmatically navigate to /sites immediately after.
+  const blocker = useBlocker(isDirty && !actionData?.ok);
+
   useEffect(() => {
     if (!actionData?.ok) return;
     addToast({
       heading: "Site configured",
-      content: site.title,
+      content: formValues.title,
       variant: "primary",
     });
     navigate("/sites");
   }, [actionData]);
+
+  function handleChange(field: keyof typeof formValues) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setFormValues((prev) => ({ ...prev, [field]: e.target.value }));
+  }
 
   return (
     <PageContainer
@@ -151,21 +180,24 @@ export default function ConfigureSite({
             <Input
               name="title"
               label="Title"
-              defaultValue={site.title}
+              value={formValues.title}
+              onChange={handleChange("title")}
               required
             />
             <div className={styles.row}>
               <Input
                 name="url"
                 label="Domain"
-                defaultValue={site.url}
+                value={formValues.url}
+                onChange={handleChange("url")}
                 placeholder="myblog.com"
                 required
               />
               <Input
                 name="urlPrefix"
                 label="URL Prefix"
-                defaultValue={site.urlPrefix}
+                value={formValues.urlPrefix}
+                onChange={handleChange("urlPrefix")}
                 placeholder="blog"
               />
             </div>
@@ -177,7 +209,8 @@ export default function ConfigureSite({
                 id="description"
                 name="description"
                 className={styles.textarea}
-                defaultValue={site.description}
+                value={formValues.description}
+                onChange={handleChange("description")}
                 placeholder="What this site is about…"
                 rows={3}
               />
@@ -189,26 +222,28 @@ export default function ConfigureSite({
             <Input
               name="splashImageUrl"
               label="Splash Image URL"
-              defaultValue={site.splashImageUrl}
+              value={formValues.splashImageUrl}
+              onChange={handleChange("splashImageUrl")}
               placeholder="https://…"
             />
-            {site.splashImageUrl && (
+            {formValues.splashImageUrl && (
               <img
                 className={styles.preview}
-                src={site.splashImageUrl}
+                src={formValues.splashImageUrl}
                 alt="Splash preview"
               />
             )}
             <Input
               name="logoImageUrl"
               label="Logo Image URL"
-              defaultValue={site.logoImageUrl}
+              value={formValues.logoImageUrl}
+              onChange={handleChange("logoImageUrl")}
               placeholder="https://…"
             />
-            {site.logoImageUrl && (
+            {formValues.logoImageUrl && (
               <img
                 className={styles.logoPreview}
-                src={site.logoImageUrl}
+                src={formValues.logoImageUrl}
                 alt="Logo preview"
               />
             )}
@@ -225,10 +260,30 @@ export default function ConfigureSite({
             Cancel
           </Button>
         </Link>
-        <Button form="configure-site-form" type="submit">
+        <Button form="configure-site-form" type="submit" disabled={!isDirty}>
           Save Changes
         </Button>
       </FooterPortal>
+
+      <Modal
+        isOpen={blocker.state === "blocked"}
+        onClose={() => blocker.reset?.()}
+        title="Unsaved changes"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => blocker.reset?.()}>
+              Stay
+            </Button>
+            <Button variant="danger" onClick={() => blocker.proceed?.()}>
+              Discard & Leave
+            </Button>
+          </>
+        }
+      >
+        <p>
+          You have unsaved changes that will be lost if you leave this page.
+        </p>
+      </Modal>
     </PageContainer>
   );
 }
