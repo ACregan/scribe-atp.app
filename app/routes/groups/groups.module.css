@@ -13,6 +13,7 @@
   border: 0.2rem solid var(--border-color);
   border-radius: 0.6rem;
   overflow: hidden;
+  background: var(--site-list-item-background);
 }
 
 .siteHeader {

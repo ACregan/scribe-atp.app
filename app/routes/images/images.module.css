@@ -194,7 +194,7 @@
 .tileWrapSelected .imageTile,
 .tileSelected {
   border-color: var(--action-primary) !important;
-  background: #eff6ff;
+  background: var(--tile-selected-background);
 }
 
 /* ── Checkbox overlay ────────────────────────────────────────────────────── */

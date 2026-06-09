@@ -23,6 +23,7 @@
   --text-secondary: var(--gray);
   --text-on-dark: var(--white);
   --text-on-aside: var(--white);
+  --text-editor: var(--mine-shaft);
 
   /* Borders */
   --border-color: var(--alto);
@@ -34,6 +35,9 @@
   --action-danger: var(--cinnabar);
 
   /* Component Specific */
+  /* <AsideMenu /> */
+  --asidemenu-button-color: var(--flamingo);
+
   /* <SiteTile /> */
   --site-tile-description-panel-background: none;
   --site-tile-action-panel-background: var(--surface-muted);
@@ -44,6 +48,23 @@
 
   /* Home.tsx <SiteItem /> */
   --home-site-item-background: none;
+
+  /* image library thumbnails */
+  --tile-selected-background: var(--wild-sand);
+
+  /* <GroupItem /> /article/list page */
+  --group-item-background-colour: var(--alto);
+
+  /* Generic Drag Handle colour*/
+  --drag-handle-color: var(--mine-shaft);
+
+  /* <ArticleItem /> /article/list page */
+  --article-list-item-background-colour: none;
+
+  /* Lexical */
+  --dropdown-menu-text-colour: var(--white, #fff);
+  --dropdown-menu-text-colour_hover: var(--wild-sand);
+  --dropdown-menu-text-colour_active: var(--surface-muted);
 }
 
 [data-theme="dark"] {
@@ -63,7 +84,7 @@
   --aside-color: var(--flamingo);
 
   /* Text */
-  --text-primary: var(--white);
+  --text-primary: var(--wild-sand);
   --text-secondary: var(--silver);
 
   /* Borders */
@@ -76,6 +97,9 @@
   --action-danger: var(--cinnabar);
 
   /* Component Specific */
+  /* <AsideMenu /> */
+  /* --asidemenu-button-color: var(--flamingo); */
+
   /* <SiteTile /> */
   --site-tile-description-panel-background: var(--jaguar);
   --site-tile-action-panel-background: var(--stratos);
@@ -86,4 +110,21 @@
 
   /* Home.tsx <SiteItem /> */
   --home-site-item-background: var(--mirage);
+
+  /* image library thumbnails */
+  --tile-selected-background: var(--mirage);
+
+  /* <GroupItem /> /article/list/XYZ page */
+  --group-item-background-colour: var(--jaguar);
+
+  /* Generic Drag Handle colour*/
+  --drag-handle-color: var(--wild-sand);
+
+  /* <ArticleItem /> /article/list page */
+  --article-list-item-background-colour: var(--mirage);
+
+  /* Lexical */
+  --dropdown-menu-text-colour: var(--cloud-burst);
+  --dropdown-menu-text-colour_hover: var(--flamingo);
+  --dropdown-menu-text-colour_active: var(--flamingo);
 }

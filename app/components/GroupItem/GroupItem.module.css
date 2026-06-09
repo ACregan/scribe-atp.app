@@ -1,8 +1,6 @@
 /* <GroupItem> Component */
 
 .groupItem_root {
-  --groupItem_root-background-colour: var(--alto);
-
   width: auto;
   list-style-type: none;
   padding: 0;
@@ -19,7 +17,6 @@
 
   border: 0.2rem solid var(--border-color);
   border-radius: 1.2rem;
-  /* background: var(--groupItem_root-background-colour); */
   margin-top: 1rem;
 }
 .titleContainer_root {
@@ -44,8 +41,6 @@
 }
 
 .groupItem {
-  --groupItem-background-colour: var(--alto);
-
   width: auto;
   list-style-type: none;
   padding: 0;
@@ -63,7 +58,7 @@
 
   border: 0.2rem solid var(--border-color);
   border-radius: 1.2rem;
-  background: var(--groupItem-background-colour);
+  background: var(--group-item-background-colour);
 }
 .handleContainer {
   grid-area: GroupItem_Handle;
@@ -71,6 +66,9 @@
   justify-content: center;
   align-items: center;
   cursor: grab;
+}
+.handleContainer > svg {
+  fill: var(--drag-handle-color);
 }
 .titleContainer {
   grid-area: GroupItem_Title;

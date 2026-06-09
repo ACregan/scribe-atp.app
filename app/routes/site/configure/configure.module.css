@@ -85,25 +85,6 @@
   border: 0.1rem solid var(--border-color);
 }
 
-/* ── Actions ─────────────────────────────────────────────────────────────────── */
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 1.6rem;
-}
-
-.cancelLink {
-  font-size: 1.4rem;
-  color: var(--text-secondary);
-  text-decoration: none;
-}
-
-.cancelLink:hover {
-  color: var(--text-primary);
-  text-decoration: underline;
-}
-
 /* ── Error ───────────────────────────────────────────────────────────────────── */
 
 .errorMessage {
