@@ -20,6 +20,7 @@ type ArticleFormProps = {
   sites: SiteOption[];
   selectedSites: string[];
   onSitesChange: (rkeys: string[]) => void;
+  onContentChange?: (html: string) => void;
   error?: string;
   columnar?: boolean;
 };
@@ -33,6 +34,7 @@ export function ArticleForm({
   sites,
   selectedSites,
   onSitesChange,
+  onContentChange,
   error,
   columnar = false,
 }: ArticleFormProps) {
@@ -83,6 +85,7 @@ export function ArticleForm({
               name="content"
               label="Content"
               defaultValue={defaultContent}
+              onChange={onContentChange}
             />
           </PageSectionColumn>
         </PageSectionColumns>

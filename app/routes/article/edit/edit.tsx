@@ -182,6 +182,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   return { ok: true, title };
 }
 
+// Strips HTML tags to check whether the editor actually contains text.
+function hasTextContent(html: string): boolean {
+  return html.replace(/<[^>]*>/g, "").trim() !== "";
+}
+
 export default function EditArticle({
   loaderData,
   actionData,
@@ -201,19 +206,33 @@ export default function EditArticle({
   const [selectedSites, setSelectedSites] =
     useState<string[]>(currentSiteRkeys);
   const [isDirty, setIsDirty] = useState(false);
+  // Initialise from loader data so canSave is correct before the user edits.
+  const [titleValue, setTitleValue] = useState(title);
+  const [urlValue, setUrlValue] = useState(url);
+  const [contentHtml, setContentHtml] = useState(content);
   const navigate = useNavigate();
   const { addToast } = useToast();
+
+  const canSave =
+    titleValue.trim() !== "" &&
+    urlValue.trim() !== "" &&
+    hasTextContent(contentHtml);
 
   // Suppress the blocker once a save succeeds so navigate("/article/list") passes through.
   const blocker = useBlocker(isDirty && !actionData?.ok);
 
-  function markDirty() {
+  function handleFormInput(e: React.FormEvent<HTMLFormElement>) {
+    const form = e.currentTarget;
+    const titleEl = form.elements.namedItem("title") as HTMLInputElement | null;
+    const urlEl = form.elements.namedItem("url") as HTMLInputElement | null;
+    if (titleEl) setTitleValue(titleEl.value);
+    if (urlEl) setUrlValue(urlEl.value);
     setIsDirty(true);
   }
 
   function handleSitesChange(rkeys: string[]) {
     setSelectedSites(rkeys);
-    markDirty();
+    setIsDirty(true);
   }
 
   useEffect(() => {
@@ -227,7 +246,7 @@ export default function EditArticle({
   }, [actionData]);
 
   return (
-    <Form method="post" id="edit-article-form" onInput={markDirty}>
+    <Form method="post" id="edit-article-form" onInput={handleFormInput}>
       <input type="hidden" name="cid" value={cid ?? ""} />
       <input type="hidden" name="createdAt" value={createdAt} />
       <input
@@ -252,13 +271,18 @@ export default function EditArticle({
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}
+          onContentChange={setContentHtml}
           error={actionData?.error}
           columnar
         />
       </PageContainer>
 
       <FooterPortal>
-        <Button form="edit-article-form" type="submit" disabled={!isDirty}>
+        <Button
+          form="edit-article-form"
+          type="submit"
+          disabled={!isDirty || !canSave}
+        >
           Save Changes
         </Button>
       </FooterPortal>

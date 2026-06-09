@@ -109,6 +109,11 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
+// Strips HTML tags to check whether the editor actually contains text.
+function hasTextContent(html: string): boolean {
+  return html.replace(/<[^>]*>/g, "").trim() !== "";
+}
+
 export default function Create({
   loaderData,
   actionData,
@@ -118,18 +123,31 @@ export default function Create({
     preselectedSite ? [preselectedSite] : [],
   );
   const [isDirty, setIsDirty] = useState(false);
+  const [titleValue, setTitleValue] = useState("");
+  const [urlValue, setUrlValue] = useState("");
+  const [contentHtml, setContentHtml] = useState("");
   const { addToast } = useToast();
+
+  const canSave =
+    titleValue.trim() !== "" &&
+    urlValue.trim() !== "" &&
+    hasTextContent(contentHtml);
 
   // Suppress the blocker once a save succeeds so the page can be left freely.
   const blocker = useBlocker(isDirty && !actionData?.uri);
 
-  function markDirty() {
+  function handleFormInput(e: React.FormEvent<HTMLFormElement>) {
+    const form = e.currentTarget;
+    const titleEl = form.elements.namedItem("title") as HTMLInputElement | null;
+    const urlEl = form.elements.namedItem("url") as HTMLInputElement | null;
+    if (titleEl) setTitleValue(titleEl.value);
+    if (urlEl) setUrlValue(urlEl.value);
     setIsDirty(true);
   }
 
   function handleSitesChange(rkeys: string[]) {
     setSelectedSites(rkeys);
-    markDirty();
+    setIsDirty(true);
   }
 
   useEffect(() => {
@@ -142,7 +160,7 @@ export default function Create({
   }, [actionData]);
 
   return (
-    <Form method="post" id="create-article-form" onInput={markDirty}>
+    <Form method="post" id="create-article-form" onInput={handleFormInput}>
       <PageContainer
         title={
           <PageContainerHeading icon={SvgImageList.Document}>
@@ -155,13 +173,14 @@ export default function Create({
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}
+          onContentChange={setContentHtml}
           error={actionData?.error}
           columnar
         />
       </PageContainer>
 
       <FooterPortal>
-        <Button form="create-article-form" type="submit" disabled={!isDirty}>
+        <Button form="create-article-form" type="submit" disabled={!canSave}>
           Save to PDS
         </Button>
       </FooterPortal>

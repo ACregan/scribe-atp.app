@@ -158,17 +158,24 @@ type RichTextEditorProps = {
   name: string;
   label?: string;
   defaultValue?: string;
+  onChange?: (html: string) => void;
 };
 
 export function RichTextEditor({
   name,
   label,
   defaultValue = "",
+  onChange,
 }: RichTextEditorProps) {
   const [html, setHtml] = useState(defaultValue);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  function handleHtmlChange(newHtml: string) {
+    setHtml(newHtml);
+    onChange?.(newHtml);
+  }
 
   if (!mounted) {
     return (
@@ -215,7 +222,7 @@ export function RichTextEditor({
         <LinkPlugin />
         <CodeHighlightPlugin />
         <InitialValuePlugin html={defaultValue} />
-        <HiddenFieldPlugin name={name} onChange={setHtml} />
+        <HiddenFieldPlugin name={name} onChange={handleHtmlChange} />
       </LexicalComposer>
       <textarea name={name} value={html} onChange={() => {}} hidden readOnly />
     </div>
