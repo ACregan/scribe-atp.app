@@ -43,6 +43,15 @@ export function FullscreenImageViewer({
       ? breadcrumbs.map((b) => b.name).join(" › ")
       : "Image Library";
 
+  // 1:1 mode is only useful when the image is larger than the screen in at
+  // least one dimension. window.screen.width/height are CSS pixels, matching
+  // how 1:1 mode maps image pixels to CSS pixels.
+  const canToggleActual =
+    maxData !== undefined
+      ? maxData.width > window.screen.width ||
+        maxData.height > window.screen.height
+      : true;
+
   // Chevron auto-hide on pointer:fine devices
   const hideTimerRef = useRef<number | undefined>(undefined);
   useEffect(() => {
@@ -62,8 +71,9 @@ export function FullscreenImageViewer({
   }, []);
 
   const handleImageClick = useCallback(() => {
+    if (!canToggleActual) return;
     setViewMode((m) => (m === "fit" ? "actual" : "fit"));
-  }, []);
+  }, [canToggleActual]);
 
   function goPrev() {
     setCurrentIndex((i) => (i - 1 + images.length) % images.length);
@@ -81,6 +91,11 @@ export function FullscreenImageViewer({
       <div
         className={
           viewMode === "fit" ? styles.imageWrapFit : styles.imageWrapActual
+        }
+        style={
+          viewMode === "fit" && !canToggleActual
+            ? { cursor: "default" }
+            : undefined
         }
         onClick={handleImageClick}
       >
