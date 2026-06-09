@@ -18,7 +18,7 @@ import {
 } from "~/services/article.server";
 import { addArticleToSites } from "~/services/articleSiteSync.server";
 import { devCreateLoader } from "~/services/devFixtures.server";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
@@ -114,6 +114,14 @@ function hasTextContent(html: string): boolean {
   return html.replace(/<[^>]*>/g, "").trim() !== "";
 }
 
+function toSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
+
 export default function Create({
   loaderData,
   actionData,
@@ -126,6 +134,7 @@ export default function Create({
   const [titleValue, setTitleValue] = useState("");
   const [urlValue, setUrlValue] = useState("");
   const [contentHtml, setContentHtml] = useState("");
+  const slugDirtyRef = useRef(false);
   const { addToast } = useToast();
 
   const canSave =
@@ -136,12 +145,19 @@ export default function Create({
   // Suppress the blocker once a save succeeds so the page can be left freely.
   const blocker = useBlocker(isDirty && !actionData?.uri);
 
-  function handleFormInput(e: React.FormEvent<HTMLFormElement>) {
-    const form = e.currentTarget;
-    const titleEl = form.elements.namedItem("title") as HTMLInputElement | null;
-    const urlEl = form.elements.namedItem("url") as HTMLInputElement | null;
-    if (titleEl) setTitleValue(titleEl.value);
-    if (urlEl) setUrlValue(urlEl.value);
+  function handleFormInput() {
+    setIsDirty(true);
+  }
+
+  function handleTitleChange(value: string) {
+    setTitleValue(value);
+    if (!slugDirtyRef.current) setUrlValue(toSlug(value));
+    setIsDirty(true);
+  }
+
+  function handleUrlChange(value: string) {
+    slugDirtyRef.current = true;
+    setUrlValue(value.toLowerCase());
     setIsDirty(true);
   }
 
@@ -170,6 +186,10 @@ export default function Create({
         fixed
       >
         <ArticleForm
+          titleValue={titleValue}
+          urlValue={urlValue}
+          onTitleChange={handleTitleChange}
+          onUrlChange={handleUrlChange}
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}

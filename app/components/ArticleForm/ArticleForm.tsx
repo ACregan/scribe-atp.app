@@ -17,6 +17,12 @@ type ArticleFormProps = {
   defaultSplashImageUrl?: string;
   defaultSynopsis?: string;
   defaultContent?: string;
+  // When provided the title/url inputs become controlled — used by the create
+  // route to drive slug auto-fill. Edit leaves these undefined (uncontrolled).
+  titleValue?: string;
+  urlValue?: string;
+  onTitleChange?: (value: string) => void;
+  onUrlChange?: (value: string) => void;
   sites: SiteOption[];
   selectedSites: string[];
   onSitesChange: (rkeys: string[]) => void;
@@ -31,6 +37,10 @@ export function ArticleForm({
   defaultSplashImageUrl,
   defaultSynopsis,
   defaultContent,
+  titleValue,
+  urlValue,
+  onTitleChange,
+  onUrlChange,
   sites,
   selectedSites,
   onSitesChange,
@@ -43,17 +53,27 @@ export function ArticleForm({
     label: `${s.title} (${s.url})`,
   }));
 
+  const titleProps: React.InputHTMLAttributes<HTMLInputElement> =
+    titleValue !== undefined
+      ? { value: titleValue, onChange: (e) => onTitleChange?.(e.target.value) }
+      : { defaultValue: defaultTitle };
+
+  const urlProps: React.InputHTMLAttributes<HTMLInputElement> =
+    urlValue !== undefined
+      ? { value: urlValue, onChange: (e) => onUrlChange?.(e.target.value) }
+      : { defaultValue: defaultUrl };
+
   if (columnar) {
     return (
       <PageSection fill>
         <PageSectionColumns breakpoint="lg">
           <PageSectionColumn span={4} overflow>
-            <Input name="title" label="Title" defaultValue={defaultTitle} />
+            <Input name="title" label="Title" {...titleProps} />
             <Input
               name="url"
               label="URL slug"
               placeholder="my-article-title"
-              defaultValue={defaultUrl}
+              {...urlProps}
             />
             <Input
               name="splashImageUrl"
@@ -96,12 +116,12 @@ export function ArticleForm({
   return (
     <>
       <PageSection>
-        <Input name="title" label="Title" defaultValue={defaultTitle} />
+        <Input name="title" label="Title" {...titleProps} />
         <Input
           name="url"
           label="URL slug"
           placeholder="my-article-title"
-          defaultValue={defaultUrl}
+          {...urlProps}
         />
         <Input
           name="splashImageUrl"
