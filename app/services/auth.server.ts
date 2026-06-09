@@ -10,8 +10,11 @@ if (!process.env.SESSION_SECRET) {
 const isProduction = process.env.NODE_ENV === "production";
 // Set DEV_USE_REAL_OAUTH=true in .env when you need to test real AT Protocol
 // calls locally. Requires PUBLIC_URL to be set to a tunnel URL (e.g. cloudflared).
+// E2E=true forces dev-bypass even when running the production build, so the
+// Playwright suite can exercise the UI without a live PDS.
 export const useRealOAuth =
-  isProduction || process.env.DEV_USE_REAL_OAUTH === "true";
+  (isProduction && process.env.E2E !== "true") ||
+  process.env.DEV_USE_REAL_OAUTH === "true";
 
 export const PUBLIC_URL_DEFAULT = "https://scribe-atp.app";
 const publicUrl = process.env.PUBLIC_URL ?? PUBLIC_URL_DEFAULT;

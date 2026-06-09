@@ -13,3 +13,4 @@ coverage/
 
 # Claude Code
 .claude/worktrees/
+e2e/.auth/

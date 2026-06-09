@@ -1,5 +1,9 @@
 import type { Route } from "./+types/create";
-import { Form, useBlocker } from "react-router";
+import {
+  Form,
+  useBlocker,
+  type unstable_BlockerFunction as BlockerFunction,
+} from "react-router";
 import {
   PageContainer,
   PageContainerHeading,
@@ -142,8 +146,13 @@ export default function Create({
     urlValue.trim() !== "" &&
     hasTextContent(contentHtml);
 
-  // Suppress the blocker once a save succeeds so the page can be left freely.
-  const blocker = useBlocker(isDirty && !actionData?.uri);
+  // Only block navigations that leave this page — not form submissions to the
+  // same route. Suppressed once a save succeeds so navigate() passes through.
+  const shouldBlock: BlockerFunction = ({ currentLocation, nextLocation }) =>
+    isDirty &&
+    !actionData?.uri &&
+    currentLocation.pathname !== nextLocation.pathname;
+  const blocker = useBlocker(shouldBlock);
 
   function handleFormInput() {
     setIsDirty(true);
