@@ -9,11 +9,11 @@
   grid-auto-flow: column;
   grid-auto-rows: 1fr;
   grid-template-columns: 4rem 1fr auto;
-  grid-template-rows: 3rem 2rem;
+  /* grid-template-rows: 3rem 2rem; */
+  grid-template-rows: 5rem;
   gap: 0;
-  grid-template-areas:
-    "Handle Title Buttons"
-    "Handle Info Buttons";
+  grid-template-areas: "Handle Title Buttons";
+  /* "Handle Info Buttons"; */
 
   border: 0.2rem solid var(--border-color);
   border-radius: 0.6rem;
@@ -39,6 +39,7 @@
 }
 .titleContainer > strong {
   font-size: 2.2rem;
+  margin-left: 1rem;
 }
 .titleContainer > span {
   background: var(--surface-neutral);

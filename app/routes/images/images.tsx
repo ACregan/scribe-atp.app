@@ -964,10 +964,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                                 aria-label={`Move ${image.original_name}`}
                                 title="Move to folder"
                               >
-                                <SvgIcon
-                                  name={SvgImageList.Folder}
-                                  fill="currentColor"
-                                />
+                                <SvgIcon name={SvgImageList.Folder} />
                               </button>
                               <button
                                 type="button"
@@ -979,10 +976,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
                                 aria-label={`Delete ${image.original_name}`}
                                 title="Delete image"
                               >
-                                <SvgIcon
-                                  name={SvgImageList.Trash}
-                                  fill="currentColor"
-                                />
+                                <SvgIcon name={SvgImageList.Trash} />
                               </button>
                             </div>
                           )}

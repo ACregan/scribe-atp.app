@@ -49,11 +49,10 @@
   grid-auto-flow: column;
   grid-auto-rows: 1fr;
   grid-template-columns: 5rem 1fr 30rem;
-  grid-template-rows: min-content min-content min-content;
+  grid-template-rows: min-content min-content;
   gap: 0em 0em;
   grid-template-areas:
     "GroupItem_Handle GroupItem_Title GroupItem_Buttons"
-    "GroupItem_Handle GroupItem_Uri GroupItem_Buttons"
     "GroupItem_ArticleList GroupItem_ArticleList GroupItem_ArticleList ";
 
   border: 0.2rem solid var(--border-color);
@@ -77,7 +76,7 @@
   align-items: center;
 }
 .title {
-  margin: 0;
+  margin: 0 0 0 1rem;
   font-size: 3rem;
 }
 .slug {

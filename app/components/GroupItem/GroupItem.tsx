@@ -17,6 +17,7 @@ import { Form } from "react-router";
 import Tooltip, { TooltipBubble } from "../Tooltip/Tooltip";
 
 import { type TreeArticle } from "~/components/types";
+import { IconBadge } from "../IconBadge/IconBadge";
 export type { TreeArticle };
 
 interface GroupItemProps {
@@ -133,6 +134,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
           <SvgIcon name={SvgImageList.DragHandle} />
         </div>
         <div className={styles.titleContainer}>
+          <IconBadge icon={SvgImageList.Folder} size="small" />
           <strong className={styles.title}>{title}</strong>
           <Tooltip
             anchorName={slug}

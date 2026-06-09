@@ -7,6 +7,7 @@ import { Modal } from "../Modal/Modal";
 import { useModal } from "../Modal/useModal";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { IconBadge } from "../IconBadge/IconBadge";
 
 interface ArticleItemProps {
   id: string;
@@ -71,12 +72,13 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
           <SvgIcon name={SvgImageList.DragHandle} />
         </div>
         <div className={styles.titleContainer}>
+          <IconBadge icon={SvgImageList.Document} size="small" />
           <strong>{title}</strong>
           {createdAt && <span>{new Date(createdAt).toLocaleDateString()}</span>}
         </div>
-        <div className={styles.information}>
+        {/* <div className={styles.information}>
           <small style={{ fontFamily: "monospace" }}>{uri}</small>
-        </div>
+        </div> */}
         <div className={styles.buttonContainer}>
           <Link to={`/article/view/${uri.split("/").pop()}`}>
             <Button type="button" variant="secondary">

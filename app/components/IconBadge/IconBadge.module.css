@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--blue-ribbon);
-  border: 0.2rem solid var(--border-color);
+  background: var(--heading-icon-background);
+  border: 0.2rem solid var(--heading-icon-border);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -18,13 +18,4 @@
   height: 6rem;
   width: 6rem;
   padding: 0.75rem;
-}
-
-/* ── DARK MODIFIERS ────────────────────────────────────────────────────────────── */
-
-[data-theme="dark"] {
-  .badge {
-    background: var(--flamingo);
-    border: 0.2rem solid var(--white);
-  }
 }

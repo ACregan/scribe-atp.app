@@ -35,6 +35,12 @@
   --action-danger: var(--cinnabar);
 
   /* Component Specific */
+
+  /* <PageContainer> */
+  /* <IconBadge > */
+  --heading-icon-background: var(--blue-ribbon);
+  --heading-icon-border: var(--mine-shaft);
+
   /* <AsideMenu /> */
   --asidemenu-button-color: var(--flamingo);
 
@@ -48,6 +54,7 @@
 
   /* Home.tsx <SiteItem /> */
   --home-site-item-background: none;
+  --home-site-item-border-color: var(--mine-shaft);
 
   /* image library thumbnails */
   --tile-selected-background: var(--wild-sand);
@@ -65,6 +72,16 @@
   --dropdown-menu-text-colour: var(--white, #fff);
   --dropdown-menu-text-colour_hover: var(--wild-sand);
   --dropdown-menu-text-colour_active: var(--surface-muted);
+
+  /* /images/ Image Tile */
+  --action-button-background: var(--white);
+  --action-button-border: var(--border-color);
+  --action-button-text: var(--text-secondary);
+
+  --action-button-background_hover: var(--white);
+  --action-button-border_hover: var(--action-primary);
+  --action-button-text_hover: var(--blue-ribbon);
+  --action-button-danger_hover: var(--white);
 }
 
 [data-theme="dark"] {
@@ -97,6 +114,10 @@
   --action-danger: var(--cinnabar);
 
   /* Component Specific */
+  /* <PageContainer> */
+  --heading-icon-background: var(--flamingo);
+  --heading-icon-border: var(--white);
+
   /* <AsideMenu /> */
   /* --asidemenu-button-color: var(--flamingo); */
 
@@ -110,6 +131,7 @@
 
   /* Home.tsx <SiteItem /> */
   --home-site-item-background: var(--mirage);
+  --home-site-item-border-color: var(--jacaranda);
 
   /* image library thumbnails */
   --tile-selected-background: var(--mirage);
@@ -127,4 +149,14 @@
   --dropdown-menu-text-colour: var(--cloud-burst);
   --dropdown-menu-text-colour_hover: var(--flamingo);
   --dropdown-menu-text-colour_active: var(--flamingo);
+
+  /* /images/ Image Tile */
+  --action-button-background: var(--flamingo);
+  --action-button-border: var(--mirage);
+  --action-button-text: var(--mirage);
+
+  --action-button-background_hover: var(--flamingo);
+  --action-button-border_hover: var(--white);
+  --action-button-text_hover: var(--white);
+  --action-button-danger_hover: var(--cinnabar);
 }
