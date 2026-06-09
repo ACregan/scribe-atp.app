@@ -1,5 +1,5 @@
 import type { Route } from "./+types/create";
-import { Form } from "react-router";
+import { Form, useBlocker } from "react-router";
 import {
   PageContainer,
   PageContainerHeading,
@@ -23,6 +23,7 @@ import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { Button } from "~/components/Button/Button";
+import { Modal } from "~/components/Modal/Modal";
 import {
   ArticleForm,
   type SiteOption,
@@ -116,7 +117,20 @@ export default function Create({
   const [selectedSites, setSelectedSites] = useState<string[]>(
     preselectedSite ? [preselectedSite] : [],
   );
+  const [isDirty, setIsDirty] = useState(false);
   const { addToast } = useToast();
+
+  // Suppress the blocker once a save succeeds so the page can be left freely.
+  const blocker = useBlocker(isDirty && !actionData?.uri);
+
+  function markDirty() {
+    setIsDirty(true);
+  }
+
+  function handleSitesChange(rkeys: string[]) {
+    setSelectedSites(rkeys);
+    markDirty();
+  }
 
   useEffect(() => {
     if (!actionData?.uri) return;
@@ -128,7 +142,7 @@ export default function Create({
   }, [actionData]);
 
   return (
-    <Form method="post" id="create-article-form">
+    <Form method="post" id="create-article-form" onInput={markDirty}>
       <PageContainer
         title={
           <PageContainerHeading icon={SvgImageList.Document}>
@@ -140,17 +154,37 @@ export default function Create({
         <ArticleForm
           sites={sites}
           selectedSites={selectedSites}
-          onSitesChange={setSelectedSites}
+          onSitesChange={handleSitesChange}
           error={actionData?.error}
           columnar
         />
       </PageContainer>
 
       <FooterPortal>
-        <Button form="create-article-form" type="submit">
+        <Button form="create-article-form" type="submit" disabled={!isDirty}>
           Save to PDS
         </Button>
       </FooterPortal>
+
+      <Modal
+        isOpen={blocker.state === "blocked"}
+        onClose={() => blocker.reset?.()}
+        title="Unsaved changes"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => blocker.reset?.()}>
+              Stay
+            </Button>
+            <Button variant="danger" onClick={() => blocker.proceed?.()}>
+              Discard & Leave
+            </Button>
+          </>
+        }
+      >
+        <p>
+          You have unsaved changes that will be lost if you leave this page.
+        </p>
+      </Modal>
     </Form>
   );
 }

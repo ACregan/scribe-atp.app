@@ -1,5 +1,5 @@
 import type { Route } from "./+types/edit";
-import { Form, redirect, useNavigate } from "react-router";
+import { Form, redirect, useNavigate, useBlocker } from "react-router";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
@@ -20,13 +20,13 @@ import {
   PageContainerHeading,
 } from "~/components/PageContainer/PageContainer";
 import { Button } from "~/components/Button/Button";
+import { Modal } from "~/components/Modal/Modal";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import {
   ArticleForm,
   type SiteOption,
 } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Edit Article" }];
@@ -171,7 +171,13 @@ export async function action({ request, params }: Route.ActionArgs) {
   });
 
   const siteChanges = computeSiteAssignmentChanges(oldSiteRkeys, newSiteRkeys);
-  await syncSiteArticleRefs(agent, did, siteChanges, oldArticleUri, newArticleRef);
+  await syncSiteArticleRefs(
+    agent,
+    did,
+    siteChanges,
+    oldArticleUri,
+    newArticleRef,
+  );
 
   return { ok: true, title };
 }
@@ -194,8 +200,21 @@ export default function EditArticle({
 
   const [selectedSites, setSelectedSites] =
     useState<string[]>(currentSiteRkeys);
+  const [isDirty, setIsDirty] = useState(false);
   const navigate = useNavigate();
   const { addToast } = useToast();
+
+  // Suppress the blocker once a save succeeds so navigate("/article/list") passes through.
+  const blocker = useBlocker(isDirty && !actionData?.ok);
+
+  function markDirty() {
+    setIsDirty(true);
+  }
+
+  function handleSitesChange(rkeys: string[]) {
+    setSelectedSites(rkeys);
+    markDirty();
+  }
 
   useEffect(() => {
     if (!actionData?.ok) return;
@@ -208,7 +227,7 @@ export default function EditArticle({
   }, [actionData]);
 
   return (
-    <Form method="post" id="edit-article-form">
+    <Form method="post" id="edit-article-form" onInput={markDirty}>
       <input type="hidden" name="cid" value={cid ?? ""} />
       <input type="hidden" name="createdAt" value={createdAt} />
       <input
@@ -232,17 +251,37 @@ export default function EditArticle({
           defaultContent={content}
           sites={sites}
           selectedSites={selectedSites}
-          onSitesChange={setSelectedSites}
+          onSitesChange={handleSitesChange}
           error={actionData?.error}
           columnar
         />
       </PageContainer>
 
       <FooterPortal>
-        <Button form="edit-article-form" type="submit">
+        <Button form="edit-article-form" type="submit" disabled={!isDirty}>
           Save Changes
         </Button>
       </FooterPortal>
+
+      <Modal
+        isOpen={blocker.state === "blocked"}
+        onClose={() => blocker.reset?.()}
+        title="Unsaved changes"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => blocker.reset?.()}>
+              Stay
+            </Button>
+            <Button variant="danger" onClick={() => blocker.proceed?.()}>
+              Discard & Leave
+            </Button>
+          </>
+        }
+      >
+        <p>
+          You have unsaved changes that will be lost if you leave this page.
+        </p>
+      </Modal>
     </Form>
   );
 }
