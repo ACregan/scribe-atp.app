@@ -334,7 +334,10 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
       openedByRouteRef.current = true;
       open();
     }
-  }, []);
+    if (!isNewRoute) {
+      openedByRouteRef.current = false;
+    }
+  }, [isNewRoute]);
 
   function handleCloseModal() {
     close();

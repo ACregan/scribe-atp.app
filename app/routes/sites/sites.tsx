@@ -186,7 +186,10 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
       openedByRouteRef.current = true;
       addSiteModal.open();
     }
-  }, []);
+    if (!isNewRoute) {
+      openedByRouteRef.current = false;
+    }
+  }, [isNewRoute]);
 
   function handleCloseAddModal() {
     addSiteModal.close();
