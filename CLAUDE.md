@@ -358,6 +358,7 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `Spinner`                             | `app/components/Spinner/Spinner.tsx`               | Spinning ring indicator. Props: `overlay?: boolean`, `size?: "small" \| "medium" \| "large"` (default `"medium"`). Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: fixed` overlay sized to the content area (below the header, beside the aside) that dims everything behind it. Used in `core.tsx` as `<Spinner overlay />` during route navigations. Use `size="large"` in `HydrateFallback` exports; use `size="small"` for inline button states.                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `Toast` / `ToastContainer` / `Toasts` | `app/components/Toast/Toast.tsx`                   | `Toast` renders a single notification. Props: all fields from `ToastPropsWithId` (see ToastContext). Auto-dismisses via `useEffect` + `setTimeout` when `autoExpire` is true. Cleanup cancels the timer if the toast is removed manually first. `ToastContainer` is a plain wrapper div. `Toasts` reads all active toasts from context via `useToast()` and renders them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `ToastProvider` / `useToast`          | `app/components/Toast/ToastContext.tsx`            | Context provider wired into `core.tsx` — wraps the entire layout so `useToast()` works anywhere in the app. `useToast()` returns `{ toasts, addToast, removeToast }`. `addToast(props: ToastProps)` generates a UUID, binds `removeToast`, and appends to state. `removeToast` is `useCallback`-memoized with `[]` deps so its reference is stable — without this, adding a new toast would reset all existing timers. Exports: `ToastProvider`, `useToast`, `ToastProps`, `ToastPropsWithId`. `ToastProps`: `heading`, `content?`, `autoExpire?` (default `true`), `expireTimeSeconds?` (default `5`), `variant?: "primary" \| "secondary" \| "danger"`.                                                                                                                                                                                                                                                              |
+| `DarkModeSwitch`                      | `app/components/DarkModeSwitch/DarkModeSwitch.tsx` | Toggle switch in the header for light/dark mode. Props: `darkMode: boolean`, `toggleDarkMode: () => void`. Renders a sun + moon icon pair with a sliding indicator; CSS classes `lightMode` / `darkMode` drive the indicator position. Wired to `useTheme()` inside `core.tsx` — `toggleDarkMode={toggleTheme}`, `darkMode={theme === "dark"}`. Does not own any state itself.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### RichTextEditor — toolbar
 
@@ -385,6 +386,89 @@ All theme classes for Lexical nodes (headings, lists, code highlight tokens, lin
 - **`$setBlocksType`** is not exported by `@lexical/utils` in v0.44. It is implemented locally in `ToolbarPlugin.tsx`. If upgrading Lexical, check whether it becomes available in `@lexical/utils` and remove the local copy.
 - **`LexicalCodeHighlightPlugin`** does not exist as a named export from `@lexical/react` in v0.44. Code syntax highlighting is registered via `registerCodeHighlighting(editor)` from `@lexical/code` inside a `useEffect` in a small `CodeHighlightPlugin` wrapper defined inline in `RichTextEditor.tsx`. `registerCodeHighlighting` is marked deprecated upstream but is the correct v0.44 approach.
 - **Web Speech API** (`SpeechRecognition`, `SpeechRecognitionEvent`) has no TypeScript lib types. Local interface declarations are provided at the top of `ToolbarPlugin.tsx` — do not add `@types/dom-speech-recognition` unless TS starts complaining about conflicts.
+
+## Theming
+
+The app has full light/dark mode support. The active theme is driven by a `data-theme` attribute on `<html>` and toggled via the `DarkModeSwitch` in the header.
+
+### CSS token architecture
+
+Two files in `app/styles/` form the token system:
+
+- **`colours.css`** — palette-only. Raw named colour values, no semantics. Imported by `root.tsx`.
+- **`tokens.css`** — semantic design tokens. Maps palette colours to purpose-named variables and defines a `[data-theme="dark"]` override block. Also imported by `root.tsx` (after `colours.css`).
+
+All component CSS modules reference semantic tokens (`var(--surface-page)`, `var(--text-primary)`, etc.) — **never hardcode palette colours in component CSS**. The palette names (`--mine-shaft`, `--white`, etc.) belong only in `tokens.css`.
+
+**Semantic tokens (light defaults, dark overrides):**
+
+| Token              | Light value     | Dark value     | Purpose                              |
+| ------------------ | --------------- | -------------- | ------------------------------------ |
+| `--surface-page`   | `--white`       | `--charcoal`   | Main content area background         |
+| `--surface-header` | `--white`       | `--mine-shaft` | Header bar background                |
+| `--surface-input`  | `--white`       | `--charcoal`   | Input / textarea / select background |
+| `--surface-app`    | `--mine-shaft`  | _(unchanged)_  | Outer app shell — always dark        |
+| `--surface-aside`  | `--blue-ribbon` | _(unchanged)_  | Aside/sidebar — always blue          |
+| `--text-primary`   | `--mine-shaft`  | `--white`      | Body and heading text                |
+| `--text-secondary` | `--gray`        | `--silver`     | Labels, metadata, muted text         |
+| `--text-on-dark`   | `--white`       | _(unchanged)_  | Text on dark or coloured backgrounds |
+| `--text-on-aside`  | `--white`       | _(unchanged)_  | Text inside the blue aside           |
+| `--border-color`   | `--alto`        | `--dorado`     | Primary borders                      |
+| `--border-subtle`  | `--silver`      | `--dorado`     | Lighter / inner borders              |
+| `--action-primary` | `--blue-ribbon` | _(unchanged)_  | Button / link primary action colour  |
+| `--action-danger`  | `--cinnabar`    | _(unchanged)_  | Destructive action colour            |
+
+**Compat aliases** — backward-compatible names mapped to semantic tokens so old code keeps working without immediate migration:
+
+`--black → --mine-shaft`, `--mid-grey → --gray/--silver`, `--off-white → --wild-sand/--dorado`, `--light-grey → --alto/--dorado`, `--dark-grey → --dorado/--silver`, `--border → --alto/--dorado`, `--red → --cinnabar`, `--error → --cinnabar`, `--blue → --blue-ribbon`.
+
+`--black` intentionally does **not** flip in dark mode — the `--surface-app` shell is always dark and uses `--mine-shaft` directly.
+
+### Flash prevention (three-layer)
+
+1. **SSR sets `data-theme`** from the `theme` cookie in `root.tsx` → `Layout` via `useRouteLoaderData("root")`. No flash for returning users.
+2. **Inline `<script>` in `<head>`** in `root.tsx` fires synchronously before paint on first-ever visit: reads `prefers-color-scheme` and sets `data-theme` without waiting for React.
+3. **`ThemeProvider` `useEffect`** writes the `theme` cookie on first hydration so subsequent SSR loads skip the inline script path.
+
+### Theme infrastructure
+
+**`app/services/theme.server.ts`** (server-only):
+
+| Export                        | Purpose                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `Theme`                       | `"light" \| "dark"` — canonical type, imported by `ThemeContext.tsx`           |
+| `getTheme(request)`           | Reads the unsigned `theme` cookie from the request — returns `"light"` default |
+| `serializeThemeCookie(theme)` | Returns a Set-Cookie string (`Path=/; Max-Age=31536000; SameSite=Lax`)         |
+
+The `theme` cookie is **unsigned** (unlike `__session`) — its value is not sensitive and is read server-side only for SSR theming. Max-age 1 year.
+
+**`app/context/ThemeContext.tsx`**:
+
+| Export          | Purpose                                                                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ThemeProvider` | Props: `children`, `initialTheme: Theme`. Manages theme state, resolves `prefers-color-scheme` on mount, writes cookie. Wrap `CoreLayoutInner` with this. |
+| `useTheme()`    | Returns `{ theme: Theme, toggleTheme: () => void }`. Throws if called outside `ThemeProvider`.                                                            |
+
+`toggleTheme` (from `useCallback`) updates state, sets `document.documentElement.setAttribute("data-theme", next)`, and writes the cookie — all client-side with no server round-trip.
+
+**`app/layout/core/core.tsx`** usage:
+
+```tsx
+export default function CoreLayout(props: Route.ComponentProps) {
+  return (
+    <ThemeProvider initialTheme={props.loaderData.theme}>
+      <CoreLayoutInner {...props} />
+    </ThemeProvider>
+  );
+}
+// Inside CoreLayoutInner:
+const { theme, toggleTheme } = useTheme();
+<DarkModeSwitch toggleDarkMode={toggleTheme} darkMode={theme === "dark"} />;
+```
+
+### When adding a new component
+
+Use semantic tokens exclusively in CSS modules. Do not use raw palette names or `var(--black)` / `var(--white)` in component styles unless the element is **always on a coloured or dark background** (e.g. the blue aside, Pill text, Toast text on coloured variants, Tooltip text) — in those contexts `var(--white)` is intentionally stable.
 
 ## Shared constants
 
@@ -620,13 +704,13 @@ The project uses **Vitest** with **React Testing Library** for component unit te
 
 `app/routes/article/site-list/siteTree.ts` contains the pure data-transformation functions extracted from `site-list.tsx`:
 
-| Export                              | Purpose                                                                                   |
-| ----------------------------------- | ----------------------------------------------------------------------------------------- |
-| `buildTreeFromSite(site)`           | Converts a `SiteData` record into a `TreeGroupNode[]` DnD tree (root node + named groups) |
-| `treeToSiteData(tree)`              | Inverse — converts the DnD tree back to `{ groups, ungroupedArticles }` for writing to the PDS     |
-| `toSlug(title)`                     | Converts a group title to a URL slug (lowercase, spaces→hyphens, strip specials)          |
-| `slugFromUri(uri)`                  | Returns the final path segment of an AT URI                                               |
-| `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`)                                |
+| Export                              | Purpose                                                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `buildTreeFromSite(site)`           | Converts a `SiteData` record into a `TreeGroupNode[]` DnD tree (root node + named groups)      |
+| `treeToSiteData(tree)`              | Inverse — converts the DnD tree back to `{ groups, ungroupedArticles }` for writing to the PDS |
+| `toSlug(title)`                     | Converts a group title to a URL slug (lowercase, spaces→hyphens, strip specials)               |
+| `slugFromUri(uri)`                  | Returns the final path segment of an AT URI                                                    |
+| `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`)                                     |
 
 **Critical invariant:** `treeToSiteData(buildTreeFromSite(site))` must reproduce the original `{ groups, articles }` exactly — including every `ArticleRef` field (`url`, `synopsis`, `splashImageUrl`, etc.). The round-trip tests in `siteTree.test.ts` enforce this.
 

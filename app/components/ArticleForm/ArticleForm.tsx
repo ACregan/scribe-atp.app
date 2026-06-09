@@ -76,7 +76,7 @@ export function ArticleForm({
                 onChange={onSitesChange}
               />
             )}
-            {error && <p style={{ color: "var(--red)" }}>{error}</p>}
+            {error && <p style={{ color: "var(--action-danger)" }}>{error}</p>}
           </PageSectionColumn>
           <PageSectionColumn span={8} overflow>
             <RichTextEditor
@@ -138,7 +138,7 @@ export function ArticleForm({
 
       {error && (
         <PageSection>
-          <p style={{ color: "var(--red)" }}>{error}</p>
+          <p style={{ color: "var(--action-danger)" }}>{error}</p>
         </PageSection>
       )}
     </>

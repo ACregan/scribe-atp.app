@@ -1,0 +1,225 @@
+/* === SEMANTIC TOKENS ===
+ * Components must reference only tokens from this file, never raw palette
+ * values from colours.css. The [data-theme="dark"] block at the bottom
+ * reassigns tokens — all raw values must come from colours.css palette vars. */
+
+:root {
+  /* Surfaces */
+  --surface-app: var(--mine-shaft);
+  --surface-header: var(--white);
+  --surface-page: var(--white);
+  --surface-input: var(--white);
+  --surface-aside: var(--blue-ribbon);
+  /* Toolbar bg, code blocks, hover states — slightly off --surface-page */
+  --surface-muted: var(--wild-sand);
+  /* Neutral badge / inactive state backgrounds (with --text-on-dark text) */
+  --surface-neutral: var(--gray);
+  --surface-shadow-color: rgba(0, 0, 0, 0.5);
+  --aside-background: var(--blue-ribbon);
+  --aside-color: var(--white);
+
+  /* Text */
+  --text-primary: var(--mine-shaft);
+  --text-secondary: var(--gray);
+  --text-on-dark: var(--white);
+  --text-on-aside: var(--white);
+  --text-editor: var(--mine-shaft);
+
+  /* Borders */
+  --border-color: var(--alto);
+  --border-subtle: var(--silver);
+  --border-light: var(--alto);
+
+  /* Actions / brand */
+  --action-primary: var(--blue-ribbon);
+  --action-danger: var(--cinnabar);
+
+  /* Component Specific */
+
+  /* groups.tsx <GroupSiteItem /> & article/list.tsx .articleItem*/
+  --group-site-item-border-colour: var(--mine-shaft);
+
+  /* <PageContainer> & <IconBadge > */
+  --heading-icon-background: var(--blue-ribbon);
+  --heading-icon-border: var(--mine-shaft);
+
+  /* <AsideMenu /> */
+  --asidemenu-button-color: var(--flamingo);
+
+  /* <SiteTile /> */
+  --site-tile-description-panel-background: none;
+  --site-tile-action-panel-background: var(--surface-muted);
+
+  /* <SiteListItem /> */
+  --site-list-item-background: none;
+  --site-list-item-border: var(--silver);
+
+  /* Home.tsx <SiteItem /> */
+  --home-site-item-background: none;
+  --home-site-item-border-color: var(--mine-shaft);
+
+  /* image library thumbnails */
+  --tile-selected-background: var(--wild-sand);
+
+  /* <GroupItem /> /article/list page */
+  --group-item-background-colour: var(--alto);
+
+  /* Generic Drag Handle colour*/
+  --drag-handle-color: var(--mine-shaft);
+
+  /* <ArticleItem /> /article/list page */
+  --article-list-item-background-colour: none;
+
+  /* Lexical */
+  --dropdown-menu-text-colour: var(--white, #fff);
+  --dropdown-menu-text-colour_hover: var(--wild-sand);
+  --dropdown-menu-text-colour_active: var(--surface-muted);
+
+  /* /images/ Image Tile */
+  --action-button-background: var(--white);
+  --action-button-border: var(--border-color);
+  --action-button-text: var(--text-secondary);
+
+  --action-button-background_hover: var(--white);
+  --action-button-border_hover: var(--action-primary);
+  --action-button-text_hover: var(--blue-ribbon);
+  --action-button-danger_hover: var(--white);
+
+  /* <Toast /> */
+  --toast-primary-background-colour: var(--blue-ribbon);
+  --toast-primary-text-colour: var(--white);
+  --toast-secondary-background-colour: var(--white);
+  --toast-secondary-text-colour: var(--blue-ribbon);
+  --toast-danger-background-color: var(--cinnabar);
+
+  /* ImagePreviewModal */
+  --variant-button-border-color: var(--border-color);
+  --variant-button-background-color: var(--white, #fff);
+  --variant-button-text-color: var(--text-secondary);
+
+  --variant-button-border-color_hover: var(--action-primary);
+  --variant-button-background-color_hover: var(--action-primary);
+  /* --variant-button-text-color_hover:  */
+
+  --variant-button-border-color_active: var(--action-primary);
+  --variant-button-background-color_active: rgba(0, 112, 243, 0.06);
+  --variant-button-text-color_active: var(--action-primary);
+
+  /* ImagePreviewModal - copy URL button */
+  --copy-url-button-border-color: var(--border-color);
+  --copy-url-button-background-color: var(--white);
+  --copy-url-button-text-color: var(--text-secondary);
+
+  --copy-url-button-border-color_hover: var(--action-primary);
+  --copy-url-button-background-color_hover: var(--action-primary);
+  /* --copy-url-button-text-color_hover: var(); */
+}
+
+[data-theme="dark"] {
+  /* Surfaces */
+  --surface-app: var(--jacaranda);
+  --surface-header: var(--ebony-clay);
+  --surface-page: var(--cloud-burst);
+  --surface-input: var(--charcoal);
+  /* Slightly darker than --charcoal for inset/muted surfaces */
+  --surface-muted: var(--mine-shaft);
+  /* Medium grey for neutral state backgrounds on dark pages */
+  --surface-neutral: var(--dorado);
+  /* --surface-app and --surface-aside are intentionally unchanged */
+  --surface-shadow-color: rgba(255, 255, 255, 0.1);
+
+  --aside-background: var(--stratos);
+  --aside-color: var(--flamingo);
+
+  /* Text */
+  --text-primary: var(--wild-sand);
+  --text-secondary: var(--silver);
+
+  /* Borders */
+  --border-color: var(--jacaranda);
+  --border-subtle: var(--dorado);
+  --border-light: var(--white);
+
+  /* Actions / brand */
+  --action-primary: var(--flamingo);
+  --action-danger: var(--cinnabar);
+
+  /* Component Specific */
+  /* groups.tsx <GroupSiteItem /> */
+  --group-site-item-border-colour: var(--jacaranda);
+
+  /* <PageContainer> */
+  --heading-icon-background: var(--flamingo);
+  --heading-icon-border: var(--white);
+
+  /* <AsideMenu /> */
+  /* --asidemenu-button-color: var(--flamingo); */
+
+  /* <SiteTile /> */
+  --site-tile-description-panel-background: var(--jaguar);
+  --site-tile-action-panel-background: var(--stratos);
+
+  /* <SiteListItem /> */
+  --site-list-item-background: var(--mirage);
+  --site-list-item-border: var(--jaguar);
+
+  /* Home.tsx <SiteItem /> */
+  --home-site-item-background: var(--mirage);
+  --home-site-item-border-color: var(--jacaranda);
+
+  /* image library thumbnails */
+  --tile-selected-background: var(--mirage);
+
+  /* <GroupItem /> /article/list/XYZ page */
+  --group-item-background-colour: var(--jaguar);
+
+  /* Generic Drag Handle colour*/
+  --drag-handle-color: var(--wild-sand);
+
+  /* <ArticleItem /> /article/list page */
+  --article-list-item-background-colour: var(--mirage);
+
+  /* Lexical */
+  --dropdown-menu-text-colour: var(--cloud-burst);
+  --dropdown-menu-text-colour_hover: var(--flamingo);
+  --dropdown-menu-text-colour_active: var(--flamingo);
+
+  /* /images/ Image Tile */
+  --action-button-background: var(--flamingo);
+  --action-button-border: var(--mirage);
+  --action-button-text: var(--mirage);
+
+  --action-button-background_hover: var(--flamingo);
+  --action-button-border_hover: var(--white);
+  --action-button-text_hover: var(--white);
+  --action-button-danger_hover: var(--cinnabar);
+
+  /* <Toast /> */
+  --toast-primary-background-colour: var(--flamingo);
+  --toast-primary-text-colour: var(--white);
+  --toast-secondary-background-colour: var(--white);
+  --toast-secondary-text-colour: var(--flamingo);
+  --toast-danger-background-color: var(--cinnabar);
+
+  /* ImagePreviewModal - size buttons */
+  --variant-button-border-color: var(--flamingo);
+  --variant-button-background-color: var(--mirage);
+  --variant-button-text-color: var(--flamingo);
+
+  --variant-button-border-color_hover: var(--white);
+  --variant-button-background-color_hover: var(--white);
+  /* --variant-button-text-color_hover:  */
+
+  --variant-button-border-color_active: var(--mirage);
+  --variant-button-background-color_active: var(--flamingo);
+  --variant-button-text-color_active: var(--mirage);
+
+  /* ImagePreviewModal - copy URL button */
+  --copy-url-button-border-color: var(--mirage);
+  --copy-url-button-background-color: var(--flamingo);
+  --copy-url-button-text-color: var(--mirage);
+
+  --copy-url-button-border-color_hover: var(--white);
+  --copy-url-button-background-color_hover: var(--white);
+  /* --copy-url-button-text-color_hover: var(); */
+}

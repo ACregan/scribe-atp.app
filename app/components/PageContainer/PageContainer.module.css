@@ -7,8 +7,8 @@
 .headingIconContainer {
   height: 6rem;
   width: 6rem;
-  background: var(--blue-ribbon);
-  border: 0.2rem solid var(--black);
+  background: var(--heading-icon-background);
+  border: 0.2rem solid var(--heading-icon-border);
   border-radius: 50%;
   padding: 0.75rem;
   margin-right: 1rem;
@@ -20,8 +20,8 @@
   max-width: calc(100vw - 6rem - 2rem - 2rem);
   /* min-height: calc(100dvh - 8rem - 6rem - 2rem); */
   height: fit-content;
-  background-color: var(--white);
-  color: var(--black);
+  background-color: var(--surface-page);
+  color: var(--text-primary);
   border-radius: 0.6rem;
   box-shadow: 0 0.8rem 3.2rem rgba(0, 0, 0, 0.2);
   margin: 2rem;
@@ -58,7 +58,7 @@
 }
 .topButtonPanel {
   grid-area: PageContainer_TopButtons;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
   padding: 1rem 2rem;
 
   display: flex;
@@ -78,14 +78,14 @@
   grid-area: PageContainer_BottomButtons;
   display: flex;
   justify-content: flex-end;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
   padding: 2rem;
   gap: 1rem;
 }
 
 /* <PageSection> component */
 .pageSection {
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
   padding: 1rem 2rem;
 }
 .pageSection:last-of-type {
@@ -159,7 +159,7 @@
 
 /* <PageSectionCell> component */
 .pageSectionCell {
-  border-left: 0.1rem solid var(--border, #e5e7eb);
+  border-left: 0.1rem solid var(--border-color);
 }
 
 /* <ButtonGroupContainer> component */

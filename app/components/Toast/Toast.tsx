@@ -3,6 +3,7 @@ import styles from "./Toast.module.css";
 import classNames from "classnames/bind";
 import { useToast, type ToastPropsWithId } from "./ToastContext";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
+import { useTheme } from "~/context/ThemeContext";
 
 const cx = classNames.bind(styles);
 
@@ -95,14 +96,17 @@ const Toast: React.FC<ToastPropsWithId> = ({
     return () => clearTimeout(timer);
   }, [id, autoExpire, expireTimeSeconds, removeToast]);
 
+  const { theme } = useTheme();
+  const isDarkMode = theme === "dark";
+
   const countdownConfig = {
     primary: {
-      trackColour: "var(--blue-ribbon)",
+      trackColour: isDarkMode ? "var(--flamingo)" : "var(--blue-ribbon)",
       progressColour: "var(--white)",
     },
     secondary: {
       trackColour: "var(--white)",
-      progressColour: "var(--blue-ribbon)",
+      progressColour: isDarkMode ? "var(--flamingo)" : "var(--blue-ribbon)",
     },
     danger: {
       trackColour: "var(--cinnabar)",

@@ -167,6 +167,7 @@ To enable users to provide and reference images for use in the Sites and Article
 The Image Library is served by a **dedicated Image Service** — a separate Express app running on port 3009 alongside the main React Router app (port 3008). See `docs/adr/0001-separate-image-service.md` for the rationale.
 
 **nginx routing on the VPS:**
+
 ```
 /images/*             → react-router-serve :3008  (Image Library management UI)
 /image-storage/*      → filesystem (static, zero Node.js)  (Variant file serving)
@@ -183,16 +184,17 @@ Uploaded images are processed server-side by `sharp` and stored as pre-generated
 **Variant set** (generated in ascending order; a Variant is skipped if its Bounding Box exceeds the source image's longest side — no upscaling):
 
 | Variant | Bounding Box |
-| :--- | :--- |
-| thumb | 300px |
-| 600 | 600px |
-| 1200 | 1200px |
-| 1800 | 1800px |
-| max | 3000px (cap) |
+| :------ | :----------- |
+| thumb   | 300px        |
+| 600     | 600px        |
+| 1200    | 1200px       |
+| 1800    | 1800px       |
+| max     | 3000px (cap) |
 
 All Variants are WebP. The `max` Variant is the uploaded image at its original dimensions, converted to WebP, capped at a 3000px Bounding Box. "max" is the canonical term — not "original" (see UBIQUITOUS_LANGUAGE.md).
 
 **Filesystem layout:**
+
 ```
 {storage_root}/{user_did}/{uuid}/thumb.webp
 {storage_root}/{user_did}/{uuid}/600.webp
@@ -212,10 +214,12 @@ nginx serves `/image-storage/` directly from the filesystem — the Image Servic
 **Sharp version constraint:** `sharp` is pinned to `^0.32.6`. The production VPS CPU predates the x86_64-v2 microarchitecture required by sharp 0.33+ prebuilt binaries. Do not upgrade without first checking CPU support: `grep -m1 flags /proc/cpuinfo | grep -o sse4_2`. See `docs/adr/0002-sharp-version-pin.md`.
 
 **SQLite database** (separate file from `data/oauth.db`):
+
 ```sql
 image_folders (id, user_did, name, parent_id, created_at)
 images        (id, user_did, folder_id, filename, original_name, width, height, sizes JSON, created_at)
 ```
+
 `sizes` JSON stores the generated Variant names and their actual pixel dimensions.
 
 ### Upload Flow
@@ -268,3 +272,24 @@ Both PDS calls (articles + sites) are made in parallel via `Promise.all`. The ho
 ### Deferred / not planned
 
 **Traffic analytics** — the PDS is write-only from the CMS's perspective; public readers don't report back. This would require instrumenting the public-facing site and building a separate analytics backend — out of scope.
+
+## FEATURE: Dark Mode
+
+### Status: Implemented (June 2026)
+
+Full light/dark mode support across all routes and components.
+
+### Architecture
+
+Two-layer CSS token system:
+
+- `app/styles/colours.css` — palette-only (raw colour values, no semantics)
+- `app/styles/tokens.css` — semantic design tokens mapped to palette colours; a `[data-theme="dark"]` block overrides the relevant tokens for dark mode
+
+Theme is persisted in an unsigned `theme` cookie (max-age 1 year). On SSR, `app/services/theme.server.ts` reads the cookie and sets `data-theme` on `<html>` server-side — no flash for returning users. A small inline `<script>` in `<head>` handles the first-ever visit by reading `prefers-color-scheme` synchronously before paint.
+
+Client-side, `app/context/ThemeContext.tsx` provides `ThemeProvider` / `useTheme()`. `toggleTheme` updates `data-theme` and the cookie directly (no server round-trip). The `DarkModeSwitch` component in the header wires to `useTheme`.
+
+All component CSS modules use semantic tokens (`var(--surface-page)`, `var(--text-primary)`, etc.) — never hardcoded palette names.
+
+See the **Theming** section in CLAUDE.md for the full token reference and implementation details.

@@ -257,7 +257,7 @@ describe("ArticleForm", () => {
 
       const errorElement = screen.getByText("This is an error message");
       expect(errorElement).toBeInTheDocument();
-      expect(errorElement).toHaveStyle("color: var(--red)");
+      expect(errorElement).toHaveStyle("color: var(--action-danger)");
     });
 
     it("should render error in a PageSection", () => {

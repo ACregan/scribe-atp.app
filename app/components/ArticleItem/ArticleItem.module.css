@@ -9,15 +9,16 @@
   grid-auto-flow: column;
   grid-auto-rows: 1fr;
   grid-template-columns: 4rem 1fr auto;
-  grid-template-rows: 3rem 2rem;
+  /* grid-template-rows: 3rem 2rem; */
+  grid-template-rows: 5rem;
   gap: 0;
-  grid-template-areas:
-    "Handle Title Buttons"
-    "Handle Info Buttons";
+  grid-template-areas: "Handle Title Buttons";
+  /* "Handle Info Buttons"; */
 
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 0.6rem;
   box-sizing: border-box;
+  background: var(--article-list-item-background-colour);
 }
 
 .dragHandleContainer {
@@ -27,6 +28,9 @@
   align-items: center;
   cursor: grab;
 }
+.dragHandleContainer > svg {
+  fill: var(--drag-handle-color);
+}
 .titleContainer {
   grid-area: Title;
   display: flex;
@@ -35,9 +39,10 @@
 }
 .titleContainer > strong {
   font-size: 2.2rem;
+  margin-left: 1rem;
 }
 .titleContainer > span {
-  background: var(--mid-grey);
+  background: var(--surface-neutral);
   color: var(--white);
   font-size: 1rem;
   padding: 0.3rem 0.5rem;

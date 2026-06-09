@@ -4,7 +4,7 @@
   font-size: 1.4rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   margin: 0 0 1.2rem;
 }
 
@@ -22,7 +22,7 @@
   align-items: center;
   gap: 1rem;
   font-size: 1.5rem;
-  color: var(--black);
+  color: var(--text-primary);
   text-decoration: none;
 }
 
@@ -43,7 +43,7 @@
   align-items: center;
   gap: 1.6rem;
   padding: 1rem 0;
-  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+  border-bottom: 0.1rem solid var(--border-color);
 }
 
 .recentItem:last-child {
@@ -58,7 +58,7 @@
 
 .emptyState {
   font-size: 1.5rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 /* ── Site list (mirrors groups page) ─────────────────────────────────────────── */
@@ -73,7 +73,9 @@
 }
 
 .siteItem {
-  border: 0.2rem solid var(--black);
+  background: var(--home-site-item-background);
+  /* border: 0.2rem solid var(--border-color); */
+  border: 0.2rem solid var(--home-site-item-border-color);
   border-radius: 0.6rem;
   overflow: hidden;
 }
@@ -90,7 +92,7 @@
   width: 15rem;
   height: 100%;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  background: linear-gradient(135deg, #ddeeff 0%, var(--surface-muted) 100%);
   background-size: cover;
   background-position: top center;
 }
@@ -117,10 +119,10 @@
   right: -2rem;
   width: 5rem;
   height: 5rem;
-  border: 0.2rem solid var(--black);
+  border: 0.2rem solid var(--border-color);
   border-radius: 50%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  background: linear-gradient(135deg, #ddeeff 0%, var(--surface-muted) 100%);
   background-size: cover;
   background-position: top center;
   z-index: 100;
@@ -140,12 +142,12 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
+  border-top: 0.1rem solid var(--border-color);
 }
 
 .groupItem {
   padding: 0.6rem 1.2rem 0.6rem 1.6rem;
-  border-bottom: 0.1rem solid var(--border, #e5e7eb);
+  border-bottom: 0.1rem solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 0.8rem;
@@ -179,7 +181,7 @@
   font-size: 1.4rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--red);
+  color: var(--action-danger);
   margin: 0;
 }
 
@@ -196,4 +198,16 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* ── DARK MODIFIERS ────────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] {
+  .splashContainer::after {
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      var(--surface-page) 100%
+    );
+  }
 }

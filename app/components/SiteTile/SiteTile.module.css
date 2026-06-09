@@ -3,10 +3,12 @@
 .tile {
   display: flex;
   flex-direction: column;
-  border: 0.1rem solid var(--border, #e5e7eb);
+  border: 0.1rem solid var(--border-color);
   border-radius: 0.8rem;
   overflow: hidden;
-  background: var(--white);
+  /* background: var(--surface-page); */
+  background: var(--site-tile-description-panel-background);
+
   height: stretch;
 }
 
@@ -14,7 +16,7 @@
 
 .tileSplash {
   height: 12rem;
-  background: linear-gradient(135deg, #ddeeff 0%, var(--off-white) 100%);
+  background: linear-gradient(135deg, #ddeeff 0%, var(--surface-muted) 100%);
   flex-shrink: 0;
   background-size: cover;
   background-position: top center;
@@ -42,7 +44,7 @@
   height: 6rem;
   border-radius: 50%;
   object-fit: contain;
-  border: 0.1rem solid var(--border, #e5e7eb);
+  border: 0.1rem solid var(--border-color);
   flex-shrink: 0;
   position: absolute;
   top: -5rem;
@@ -53,12 +55,12 @@
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
-  color: var(--black);
+  color: var(--text-primary);
 }
 
 .tileDescription {
   font-size: 1.3rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
   display: -webkit-box;
@@ -70,7 +72,7 @@
 .tileUrl {
   font-size: 1.2rem;
   font-family: monospace;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   margin-top: auto;
 }
 
@@ -82,8 +84,8 @@
   justify-content: space-between;
   gap: 0.8rem;
   padding: 1.2rem 1.6rem;
-  border-top: 0.1rem solid var(--border, #e5e7eb);
-  background: var(--off-white);
+  border-top: 0.1rem solid var(--border-color);
+  background: var(--site-tile-action-panel-background);
 }
 .tileActions > a {
   text-decoration: none;

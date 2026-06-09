@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--blue-ribbon);
-  border: 0.2rem solid var(--black);
+  background: var(--heading-icon-background);
+  border: 0.2rem solid var(--heading-icon-border);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -12,6 +12,12 @@
   height: 3rem;
   width: 3rem;
   padding: 0.4rem;
+}
+
+.medium {
+  height: 4.5rem;
+  width: 4.5rem;
+  padding: 0.5rem;
 }
 
 .large {

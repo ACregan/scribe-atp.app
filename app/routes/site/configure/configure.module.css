@@ -13,7 +13,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.6rem;
-  border: 0.1rem solid var(--border, #e5e7eb);
+  border: 0.1rem solid var(--border-color);
   border-radius: 0.6rem;
   padding: 1.6rem 2rem 2rem;
   margin: 0;
@@ -24,7 +24,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   padding: 0 0.4rem;
 }
 
@@ -54,16 +54,16 @@
   font-size: 1.4rem;
   line-height: 1.5;
   padding: 0.8rem 1rem;
-  border: 0.1rem solid var(--border, #ccc);
+  border: 0.1rem solid var(--border-color);
   border-radius: 0.4rem;
   resize: vertical;
   font-family: inherit;
-  background: var(--white);
-  color: var(--black);
+  background: var(--surface-input);
+  color: var(--text-primary);
 }
 
 .textarea:focus {
-  outline: 2px solid var(--blue, #0070f3);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 
@@ -74,7 +74,7 @@
   /* max-height: 16rem; */
   object-fit: cover;
   border-radius: 0.4rem;
-  border: 0.1rem solid var(--border, #e5e7eb);
+  border: 0.1rem solid var(--border-color);
 }
 
 .logoPreview {
@@ -82,32 +82,13 @@
   height: 6rem;
   object-fit: contain;
   border-radius: 0.4rem;
-  border: 0.1rem solid var(--border, #e5e7eb);
-}
-
-/* ── Actions ─────────────────────────────────────────────────────────────────── */
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 1.6rem;
-}
-
-.cancelLink {
-  font-size: 1.4rem;
-  color: var(--mid-grey);
-  text-decoration: none;
-}
-
-.cancelLink:hover {
-  color: var(--black);
-  text-decoration: underline;
+  border: 0.1rem solid var(--border-color);
 }
 
 /* ── Error ───────────────────────────────────────────────────────────────────── */
 
 .errorMessage {
-  color: var(--red);
+  color: var(--action-danger);
   font-size: 1.3rem;
   margin: 0;
 }

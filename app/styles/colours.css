@@ -1,5 +1,8 @@
 :root {
+  /* Palette — raw colour values only. Never reference these in components;
+     use the semantic tokens in tokens.css instead. */
   --mine-shaft: #292929;
+  --charcoal: #333333;
   --dorado: #5f5f5f;
   --gray: #949494;
   --silver: #c5c5c5;
@@ -9,15 +12,18 @@
   --cinnabar: #df2827;
   --blue-ribbon: #0070f3;
 
-  /*  
-  * Phase the below out and assign the above to
-  * sensibly named vars (eg. --scrollbar-track-colour)
-  */
-  --black: var(--mine-shaft);
-  --mid-grey: var(--gray);
-  --off-white: var(--wild-sand);
-  /* --white: var(--white); */
-  --red: var(--cinnabar);
-  --error: var(--cinnabar);
-  --blue: var(--blue-ribbon);
+  /* DARK THEME ADDITIONS */
+  --cloud-burst: #212a47;
+  --ebony-clay: #202940;
+  --mirage: #192036;
+  --stratos: #000527;
+  --jaguar: #09031c;
+  --cherry-pie: #2a004e;
+  --pigment-indigo: #500073;
+  --jacaranda: #110111;
+  --sepia-black: #280905;
+  --milano-red: #c3110c;
+  --flamingo: #e6501b;
+  --salem: #0c9553;
+  --eastern-blue: #19abbe;
 }

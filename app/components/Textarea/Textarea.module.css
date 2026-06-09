@@ -13,10 +13,10 @@
   padding: 0.8rem 1.2rem;
   font-size: 1.6rem;
   font-family: inherit;
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--white);
-  color: var(--black, #000);
+  background: var(--surface-input);
+  color: var(--text-primary);
   width: auto;
   box-sizing: border-box;
   resize: vertical;
@@ -24,12 +24,12 @@
 }
 
 .textarea:focus {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 
 .textareaError {
-  border-color: var(--red);
+  border-color: var(--action-danger);
 }
 
 .errorContainer {
@@ -40,5 +40,5 @@
 
 .error {
   font-size: 1.2rem;
-  color: var(--red);
+  color: var(--action-danger);
 }

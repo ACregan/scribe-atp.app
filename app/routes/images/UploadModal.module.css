@@ -1,23 +1,25 @@
 /* ── Drop zone ───────────────────────────────────────────────────────────── */
 
 .dropZone {
-  border: 2px dashed var(--light-grey);
+  border: 2px dashed var(--border-color);
   border-radius: 0.8rem;
   padding: 3.2rem 1.6rem;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .dropZone:hover,
 .dropZoneDragging {
-  border-color: var(--blue);
+  border-color: var(--action-primary);
   background: rgba(0, 100, 255, 0.03);
 }
 
 .dropZoneText {
   font-size: 1.4rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 .hiddenInput {
@@ -40,9 +42,9 @@
   align-items: center;
   gap: 1.2rem;
   padding: 0.8rem;
-  border: 1px solid var(--light-grey);
+  border: 1px solid var(--border-color);
   border-radius: 0.6rem;
-  background: var(--white);
+  background: var(--surface-page);
 }
 
 .filePreview {
@@ -50,7 +52,7 @@
   height: 4.8rem;
   object-fit: cover;
   border-radius: 0.4rem;
-  background: var(--light-grey);
+  background: var(--surface-muted);
   flex-shrink: 0;
 }
 
@@ -72,7 +74,7 @@
 
 .validationError {
   font-size: 1.2rem;
-  color: var(--red);
+  color: var(--action-danger);
 }
 
 .removeBtn {
@@ -81,15 +83,15 @@
   cursor: pointer;
   font-size: 2rem;
   line-height: 1;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
   padding: 0.2rem 0.6rem;
   border-radius: 0.4rem;
   flex-shrink: 0;
 }
 
 .removeBtn:hover {
-  background: var(--light-grey);
-  color: var(--black);
+  background: var(--surface-muted);
+  color: var(--text-primary);
 }
 
 /* ── Progress rows (progress phase) ─────────────────────────────────────── */
@@ -99,7 +101,7 @@
   align-items: flex-start;
   gap: 1.2rem;
   padding: 0.8rem;
-  border: 1px solid var(--light-grey);
+  border: 1px solid var(--border-color);
   border-radius: 0.6rem;
 }
 
@@ -113,25 +115,25 @@
 
 .progressBarTrack {
   height: 0.6rem;
-  background: var(--light-grey);
+  background: var(--surface-muted);
   border-radius: 0.3rem;
   overflow: hidden;
 }
 
 .progressBarFill {
   height: 100%;
-  background: var(--blue);
+  background: var(--action-primary);
   border-radius: 0.3rem;
   transition: width 0.1s linear;
 }
 
 .progressBarError {
-  background: var(--red);
+  background: var(--action-danger);
 }
 
 .progressLabel {
   font-size: 1.2rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 /* ── Variant tick chips ──────────────────────────────────────────────────── */
@@ -146,13 +148,15 @@
   font-size: 1.1rem;
   padding: 0.2rem 0.6rem;
   border-radius: 0.4rem;
-  background: var(--light-grey);
-  color: var(--mid-grey);
-  transition: background 0.2s, color 0.2s;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .variantChipDone {
-  background: var(--blue);
+  background: var(--action-primary);
   color: var(--white);
 }
 

@@ -145,7 +145,7 @@ export default function ConfigureSite({
     >
       <PageSection>
         <h5>{site.title}</h5>
-        <Form method="post" className={styles.form}>
+        <Form id="configure-site-form" method="post" className={styles.form}>
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Identity</legend>
             <Input
@@ -217,20 +217,24 @@ export default function ConfigureSite({
           {actionData?.error && (
             <p className={styles.errorMessage}>{actionData.error}</p>
           )}
-
-          <div className={styles.actions}>
-            <a href="/sites" className={styles.cancelLink}>
-              Cancel
-            </a>
-            <Button type="submit">Save Changes</Button>
-          </div>
         </Form>
       </PageSection>
+      <FooterPortal>
+        <Link to="/sites">
+          <Button type="button" variant="secondary">
+            Cancel
+          </Button>
+        </Link>
+        <Button form="configure-site-form" type="submit">
+          Save Changes
+        </Button>
+      </FooterPortal>
     </PageContainer>
   );
 }
 
 // ── Form import (React Router's Form component) ───────────────────────────────
 
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import FooterPortal from "~/components/FooterPortal/FooterPortal";

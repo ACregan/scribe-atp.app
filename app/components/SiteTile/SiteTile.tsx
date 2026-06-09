@@ -70,7 +70,7 @@ export function SiteTile({
               type="button"
               variant="secondary"
             >
-              <SvgIcon name={SvgImageList.Gear} fill="var(--blue)" />
+              <SvgIcon name={SvgImageList.Gear} fill="var(--action-primary)" />
             </Button>
           </Link>
           <Button

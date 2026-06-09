@@ -16,10 +16,10 @@
 .select {
   padding: 0.8rem 1.2rem;
   font-size: 1.6rem;
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--white);
-  color: var(--black, #000);
+  background: var(--surface-input);
+  color: var(--text-primary);
   width: auto;
   box-sizing: border-box;
   cursor: pointer;
@@ -27,12 +27,12 @@
 }
 
 .select:focus {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 
 .selectError {
-  border-color: var(--red);
+  border-color: var(--action-danger);
 }
 
 /* Multi select — dropdown trigger */
@@ -50,10 +50,10 @@
   justify-content: space-between;
   padding: 0.8rem 1.2rem;
   font-size: 1.6rem;
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--white);
-  color: var(--black, #000);
+  background: var(--surface-input);
+  color: var(--text-primary);
   width: 100%;
   box-sizing: border-box;
   cursor: pointer;
@@ -63,12 +63,12 @@
 
 .trigger:focus,
 .triggerOpen {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 
 .triggerError {
-  border-color: var(--red);
+  border-color: var(--action-danger);
 }
 
 .triggerLabel {
@@ -83,7 +83,7 @@
   height: 0;
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
-  border-top: 6px solid var(--black, #000);
+  border-top: 6px solid var(--text-primary);
   flex-shrink: 0;
   margin-left: 0.8rem;
   transition: transform 0.15s ease;
@@ -101,8 +101,8 @@
   left: 0;
   right: 0;
   z-index: 100;
-  background: var(--white);
-  border: 1px solid var(--border, #ccc);
+  background: var(--surface-input);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   overflow-y: auto;
   max-height: 240px;
@@ -121,11 +121,11 @@
 }
 
 .checkboxRow:not(:last-child) {
-  border-bottom: 1px solid var(--border, #ccc);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .checkboxRow:hover {
-  background: var(--light-grey, #f5f5f5);
+  background: var(--surface-muted);
 }
 
 .checkbox {
@@ -133,13 +133,13 @@
   height: 1.6rem;
   cursor: pointer;
   flex-shrink: 0;
-  accent-color: var(--blue);
+  accent-color: var(--action-primary);
 }
 
 .empty {
   padding: 0.8rem 1.2rem;
   font-size: 1.4rem;
-  color: var(--mid-grey);
+  color: var(--text-secondary);
 }
 
 /* Shared */
@@ -152,5 +152,5 @@
 
 .error {
   font-size: 1.2rem;
-  color: var(--red);
+  color: var(--action-danger);
 }

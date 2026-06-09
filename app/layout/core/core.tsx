@@ -1,6 +1,7 @@
 import type { Route } from "./+types/core";
-import { Form, Link, Outlet, useLocation, useNavigation } from "react-router";
+import { Link, Outlet, useLocation, useNavigation } from "react-router";
 import { getAuthSession, useRealOAuth } from "~/services/auth.server";
+import { getTheme } from "~/services/theme.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
@@ -8,6 +9,8 @@ import AsideMenu from "~/components/AsideMenu/AsideMenu";
 import { ToastProvider } from "~/components/Toast/ToastContext";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Toasts } from "~/components/Toast/Toast";
+import DarkModeSwitch from "~/components/DarkModeSwitch/DarkModeSwitch";
+import { ThemeProvider, useTheme } from "~/context/ThemeContext";
 
 type BskyProfile = {
   displayName?: string;
@@ -17,17 +20,26 @@ type BskyProfile = {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { did, handle, isAuthenticated } = await getAuthSession(request);
+  const theme = getTheme(request);
+
   if (!isAuthenticated || !did) {
     return {
       isAuthenticated: false,
       handle: null,
       displayName: null,
       avatar: null,
+      theme,
     };
   }
 
   if (!useRealOAuth) {
-    return { isAuthenticated: true, handle, displayName: handle, avatar: null };
+    return {
+      isAuthenticated: true,
+      handle,
+      displayName: handle,
+      avatar: null,
+      theme,
+    };
   }
 
   try {
@@ -41,20 +53,28 @@ export async function loader({ request }: Route.LoaderArgs) {
         handle: profile.handle ?? handle,
         displayName: profile.displayName ?? profile.handle ?? handle,
         avatar: profile.avatar ?? null,
+        theme,
       };
     }
   } catch {
     // fall through
   }
 
-  return { isAuthenticated: true, handle, displayName: handle, avatar: null };
+  return {
+    isAuthenticated: true,
+    handle,
+    displayName: handle,
+    avatar: null,
+    theme,
+  };
 }
 
-export default function CoreLayout({ loaderData }: Route.ComponentProps) {
+function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
   const { isAuthenticated, displayName, avatar, handle } = loaderData;
   const location = useLocation();
   const navigation = useNavigation();
   const isNavigating = navigation.state !== "idle";
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <ToastProvider>
@@ -67,33 +87,42 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
             <h6>
               Powered By{" "}
               <span>
-                <SvgIcon name={SvgImageList.ATProtoLogo} />
+                <SvgIcon
+                  name={SvgImageList.ATProtoLogo}
+                  fill={"var(--text-secondary)"}
+                />
               </span>
             </h6>
           </div>
-          {isAuthenticated ? (
-            <div className={styles.userContainer}>
-              <div className={styles.userProfile}>
-                <div className={styles.userName}>
-                  <span className={styles.displayName}>{displayName}</span>
-                  <span className={styles.handle}>@{handle}</span>
+          <div className={styles.rightAlignedItems}>
+            {isAuthenticated ? (
+              <div className={styles.userContainer}>
+                <div className={styles.userProfile}>
+                  <div className={styles.userName}>
+                    <span className={styles.displayName}>{displayName}</span>
+                    <span className={styles.handle}>@{handle}</span>
+                  </div>
+                  {avatar && (
+                    <img
+                      src={avatar}
+                      alt={displayName ?? handle ?? ""}
+                      className={styles.userAvatar}
+                    />
+                  )}
                 </div>
-                {avatar && (
-                  <img
-                    src={avatar}
-                    alt={displayName ?? handle ?? ""}
-                    className={styles.userAvatar}
-                  />
-                )}
               </div>
-            </div>
-          ) : location.pathname !== "/login" ? (
-            <Link to="/login">
-              <Button type="button" variant="primary">
-                LOGIN
-              </Button>
-            </Link>
-          ) : null}
+            ) : location.pathname !== "/login" ? (
+              <Link to="/login">
+                <Button type="button" variant="primary">
+                  LOGIN
+                </Button>
+              </Link>
+            ) : null}
+            <DarkModeSwitch
+              toggleDarkMode={toggleTheme}
+              darkMode={theme === "dark"}
+            />
+          </div>
         </header>
         {isAuthenticated && <AsideMenu />}
         <main>
@@ -104,5 +133,13 @@ export default function CoreLayout({ loaderData }: Route.ComponentProps) {
       </div>
       <Toasts />
     </ToastProvider>
+  );
+}
+
+export default function CoreLayout(props: Route.ComponentProps) {
+  return (
+    <ThemeProvider initialTheme={props.loaderData.theme}>
+      <CoreLayoutInner {...props} />
+    </ThemeProvider>
   );
 }

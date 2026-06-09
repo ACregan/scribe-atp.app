@@ -58,7 +58,10 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
                 <Pill>{`${site.groupCount} GROUP${site.groupCount !== 1 ? "S" : ""}`}</Pill>
               )}
               {site.articleCount > 0 && (
-                <Pill>{site.articleCount} ARTICLE{site.articleCount !== 1 ? "S" : ""}</Pill>
+                <Pill>
+                  {site.articleCount} ARTICLE
+                  {site.articleCount !== 1 ? "S" : ""}
+                </Pill>
               )}
             </div>
           </div>
@@ -73,7 +76,7 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
           className={styles.configureSiteLink}
         >
           <Button type="button" variant="secondary">
-            <SvgIcon name={SvgImageList.Gear} fill="var(--blue)" />
+            <SvgIcon name={SvgImageList.Gear} fill="var(--action-primary)" />
           </Button>
         </Link>
         {onDelete && (
