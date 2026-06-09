@@ -75,6 +75,7 @@ export function SiteTile({
           </Link>
           <Button
             className={styles.actionButton}
+            aria-label="Delete site"
             variant="danger"
             onClick={() => onDelete(site)}
             disabled={isDeleting}

@@ -186,6 +186,7 @@ export default function ConfigureSite({
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Identity</legend>
             <Input
+              id="title"
               name="title"
               label="Title"
               value={formValues.title}
@@ -194,6 +195,7 @@ export default function ConfigureSite({
             />
             <div className={styles.row}>
               <Input
+                id="url"
                 name="url"
                 label="Domain"
                 value={formValues.url}
@@ -202,6 +204,7 @@ export default function ConfigureSite({
                 required
               />
               <Input
+                id="urlPrefix"
                 name="urlPrefix"
                 label="URL Prefix"
                 value={formValues.urlPrefix}

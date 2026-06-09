@@ -82,6 +82,7 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
         {onDelete && (
           <Button
             className={styles.actionButton}
+            aria-label="Delete site"
             variant="danger"
             onClick={() => onDelete(site)}
             disabled={isDeleting}
