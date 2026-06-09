@@ -152,9 +152,7 @@ function CreateGroupModal({
   onClose: () => void;
 }) {
   const fetcher = useFetcher<{ error?: string; ok?: boolean }>();
-  const [selectedSiteRkey, setSelectedSiteRkey] = useState(
-    sites[0]?.rkey ?? "",
-  );
+  const [selectedSiteRkey, setSelectedSiteRkey] = useState("");
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const slugDirtyRef = useRef(false);
