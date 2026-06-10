@@ -307,10 +307,10 @@ describe("Button", () => {
       expect(handleReset).toHaveBeenCalledTimes(1);
     });
 
-    it("should have no type attribute when type prop is omitted", () => {
+    it("should default to type=button when type prop is omitted", () => {
       render(<Button>Default</Button>);
       const button = screen.getByRole("button");
-      expect(button).not.toHaveAttribute("type");
+      expect(button).toHaveAttribute("type", "button");
     });
   });
 
