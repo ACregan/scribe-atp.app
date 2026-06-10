@@ -343,20 +343,40 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
           className={styles.siteForm}
         >
           <input type="hidden" name="_intent" value="createSite" />
-          <Input name="title" label="Title" placeholder="My Blog" required />
-          <Input name="url" label="Domain" placeholder="myblog.com" required />
-          <Input name="urlPrefix" label="URL Prefix" placeholder="blog" />
           <Input
+            id="title"
+            name="title"
+            label="Title"
+            placeholder="My Blog"
+            required
+          />
+          <Input
+            id="url"
+            name="url"
+            label="Domain"
+            placeholder="myblog.com"
+            required
+          />
+          <Input
+            id="urlPrefix"
+            name="urlPrefix"
+            label="URL Prefix"
+            placeholder="blog"
+          />
+          <Input
+            id="description"
             name="description"
             label="Description"
             placeholder="What this site is about…"
           />
           <Input
+            id="splashImageUrl"
             name="splashImageUrl"
             label="Splash Image URL"
             placeholder="https://…"
           />
           <Input
+            id="logoImageUrl"
             name="logoImageUrl"
             label="Logo Image URL"
             placeholder="https://…"

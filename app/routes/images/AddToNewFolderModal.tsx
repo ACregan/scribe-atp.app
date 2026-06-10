@@ -83,6 +83,7 @@ export function AddToNewFolderModal({
     >
       <form id="add-to-new-folder-form" onSubmit={handleSubmit}>
         <Input
+          id="folder-name"
           label="Folder name"
           value={name}
           onChange={(e) => setName(e.target.value)}
