@@ -1,5 +1,11 @@
 import type { Route } from "./+types/edit";
-import { Form, redirect, useNavigate, useBlocker } from "react-router";
+import {
+  Form,
+  redirect,
+  useNavigate,
+  useBlocker,
+  type unstable_BlockerFunction as BlockerFunction,
+} from "react-router";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
@@ -218,8 +224,13 @@ export default function EditArticle({
     urlValue.trim() !== "" &&
     hasTextContent(contentHtml);
 
-  // Suppress the blocker once a save succeeds so navigate("/article/list") passes through.
-  const blocker = useBlocker(isDirty && !actionData?.ok);
+  // Only block navigations that leave this page — not form submissions to the
+  // same route. Suppressed once a save succeeds so navigate() passes through.
+  const shouldBlock: BlockerFunction = ({ currentLocation, nextLocation }) =>
+    isDirty &&
+    !actionData?.ok &&
+    currentLocation.pathname !== nextLocation.pathname;
+  const blocker = useBlocker(shouldBlock);
 
   function handleFormInput(e: React.FormEvent<HTMLFormElement>) {
     const form = e.currentTarget;

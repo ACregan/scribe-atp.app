@@ -1,4 +1,8 @@
-import { useNavigate, useBlocker } from "react-router";
+import {
+  useNavigate,
+  useBlocker,
+  type unstable_BlockerFunction as BlockerFunction,
+} from "react-router";
 import { useEffect, useState, useMemo } from "react";
 import {
   PageContainer,
@@ -145,9 +149,13 @@ export default function ConfigureSite({
     [formValues],
   );
 
-  // Don't block navigation once the save has succeeded — the effect below
-  // will programmatically navigate to /sites immediately after.
-  const blocker = useBlocker(isDirty && !actionData?.ok);
+  // Only block navigations that leave this page — not form submissions to the
+  // same route. Suppressed once save succeeds so navigate() passes through.
+  const shouldBlock: BlockerFunction = ({ currentLocation, nextLocation }) =>
+    isDirty &&
+    !actionData?.ok &&
+    currentLocation.pathname !== nextLocation.pathname;
+  const blocker = useBlocker(shouldBlock);
 
   useEffect(() => {
     if (!actionData?.ok) return;
@@ -178,6 +186,7 @@ export default function ConfigureSite({
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Identity</legend>
             <Input
+              id="title"
               name="title"
               label="Title"
               value={formValues.title}
@@ -186,6 +195,7 @@ export default function ConfigureSite({
             />
             <div className={styles.row}>
               <Input
+                id="url"
                 name="url"
                 label="Domain"
                 value={formValues.url}
@@ -194,6 +204,7 @@ export default function ConfigureSite({
                 required
               />
               <Input
+                id="urlPrefix"
                 name="urlPrefix"
                 label="URL Prefix"
                 value={formValues.urlPrefix}

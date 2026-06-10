@@ -68,8 +68,9 @@ export function ArticleForm({
       <PageSection fill>
         <PageSectionColumns breakpoint="lg">
           <PageSectionColumn span={4} overflow>
-            <Input name="title" label="Title" {...titleProps} />
+            <Input id="title" name="title" label="Title" {...titleProps} />
             <Input
+              id="url"
               name="url"
               label="URL slug"
               placeholder="my-article-title"
@@ -116,8 +117,9 @@ export function ArticleForm({
   return (
     <>
       <PageSection>
-        <Input name="title" label="Title" {...titleProps} />
+        <Input id="title" name="title" label="Title" {...titleProps} />
         <Input
+          id="url"
           name="url"
           label="URL slug"
           placeholder="my-article-title"

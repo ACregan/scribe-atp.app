@@ -13,3 +13,8 @@ coverage/
 
 # Claude Code
 .claude/worktrees/
+
+# Playwright
+e2e/.auth/
+test-results/
+playwright-report/

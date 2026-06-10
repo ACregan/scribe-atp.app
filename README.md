@@ -1,6 +1,6 @@
 # Scribe ATP
 
-An AT Protocol-driven content management system. Authors write and store articles directly in their own [Bluesky](https://bsky.app) PDS (Personal Data Server) — the AT Protocol repository *is* the database. No proprietary backend, no lock-in.
+An AT Protocol-driven content management system. Authors write and store articles directly in their own [Bluesky](https://bsky.app) PDS (Personal Data Server) — the AT Protocol repository _is_ the database. No proprietary backend, no lock-in.
 
 ## How it works
 
@@ -21,21 +21,22 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | React Router v7 (framework mode, SSR) |
-| Dev server / bundler | Vite |
-| Language | TypeScript (strict mode) |
-| AT Protocol auth | @atproto/oauth-client-node — Bluesky OAuth PKCE |
-| AT Protocol calls | @atproto/api — XRPC Agent |
-| OAuth session store | better-sqlite3 — `data/oauth.db` |
-| Rich text editor | Lexical / @lexical/react |
-| Drag and drop | @dnd-kit (core, sortable, utilities) |
-| Styles | CSS Modules |
-| Testing | Vitest + React Testing Library + @testing-library/jest-dom |
-| Image Service | Express on port 3009 |
-| Image processing | sharp — WebP Variant generation |
-| Production server | react-router-serve on port 3008 |
+| Layer                | Technology                                                 |
+| -------------------- | ---------------------------------------------------------- |
+| Framework            | React Router v7 (framework mode, SSR)                      |
+| Dev server / bundler | Vite                                                       |
+| Language             | TypeScript (strict mode)                                   |
+| AT Protocol auth     | @atproto/oauth-client-node — Bluesky OAuth PKCE            |
+| AT Protocol calls    | @atproto/api — XRPC Agent                                  |
+| OAuth session store  | better-sqlite3 — `data/oauth.db`                           |
+| Rich text editor     | Lexical / @lexical/react                                   |
+| Drag and drop        | @dnd-kit (core, sortable, utilities)                       |
+| Styles               | CSS Modules                                                |
+| Unit testing         | Vitest + React Testing Library + @testing-library/jest-dom |
+| E2E testing          | Playwright (Chromium)                                      |
+| Image Service        | Express on port 3009                                       |
+| Image processing     | sharp — WebP Variant generation                            |
+| Production server    | react-router-serve on port 3008                            |
 
 ## Getting started
 
@@ -59,14 +60,14 @@ Minimum required value:
 SESSION_SECRET=your-32-plus-character-random-secret
 ```
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `SESSION_SECRET` | Yes | Signs the `__session` cookie — must be 32+ random characters. Shared with the Image Service for session verification. |
-| `PUBLIC_URL` | Production | Base URL e.g. `https://scribe-atp.app` — drives OAuth `client_id` and `redirect_uri` |
-| `DEV_USE_REAL_OAUTH` | Optional | Set to `"true"` to use real Bluesky OAuth in development (requires a tunnel — see below) |
-| `DEV_TUNNEL_HOST` | Optional | Cloudflare tunnel hostname (without `https://`) |
-| `DEV_PORT` | Optional | Dev server port if not 5173 |
-| `IMAGE_STORAGE_ROOT` | Image Service | Absolute filesystem path where image Variants are stored (e.g. `/var/scribe/images`) |
+| Variable             | Required      | Purpose                                                                                                               |
+| -------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`     | Yes           | Signs the `__session` cookie — must be 32+ random characters. Shared with the Image Service for session verification. |
+| `PUBLIC_URL`         | Production    | Base URL e.g. `https://scribe-atp.app` — drives OAuth `client_id` and `redirect_uri`                                  |
+| `DEV_USE_REAL_OAUTH` | Optional      | Set to `"true"` to use real Bluesky OAuth in development (requires a tunnel — see below)                              |
+| `DEV_TUNNEL_HOST`    | Optional      | Cloudflare tunnel hostname (without `https://`)                                                                       |
+| `DEV_PORT`           | Optional      | Dev server port if not 5173                                                                                           |
+| `IMAGE_STORAGE_ROOT` | Image Service | Absolute filesystem path where image Variants are stored (e.g. `/var/scribe/images`)                                  |
 
 ### 3. Start the dev server
 
@@ -101,9 +102,11 @@ npm run build                 # production build
 npm run start                 # serve production build on port 3008
 npm run start:image-service   # start Image Service on port 3009
 npm run typecheck             # react-router typegen + tsc
-npm test                      # run tests in watch mode
-npm run test:run              # run tests once (CI)
-npm run test:coverage         # run tests with coverage report
+npm test                      # run unit tests in watch mode
+npm run test:run              # run unit tests once (CI)
+npm run test:coverage         # run unit tests with coverage report
+npx playwright test           # run E2E suite (builds + starts server if not running)
+npx playwright test --ui      # E2E interactive UI mode
 ```
 
 ## Architecture
@@ -123,9 +126,9 @@ Browser
 
 **SQLite databases** — two separate files, both created automatically on first run:
 
-| File | Purpose |
-|---|---|
-| `data/oauth.db` | OAuth state and session tokens for the main app |
+| File             | Purpose                                                 |
+| ---------------- | ------------------------------------------------------- |
+| `data/oauth.db`  | OAuth state and session tokens for the main app         |
 | Image Service DB | Image folders and metadata (path configured separately) |
 
 See `docs/adr/0001-separate-image-service.md` for why the Image Service runs as a separate process.
@@ -165,10 +168,14 @@ See `docs/adr/0001-separate-image-service.md` for why the Image Service runs as 
     {
       "slug": "engineering",
       "title": "Engineering",
-      "articles": [ /* ArticleRef objects */ ]
+      "articles": [
+        /* ArticleRef objects */
+      ]
     }
   ],
-  "ungroupedArticles": [ /* ArticleRef objects */ ],
+  "ungroupedArticles": [
+    /* ArticleRef objects */
+  ],
   "createdAt": "2025-01-01T00:00:00.000Z",
   "updatedAt": "2025-06-01T12:00:00.000Z"
 }
@@ -257,13 +264,13 @@ The Image Library (`/images`) is available to all authenticated users.
 
 Each uploaded image is converted to WebP and stored at multiple sizes. A Variant is skipped if its bounding box would exceed the source image's longest side — no upscaling.
 
-| Variant | Bounding box |
-|---|---|
-| `thumb` | 300px |
-| `600` | 600px |
-| `1200` | 1200px |
-| `1800` | 1800px |
-| `max` | ≤ 3000px (original dimensions, capped) |
+| Variant | Bounding box                           |
+| ------- | -------------------------------------- |
+| `thumb` | 300px                                  |
+| `600`   | 600px                                  |
+| `1200`  | 1200px                                 |
+| `1800`  | 1800px                                 |
+| `max`   | ≤ 3000px (original dimensions, capped) |
 
 Storage path: `{IMAGE_STORAGE_ROOT}/{user_did}/{uuid}/{variant}.webp`
 
@@ -284,6 +291,8 @@ Public URL pattern: `/image-storage/{user_did}/{uuid}/{variant}.webp` — served
 
 ## Testing
 
+### Unit tests (Vitest)
+
 ```bash
 npm run test:run        # single run
 npm test                # watch mode
@@ -293,10 +302,21 @@ npm run test:coverage   # with coverage report
 Tests use **Vitest** with **React Testing Library**. All components in `app/components/` have co-located test suites. Pure function coverage includes the AT Protocol data-transformation utilities (`siteTree.ts`), the public hook utilities (`app/hooks/utils.ts`), constant validation patterns (`app/constants.ts`), and the shared cookie-session verification module (`shared/cookieSession.ts`).
 
 Test files are co-located with their source:
+
 - `app/components/Foo/Foo.test.tsx`
 - `app/hooks/utils.test.ts`
 - `app/services/articleSiteSync.test.ts`
 - `shared/cookieSession.test.ts`
+
+### E2E tests (Playwright)
+
+```bash
+npx playwright test           # full suite — 41 tests across 10 spec files
+npx playwright test --ui      # interactive UI mode
+npx playwright show-report    # view last HTML report
+```
+
+E2E tests run against a **production build** (`npm run build && npm run start`) using Chromium. An `E2E=true` env var activates dev-bypass auth in the production binary so no real Bluesky account is needed. `e2e/global-setup.ts` logs in once and saves a `storageState` session reused by all specs. See `docs/adr/0006-e2e-testing-strategy.md` for the full design rationale.
 
 ## Production
 
@@ -348,11 +368,11 @@ The main app's SQLite session store (`data/oauth.db`) is single-host. For multi-
 
 ## Project documentation
 
-| File | Purpose |
-|---|---|
-| `CLAUDE.md` | Architecture, patterns, and conventions for AI-assisted development |
-| `PLANNING.md` | Feature specs, data structures, and implementation notes |
-| `UBIQUITOUS_LANGUAGE.md` | Canonical glossary of domain terms |
-| `docs/adr/` | Architecture Decision Records |
-| `app/hooks/useSite.md` | `useSite` hook usage and examples |
-| `app/hooks/useArticle.md` | `useArticle` hook usage and examples |
+| File                      | Purpose                                                             |
+| ------------------------- | ------------------------------------------------------------------- |
+| `CLAUDE.md`               | Architecture, patterns, and conventions for AI-assisted development |
+| `PLANNING.md`             | Feature specs, data structures, and implementation notes            |
+| `UBIQUITOUS_LANGUAGE.md`  | Canonical glossary of domain terms                                  |
+| `docs/adr/`               | Architecture Decision Records                                       |
+| `app/hooks/useSite.md`    | `useSite` hook usage and examples                                   |
+| `app/hooks/useArticle.md` | `useArticle` hook usage and examples                                |
