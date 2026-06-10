@@ -49,6 +49,20 @@ test("site dropdown is empty by default in Add New Group modal", async ({
   await expect(page.locator('select[name="siteRkey"]')).toHaveValue("");
 });
 
+test("groups page shows sites and groups from fixture data", async ({
+  page,
+}) => {
+  await page.goto("/groups");
+  await expect(page.getByText("NoRobots.blog")).toBeVisible();
+  await expect(page.getByText("Perpetual Summer LTD")).toBeVisible();
+  await expect(page.getByText("Engineering")).toBeVisible();
+  await expect(page.getByText("Getting Started")).toBeVisible();
+});
+
+// Note: "Save & Leave" in the site-list blocker modal is intentionally not
+// tested here — it requires drag-and-drop to make the tree dirty, which is
+// too flaky to automate reliably with dnd-kit.
+
 // ── /article/list/:siteSlug page ──────────────────────────────────────────────
 
 test("Add New Group modal opens when button is clicked on site list page", async ({

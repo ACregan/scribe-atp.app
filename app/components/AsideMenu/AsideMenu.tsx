@@ -103,6 +103,7 @@ const AsideMenu = () => {
           >
             <Button
               type="submit"
+              aria-label="Logout"
               variant="danger"
               className={styles.exitButton}
             >
