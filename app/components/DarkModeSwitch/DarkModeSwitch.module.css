@@ -1,4 +1,7 @@
 .darkModeSwitchContainer {
+  appearance: none;
+  padding: 0;
+  font: inherit;
   position: relative;
   height: 4rem;
   width: 7rem;

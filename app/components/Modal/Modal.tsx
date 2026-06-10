@@ -1,5 +1,10 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import styles from "./Modal.module.css";
 
 type ModalProps = {
@@ -25,6 +30,27 @@ export function Modal({
   style,
   bodyStyle,
 }: ModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (isOpen) {
+      if (!dialog.open) {
+        dialog.showModal?.();
+        // jsdom doesn't implement showModal() — fall back to setting the attribute
+        if (!dialog.open) dialog.setAttribute("open", "");
+      }
+    } else {
+      if (dialog.open) {
+        dialog.close?.();
+        dialog.removeAttribute("open");
+      }
+    }
+  }, [isOpen]);
+
+  // Escape key — keep document listener so tests and older environments work
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -34,23 +60,29 @@ export function Modal({
     return () => document.removeEventListener("keydown", handleKey);
   }, [isOpen, onClose]);
 
-  if (!isOpen || typeof document === "undefined") return null;
+  function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
+    if (e.target === dialogRef.current) onClose();
+  }
 
-  return createPortal(
-    <div
-      className={styles.overlay}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
+  return (
+    <dialog
+      ref={dialogRef}
+      className={styles.dialog}
+      // prevent native Escape close — our keydown listener handles it
+      onCancel={(e) => e.preventDefault()}
+      onClick={handleBackdropClick}
+      aria-labelledby={titleId}
     >
       <div
         className={`${styles.modal}${className ? ` ${className}` : ""}`}
         style={style}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.header}>
-          <h2 className={styles.title}>{title}</h2>
+          <h2 id={titleId} className={styles.title}>
+            {title}
+          </h2>
           <button
+            type="button"
             className={styles.close}
             onClick={onClose}
             aria-label="Close modal"
@@ -66,7 +98,6 @@ export function Modal({
         </div>
         {footer && <div className={styles.footer}>{footer}</div>}
       </div>
-    </div>,
-    document.body,
+    </dialog>
   );
 }

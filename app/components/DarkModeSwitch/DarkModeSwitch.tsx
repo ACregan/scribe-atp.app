@@ -12,16 +12,18 @@ const DarkModeSwitch: React.FC<DarkModeSwitch> = ({
   darkMode,
 }) => {
   return (
-    <div
+    <button
+      type="button"
       className={`${styles.darkModeSwitchContainer} ${
         darkMode ? styles.darkMode : styles.lightMode
       }`}
-      onClick={() => toggleDarkMode()}
+      onClick={toggleDarkMode}
+      aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
     >
       <SvgIcon name={SvgImageList.DarkMode} fill="#d8d8d8" />
       <div className={styles.darkModeSwitch}></div>
       <SvgIcon name={SvgImageList.LightMode} fill="#ffdb00" />
-    </div>
+    </button>
   );
 };
 

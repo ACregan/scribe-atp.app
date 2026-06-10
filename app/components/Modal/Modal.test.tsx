@@ -39,10 +39,10 @@ describe("Modal", () => {
     });
 
     it("renders footer when provided", () => {
-      render(
-        <Modal {...defaultProps} footer={<button>Confirm</button>} />,
-      );
-      expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
+      render(<Modal {...defaultProps} footer={<button>Confirm</button>} />);
+      expect(
+        screen.getByRole("button", { name: "Confirm" }),
+      ).toBeInTheDocument();
     });
 
     it("renders no footer section when footer is omitted", () => {
@@ -93,11 +93,15 @@ describe("Modal", () => {
     });
   });
 
-  describe("portal", () => {
-    it("renders into document.body via portal", () => {
+  describe("dialog element", () => {
+    it("renders a native dialog element", () => {
       render(<Modal {...defaultProps} />);
-      // The dialog is a child of body, not of the render container
-      expect(document.body.querySelector('[role="dialog"]')).toBeInTheDocument();
+      expect(document.querySelector("dialog")).toBeInTheDocument();
+    });
+
+    it("dialog element is accessible with role dialog when open", () => {
+      render(<Modal {...defaultProps} />);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
   });
 });
