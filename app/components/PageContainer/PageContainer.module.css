@@ -45,6 +45,7 @@
   inset: 2rem;
   width: auto;
   max-width: unset;
+  height: auto;
   margin: 0;
   border-radius: 0.6rem;
   overflow: hidden;
@@ -152,6 +153,7 @@
 }
 .columnOverflow {
   composes: column;
+  min-height: 0;
   overflow-y: auto;
 }
 
