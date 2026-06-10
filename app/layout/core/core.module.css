@@ -1,13 +1,38 @@
+.skipLink {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.8rem 1.6rem;
+  background: var(--action-primary);
+  color: var(--text-on-dark);
+  font-weight: 600;
+  font-size: 1.4rem;
+  border-radius: 0 0 0.4rem 0.4rem;
+  text-decoration: none;
+  transition: top 0.1s ease;
+}
+.skipLink:focus {
+  top: 0;
+}
+
 .coreLayout_container {
   display: grid;
-  grid-template-columns: min-content 1fr;
+  grid-template-columns: 0 1fr;
   grid-template-rows: 8rem 1fr 6rem;
-  gap: 0px 0px;
   grid-template-areas:
     "header header"
     "aside main"
     "footer footer";
+  gap: 0;
   height: 100dvh;
+  transition: grid-template-columns 0.25s ease;
+}
+.coreLayout_container[data-aside-state="collapsed"] {
+  grid-template-columns: 6rem 1fr;
+}
+.coreLayout_container[data-aside-state="expanded"] {
+  grid-template-columns: 20rem 1fr;
 }
 .coreLayout_container > header {
   grid-area: header;
@@ -91,7 +116,7 @@
 .coreLayout_container > aside {
   grid-area: aside;
   background: var(--aside-background);
-  width: 6rem;
+  overflow: hidden;
 }
 
 .coreLayout_container > main {

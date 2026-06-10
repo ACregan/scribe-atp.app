@@ -1,80 +1,166 @@
 .asideElement {
-  display: flex;
+  position: relative;
+  /* display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: space-between; */
 }
+
 .topButtonContainer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-start;
   gap: 0.5rem;
-  padding: 0.5rem 0;
+  padding: 0.5rem;
 }
+
 .bottomButtonContainer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-start;
   gap: 0.5rem;
-  padding: 0.5rem 0;
+  padding: 0.5rem;
 }
 
+/* ── Nav link ── */
 .menuItemLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   height: 5rem;
-  width: 5rem;
-}
-
-/* Regular button status */
-.menuItemLink > button {
-  cursor: pointer;
-  width: 5rem;
-  height: 5rem;
+  width: 100%;
+  padding-left: 4.5rem; /* 1rem gap + 3rem icon + 0.5rem breathing room */
+  box-sizing: border-box;
   background: var(--aside-background);
   border: 0.2rem solid var(--aside-color);
-
   border-radius: 0.3rem;
+  text-decoration: none;
+  flex-shrink: 0;
 }
-.menuItemLink > button > svg {
-  fill: var(--aside-color);
-}
-/* HOVERED Regular button status */
-.menuItemLink > button:hover {
-  cursor: pointer;
-  width: 5rem;
-  height: 5rem;
-  background: var(--aside-background);
-  border: 0.2rem solid var(--aside-color);
+
+.menuItemLink:hover {
   box-shadow:
     inset 0 0 0 0.2rem var(--aside-background),
     inset 0 0 0 0.3rem var(--aside-color);
 }
-.menuItemLink > button:hover > svg {
-  fill: var(--aside-color);
-}
 
-/* Currently active button status */
-.menuItemLink[aria-current="page"] > button {
-  cursor: pointer;
-  width: 5rem;
-  height: 5rem;
+.menuItemLink[aria-current="page"] {
   background: var(--aside-color);
 }
-.menuItemLink[aria-current="page"] > button:hover {
-  border: 0.2rem solid var(--aside-color);
-  box-shadow: none;
+.menuItemLink[aria-current="page"] > .menuItemLabel {
+  color: var(--aside-background);
 }
-.menuItemLink[aria-current="page"] > button > svg {
+
+.menuItemLink[aria-current="page"] .menuItemIconWrapper svg {
   fill: var(--aside-background);
 }
 
-/* LOGOUT BUTTON */
-
-.bottomButtonContainer > form > button {
-  height: 5rem;
-  width: 5rem;
+/* ── Icon wrapper — absolutely positioned so it never shifts ── */
+.menuItemIconWrapper {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
 }
-.bottomButtonContainer > form > button > svg {
-  height: 5rem;
-  width: 5rem;
+
+.menuItemIconWrapper svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Label ── */
+.menuItemLabel {
+  color: var(--aside-color);
+  font-size: 1.4rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 1;
+  max-width: 20rem;
+  /* expanding: wait briefly for space to open, then fade in */
+  transition:
+    opacity 0.15s ease 0.1s,
+    max-width 0.25s ease;
+}
+
+.menuItemLabelHidden {
+  opacity: 0;
+  max-width: 0;
+  pointer-events: none;
+  /* collapsing: fade out quickly while space shrinks */
+  transition:
+    opacity 0.1s ease,
+    max-width 0.25s ease;
+}
+
+/* ── Toggle button ── */
+.toggleButton {
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 3rem;
+  padding: 0;
+  border-radius: 0.3rem;
+  align-self: center;
+}
+
+.toggleButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.toggleChevron {
+  display: flex;
+  transform: rotate(-90deg);
+  transition: transform 0.25s ease;
+}
+
+.toggleChevronExpanded {
+  display: flex;
+  transform: rotate(90deg);
+  transition: transform 0.25s ease;
+}
+
+.toggleChevron svg,
+.toggleChevronExpanded svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* ── Logout button ── */
+.exitButton {
+  position: relative !important;
+  height: 5rem !important;
+  width: 100% !important;
+  padding-left: 4.5rem !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  justify-content: flex-start !important;
+}
+.exitButton > .menuItemLabel {
+  margin-left: 0.5rem;
+  color: var(--white);
 }
