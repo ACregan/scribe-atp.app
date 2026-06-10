@@ -231,6 +231,7 @@ export default function ConfigureSite({
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Images</legend>
             <Input
+              id="splashImageUrl"
               name="splashImageUrl"
               label="Splash Image URL"
               value={formValues.splashImageUrl}
@@ -245,6 +246,7 @@ export default function ConfigureSite({
               />
             )}
             <Input
+              id="logoImageUrl"
               name="logoImageUrl"
               label="Logo Image URL"
               value={formValues.logoImageUrl}
@@ -267,7 +269,7 @@ export default function ConfigureSite({
       </PageSection>
       <FooterPortal>
         <Link to="/sites">
-          <Button type="button" variant="secondary">
+          <Button type="button" variant="secondary" tabIndex={-1}>
             Cancel
           </Button>
         </Link>

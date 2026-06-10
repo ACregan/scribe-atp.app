@@ -1,4 +1,5 @@
 import type { Route } from "./+types/core";
+import { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router";
 import { getAuthSession, useRealOAuth } from "~/services/auth.server";
 import { getTheme } from "~/services/theme.server";
@@ -76,9 +77,35 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
   const isNavigating = navigation.state !== "idle";
   const { theme, toggleTheme } = useTheme();
 
+  const [asideExpanded, setAsideExpanded] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem("aside-expanded") === "true")
+      setAsideExpanded(true);
+  }, []);
+
+  function handleToggleAside() {
+    setAsideExpanded((prev) => {
+      const next = !prev;
+      localStorage.setItem("aside-expanded", String(next));
+      return next;
+    });
+  }
+
+  const asideState = !isAuthenticated
+    ? "hidden"
+    : asideExpanded
+      ? "expanded"
+      : "collapsed";
+
   return (
     <ToastProvider>
-      <div className={styles.coreLayout_container}>
+      <a href="#main-content" className={styles.skipLink}>
+        Skip to main content
+      </a>
+      <div
+        className={styles.coreLayout_container}
+        data-aside-state={asideState}
+      >
         <header>
           <div className={styles.logoContainer}>
             <h4>
@@ -124,8 +151,10 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
             />
           </div>
         </header>
-        {isAuthenticated && <AsideMenu />}
-        <main>
+        {isAuthenticated && (
+          <AsideMenu expanded={asideExpanded} onToggle={handleToggleAside} />
+        )}
+        <main id="main-content">
           {isNavigating && <Spinner overlay />}
           <Outlet />
         </main>

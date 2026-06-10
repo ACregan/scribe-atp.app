@@ -125,7 +125,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     const groups = value.groups as
       | Array<{ articles?: Array<{ uri: string }> }>
       | undefined;
-    const topArticles = value.ungroupedArticles as Array<{ uri: string }> | undefined;
+    const topArticles = value.ungroupedArticles as
+      | Array<{ uri: string }>
+      | undefined;
     groups?.forEach((g) =>
       g.articles?.forEach((a) => referencedUris.add(a.uri)),
     );
@@ -238,7 +240,7 @@ function GroupSiteItem({
         <strong className={styles.siteTitle}>{site.title}</strong>
         <div className={styles.siteActions}>
           <Link to={`/article/list/${site.rkey}`}>
-            <Button type="button" variant="primary">
+            <Button type="button" variant="primary" tabIndex={-1}>
               Manage
             </Button>
           </Link>
@@ -314,22 +316,26 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <>
             <div className={styles.quickActions}>
               <Link to="/sites/new">
-                <Button type="button" icon={SvgImageList.Website}>
+                <Button type="button" icon={SvgImageList.Website} tabIndex={-1}>
                   New Site
                 </Button>
               </Link>
               <Link to="/groups/new">
-                <Button type="button" icon={SvgImageList.Folder}>
+                <Button type="button" icon={SvgImageList.Folder} tabIndex={-1}>
                   New Group
                 </Button>
               </Link>
               <Link to="/article/create">
-                <Button type="button" icon={SvgImageList.Document}>
+                <Button
+                  type="button"
+                  icon={SvgImageList.Document}
+                  tabIndex={-1}
+                >
                   New Article
                 </Button>
               </Link>
               <Link to="/images">
-                <Button type="button" icon={SvgImageList.Image}>
+                <Button type="button" icon={SvgImageList.Image} tabIndex={-1}>
                   Image Library
                 </Button>
               </Link>
@@ -401,7 +407,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                         )}
                       </Pill>
                       <Link to={`/article/edit/${article.url}`}>
-                        <Button type="button" variant="secondary">
+                        <Button type="button" variant="secondary" tabIndex={-1}>
                           Edit
                         </Button>
                       </Link>

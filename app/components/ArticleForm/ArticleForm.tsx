@@ -77,6 +77,7 @@ export function ArticleForm({
               {...urlProps}
             />
             <Input
+              id="splashImageUrl"
               name="splashImageUrl"
               label="Splash image URL"
               defaultValue={defaultSplashImageUrl}
@@ -126,6 +127,7 @@ export function ArticleForm({
           {...urlProps}
         />
         <Input
+          id="splashImageUrl"
           name="splashImageUrl"
           label="Splash image URL"
           defaultValue={defaultSplashImageUrl}

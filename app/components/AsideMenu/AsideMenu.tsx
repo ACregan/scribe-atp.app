@@ -6,44 +6,15 @@ import type { SvgImageListTypes } from "../SvgIcon/SvgIcon";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 import { Button } from "../Button/Button";
 
-interface AsideMenuItemProps {
+interface AsideMenuItemConfig {
   id: string;
   icon: SvgImageListTypes;
-  label: React.ReactNode;
+  label: string;
   to: string;
 }
-const AsideMenuItem: React.FC<AsideMenuItemProps> = ({
-  id,
-  icon,
-  label,
-  to,
-}) => {
-  return (
-    <NavLink to={to} className={styles.menuItemLink}>
-      <Tooltip
-        anchorName={id}
-        anchorPosition="right"
-        anchorContent={
-          <TooltipBubble pointerLocation="left">
-            <strong>{label}</strong>
-          </TooltipBubble>
-        }
-      >
-        <button>
-          <SvgIcon name={icon} fill="var(--white)" />
-        </button>
-      </Tooltip>
-    </NavLink>
-  );
-};
 
-const MENU_CONFIG: AsideMenuItemProps[] = [
-  {
-    id: "home",
-    icon: SvgImageList.Home,
-    label: "Dashboard",
-    to: "/",
-  },
+const MENU_CONFIG: AsideMenuItemConfig[] = [
+  { id: "home", icon: SvgImageList.Home, label: "Dashboard", to: "/" },
   {
     id: "site-management",
     icon: SvgImageList.Website,
@@ -76,21 +47,80 @@ const MENU_CONFIG: AsideMenuItemProps[] = [
   },
 ];
 
-const AsideMenu = () => {
+interface AsideMenuProps {
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+const AsideMenuItem: React.FC<AsideMenuItemConfig & { expanded: boolean }> = ({
+  id,
+  icon,
+  label,
+  to,
+  expanded,
+}) => {
+  const iconEl = (
+    <span className={styles.menuItemIconWrapper}>
+      <SvgIcon name={icon} fill="var(--aside-color)" />
+    </span>
+  );
+
+  return (
+    <NavLink
+      to={to}
+      className={`${styles.menuItemLink}${expanded ? ` ${styles.menuItemLinkExpanded}` : ""}`}
+      aria-label={expanded ? undefined : label}
+    >
+      {expanded ? (
+        iconEl
+      ) : (
+        <Tooltip
+          anchorName={id}
+          anchorPosition="right"
+          anchorContent={
+            <TooltipBubble pointerLocation="left">
+              <strong>{label}</strong>
+            </TooltipBubble>
+          }
+        >
+          {iconEl}
+        </Tooltip>
+      )}
+      <span
+        className={`${styles.menuItemLabel}${!expanded ? ` ${styles.menuItemLabelHidden}` : ""}`}
+      >
+        {label}
+      </span>
+    </NavLink>
+  );
+};
+
+const AsideMenu: React.FC<AsideMenuProps> = ({ expanded, onToggle }) => {
   return (
     <aside className={styles.asideElement}>
       <div className={styles.topButtonContainer}>
         {MENU_CONFIG.map((menuItem) => (
-          <AsideMenuItem
-            key={menuItem.id}
-            id={menuItem.id}
-            icon={menuItem.icon}
-            label={menuItem.label}
-            to={menuItem.to}
-          />
+          <AsideMenuItem key={menuItem.id} {...menuItem} expanded={expanded} />
         ))}
       </div>
       <div className={styles.bottomButtonContainer}>
+        <button
+          type="button"
+          className={styles.toggleButton}
+          onClick={onToggle}
+          aria-label={expanded ? "Collapse navigation" : "Expand navigation"}
+        >
+          <span
+            className={
+              expanded ? styles.toggleChevronExpanded : styles.toggleChevron
+            }
+          >
+            <SvgIcon
+              name={SvgImageList.ChevronDown}
+              fill="var(--aside-color)"
+            />
+          </span>
+        </button>
         <Form method="post" action="/logout">
           <Tooltip
             anchorName={"logout-button"}
@@ -107,7 +137,14 @@ const AsideMenu = () => {
               variant="danger"
               className={styles.exitButton}
             >
-              <SvgIcon name={SvgImageList.Exit} fill="white" />
+              <span className={styles.menuItemIconWrapper}>
+                <SvgIcon name={SvgImageList.Exit} fill="white" />
+              </span>
+              <span
+                className={`${styles.menuItemLabel}${!expanded ? ` ${styles.menuItemLabelHidden}` : ""}`}
+              >
+                Logout
+              </span>
             </Button>
           </Tooltip>
         </Form>

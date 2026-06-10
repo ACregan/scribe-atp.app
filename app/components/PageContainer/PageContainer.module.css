@@ -17,7 +17,7 @@
 /* <PageContainer> component */
 .pageContainer {
   width: 100rem;
-  max-width: calc(100vw - 6rem - 2rem - 2rem);
+  max-width: calc(100% - 4rem);
   /* min-height: calc(100dvh - 8rem - 6rem - 2rem); */
   height: fit-content;
   background-color: var(--surface-page);
@@ -41,11 +41,9 @@
 }
 .fixedPageContainer {
   composes: pageContainer;
-  position: fixed;
-  top: calc(8rem + 2rem);
-  left: calc(6rem + 2rem);
-  width: calc(100dvw - 6rem - 2rem - 2rem);
-  height: calc(100dvh - 8rem - 6rem - 2rem - 2rem);
+  position: absolute;
+  inset: 2rem;
+  width: auto;
   max-width: unset;
   margin: 0;
   border-radius: 0.6rem;

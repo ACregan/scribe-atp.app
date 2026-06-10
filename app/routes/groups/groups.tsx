@@ -294,7 +294,7 @@ const GroupSiteItem: React.FC<GroupSiteItemProps> = ({ site }) => {
         <strong className={styles.siteTitle}>{site.title}</strong>
         <div className={styles.siteActions}>
           <Link to={`/article/list/${site.rkey}`}>
-            <Button type="button" variant="primary">
+            <Button type="button" variant="primary" tabIndex={-1}>
               Manage
             </Button>
           </Link>

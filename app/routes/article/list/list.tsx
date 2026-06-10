@@ -182,12 +182,12 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                 </div>
                 <div className={styles.articleButtons}>
                   <Link to={`/article/view/${article.rkey}`}>
-                    <Button type="button" variant="secondary">
+                    <Button type="button" variant="secondary" tabIndex={-1}>
                       View
                     </Button>
                   </Link>
                   <Link to={`/article/edit/${article.rkey}`}>
-                    <Button type="button" variant="primary">
+                    <Button type="button" variant="primary" tabIndex={-1}>
                       Edit
                     </Button>
                   </Link>
@@ -223,12 +223,12 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                 </div>
                 <div className={styles.articleButtons}>
                   <Link to={`/article/view/${article.rkey}`}>
-                    <Button type="button" variant="secondary">
+                    <Button type="button" variant="secondary" tabIndex={-1}>
                       View
                     </Button>
                   </Link>
                   <Link to={`/article/edit/${article.rkey}`}>
-                    <Button type="button" variant="primary">
+                    <Button type="button" variant="primary" tabIndex={-1}>
                       Edit
                     </Button>
                   </Link>

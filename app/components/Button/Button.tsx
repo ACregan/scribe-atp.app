@@ -11,10 +11,12 @@ export function Button({
   icon,
   className,
   children,
+  type = "button",
   ...props
 }: ButtonProps) {
   return (
     <button
+      type={type}
       className={`${styles.button} ${styles[variant]}${className ? ` ${className}` : ""}`}
       {...props}
     >

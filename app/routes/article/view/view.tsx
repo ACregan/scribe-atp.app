@@ -67,10 +67,12 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
 
       <FooterPortal>
         <Link to="/article/list">
-          <Button variant="secondary">Back to articles</Button>
+          <Button variant="secondary" tabIndex={-1}>
+            Back to articles
+          </Button>
         </Link>
         <Link to={`/article/edit/${url}`}>
-          <Button>Edit</Button>
+          <Button tabIndex={-1}>Edit</Button>
         </Link>
       </FooterPortal>
     </PageContainer>
