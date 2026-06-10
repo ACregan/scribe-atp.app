@@ -17,6 +17,8 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 - Unassigned articles alert — the dashboard flags any articles not referenced by any site
 - Recently updated — the dashboard shows the five most recently edited articles
 - **Image Library** — upload, organise, and serve images; automatic WebP conversion and multi-size Variant generation; multi-select with bulk move, bulk delete, and drag-and-drop reordering; image preview modal with per-Variant URL copy; fullscreen viewer
+- **Collapsible sidebar navigation** — expands to show labels or collapses to icon-only; state persisted in localStorage; skip-to-content link for keyboard users
+- **Accessibility** — native `<dialog>` modals with keyboard and screen reader support, correct label association on all form inputs, no double tab stops on linked buttons
 - Public read access — no auth required for consumers; public React hooks included for building read-only frontends (see [Public hooks](#public-hooks))
 
 ## Stack

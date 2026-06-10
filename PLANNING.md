@@ -298,7 +298,7 @@ See the **Theming** section in CLAUDE.md for the full token reference and implem
 
 ### Status: Implemented (June 2026)
 
-Full Playwright E2E suite covering all major user journeys. 41 tests across 10 spec files, all running against a production build with Chromium.
+Full Playwright E2E suite covering all major user journeys. 46 tests across 11 spec files, all running against a production build with Chromium.
 
 ### Design decisions
 
@@ -308,3 +308,19 @@ Full Playwright E2E suite covering all major user journeys. 41 tests across 10 s
 - **Scope**: happy path + key regression guards (e.g. "Add New Group modal opens when button is clicked" — the exact regression that motivated the suite)
 
 See `docs/adr/0006-e2e-testing-strategy.md` for the full decision record.
+
+## FEATURE: Accessibility
+
+### Status: Implemented (June 2026)
+
+Systematic pass targeting WCAG 2.1 AA compliance across the application.
+
+### Changes
+
+- **Native `<dialog>` modals** — `Modal` component replaced the old `createPortal` + `div` approach with a native `<dialog>` element opened via `showModal()`. Gains built-in focus trapping, Escape key handling, backdrop click, and correct `role="dialog"` semantics. `aria-labelledby` wired to the modal title via `useId()`.
+- **Collapsible sidebar** — `AsideMenu` now accepts `expanded: boolean` and `onToggle: () => void` props. State is owned by `core.tsx` and persisted in `localStorage` under `"aside-expanded"`. Collapsed mode (6 rem) shows icons only with tooltip labels; expanded mode (20 rem) shows icons and label text. In collapsed mode each nav link carries `aria-label` so the accessible name is present without visible text.
+- **Skip-to-content link** — `<a href="#main-content">Skip to main content</a>` rendered before the layout grid in `core.tsx`; `<main id="main-content">` is the target. Visible on focus only (CSS `.skipLink`).
+- **Form input label association** — all `<Input>` usages that render a `<label>` now receive an explicit `id` prop matching `name`. Without a matching `id`, `htmlFor` has no element to point at (WCAG 2.1 AA failure).
+- **`<Link><Button>` double tab stop** — every `<Button>` nested inside a `<Link>` now carries `tabIndex={-1}`. The `<a>` is the single tab stop; the button is kept in the DOM for pointer access but removed from the keyboard tab order.
+- **Button `type` default** — `Button` component defaults to `type="button"`. Prevents accidental form submission when a `<Button>` sits inside a `<Form>` without an explicit type; all intentional submit buttons already pass `type="submit"` explicitly.
+- **`DarkModeSwitch`** — converted from a `<div>` to a `<button>` with a dynamic `aria-label` ("Switch to light mode" / "Switch to dark mode").
