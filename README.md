@@ -307,6 +307,7 @@ Test files are co-located with their source:
 
 - `app/components/Foo/Foo.test.tsx`
 - `app/hooks/utils.test.ts`
+- `app/routes/images/images.test.tsx`
 - `app/services/articleSiteSync.test.ts`
 - `shared/cookieSession.test.ts`
 

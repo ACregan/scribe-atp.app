@@ -65,6 +65,7 @@ type LoaderData = {
   subfolders: BrowseFolder[];
   images: BrowseImage[];
   profiles: Record<string, UserProfile>;
+  serviceError?: boolean;
 };
 
 const VARIANT_ORDER = ["thumb", "600", "1200", "1800", "max"];
@@ -123,6 +124,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   try {
     const response = await fetch(apiUrl, {
       headers: { Cookie: request.headers.get("Cookie") ?? "" },
+      signal: AbortSignal.timeout(5000),
     });
     if (!response.ok)
       throw new Error(`Image Service returned ${response.status}`);
@@ -173,6 +175,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       images: [],
       currentUserDid: did,
       profiles: {},
+      serviceError: true,
     } satisfies LoaderData;
   }
 }
@@ -214,8 +217,15 @@ function Droppable({
 }
 
 export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
-  const { folder, breadcrumbs, subfolders, images, currentUserDid, profiles } =
-    loaderData;
+  const {
+    folder,
+    breadcrumbs,
+    subfolders,
+    images,
+    currentUserDid,
+    profiles,
+    serviceError,
+  } = loaderData;
   const isEmpty = subfolders.length === 0 && images.length === 0;
   const isOwnTree = folder?.user_did === currentUserDid;
 
@@ -681,7 +691,27 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
       </PageSection>
 
       <PageSection overflow>
-        {!folder && isEmpty && (
+        {serviceError && (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStateHeading}>
+              Image Service unavailable
+            </p>
+            <p className={styles.emptyStateBody}>
+              The Image Service did not respond in time. Make sure it is running
+              and try again.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={refresh}
+              disabled={revalidator.state !== "idle"}
+            >
+              {revalidator.state !== "idle" ? "Retrying…" : "Retry"}
+            </Button>
+          </div>
+        )}
+
+        {!serviceError && !folder && isEmpty && (
           <div className={styles.emptyState}>
             <p className={styles.emptyStateHeading}>No images yet</p>
             <p className={styles.emptyStateBody}>
@@ -690,7 +720,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
           </div>
         )}
 
-        {folder && isEmpty && (
+        {!serviceError && folder && isEmpty && (
           <div className={styles.emptyState}>
             <p className={styles.emptyStateHeading}>This folder is empty</p>
             <p className={styles.emptyStateBody}>

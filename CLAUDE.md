@@ -898,6 +898,12 @@ images        (id, user_did, folder_id, filename, original_name, width, height, 
 
 On startup, the Image Service sweeps the filesystem for UUID directories with no corresponding `images` SQLite row and deletes them. These are left behind when the service restarts mid-processing.
 
+### `/images` route loader — service availability
+
+The `/images` route loader fetches browse data from the Image Service via `http://localhost:3009`. The fetch uses `AbortSignal.timeout(5000)` so a slow or unresponsive service fails fast rather than hanging the navigation indefinitely.
+
+When the fetch fails for any reason (timeout, connection refused, non-OK response), the loader catches the error, logs it, and returns `{ serviceError: true, ...emptyData }`. The component renders an "Image Service unavailable" message with a **Retry** button that calls `revalidator.revalidate()` to re-run the loader without a full page navigation. Normal empty-state messages ("No images yet", "This folder is empty") are suppressed when `serviceError` is set.
+
 ## Key commands
 
 ```bash
