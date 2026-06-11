@@ -19,9 +19,9 @@ import {
   buildArticleRecord,
   buildArticleRef,
   loadSiteOptions,
-  hasTextContent,
 } from "~/services/article.server";
 import { toSlug } from "~/hooks/utils";
+import { hasTextContent } from "~/components/utils";
 import { addArticleToSites } from "~/services/articleSiteSync.server";
 import { devCreateLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";

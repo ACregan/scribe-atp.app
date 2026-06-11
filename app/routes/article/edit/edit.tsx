@@ -11,8 +11,8 @@ import {
   validateArticleFields,
   buildArticleRecord,
   buildArticleRef,
-  hasTextContent,
 } from "~/services/article.server";
+import { hasTextContent } from "~/components/utils";
 import {
   computeSiteAssignmentChanges,
   syncSiteArticleRefs,
