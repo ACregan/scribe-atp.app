@@ -13,6 +13,10 @@ vi.mock("../SvgIcon/SvgIcon", () => ({
 const mockToasts: ToastPropsWithId[] = [];
 const mockRemoveToast = vi.fn();
 
+vi.mock("~/context/ThemeContext", () => ({
+  useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }),
+}));
+
 vi.mock("./ToastContext", () => ({
   useToast: () => ({
     toasts: mockToasts,

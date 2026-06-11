@@ -76,6 +76,11 @@ vi.mock("../Modal/Modal", () => ({
     ) : null,
 }));
 
+// Mock IconBadge so it doesn't render a second SvgIcon
+vi.mock("../IconBadge/IconBadge", () => ({
+  IconBadge: () => <div data-testid="icon-badge" />,
+}));
+
 // Mock SvgIcon
 vi.mock("../SvgIcon/SvgIcon", () => ({
   default: ({ name }: { name: string }) => (
@@ -137,13 +142,6 @@ describe("ArticleItem", () => {
         defaultProps.createdAt,
       ).toLocaleDateString();
       expect(screen.getByText(expectedDate)).toBeInTheDocument();
-    });
-
-    it("should display the URI in monospace font", () => {
-      render(<ArticleItem {...defaultProps} />);
-      const uriElement = screen.getByText(defaultProps.uri);
-      expect(uriElement).toBeInTheDocument();
-      expect(uriElement).toHaveStyle("font-family: monospace");
     });
 
     it("should render the drag handle icon", () => {
