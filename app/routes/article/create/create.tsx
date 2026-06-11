@@ -20,6 +20,7 @@ import {
   buildArticleRef,
   loadSiteOptions,
 } from "~/services/article.server";
+import { toSlug } from "~/hooks/utils";
 import { addArticleToSites } from "~/services/articleSiteSync.server";
 import { devCreateLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";
@@ -113,17 +114,8 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-// Strips HTML tags to check whether the editor actually contains text.
 function hasTextContent(html: string): boolean {
   return html.replace(/<[^>]*>/g, "").trim() !== "";
-}
-
-function toSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
 }
 
 export default function Create({

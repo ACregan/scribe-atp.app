@@ -38,7 +38,7 @@ export type TreeGroupNode = {
 
 // ── ID helpers ────────────────────────────────────────────────────────────────
 
-export { slugFromUri } from "~/hooks/utils";
+export { slugFromUri, toSlug } from "~/hooks/utils";
 import { slugFromUri } from "~/hooks/utils";
 
 export function articleId(slug: string): string {
@@ -47,16 +47,6 @@ export function articleId(slug: string): string {
 
 export function groupId(slug: string): string {
   return `g:${slug}`;
-}
-
-// ── Slug generator (group title → URL slug) ───────────────────────────────────
-
-export function toSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
 }
 
 // ── Site record mutations ─────────────────────────────────────────────────────

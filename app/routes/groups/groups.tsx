@@ -19,7 +19,7 @@ import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { Pill } from "~/components/Pill/Pill";
 import { useToast } from "~/components/Toast/ToastContext";
-import { toSlug } from "~/routes/article/site-list/siteTree";
+import { toSlug } from "~/hooks/utils";
 import styles from "./groups.module.css";
 
 type GroupSummary = {
