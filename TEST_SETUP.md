@@ -28,6 +28,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./test.setup.ts",
     include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    exclude: ["node_modules/**", ".claude/**", "e2e/**"],
     coverage: {
       reporter: ["text", "json", "html"],
       exclude: ["node_modules/", "test.setup.ts", "**/*.module.css"],
@@ -78,6 +79,7 @@ npm run test:coverage # single run with coverage report
 
 - [x] `app/components/ArticleForm/ArticleForm.test.tsx`
 - [x] `app/components/ArticleItem/ArticleItem.test.tsx`
+- [x] `app/components/DarkModeSwitch/DarkModeSwitch.test.tsx`
 - [x] `app/components/ArticleList/ArticleList.test.tsx`
 - [x] `app/components/AsideMenu/AsideMenu.test.tsx`
 - [x] `app/components/Button/Button.test.tsx`
@@ -98,11 +100,22 @@ npm run test:coverage # single run with coverage report
 - [x] `app/components/Toast/ToastContext.test.tsx`
 - [x] `app/components/Tooltip/Tooltip.test.tsx`
 
+### Context / services
+
+- [x] `app/context/ThemeContext.test.tsx`
+- [x] `app/services/articleSiteSync.test.ts`
+- [x] `app/services/theme.server.test.ts`
+- [x] `shared/cookieSession.test.ts`
+
+### Route-level
+
+- [x] `app/routes/images/images.test.tsx`
+
 ### Pure functions / utilities
 
 - [x] `app/constants.test.ts` — `SLUG_RE`, `DOMAIN_RE` valid/invalid cases; collection name constants
-- [x] `app/hooks/utils.test.ts` — `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier`
-- [x] `app/routes/article/site-list/siteTree.test.ts` — `toSlug`, `buildTreeFromSite`, `treeToSiteData`, full round-trip suite
+- [x] `app/hooks/utils.test.ts` — `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier`, `toSlug`
+- [x] `app/routes/article/site-list/siteTree.test.ts` — `toSlug`, `nodeFromRef`, `articleRefFromNode`, `buildTreeFromSite`, `treeToSiteData`, full round-trip suite
 
 ### Next priority
 

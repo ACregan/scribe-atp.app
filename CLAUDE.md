@@ -42,7 +42,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 ## Routes
 
 ```
-/                              home            — dashboard: quick actions, unassigned-article alert, recently updated list
+/                              home            — public landing page for unauthenticated visitors; dashboard for authenticated users (quick actions, unassigned-article alert, recently updated list)
 /login                         login           — Bluesky OAuth entry point (or dev bypass); centred card UI with sign-up link to bsky.app
 /logout                        logout          — destroys session cookie, redirects to /login
 /auth/callback                 callback        — OAuth redirect handler, sets session cookie
@@ -251,24 +251,31 @@ Key design decisions for `app.scribe.site`:
 - Groups and article order within groups are authoritative — the site record is the manifest
 - `updatedAt` is useful for cache invalidation by public readers
 - Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
-- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. Current mirrored fields: `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`. When adding a new article field, also add it to `ArticleRef` in `app/hooks/types.ts` in the same PR, then update the construction/propagation sites: `buildArticleRef` in `app/services/article.server.ts` (called by `create.tsx` and `edit.tsx`), and the `TreeArticleNode` type + both `buildTreeFromSite` maps + both `treeToSiteData` maps in `app/routes/article/site-list/siteTree.ts`.
+- **ArticleRef mirroring principle:** every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef`. `content` is excluded because it can be arbitrarily large and defeats the purpose of a cached snapshot. Current mirrored fields: `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`. When adding a new article field, also add it to `ArticleRef` in `app/hooks/types.ts` in the same PR, then update the construction/propagation sites: `buildArticleRef` in `app/services/article.server.ts` (called by `create.tsx` and `edit.tsx`), and `nodeFromRef` + `articleRefFromNode` in `siteTree.ts` (the single field-mapping seam between `ArticleRef` and `TreeArticleNode` — `buildTreeFromSite` and `treeToSiteData` delegate all field work to them).
 - **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every site the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member sites without any manual re-ordering.
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
 
 The `/article/list` route shows two sections: a site picker (links to `/article/list/:siteSlug` for each site) and an **Unassigned Articles** section listing any `app.scribe.article` records not referenced in any site's `ungroupedArticles` or `groups[x].articles`. The loader fetches both article and site records in parallel, builds a `Set` of referenced URIs from all site values, and returns the difference as `orphanedArticles`. The route has a `deleteArticle` action for removing orphaned articles directly. The section is hidden when there are no orphans.
 
-The site picker renders each site as a `SiteListItem` (from `app/components/SiteListItem/`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, the site title, composed URL, and group/article count badges. The loader maps all `SiteData` fields from the site record. Both image fields fall back to a CSS gradient when absent. `onDelete` is not passed here — deletion is only available on `/sites`.
+The site picker renders each site as a `SiteListItem` (from `app/components/SiteListItem/`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, the site title, composed URL, and group/article count badges. The loader maps all `SiteCard` fields from the site record. Both image fields fall back to a CSS gradient when absent. `onDelete` is not passed here — deletion is only available on `/sites`.
 
 The `/article/list/:siteSlug` route is the site-scoped management view. It reads the site record, builds a DnD tree, and writes the updated site record back. Actions: `createGroup`, `deleteGroup`, `saveSite`, `removeArticle`. **Remove article only removes it from the site record — it does not delete the PDS article record.**
 
 Key behaviours on this route:
 
-- **Dirty tracking** — `savedTreeRef` holds the tree as last saved (initialised from loader, updated on successful save). `isDirty` is computed via `useMemo` using `JSON.stringify` comparison. The Save Order button is disabled until `isDirty` is true.
+The route's state and DnD logic are extracted into two co-located hooks:
+
+- **`useDirtyTree(site)`** (`useDirtyTree.ts`) — owns `tree`/`savedTree` state, `isDirty` computation, the group-creation sync effect (detects newly persisted groups from the loader and appends them without marking dirty), and `markSaved`/`removeGroup` helpers.
+- **`useSiteListDnD(tree, setTree)`** (`useSiteListDnD.ts`) — owns DnD sensors, `activeArticle`/`activeGroup` state, and all three drag handlers (`onDragStart`, `onDragOver`, `onDragEnd`).
+
+Key behaviours:
+
+- **Dirty tracking** — `savedTree` holds the tree as last saved. `isDirty` is computed via `useMemo` using `JSON.stringify` comparison. The Save Order button is disabled until `isDirty` is true.
 - **Navigation blocker** — `useBlocker(isDirty)` intercepts any React Router navigation when there are unsaved changes. A modal appears with three options: **Stay** (`blocker.reset()`), **Discard & Leave** (`blocker.proceed()`), **Save & Leave** (triggers save, then calls `blocker.proceed()` from the fetcher effect via `proceedAfterSaveRef`).
 - **Save feedback** — success shows a primary toast (auto-expires); error shows a danger toast with `autoExpire: false` so it persists until dismissed.
-- **Group create** — `createGroup` action returns `{ ok: true }` (not a redirect) so the fetcher can close the modal automatically. The loader revalidates automatically after any fetcher action; `knownGroupSlugsRef` tracks which group slugs are already in the tree, and a `useEffect` on `site.groups` detects newly added slugs and appends them as empty group nodes. `savedTreeRef` is updated in the same step so new groups don't register as unsaved changes.
-- **Group delete** — handled via `deleteFetcher` (not a form redirect). Action returns `{ ok: true, deletedSlug }`; a `useEffect` removes the deleted group from both `tree` and `savedTreeRef` client-side. The `GroupItem` delete button shows `<Spinner size="small" />` while `isDeleting` is true.
+- **Group create** — `createGroup` action returns `{ ok: true }` (not a redirect) so the fetcher can close the modal automatically. The loader revalidates automatically after any fetcher action; `useDirtyTree` detects newly added group slugs and appends them as empty group nodes without registering them as unsaved changes.
+- **Group delete** — handled via `deleteFetcher` (not a form redirect). Action returns `{ ok: true, deletedSlug }`; `useDirtyTree.removeGroup(slug)` removes the group from both `tree` and `savedTree` client-side. The `GroupItem` delete button shows `<Spinner size="small" />` while `isDeleting` is true.
 - **Add New Group modal** — includes a URL path (slug) field that auto-populates from the title as the user types. Once the user manually edits the slug the auto-fill stops. The slug is immutable after creation (it keys the group in the site record); the modal shows a note to that effect.
 - **"Draft New Article" link** — navigates to `/article/create?site=<rkey>` so the current site is pre-checked in the Assign to Sites dropdown on arrival. The create loader validates the rkey against the user's actual sites before applying the preselection.
 
@@ -355,8 +362,8 @@ Reusable UI components live in `app/components/`. Each has a co-located CSS modu
 | `AsideMenu`                           | `app/components/AsideMenu/AsideMenu.tsx`           | Navigation sidebar — dashboard, sites (`/sites`), groups (`/groups`), articles (`/article/list` — navigate from there into a site's article management), create article, logout. Props: `expanded: boolean`, `onToggle: () => void`. State is owned by `core.tsx` and persisted in `localStorage`. In collapsed mode (6rem wide) each nav item shows only its icon with a `Tooltip` on hover; in expanded mode (20rem wide) a label span fades in alongside the icon. Icons are `position: absolute; left: 0.8rem` inside `position: relative` nav links so they never move during transition. Nav items are driven by a `MENU_CONFIG` array; add entries there to extend the menu.                                                                                                                                                                                                                                    |
 | `SvgIcon`                             | `app/components/SvgIcon/SvgIcon.tsx`               | Renders SVG icons. Props: `name: SvgImageList` (enum), `className?`, `stroke?`, `strokeWidth?`, `fill?`, `background?`, `text?`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `Tooltip` / `TooltipBubble`           | `app/components/Tooltip/Tooltip.tsx`               | CSS-anchor-based tooltip. `Tooltip` props: `children`, `anchorName`, `anchorContent`, `anchorPosition`, `zIndex?`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `SiteTile`                            | `app/components/SiteTile/SiteTile.tsx`             | Card tile for a single site. Props: `site: SiteData`, `onDelete: (site: SiteData) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Re-exports `SiteData` from `~/components/types`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `SiteListItem`                        | `app/components/SiteListItem/SiteListItem.tsx`     | Horizontal list-row card for a single site. Props: `site: SiteData`, `onDelete?: (site: SiteData) => void`, `isDeleting?: boolean`. Renders a splash thumbnail with gradient right-edge fade, an overlapping circular logo, site title, composed URL, group/article count badges, and Manage Articles / Configure / Delete actions. `onDelete` is optional — omit it on pages that don't support deletion (e.g. `/article/list`). Re-exports `SiteData` from `~/components/types`. Used alongside `SiteTile` on `/sites` — both lists are always rendered and toggled with `display: none` so background images stay in memory across view switches.                                                                                                                                                                                                                                                                   |
+| `SiteTile`                            | `app/components/SiteTile/SiteTile.tsx`             | Card tile for a single site. Props: `site: SiteCard`, `onDelete: (site: SiteCard) => void`, `isDeleting?: boolean`. Renders splash image (or gradient placeholder), logo, title, description, composed URL, and Manage / Configure / Delete actions. Re-exports `SiteCard` from `~/components/types`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `SiteListItem`                        | `app/components/SiteListItem/SiteListItem.tsx`     | Horizontal list-row card for a single site. Props: `site: SiteCard`, `onDelete?: (site: SiteCard) => void`, `isDeleting?: boolean`. Renders a splash thumbnail with gradient right-edge fade, an overlapping circular logo, site title, composed URL, group/article count badges, and Manage Articles / Configure / Delete actions. `onDelete` is optional — omit it on pages that don't support deletion (e.g. `/article/list`). Re-exports `SiteCard` from `~/components/types`. Used alongside `SiteTile` on `/sites` — both lists are always rendered and toggled with `display: none` so background images stay in memory across view switches.                                                                                                                                                                                                                                                                   |
 | `FooterPortal`                        | `app/components/FooterPortal/FooterPortal.tsx`     | Portals `children` into `<footer id="footer-portal-element">` in the core layout. Default export. Props: `children: ReactNode`. Client-only — uses a `mounted` guard (same pattern as `RichTextEditor`) to avoid SSR crashes from `document.getElementById`. **Note:** portaled buttons must use `form="form-id"` to associate with a `<form>` elsewhere in the DOM — they are no longer DOM descendants of the form. For navigation (non-form) footer actions, wrap `<Button>` in `<Link>` — add `tabIndex={-1}` to the inner `<Button>` (see accessibility conventions below) and `core.module.css` handles spacing for the `footer > a > button` selector.                                                                                                                                                                                                                                                          |
 | `Spinner`                             | `app/components/Spinner/Spinner.tsx`               | Spinning ring indicator. Props: `overlay?: boolean`, `size?: "small" \| "medium" \| "large"` (default `"medium"`). Without `overlay`: renders the ring inline. With `overlay`: wraps the ring in a `position: fixed; inset: 0` full-viewport overlay that dims everything behind it. Used in `core.tsx` as `<Spinner overlay />` during route navigations. Use `size="large"` in `HydrateFallback` exports; use `size="small"` for inline button states.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `Toast` / `ToastContainer` / `Toasts` | `app/components/Toast/Toast.tsx`                   | `Toast` renders a single notification. Props: all fields from `ToastPropsWithId` (see ToastContext). Auto-dismisses via `useEffect` + `setTimeout` when `autoExpire` is true. Cleanup cancels the timer if the toast is removed manually first. `ToastContainer` is a plain wrapper div. `Toasts` reads all active toasts from context via `useToast()` and renders them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -513,11 +520,11 @@ Use semantic tokens exclusively in CSS modules. Do not use raw palette names or 
 
 | Export        | Used in                                                           |
 | ------------- | ----------------------------------------------------------------- |
-| `SiteData`    | `SiteTile`, `SiteListItem`, `sites.tsx` loader, `list.tsx` loader |
+| `SiteCard`    | `SiteTile`, `SiteListItem`, `sites.tsx` loader, `list.tsx` loader |
 | `SiteOption`  | `ArticleForm`, `create.tsx`, `edit.tsx`                           |
 | `TreeArticle` | `GroupItem`, `site-list.tsx`                                      |
 
-`SiteData` shape:
+`SiteCard` shape:
 
 ```ts
 {
@@ -536,13 +543,14 @@ Use semantic tokens exclusively in CSS modules. Do not use raw palette names or 
 
 `app/components/utils.ts` is the canonical home for pure utility functions shared across components:
 
-| Export                        | Purpose                                                    |
-| ----------------------------- | ---------------------------------------------------------- |
-| `composedUrl(site: SiteData)` | Returns `url/urlPrefix` or just `url` when prefix is empty |
+| Export                         | Purpose                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `composedUrl(site: SiteCard)`  | Returns `url/urlPrefix` or just `url` when prefix is empty                                |
+| `hasTextContent(html: string)` | Returns `true` if the HTML contains non-whitespace text — used by the editor dirty check  |
 
 Components that originally defined these types/utils inline (`SiteTile`, `ArticleForm`, `GroupItem`) now import from the shared files and re-export for backwards compatibility. When adding a new shared type or utility, add it here rather than inside a component file.
 
-**Note:** `app/routes/article/site-list/siteTree.ts` has its own `SiteData` type (with `groups`/`articles` arrays for the DnD tree) that is structurally different from the component-layer `SiteData` above. These serve different purposes and are intentionally kept separate to avoid cross-layer coupling. `ArticleRef` and `SiteGroup` are defined in `app/hooks/types.ts` — the canonical source used by both the public hooks and the server-side code. `siteTree.ts` re-exports them from `~/hooks/types` for backwards compatibility.
+**Note:** `app/routes/article/site-list/siteTree.ts` exports `SiteManifest` (with `groups`/`articles` arrays for the DnD tree) — structurally different from the component-layer `SiteCard` above. These serve different purposes and are intentionally kept separate to avoid cross-layer coupling. `ArticleRef` and `SiteGroup` are defined in `app/hooks/types.ts` — the canonical source used by both the public hooks and the server-side code. `siteTree.ts` re-exports them from `~/hooks/types` for backwards compatibility.
 
 ## Server services
 
@@ -675,6 +683,7 @@ Both hooks cancel the in-flight fetch on unmount and on parameter change.
 | ----------------------- | --------------------------------------------------------------------------------------------------------- |
 | `slugFromUri(uri)`      | Returns the final path segment of an AT URI (the rkey / article slug)                                     |
 | `flattenArticles(site)` | Returns all articles from a site in order: each group's articles followed by top-level ungrouped articles |
+| `toSlug(title)`         | Converts a human-readable title into a URL slug (lowercase, hyphens) — also re-exported from `siteTree.ts` |
 
 ### Types (exported from `app/hooks/types.ts`)
 
@@ -725,17 +734,19 @@ The project uses **Vitest** with **React Testing Library** for component unit te
 
 `app/routes/article/site-list/siteTree.ts` contains the pure data-transformation functions extracted from `site-list.tsx`:
 
-| Export                              | Purpose                                                                                        |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `buildTreeFromSite(site)`           | Converts a `SiteData` record into a `TreeGroupNode[]` DnD tree (root node + named groups)      |
-| `treeToSiteData(tree)`              | Inverse — converts the DnD tree back to `{ groups, ungroupedArticles }` for writing to the PDS |
-| `toSlug(title)`                     | Converts a group title to a URL slug (lowercase, spaces→hyphens, strip specials)               |
-| `slugFromUri(uri)`                  | Returns the final path segment of an AT URI                                                    |
-| `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`)                                     |
+| Export                              | Purpose                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `buildTreeFromSite(site)`           | Converts a `SiteManifest` into a `TreeGroupNode[]` DnD tree (root node + named groups)           |
+| `treeToSiteData(tree)`              | Inverse — converts the DnD tree back to `{ groups, ungroupedArticles }` for writing to the PDS   |
+| `nodeFromRef(ref)`                  | Converts an `ArticleRef` to a `TreeArticleNode` — single source of truth for the field mapping   |
+| `articleRefFromNode(node)`          | Converts a `TreeArticleNode` back to an `ArticleRef`                                             |
+| `toSlug(title)`                     | Re-exported from `~/hooks/utils` — converts a title to a URL slug (lowercase, hyphens)           |
+| `slugFromUri(uri)`                  | Re-exported from `~/hooks/utils` — returns the final path segment of an AT URI                   |
+| `articleId(slug)` / `groupId(slug)` | Produces the dnd-kit sortable id (`a:{slug}` / `g:{slug}`)                                       |
 
-**Critical invariant:** `treeToSiteData(buildTreeFromSite(site))` must reproduce the original `{ groups, articles }` exactly — including every `ArticleRef` field (`url`, `synopsis`, `splashImageUrl`, etc.). The round-trip tests in `siteTree.test.ts` enforce this.
+**Critical invariant:** `treeToSiteData(buildTreeFromSite(site))` must reproduce the original `{ groups, ungroupedArticles }` exactly — including every `ArticleRef` field (`url`, `synopsis`, `splashImageUrl`, etc.). The round-trip tests in `siteTree.test.ts` enforce this.
 
-**Types:** `ArticleRef` and `SiteGroup` are imported from `~/hooks/types` (not defined locally) and re-exported for backwards compatibility. The local `SiteData` type (DnD tree form with `groups`/`articles` arrays) is private to this module and distinct from the component-layer `SiteData` in `app/components/types.ts`.
+**Types:** `ArticleRef` and `SiteGroup` are imported from `~/hooks/types` (not defined locally) and re-exported for backwards compatibility. `SiteManifest` (DnD tree form with `groups`/`articles` arrays) is exported from this module and is distinct from the component-layer `SiteCard` in `app/components/types.ts`.
 
 ### Running tests
 
@@ -753,13 +764,13 @@ All components in `app/components/` have test suites. Pure function coverage:
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `app/constants.test.ts`                         | `SLUG_RE`, `DOMAIN_RE` valid/invalid cases; collection name constants                                 |
 | `app/hooks/utils.test.ts`                       | `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier` (DID passthrough, handle fetch, error) |
-| `app/routes/article/site-list/siteTree.test.ts` | `toSlug`, `buildTreeFromSite` field mapping, `treeToSiteData`, full round-trip suite                  |
+| `app/routes/article/site-list/siteTree.test.ts` | `toSlug`, `nodeFromRef`, `articleRefFromNode`, `buildTreeFromSite` field mapping, `treeToSiteData`, full round-trip suite |
 
 **Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
 
 ## E2E tests (Playwright)
 
-Full-journey browser tests that run against a **production build** with Chromium. 41 tests across 10 spec files covering all major user journeys. Decision rationale and considered alternatives are in `docs/adr/0006-e2e-testing-strategy.md`.
+Full-journey browser tests that run against a **production build** with Chromium. 46 tests across 11 spec files covering all major user journeys. Decision rationale and considered alternatives are in `docs/adr/0006-e2e-testing-strategy.md`.
 
 ### Config
 
@@ -788,7 +799,8 @@ export const useRealOAuth =
 | `e2e/create-article.spec.ts`  | `/article/create`                    | 5     |
 | `e2e/edit-article.spec.ts`    | `/article/edit/:url`                 | 4     |
 | `e2e/view-article.spec.ts`    | `/article/view/:url`                 | 3     |
-| `e2e/article-list.spec.ts`    | `/article/list`                      | 2     |
+| `e2e/article-list.spec.ts`    | `/article/list`                      | 4     |
+| `e2e/logout.spec.ts`          | `/logout`                            | 2     |
 | `e2e/sites.spec.ts`           | `/sites`, `/sites/new`               | 6     |
 | `e2e/site-management.spec.ts` | `/groups`, `/article/list/:siteSlug` | 8     |
 | `e2e/configure-site.spec.ts`  | `/site/:siteSlug/configure`          | 4     |

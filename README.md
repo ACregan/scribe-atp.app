@@ -306,15 +306,17 @@ Tests use **Vitest** with **React Testing Library**. All components in `app/comp
 Test files are co-located with their source:
 
 - `app/components/Foo/Foo.test.tsx`
+- `app/context/ThemeContext.test.tsx`
 - `app/hooks/utils.test.ts`
 - `app/routes/images/images.test.tsx`
 - `app/services/articleSiteSync.test.ts`
+- `app/services/theme.server.test.ts`
 - `shared/cookieSession.test.ts`
 
 ### E2E tests (Playwright)
 
 ```bash
-npx playwright test           # full suite — 41 tests across 10 spec files
+npx playwright test           # full suite — 46 tests across 11 spec files
 npx playwright test --ui      # interactive UI mode
 npx playwright show-report    # view last HTML report
 ```
