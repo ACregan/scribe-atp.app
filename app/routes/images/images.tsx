@@ -104,6 +104,47 @@ const DEV_MOCK: LoaderData = {
   },
 };
 
+// Fixture used when a folder query param is present in dev/E2E mode.
+// Provides two images large enough that canToggleActual is true in any
+// Playwright viewport so fullscreen fit/actual toggle tests work reliably.
+const DEV_MOCK_FOLDER: LoaderData = {
+  currentUserDid: DEV_DID,
+  folder: { id: 1, user_did: DEV_DID, name: DEV_DID, parent_id: null },
+  breadcrumbs: [{ id: 1, name: DEV_DID }],
+  subfolders: [],
+  images: [
+    {
+      id: 1,
+      user_did: DEV_DID,
+      filename: "fixture-image-1",
+      original_name: "landscape.jpg",
+      width: 3000,
+      height: 2000,
+      sizes: {
+        thumb: { width: 300, height: 200, bytes: 15000 },
+        max: { width: 3000, height: 2000, bytes: 850000 },
+      },
+      created_at: "2025-01-15T10:00:00.000Z",
+    },
+    {
+      id: 2,
+      user_did: DEV_DID,
+      filename: "fixture-image-2",
+      original_name: "portrait.jpg",
+      width: 1200,
+      height: 1600,
+      sizes: {
+        thumb: { width: 225, height: 300, bytes: 12000 },
+        max: { width: 1200, height: 1600, bytes: 420000 },
+      },
+      created_at: "2025-01-16T10:00:00.000Z",
+    },
+  ],
+  profiles: {
+    [DEV_DID]: { displayName: "Dev User", avatarUrl: null },
+  },
+};
+
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP - Image Library" }];
 }
@@ -115,7 +156,10 @@ export function HydrateFallback() {
 export async function loader({ request }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
 
-  if (!useRealOAuth) return DEV_MOCK;
+  if (!useRealOAuth) {
+    const url = new URL(request.url);
+    return url.searchParams.get("folder") ? DEV_MOCK_FOLDER : DEV_MOCK;
+  }
 
   const url = new URL(request.url);
   const folderId = url.searchParams.get("folder");
