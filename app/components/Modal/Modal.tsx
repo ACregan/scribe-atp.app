@@ -1,6 +1,8 @@
 import {
+  forwardRef,
   useEffect,
   useId,
+  useImperativeHandle,
   useRef,
   type CSSProperties,
   type ReactNode,
@@ -19,18 +21,22 @@ type ModalProps = {
   bodyStyle?: CSSProperties;
 };
 
-export function Modal({
-  isOpen,
-  onClose,
-  title,
-  footer,
-  children,
-  className,
-  bodyClassName,
-  style,
-  bodyStyle,
-}: ModalProps) {
+export const Modal = forwardRef<HTMLDialogElement, ModalProps>(function Modal(
+  {
+    isOpen,
+    onClose,
+    title,
+    footer,
+    children,
+    className,
+    bodyClassName,
+    style,
+    bodyStyle,
+  },
+  ref,
+) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  useImperativeHandle(ref, () => dialogRef.current as HTMLDialogElement);
   const titleId = useId();
 
   useEffect(() => {
@@ -50,11 +56,12 @@ export function Modal({
     }
   }, [isOpen]);
 
-  // Escape key — keep document listener so tests and older environments work
+  // Escape key — skip if the browser is currently in fullscreen so that pressing
+  // Escape to exit fullscreen doesn't also close the modal behind it.
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !document.fullscreenElement) onClose();
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -100,4 +107,4 @@ export function Modal({
       </div>
     </dialog>
   );
-}
+});

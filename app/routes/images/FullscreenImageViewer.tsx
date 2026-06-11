@@ -75,12 +75,14 @@ export function FullscreenImageViewer({
     setViewMode((m) => (m === "fit" ? "actual" : "fit"));
   }, [canToggleActual]);
 
-  function goPrev() {
+  function goPrev(e: React.MouseEvent) {
+    e.stopPropagation();
     setCurrentIndex((i) => (i - 1 + images.length) % images.length);
     setViewMode("fit");
   }
 
-  function goNext() {
+  function goNext(e: React.MouseEvent) {
+    e.stopPropagation();
     setCurrentIndex((i) => (i + 1) % images.length);
     setViewMode("fit");
   }
@@ -164,7 +166,7 @@ export function FullscreenImageViewer({
           <button
             type="button"
             className={`${styles.actionButton} ${styles.closeButton}`}
-            onClick={onExit}
+            onClick={(e) => { e.stopPropagation(); onExit(); }}
             aria-label="Exit fullscreen"
           >
             <SvgIcon name={SvgImageList.FullscreenClose} fill="currentColor" />
@@ -177,7 +179,7 @@ export function FullscreenImageViewer({
       <button
         type="button"
         className={`${styles.chevronButton} ${chevronVisible ? styles.chevronVisible : ""}`}
-        onClick={() => setInfoPaneOpen((o) => !o)}
+        onClick={(e) => { e.stopPropagation(); setInfoPaneOpen((o) => !o); }}
         aria-label={infoPaneOpen ? "Hide info" : "Show info"}
       >
         <SvgIcon

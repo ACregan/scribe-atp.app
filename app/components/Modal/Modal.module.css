@@ -1,10 +1,16 @@
 .dialog {
+  /* Native <dialog> centering: the global * { margin: 0 } reset in app.css
+     overrides the UA stylesheet's dialog:modal { margin: auto }, so we restate
+     the full centering rule here. width/height fit-content lets the inner
+     .modal div determine the dialog size; margin: auto then centres it. */
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: fit-content;
+  height: fit-content;
   border: none;
   padding: 0;
   background: transparent;
-  max-width: 52rem;
-  width: calc(100% - 2rem);
-  max-height: 90dvh;
   overflow: visible;
 }
 
@@ -16,7 +22,8 @@
   background: var(--surface-page);
   border-radius: 0.6rem;
   box-shadow: 0 0.8rem 3.2rem rgba(0, 0, 0, 0.2);
-  width: 100%;
+  width: calc(100vw - 2rem);
+  max-width: 52rem;
   max-height: 90dvh;
   display: flex;
   flex-direction: column;

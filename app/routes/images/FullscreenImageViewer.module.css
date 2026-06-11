@@ -59,9 +59,10 @@
 
 .imageActual {
   display: block;
-  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
   user-select: none;
-  max-width: unset;
 }
 
 /* ── Info pane ───────────────────────────────────────────────────────────── */

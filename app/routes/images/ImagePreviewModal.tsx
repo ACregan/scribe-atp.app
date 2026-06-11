@@ -83,6 +83,14 @@ export function ImagePreviewModal({
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [fsOpen, setFsOpen] = useState(false);
 
+  // Ref to the <dialog> element inside Modal — used to close/reopen the dialog
+  // around fullscreen transitions. dialog.showModal() marks everything outside
+  // the dialog's DOM subtree as inert, which would prevent the portaled fullscreen
+  // container from receiving pointer events. Closing the dialog before
+  // requestFullscreen() removes that inertness, and reopening it on fullscreenchange
+  // restores normal modal behaviour when the user exits fullscreen.
+  const modalDialogRef = useRef<HTMLDialogElement>(null);
+
   // Ref for the always-present fullscreen container portal.
   // requestFullscreen() must be called directly in the click handler (within
   // the browser's user-gesture activation window). Using a permanent container
@@ -110,14 +118,21 @@ export function ImagePreviewModal({
 
   // Sync fsOpen with the browser's actual fullscreen state so Escape key
   // and other native exits (browser UI, programmatic exitFullscreen) are handled.
+  // Also reopen the dialog when fullscreen ends — we closed it before entering
+  // fullscreen to remove the inertness it imposes on the portaled container.
   useEffect(() => {
     function handleFullscreenChange() {
-      if (!document.fullscreenElement) setFsOpen(false);
+      if (!document.fullscreenElement) {
+        setFsOpen(false);
+        if (isOpen && modalDialogRef.current && !modalDialogRef.current.open) {
+          modalDialogRef.current.showModal();
+        }
+      }
     }
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+  }, [isOpen]);
 
   const orderedVariants = VARIANT_ORDER.filter((v) => v in image.sizes);
 
@@ -152,7 +167,19 @@ export function ImagePreviewModal({
     // before requestFullscreen() is called, so content is ready when the browser
     // enters fullscreen. Both calls happen within the click handler's gesture window.
     flushSync(() => setFsOpen(true));
-    container.requestFullscreen().catch(() => setFsOpen(false));
+    // Close the dialog before entering fullscreen. dialog.showModal() marks
+    // everything outside the dialog's DOM subtree as inert — including the
+    // portaled fullscreen container — which prevents pointer events from reaching
+    // it. Closing removes the inertness so clicks land on the viewer, not the
+    // dialog's ::backdrop.
+    modalDialogRef.current?.close();
+    container.requestFullscreen().catch(() => {
+      setFsOpen(false);
+      // Fullscreen failed — reopen the dialog so the modal is still usable.
+      if (isOpen && modalDialogRef.current && !modalDialogRef.current.open) {
+        modalDialogRef.current.showModal();
+      }
+    });
   }
 
   async function handleDeleteConfirm() {
@@ -280,6 +307,7 @@ export function ImagePreviewModal({
   return (
     <>
       <Modal
+        ref={modalDialogRef}
         isOpen={isOpen}
         onClose={handleClose}
         title={image.original_name}
@@ -374,8 +402,12 @@ export function ImagePreviewModal({
 
       {/* Permanent fullscreen host — always in the DOM when the modal is open so
           requestFullscreen() can be called synchronously from the click handler.
-          z-index: -1 keeps it invisible behind page content when not fullscreen;
-          the browser top layer overrides z-index when fullscreen is active. */}
+          When fsOpen is false: z-index: -1 hides it behind page content.
+          When fsOpen is true: z-index is unset so the container stacks normally
+          (position: fixed keeps it behind the dialog's top-layer slot until
+          requestFullscreen() elevates it above the dialog in the top layer).
+          Leaving z-index: -1 active while in the top layer causes Chrome to
+          render the container below the dialog's ::backdrop, breaking interaction. */}
       {isOpen &&
         createPortal(
           <div
@@ -384,7 +416,7 @@ export function ImagePreviewModal({
               position: "fixed",
               inset: 0,
               background: "#000",
-              zIndex: -1,
+              zIndex: fsOpen ? undefined : -1,
             }}
           >
             {fsOpen && (
