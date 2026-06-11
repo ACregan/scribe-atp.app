@@ -5,6 +5,8 @@ import {
   articleId,
   groupId,
   toSlug,
+  nodeFromRef,
+  articleRefFromNode,
   buildTreeFromSite,
   treeToSiteData,
   removeArticleRef,
@@ -100,6 +102,66 @@ describe("toSlug", () => {
 
   it("preserves numbers", () => {
     expect(toSlug("Article 42")).toBe("article-42");
+  });
+});
+
+// ─── nodeFromRef ─────────────────────────────────────────────────────────────
+
+describe("nodeFromRef", () => {
+  it("maps all ArticleRef fields onto the node", () => {
+    const input = ref("my-post", {
+      url: "my-post",
+      synopsis: "A summary",
+      splashImageUrl: "https://example.com/img.jpg",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-06-01T00:00:00.000Z",
+    });
+    const node = nodeFromRef(input);
+    expect(node.kind).toBe("article");
+    expect(node.id).toBe("a:my-post");
+    expect(node.uri).toBe(input.uri);
+    expect(node.title).toBe(input.title);
+    expect(node.url).toBe("my-post");
+    expect(node.synopsis).toBe("A summary");
+    expect(node.splashImageUrl).toBe("https://example.com/img.jpg");
+    expect(node.createdAt).toBe("2025-01-01T00:00:00.000Z");
+    expect(node.updatedAt).toBe("2025-06-01T00:00:00.000Z");
+  });
+
+  it("preserves null splashImageUrl", () => {
+    expect(
+      nodeFromRef(ref("p", { splashImageUrl: null })).splashImageUrl,
+    ).toBeNull();
+  });
+
+  it("preserves undefined optional fields", () => {
+    const node = nodeFromRef(ref("p"));
+    expect(node.updatedAt).toBeUndefined();
+    expect(node.synopsis).toBeNull();
+  });
+});
+
+// ─── articleRefFromNode ───────────────────────────────────────────────────────
+
+describe("articleRefFromNode", () => {
+  it("maps all node fields back onto an ArticleRef", () => {
+    const input = ref("my-post", {
+      url: "my-post",
+      synopsis: "A summary",
+      splashImageUrl: "https://example.com/img.jpg",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-06-01T00:00:00.000Z",
+    });
+    const roundTripped = articleRefFromNode(nodeFromRef(input));
+    expect(roundTripped).toEqual(input);
+  });
+
+  it("does not include the DnD id or kind on the ArticleRef", () => {
+    const result = articleRefFromNode(
+      nodeFromRef(ref("my-post")),
+    ) as unknown as Record<string, unknown>;
+    expect(result.id).toBeUndefined();
+    expect(result.kind).toBeUndefined();
   });
 });
 
@@ -211,7 +273,9 @@ describe("buildTreeFromSite", () => {
   it("preserves createdAt on article nodes", () => {
     const site: SiteData = {
       ...emptySite,
-      ungroupedArticles: [ref("my-post", { createdAt: "2025-06-01T12:00:00.000Z" })],
+      ungroupedArticles: [
+        ref("my-post", { createdAt: "2025-06-01T12:00:00.000Z" }),
+      ],
     };
     const tree = buildTreeFromSite(site);
     expect(tree[0].children[0].createdAt).toBe("2025-06-01T12:00:00.000Z");
@@ -302,7 +366,9 @@ const makeRecord = (
 
 describe("removeArticleRef", () => {
   it("removes a matching ref from top-level articles", () => {
-    const record = makeRecord({ ungroupedArticles: [ref("keep"), ref("remove")] });
+    const record = makeRecord({
+      ungroupedArticles: [ref("keep"), ref("remove")],
+    });
     const result = removeArticleRef(record, ref("remove").uri);
     expect(result.ungroupedArticles).toHaveLength(1);
     expect(result.ungroupedArticles[0].uri).toBe(ref("keep").uri);
@@ -324,7 +390,9 @@ describe("removeArticleRef", () => {
   });
 
   it("leaves articles with non-matching URIs untouched", () => {
-    const record = makeRecord({ ungroupedArticles: [ref("keep-a"), ref("keep-b")] });
+    const record = makeRecord({
+      ungroupedArticles: [ref("keep-a"), ref("keep-b")],
+    });
     const result = removeArticleRef(record, "at://did/col/ghost");
     expect(result.ungroupedArticles).toHaveLength(2);
   });
@@ -370,7 +438,9 @@ describe("updateArticleRef", () => {
   };
 
   it("replaces a matching ref in top-level articles", () => {
-    const record = makeRecord({ ungroupedArticles: [ref("old"), ref("other")] });
+    const record = makeRecord({
+      ungroupedArticles: [ref("old"), ref("other")],
+    });
     const result = updateArticleRef(record, ref("old").uri, newRef);
     expect(result.ungroupedArticles[0].uri).toBe(newRef.uri);
     expect(result.ungroupedArticles[1].uri).toBe(ref("other").uri);
@@ -469,7 +539,9 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   it("preserves synopsis on ungrouped articles through the round-trip", () => {
     const site: SiteData = {
       ...emptySite,
-      ungroupedArticles: [ref("my-post", { synopsis: "A short summary of the post" })],
+      ungroupedArticles: [
+        ref("my-post", { synopsis: "A short summary of the post" }),
+      ],
     };
     const { ungroupedArticles } = treeToSiteData(buildTreeFromSite(site));
     expect(ungroupedArticles[0].synopsis).toBe("A short summary of the post");
@@ -508,7 +580,9 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   it("handles a full site with both ungrouped articles and named groups", () => {
     const site: SiteData = {
       ...emptySite,
-      ungroupedArticles: [ref("standalone", { url: "standalone", synopsis: "Solo" })],
+      ungroupedArticles: [
+        ref("standalone", { url: "standalone", synopsis: "Solo" }),
+      ],
       groups: [
         {
           slug: "series",

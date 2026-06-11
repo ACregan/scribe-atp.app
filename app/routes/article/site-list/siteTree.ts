@@ -67,7 +67,12 @@ export function toSlug(title: string): string {
 
 export type SiteRecordValue = {
   ungroupedArticles: ArticleRef[];
-  groups: Array<{ slug: string; title: string; articles: ArticleRef[] } & Record<string, unknown>>;
+  groups: Array<
+    { slug: string; title: string; articles: ArticleRef[] } & Record<
+      string,
+      unknown
+    >
+  >;
 } & Record<string, unknown>;
 
 export function removeArticleRef(
@@ -76,7 +81,9 @@ export function removeArticleRef(
 ): SiteRecordValue {
   return {
     ...record,
-    ungroupedArticles: (record.ungroupedArticles ?? []).filter((a) => a.uri !== uri),
+    ungroupedArticles: (record.ungroupedArticles ?? []).filter(
+      (a) => a.uri !== uri,
+    ),
     groups: (record.groups ?? []).map((g) => ({
       ...g,
       articles: (g.articles ?? []).filter((a) => a.uri !== uri),
@@ -103,6 +110,39 @@ export function updateArticleRef(
   };
 }
 
+// ── ArticleRef ↔ TreeArticleNode conversions ──────────────────────────────────
+//
+// Single source of truth for the field mapping between the PDS ArticleRef shape
+// and the in-memory tree node shape. Every ArticleRef field mirrored in
+// TreeArticleNode must be kept in sync through these two functions only —
+// buildTreeFromSite and treeToSiteData delegate all field work to them.
+
+export function nodeFromRef(ref: ArticleRef): TreeArticleNode {
+  return {
+    kind: "article",
+    id: articleId(slugFromUri(ref.uri)),
+    uri: ref.uri,
+    title: ref.title,
+    url: ref.url,
+    splashImageUrl: ref.splashImageUrl,
+    synopsis: ref.synopsis,
+    createdAt: ref.createdAt,
+    updatedAt: ref.updatedAt,
+  };
+}
+
+export function articleRefFromNode(node: TreeArticleNode): ArticleRef {
+  return {
+    uri: node.uri,
+    title: node.title,
+    url: node.url,
+    splashImageUrl: node.splashImageUrl,
+    synopsis: node.synopsis,
+    createdAt: node.createdAt,
+    updatedAt: node.updatedAt,
+  };
+}
+
 // ── Tree builders ─────────────────────────────────────────────────────────────
 
 export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
@@ -111,17 +151,7 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
     id: "g:root",
     slug: "root",
     title: "Ungrouped",
-    children: (site.ungroupedArticles ?? []).map((a) => ({
-      kind: "article",
-      id: articleId(slugFromUri(a.uri)),
-      uri: a.uri,
-      title: a.title,
-      url: a.url,
-      splashImageUrl: a.splashImageUrl,
-      synopsis: a.synopsis,
-      createdAt: a.createdAt,
-      updatedAt: a.updatedAt,
-    })),
+    children: (site.ungroupedArticles ?? []).map(nodeFromRef),
   };
 
   const named: TreeGroupNode[] = (site.groups ?? []).map((g) => ({
@@ -129,17 +159,7 @@ export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
     id: groupId(g.slug),
     slug: g.slug,
     title: g.title,
-    children: (g.articles ?? []).map((a) => ({
-      kind: "article",
-      id: articleId(slugFromUri(a.uri)),
-      uri: a.uri,
-      title: a.title,
-      url: a.url,
-      splashImageUrl: a.splashImageUrl,
-      synopsis: a.synopsis,
-      createdAt: a.createdAt,
-      updatedAt: a.updatedAt,
-    })),
+    children: (g.articles ?? []).map(nodeFromRef),
   }));
 
   return [root, ...named];
@@ -154,30 +174,12 @@ export function treeToSiteData(tree: TreeGroupNode[]): {
 
   for (const node of tree) {
     if (node.id === "g:root") {
-      for (const child of node.children) {
-        ungroupedArticles.push({
-          uri: child.uri,
-          title: child.title,
-          url: child.url,
-          splashImageUrl: child.splashImageUrl,
-          synopsis: child.synopsis,
-          createdAt: child.createdAt,
-          updatedAt: child.updatedAt,
-        });
-      }
+      ungroupedArticles.push(...node.children.map(articleRefFromNode));
     } else {
       groups.push({
         slug: node.slug,
         title: node.title,
-        articles: node.children.map((c) => ({
-          uri: c.uri,
-          title: c.title,
-          url: c.url,
-          splashImageUrl: c.splashImageUrl,
-          synopsis: c.synopsis,
-          createdAt: c.createdAt,
-          updatedAt: c.updatedAt,
-        })),
+        articles: node.children.map(articleRefFromNode),
       });
     }
   }
