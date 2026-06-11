@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createRef } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Modal } from "./Modal";
@@ -102,6 +102,41 @@ describe("Modal", () => {
     it("dialog element is accessible with role dialog when open", () => {
       render(<Modal {...defaultProps} />);
       expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+  });
+
+  describe("ref forwarding", () => {
+    it("exposes the dialog element via a forwarded ref", () => {
+      const ref = createRef<HTMLDialogElement>();
+      render(<Modal {...defaultProps} ref={ref} />);
+      expect(ref.current).not.toBeNull();
+      expect(ref.current?.tagName.toLowerCase()).toBe("dialog");
+    });
+  });
+
+  describe("fullscreen guard", () => {
+    afterEach(() => {
+      // Restore fullscreenElement to null after each test in this group
+      Object.defineProperty(document, "fullscreenElement", {
+        get: () => null,
+        configurable: true,
+      });
+    });
+
+    it("does not call onClose on Escape while the browser is in fullscreen", () => {
+      Object.defineProperty(document, "fullscreenElement", {
+        get: () => document.body,
+        configurable: true,
+      });
+      render(<Modal {...defaultProps} />);
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+    });
+
+    it("calls onClose on Escape when fullscreenElement is null", () => {
+      render(<Modal {...defaultProps} />);
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
     });
   });
 });
