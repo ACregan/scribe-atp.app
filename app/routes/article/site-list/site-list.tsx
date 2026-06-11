@@ -30,23 +30,12 @@ import GroupItem, {
   type TreeArticle,
 } from "~/components/GroupItem/GroupItem";
 import GroupList from "~/components/GroupList/GroupList";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  closestCorners,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragOverEvent,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { DndContext, DragOverlay, closestCorners } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove,
 } from "@dnd-kit/sortable";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
@@ -55,30 +44,16 @@ import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
   type SiteData,
   type SiteRecordValue,
-  type TreeArticleNode,
   type TreeGroupNode,
-  slugFromUri,
-  articleId,
-  groupId,
   toSlug,
-  buildTreeFromSite,
   treeToSiteData,
   removeArticleRef,
 } from "./siteTree";
+import { useDirtyTree } from "./useDirtyTree";
+import { useSiteListDnD } from "./useSiteListDnD";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import { devSiteListLoader } from "~/services/devFixtures.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-
-function findArticleLocation(
-  tree: TreeGroupNode[],
-  id: string,
-): { groupIdx: number; childIdx: number } | null {
-  for (let i = 0; i < tree.length; i++) {
-    const ci = tree[i].children.findIndex((c) => c.id === id);
-    if (ci !== -1) return { groupIdx: i, childIdx: ci };
-  }
-  return null;
-}
 
 export function meta({ data }: Route.MetaArgs) {
   const title = data?.site?.title ?? "Site";
@@ -349,9 +324,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       openedByRouteRef.current = true;
       open();
     }
-    if (!isNewRoute) {
-      openedByRouteRef.current = false;
-    }
+    if (!isNewRoute) openedByRouteRef.current = false;
   }, [isNewRoute]);
 
   function handleCloseModal() {
@@ -359,14 +332,16 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     if (isNewRoute) navigate(`/article/list/${site.rkey}`, { replace: true });
   }
 
-  const [tree, setTree] = useState<TreeGroupNode[]>(() =>
-    buildTreeFromSite(site),
-  );
-  const [activeArticle, setActiveArticle] = useState<TreeArticleNode | null>(
-    null,
-  );
-  const [activeGroup, setActiveGroup] = useState<TreeGroupNode | null>(null);
-  const previousTreeRef = useRef<TreeGroupNode[]>(tree);
+  const { tree, setTree, isDirty, markSaved, removeGroup } = useDirtyTree(site);
+  const {
+    sensors,
+    activeArticle,
+    activeGroup,
+    onDragStart,
+    onDragOver,
+    onDragEnd,
+  } = useSiteListDnD(tree, setTree);
+
   const saveFetcher = useFetcher<{ ok?: boolean; error?: string }>();
   const isSaving = saveFetcher.state !== "idle";
 
@@ -379,83 +354,13 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   const deletingSlugRef = useRef<string | null>(null);
 
   const { addToast } = useToast();
-
-  // Tracks the tree as it exists on the PDS — updated after each successful save.
-  // Must be state (not a ref) so that updating it triggers isDirty to recompute.
-  const [savedTree, setSavedTree] = useState<TreeGroupNode[]>(() =>
-    buildTreeFromSite(site),
-  );
-  const proceedAfterSaveRef = useRef(false);
-
-  // Track which group slugs are already in the tree so we can detect new ones
-  // added server-side (after createGroup revalidates the loader).
-  const knownGroupSlugsRef = useRef<Set<string>>(
-    new Set(site.groups.map((g) => g.slug)),
-  );
-
-  useEffect(() => {
-    const newGroups = site.groups.filter(
-      (g) => !knownGroupSlugsRef.current.has(g.slug),
-    );
-    if (newGroups.length === 0) return;
-
-    newGroups.forEach((g) => knownGroupSlugsRef.current.add(g.slug));
-
-    const newNodes: TreeGroupNode[] = newGroups.map((g) => ({
-      kind: "group",
-      id: groupId(g.slug),
-      slug: g.slug,
-      title: g.title,
-      children: [],
-    }));
-
-    setTree((prev) => [...prev, ...newNodes]);
-    // Keep savedTree in sync so newly persisted groups don't register as unsaved changes.
-    setSavedTree((prev) => [...prev, ...newNodes]);
-
-    if (newGroups.length === 1) {
-      addToast({
-        heading: "Group created",
-        content: newGroups[0].title,
-        variant: "primary",
-      });
-    } else {
-      addToast({
-        heading: `${newGroups.length} groups added`,
-        variant: "primary",
-      });
-    }
-  }, [site.groups]);
-
-  useEffect(() => {
-    if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
-    if (deleteFetcher.data.ok && deleteFetcher.data.deletedSlug) {
-      const slug = deleteFetcher.data.deletedSlug;
-      deletingSlugRef.current = null;
-      knownGroupSlugsRef.current.delete(slug);
-      setTree((prev) => prev.filter((g) => g.slug !== slug));
-      setSavedTree((prev) => prev.filter((g) => g.slug !== slug));
-    } else if (deleteFetcher.data.error) {
-      addToast({
-        heading: "Delete failed",
-        content: deleteFetcher.data.error,
-        variant: "danger",
-        autoExpire: false,
-      });
-    }
-  }, [deleteFetcher.state, deleteFetcher.data]);
-
-  const isDirty = useMemo(
-    () => JSON.stringify(tree) !== JSON.stringify(savedTree),
-    [tree, savedTree],
-  );
-
   const blocker = useBlocker(isDirty);
+  const proceedAfterSaveRef = useRef(false);
 
   useEffect(() => {
     if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
     if (saveFetcher.data.ok) {
-      setSavedTree(tree);
+      markSaved();
       addToast({ heading: "Order saved", variant: "primary" });
       if (proceedAfterSaveRef.current) {
         proceedAfterSaveRef.current = false;
@@ -470,122 +375,24 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         autoExpire: false,
       });
     }
-  }, [saveFetcher.state, saveFetcher.data]);
+  }, [saveFetcher.state, saveFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  );
+  useEffect(() => {
+    if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
+    if (deleteFetcher.data.ok && deleteFetcher.data.deletedSlug) {
+      deletingSlugRef.current = null;
+      removeGroup(deleteFetcher.data.deletedSlug);
+    } else if (deleteFetcher.data.error) {
+      addToast({
+        heading: "Delete failed",
+        content: deleteFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }, [deleteFetcher.state, deleteFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rootIds = tree.map((n) => n.id);
-
-  function onDragStart({ active }: DragStartEvent) {
-    previousTreeRef.current = tree;
-    const id = String(active.id);
-    if (id.startsWith("a:")) {
-      const loc = findArticleLocation(tree, id);
-      setActiveArticle(loc ? tree[loc.groupIdx].children[loc.childIdx] : null);
-      setActiveGroup(null);
-    } else {
-      setActiveGroup(
-        id !== "g:root" ? (tree.find((n) => n.id === id) ?? null) : null,
-      );
-      setActiveArticle(null);
-    }
-  }
-
-  function onDragOver({ active, over }: DragOverEvent) {
-    if (!over) return;
-    const activeId = String(active.id);
-    const overId = String(over.id);
-    if (activeId === overId) return;
-
-    if (activeId.startsWith("g:")) {
-      if (
-        activeId === "g:root" ||
-        !overId.startsWith("g:") ||
-        overId === "g:root"
-      )
-        return;
-      setTree((prev) => {
-        const sourceIdx = prev.findIndex((n) => n.id === activeId);
-        const overIdx = prev.findIndex((n) => n.id === overId);
-        if (sourceIdx === -1 || overIdx === -1 || sourceIdx === overIdx)
-          return prev;
-        return arrayMove(prev, sourceIdx, overIdx);
-      });
-      return;
-    }
-
-    if (!activeId.startsWith("a:")) return;
-
-    setTree((prev) => {
-      const srcLoc = findArticleLocation(prev, activeId);
-      if (!srcLoc) return prev;
-      const activeNode = prev[srcLoc.groupIdx].children[srcLoc.childIdx];
-
-      if (overId.startsWith("g:")) {
-        const targetGroupIdx = prev.findIndex((n) => n.id === overId);
-        if (targetGroupIdx === -1 || targetGroupIdx === srcLoc.groupIdx)
-          return prev;
-        if (prev[targetGroupIdx].children.length > 0) return prev;
-        return prev.map((group, i) => {
-          if (i === srcLoc.groupIdx)
-            return {
-              ...group,
-              children: group.children.filter(
-                (_, ci) => ci !== srcLoc.childIdx,
-              ),
-            };
-          if (i === targetGroupIdx)
-            return { ...group, children: [...group.children, activeNode] };
-          return group;
-        });
-      }
-
-      if (overId.startsWith("a:")) {
-        const dstLoc = findArticleLocation(prev, overId);
-        if (!dstLoc) return prev;
-        if (srcLoc.groupIdx === dstLoc.groupIdx) {
-          if (srcLoc.childIdx === dstLoc.childIdx) return prev;
-          return prev.map((group, i) =>
-            i === srcLoc.groupIdx
-              ? {
-                  ...group,
-                  children: arrayMove(
-                    group.children,
-                    srcLoc.childIdx,
-                    dstLoc.childIdx,
-                  ),
-                }
-              : group,
-          );
-        }
-        return prev.map((group, i) => {
-          if (i === srcLoc.groupIdx)
-            return {
-              ...group,
-              children: group.children.filter(
-                (_, ci) => ci !== srcLoc.childIdx,
-              ),
-            };
-          if (i === dstLoc.groupIdx) {
-            const next = [...group.children];
-            next.splice(dstLoc.childIdx, 0, activeNode);
-            return { ...group, children: next };
-          }
-          return group;
-        });
-      }
-
-      return prev;
-    });
-  }
-
-  function onDragEnd({ over }: DragEndEvent) {
-    if (!over) setTree(previousTreeRef.current);
-    setActiveArticle(null);
-    setActiveGroup(null);
-  }
 
   function handleDeleteGroup(slug: string) {
     deletingSlugRef.current = slug;
