@@ -1,8 +1,31 @@
 stages:
-  - test
+  - unit
+  - e2e
+
+unit:
+  stage: unit
+  tags:
+    - playwright
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+  script:
+    - npm ci
+    - npm run test:run
+  artifacts:
+    when: on_failure
+    paths:
+      - coverage/
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 e2e:
-  stage: test
+  stage: e2e
   tags:
     - playwright
   timeout: 20 minutes
