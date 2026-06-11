@@ -4,15 +4,15 @@ import { Button } from "~/components/Button/Button";
 import { Pill } from "~/components/Pill/Pill";
 import Tooltip, { TooltipBubble } from "~/components/Tooltip/Tooltip";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-import { type SiteData } from "~/components/types";
+import { type SiteCard } from "~/components/types";
 import { composedUrl } from "~/components/utils";
 import styles from "./SiteListItem.module.css";
 
-export type { SiteData };
+export type { SiteCard };
 
 type SiteListItemProps = {
-  site: SiteData;
-  onDelete?: (site: SiteData) => void;
+  site: SiteCard;
+  onDelete?: (site: SiteCard) => void;
   isDeleting?: boolean;
 };
 

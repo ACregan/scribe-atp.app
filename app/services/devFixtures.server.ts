@@ -3,8 +3,8 @@
 // typed to match the corresponding loader's return shape so TypeScript will
 // catch shape mismatches at call sites when the real loader changes.
 
-import type { SiteData as ComponentSiteData, SiteOption } from "~/components/types";
-import type { SiteData as TreeSiteData } from "~/routes/article/site-list/siteTree";
+import type { SiteCard, SiteOption } from "~/components/types";
+import type { SiteManifest } from "~/routes/article/site-list/siteTree";
 import type { ArticleRef } from "~/hooks/types";
 
 // ── Shared base data ──────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ const DEV_UNGROUPED: ArticleRef[] = [
 
 // ── /sites ────────────────────────────────────────────────────────────────────
 
-export function devSitesLoader(): { sites: ComponentSiteData[] } {
+export function devSitesLoader(): { sites: SiteCard[] } {
   return {
     sites: [
       {
@@ -234,7 +234,7 @@ export function devEditLoader(articleUrl: string): {
 
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
-  site: TreeSiteData;
+  site: SiteManifest;
 } {
   return {
     devMode: true,

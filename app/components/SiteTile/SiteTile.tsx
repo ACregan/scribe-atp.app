@@ -2,14 +2,14 @@ import { Link } from "react-router";
 import { Button } from "~/components/Button/Button";
 import styles from "./SiteTile.module.css";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
-import { type SiteData } from "~/components/types";
+import { type SiteCard } from "~/components/types";
 import { composedUrl } from "~/components/utils";
 
-export type { SiteData };
+export type { SiteCard };
 
 type SiteTileProps = {
-  site: SiteData;
-  onDelete: (site: SiteData) => void;
+  site: SiteCard;
+  onDelete: (site: SiteCard) => void;
   isDeleting?: boolean;
 };
 

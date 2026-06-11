@@ -6,7 +6,7 @@
 export type { ArticleRef, SiteGroup } from "~/hooks/types";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 
-export type SiteData = {
+export type SiteManifest = {
   rkey: string;
   cid: string;
   url: string;
@@ -52,7 +52,7 @@ export function groupId(slug: string): string {
 // ── Site record mutations ─────────────────────────────────────────────────────
 //
 // These operate on the raw AT Protocol Site record value (not the normalised
-// SiteData shape) so that unknown fields are preserved when the record is
+// SiteManifest shape) so that unknown fields are preserved when the record is
 // written back to the PDS via putRecord.
 
 export type SiteRecordValue = {
@@ -135,7 +135,7 @@ export function articleRefFromNode(node: TreeArticleNode): ArticleRef {
 
 // ── Tree builders ─────────────────────────────────────────────────────────────
 
-export function buildTreeFromSite(site: SiteData): TreeGroupNode[] {
+export function buildTreeFromSite(site: SiteManifest): TreeGroupNode[] {
   const root: TreeGroupNode = {
     kind: "group",
     id: "g:root",

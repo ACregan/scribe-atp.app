@@ -1,4 +1,4 @@
-export interface SiteData {
+export interface SiteCard {
   rkey: string;
   cid: string;
   title: string;

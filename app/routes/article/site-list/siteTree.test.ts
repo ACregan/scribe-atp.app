@@ -11,7 +11,7 @@ import {
   treeToSiteData,
   removeArticleRef,
   updateArticleRef,
-  type SiteData,
+  type SiteManifest,
   type SiteRecordValue,
   type TreeGroupNode,
 } from "./siteTree";
@@ -31,7 +31,7 @@ const ref = (
   ...overrides,
 });
 
-const emptySite: SiteData = {
+const emptySite: SiteManifest = {
   rkey: "my-site",
   cid: "bafy123",
   url: "example.com",
@@ -181,7 +181,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("maps ungrouped articles into the root node's children", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [ref("hello-world"), ref("second-post")],
     };
@@ -192,7 +192,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("assigns each article a DnD id derived from the URI slug", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [ref("my-article")],
     };
@@ -201,7 +201,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("maps named groups after the root node", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       groups: [
         { slug: "engineering", title: "Engineering", articles: [] },
@@ -215,7 +215,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("assigns each named group a DnD id derived from its slug", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       groups: [{ slug: "engineering", title: "Engineering", articles: [] }],
     };
@@ -224,7 +224,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("maps articles within named groups into that group's children", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       groups: [
         {
@@ -240,7 +240,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("preserves the url field on article nodes", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [ref("my-post", { url: "my-post" })],
     };
@@ -249,7 +249,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("preserves the synopsis field on article nodes", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [ref("my-post", { synopsis: "A short summary" })],
     };
@@ -258,7 +258,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("preserves splashImageUrl on article nodes", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [
         ref("my-post", { splashImageUrl: "https://example.com/img.jpg" }),
@@ -271,7 +271,7 @@ describe("buildTreeFromSite", () => {
   });
 
   it("preserves createdAt on article nodes", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [
         ref("my-post", { createdAt: "2025-06-01T12:00:00.000Z" }),
@@ -489,7 +489,7 @@ describe("updateArticleRef", () => {
 
 describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   it("reproduces the original ungrouped articles unchanged", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [
         ref("post-one", {
@@ -505,7 +505,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   });
 
   it("reproduces the original groups and their articles unchanged", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       groups: [
         {
@@ -528,7 +528,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   });
 
   it("preserves url on ungrouped articles through the round-trip", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [ref("my-post", { url: "my-post" })],
     };
@@ -537,7 +537,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   });
 
   it("preserves synopsis on ungrouped articles through the round-trip", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [
         ref("my-post", { synopsis: "A short summary of the post" }),
@@ -548,7 +548,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   });
 
   it("preserves url on articles inside named groups through the round-trip", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       groups: [
         {
@@ -563,7 +563,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   });
 
   it("preserves synopsis on articles inside named groups through the round-trip", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       groups: [
         {
@@ -578,7 +578,7 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
   });
 
   it("handles a full site with both ungrouped articles and named groups", () => {
-    const site: SiteData = {
+    const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [
         ref("standalone", { url: "standalone", synopsis: "Solo" }),

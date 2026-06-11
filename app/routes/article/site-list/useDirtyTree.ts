@@ -4,11 +4,11 @@ import type { SiteGroup } from "~/hooks/types";
 import {
   buildTreeFromSite,
   groupId,
-  type SiteData,
+  type SiteManifest,
   type TreeGroupNode,
 } from "./siteTree";
 
-export function useDirtyTree(site: SiteData) {
+export function useDirtyTree(site: SiteManifest) {
   const { addToast } = useToast();
 
   const [tree, setTree] = useState<TreeGroupNode[]>(() =>

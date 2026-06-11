@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SiteTile } from "./SiteTile";
-import type { SiteData } from "~/components/types";
+import type { SiteCard } from "~/components/types";
 
 vi.mock("react-router", () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
@@ -45,7 +45,7 @@ vi.mock("../SvgIcon/SvgIcon", () => ({
   SvgImageList: { Gear: "Gear", Trash: "Trash" },
 }));
 
-const baseSite: SiteData = {
+const baseSite: SiteCard = {
   rkey: "my-blog",
   cid: "bafy123",
   title: "My Blog",

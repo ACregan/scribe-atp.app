@@ -42,7 +42,7 @@ import { useToast } from "~/components/Toast/ToastContext";
 import { SITE_COLLECTION, SLUG_RE } from "~/constants";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
-  type SiteData,
+  type SiteManifest,
   type SiteRecordValue,
   type TreeGroupNode,
   toSlug,
@@ -84,7 +84,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         urlPrefix: String(value.urlPrefix ?? ""),
         groups: (value.groups as SiteGroup[]) ?? [],
         ungroupedArticles: (value.ungroupedArticles as ArticleRef[]) ?? [],
-      } as SiteData,
+      } as SiteManifest,
     };
   } catch {
     throw redirect("/sites");
@@ -116,7 +116,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteSlug,
       });
-      const val = rec.data.value as SiteData;
+      const val = rec.data.value as SiteManifest;
       if ((val.groups ?? []).some((g) => g.slug === slug)) {
         return { error: "A group with this name already exists." };
       }

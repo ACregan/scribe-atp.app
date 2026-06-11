@@ -18,7 +18,7 @@ import styles from "./sites.module.css";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { devSitesLoader } from "~/services/devFixtures.server";
 import { SiteTile } from "~/components/SiteTile/SiteTile";
-import { type SiteData } from "~/components/types";
+import { type SiteCard } from "~/components/types";
 
 import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
@@ -43,7 +43,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  const sites: SiteData[] = result.data.records.map((record) => {
+  const sites: SiteCard[] = result.data.records.map((record) => {
     const v = record.value as Record<string, unknown>;
     const groups = (v.groups as Array<{ articles: unknown[] }>) ?? [];
     const topArticles = (v.ungroupedArticles as unknown[]) ?? [];
@@ -166,7 +166,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
   const { sites } = loaderData;
   const addSiteModal = useModal();
   const deleteSiteModal = useModal();
-  const [siteToDelete, setSiteToDelete] = useState<SiteData | null>(null);
+  const [siteToDelete, setSiteToDelete] = useState<SiteCard | null>(null);
 
   const createFetcher = useFetcher<ActionData>();
   const deleteFetcher = useFetcher<ActionData>();
