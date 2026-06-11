@@ -19,6 +19,7 @@ import {
   buildArticleRecord,
   buildArticleRef,
   loadSiteOptions,
+  hasTextContent,
 } from "~/services/article.server";
 import { toSlug } from "~/hooks/utils";
 import { addArticleToSites } from "~/services/articleSiteSync.server";
@@ -112,10 +113,6 @@ export async function action({ request }: Route.ActionArgs) {
           : "Failed to save article. Please try again.",
     };
   }
-}
-
-function hasTextContent(html: string): boolean {
-  return html.replace(/<[^>]*>/g, "").trim() !== "";
 }
 
 export default function Create({

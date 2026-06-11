@@ -11,6 +11,7 @@ import {
   validateArticleFields,
   buildArticleRecord,
   buildArticleRef,
+  hasTextContent,
 } from "~/services/article.server";
 import {
   computeSiteAssignmentChanges,
@@ -188,10 +189,6 @@ export async function action({ request, params }: Route.ActionArgs) {
   return { ok: true, title };
 }
 
-// Strips HTML tags to check whether the editor actually contains text.
-function hasTextContent(html: string): boolean {
-  return html.replace(/<[^>]*>/g, "").trim() !== "";
-}
 
 export default function EditArticle({
   loaderData,
