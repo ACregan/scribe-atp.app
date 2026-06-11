@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scribe CMS — Architecture Review</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", fontSize: 13 });
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: "#0070f3",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+      }
+      .badge-strong {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .badge-explore {
+        background: #fef9c3;
+        color: #854d0e;
+      }
+      .badge-specul {
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .card {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 2rem;
+      }
+      .card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .card-body {
+        padding: 1.5rem;
+      }
+      .diagram-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+      }
+      .diagram-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+      }
+      .file-pill {
+        display: inline-block;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-family: monospace;
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin: 2px;
+      }
+      .file-pill.hot {
+        background: #fff1f2;
+        border-color: #fecdd3;
+        color: #be123c;
+      }
+      .arrow {
+        color: #94a3b8;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .heat {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 4px;
+      }
+      .heat-3 {
+        background: #ef4444;
+      }
+      .heat-2 {
+        background: #f97316;
+      }
+      .heat-1 {
+        background: #eab308;
+      }
+      .heat-0 {
+        background: #22c55e;
+      }
+
+      /* Mass diagram */
+      .mass-diagram {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        height: 120px;
+      }
+      .mass-bar {
+        border-radius: 4px 4px 0 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 4px;
+      }
+      .mass-label {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: white;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        transform: rotate(180deg);
+        white-space: nowrap;
+      }
+
+      /* Before/after shared styles */
+      .ba-grid {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 1rem;
+        align-items: center;
+      }
+      .node-box {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        text-align: center;
+        background: white;
+      }
+      .node-box.bad {
+        border-color: #fca5a5;
+        background: #fff1f2;
+      }
+      .node-box.good {
+        border-color: #86efac;
+        background: #f0fdf4;
+      }
+      .node-box.neutral {
+        border-color: #e2e8f0;
+        background: #f8fafc;
+      }
+      .node-box.accent {
+        border-color: #93c5fd;
+        background: #eff6ff;
+      }
+      .connector {
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        margin: 2px 0;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 text-gray-900 min-h-screen">
+    <!-- Header -->
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div
+        class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between"
+      >
+        <div>
+          <h1 class="text-xl font-bold text-gray-900">
+            Scribe CMS — Architecture Review
+          </h1>
+          <p class="text-sm text-gray-500 mt-0.5">
+            6 candidates · 2 strong · 3 worth exploring · 1 speculative
+          </p>
+        </div>
+        <div class="text-xs text-gray-400 font-mono">2026-06-11</div>
+      </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-6 py-8">
+      <!-- Intro -->
+      <p class="text-gray-600 mb-8 max-w-2xl">
+        This review looks for <strong>depth</strong> — modules where the
+        interface carries less weight than the implementation deserves — and for
+        <strong>missing seams</strong> where behaviour is tangled enough to
+        resist testing or change. Auth and Image Service are healthy; friction
+        concentrates in the Article/Site management layer.
+      </p>
+
+      <!-- Heat map summary -->
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+        <h2
+          class="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4"
+        >
+          Friction Heat Map
+        </h2>
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            <div class="flex gap-0.5">
+              <span class="heat heat-3"></span><span class="heat heat-3"></span
+              ><span class="heat heat-3"></span>
+            </div>
+            <span class="text-sm font-medium w-64"
+              >ArticleRef propagation tax</span
+            >
+            <span class="text-xs text-gray-500"
+              >11 files must change in lockstep; 4 map copies in siteTree</span
+            >
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex gap-0.5">
+              <span class="heat heat-3"></span><span class="heat heat-3"></span
+              ><span class="heat heat-0"></span>
+            </div>
+            <span class="text-sm font-medium w-64"
+              >site-list.tsx god-route</span
+            >
+            <span class="text-xs text-gray-500"
+              >755 lines, 7 state vars, zero unit tests; blocks
+              maintenance</span
+            >
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex gap-0.5">
+              <span class="heat heat-2"></span><span class="heat heat-0"></span
+              ><span class="heat heat-0"></span>
+            </div>
+            <span class="text-sm font-medium w-64"
+              >create.tsx / edit.tsx duplication</span
+            >
+            <span class="text-xs text-gray-500"
+              >~84 lines of shared logic not extracted; hasTextContent copied
+              verbatim</span
+            >
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex gap-0.5">
+              <span class="heat heat-1"></span><span class="heat heat-0"></span
+              ><span class="heat heat-0"></span>
+            </div>
+            <span class="text-sm font-medium w-64">toSlug duplication</span>
+            <span class="text-xs text-gray-500"
+              >Defined independently in siteTree + create; groups.tsx already
+              imports correctly</span
+            >
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex gap-0.5">
+              <span class="heat heat-1"></span><span class="heat heat-0"></span
+              ><span class="heat heat-0"></span>
+            </div>
+            <span class="text-sm font-medium w-64">Dual SiteData types</span>
+            <span class="text-xs text-gray-500"
+              >Two types with the same name in different layers; navigational
+              confusion</span
+            >
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex gap-0.5">
+              <span class="heat heat-0"></span><span class="heat heat-0"></span
+              ><span class="heat heat-0"></span>
+            </div>
+            <span class="text-sm font-medium w-64"
+              >article.server.ts shallowness</span
+            >
+            <span class="text-xs text-gray-500"
+              >Only 2 callers; thin wrapper around micro-transforms</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+     CANDIDATE 1 — ArticleRef propagation
+     ═══════════════════════════════════════════════════════════════ -->
+      <div class="card">
+        <div class="card-header bg-white">
+          <span class="text-lg font-bold">1</span>
+          <div class="flex-1">
+            <h2 class="font-bold text-gray-900">ArticleRef Propagation Tax</h2>
+            <p class="text-sm text-gray-500">
+              11 sites must change in lockstep on every new Article field
+            </p>
+          </div>
+          <span class="badge-strong text-xs font-bold px-3 py-1 rounded-full"
+            >Strong</span
+          >
+        </div>
+        <div class="card-body space-y-6">
+          <!-- Files -->
+          <div>
+            <p class="diagram-label">Files involved</p>
+            <span class="file-pill hot">app/hooks/types.ts</span>
+            <span class="file-pill hot">app/services/article.server.ts</span>
+            <span class="file-pill hot"
+              >app/routes/article/site-list/siteTree.ts</span
+            >
+            <span class="file-pill">app/routes/article/create/create.tsx</span>
+            <span class="file-pill">app/routes/article/edit/edit.tsx</span>
+            <span class="file-pill"
+              >app/services/articleSiteSync.server.ts</span
+            >
+          </div>
+
+          <!-- Problem -->
+          <div>
+            <p class="diagram-label">Problem</p>
+            <p class="text-sm text-gray-700">
+              <code class="bg-gray-100 px-1 rounded text-xs">ArticleRef</code>
+              is a cached snapshot of Article metadata stored inside Site
+              records. When any new field is added to
+              <code class="bg-gray-100 px-1 rounded text-xs"
+                >app.scribe.article</code
+              >, the same field must be manually added in
+              <strong>11 places</strong> — including
+              <em>four separate</em> field maps inside
+              <code class="bg-gray-100 px-1 rounded text-xs">siteTree.ts</code>
+              alone (two in <code>buildTreeFromSite</code>, two in
+              <code>treeToSiteData</code>). The CLAUDE.md already flags this as
+              a known cost and asks developers to remember to update all
+              propagation sites. That's a documentation-as-guardrail, not an
+              architecture-as-guardrail.
+            </p>
+          </div>
+
+          <!-- Before / After diagram -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="diagram-box">
+              <p class="diagram-label">Before — field in 11 places</p>
+              <div class="space-y-1.5 text-xs">
+                <div class="node-box bad">types.ts — ArticleRef interface</div>
+                <div class="node-box bad">
+                  article.server.ts — buildArticleRef()
+                </div>
+                <div class="text-center text-gray-400 font-bold">
+                  siteTree.ts ↓
+                </div>
+                <div class="grid grid-cols-2 gap-1">
+                  <div class="node-box bad text-center">
+                    buildTreeFromSite<br /><span class="text-gray-400"
+                      >ungrouped map</span
+                    >
+                  </div>
+                  <div class="node-box bad text-center">
+                    buildTreeFromSite<br /><span class="text-gray-400"
+                      >group map</span
+                    >
+                  </div>
+                  <div class="node-box bad text-center">
+                    treeToSiteData<br /><span class="text-gray-400"
+                      >ungrouped map</span
+                    >
+                  </div>
+                  <div class="node-box bad text-center">
+                    treeToSiteData<br /><span class="text-gray-400"
+                      >group map</span
+                    >
+                  </div>
+                </div>
+                <div class="node-box bad">
+                  articleSiteSync.server.ts — updateArticleRef()
+                </div>
+                <div class="node-box bad">
+                  TreeArticleNode type (siteTree.ts)
+                </div>
+                <div class="text-red-400 text-center font-semibold mt-2">
+                  Add a field → touch all 11
+                </div>
+              </div>
+            </div>
+            <div class="diagram-box">
+              <p class="diagram-label">After — single mapping seam</p>
+              <div class="space-y-1.5 text-xs">
+                <div class="node-box good">
+                  types.ts — ArticleRef interface<br /><span
+                    class="text-gray-400"
+                    >(single source of truth)</span
+                  >
+                </div>
+                <div class="node-box good">
+                  article.server.ts — buildArticleRef()<br /><span
+                    class="text-gray-400"
+                    >derives from ArticleRef keys</span
+                  >
+                </div>
+                <div class="text-center text-gray-400 font-bold">
+                  siteTree.ts ↓
+                </div>
+                <div class="node-box accent">
+                  articleRefFromNode(node: TreeArticleNode): ArticleRef<br /><span
+                    class="text-gray-400"
+                    >one function, explicit mapping</span
+                  >
+                </div>
+                <div class="node-box accent">
+                  nodeFromArticleRef(ref: ArticleRef): TreeArticleNode<br /><span
+                    class="text-gray-400"
+                    >inverse, one function</span
+                  >
+                </div>
+                <div class="node-box good">
+                  articleSiteSync.server.ts<br /><span class="text-gray-400"
+                    >calls buildArticleRef (no duplication)</span
+                  >
+                </div>
+                <div class="text-green-600 text-center font-semibold mt-2">
+                  Add a field → touch 2 places
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mermaid flow -->
+          <div class="diagram-box">
+            <p class="diagram-label">
+              Current data flow — where ArticleRef fields fan out
+            </p>
+            <div class="mermaid text-sm">
+              graph LR A["app.scribe.article<br />(PDS record)"] -->
+              B["buildArticleRef()<br />article.server.ts"] B -->
+              C["ArticleRef<br />types.ts"] C --> D["buildTreeFromSite()<br />ungrouped
+              · siteTree.ts"] C --> E["buildTreeFromSite()<br />grouped ·
+              siteTree.ts"] D --> F["TreeArticleNode<br />siteTree.ts"] E --> F
+              F --> G["treeToSiteData()<br />ungrouped · siteTree.ts"] F -->
+              H["treeToSiteData()<br />grouped · siteTree.ts"] C -->
+              I["updateArticleRef()<br />articleSiteSync.ts"] style D
+              fill:#fff1f2,stroke:#fca5a5 style E fill:#fff1f2,stroke:#fca5a5
+              style G fill:#fff1f2,stroke:#fca5a5 style H
+              fill:#fff1f2,stroke:#fca5a5
+            </div>
+          </div>
+
+          <!-- Benefits -->
+          <div>
+            <p class="diagram-label">Benefits</p>
+            <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+              <li>
+                <strong>Locality:</strong> one place to add a field instead of
+                eleven. The four duplicate maps in siteTree become two
+                clearly-named conversion functions.
+              </li>
+              <li>
+                <strong>Leverage:</strong> <code>articleRefFromNode</code> /
+                <code>nodeFromArticleRef</code> are pure, tiny, and
+                unit-testable — the round-trip test in siteTree.test.ts becomes
+                a two-liner.
+              </li>
+              <li>
+                <strong>Tests:</strong> the existing round-trip tests still pass
+                with minimal changes; new field tests become trivially writable
+                against the conversion functions.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+     CANDIDATE 2 — site-list.tsx god-route
+     ═══════════════════════════════════════════════════════════════ -->
+      <div class="card">
+        <div class="card-header bg-white">
+          <span class="text-lg font-bold">2</span>
+          <div class="flex-1">
+            <h2 class="font-bold text-gray-900">site-list.tsx — God-Route</h2>
+            <p class="text-sm text-gray-500">
+              755 lines, 7 state variables, zero unit tests
+            </p>
+          </div>
+          <span class="badge-strong text-xs font-bold px-3 py-1 rounded-full"
+            >Strong</span
+          >
+        </div>
+        <div class="card-body space-y-6">
+          <!-- Files -->
+          <div>
+            <p class="diagram-label">Files involved</p>
+            <span class="file-pill hot"
+              >app/routes/article/site-list/site-list.tsx</span
+            >
+            <span class="file-pill"
+              >app/routes/article/site-list/siteTree.ts</span
+            >
+            <span class="file-pill">app/components/GroupItem/</span>
+            <span class="file-pill">app/components/ArticleItem/</span>
+          </div>
+
+          <!-- Mass diagram -->
+          <div class="diagram-box">
+            <p class="diagram-label">
+              Responsibilities crammed into site-list.tsx
+            </p>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 6px;
+                margin-top: 8px;
+              "
+            >
+              <div
+                style="
+                  background: #fff1f2;
+                  border: 1px solid #fca5a5;
+                  border-radius: 6px;
+                  padding: 8px;
+                  text-align: center;
+                "
+              >
+                <div style="font-size: 2rem; font-weight: 800; color: #ef4444">
+                  755
+                </div>
+                <div
+                  style="font-size: 0.65rem; color: #64748b; margin-top: 4px"
+                >
+                  total lines
+                </div>
+              </div>
+              <div
+                style="
+                  background: #eff6ff;
+                  border: 1px solid #93c5fd;
+                  border-radius: 6px;
+                  padding: 8px;
+                  text-align: center;
+                "
+              >
+                <div
+                  style="font-size: 1.4rem; font-weight: 800; color: #2563eb"
+                >
+                  ~100
+                </div>
+                <div
+                  style="font-size: 0.65rem; color: #64748b; margin-top: 4px"
+                >
+                  DnD handlers<br />(onDragStart/Over/End)
+                </div>
+              </div>
+              <div
+                style="
+                  background: #eff6ff;
+                  border: 1px solid #93c5fd;
+                  border-radius: 6px;
+                  padding: 8px;
+                  text-align: center;
+                "
+              >
+                <div
+                  style="font-size: 1.4rem; font-weight: 800; color: #2563eb"
+                >
+                  ~100
+                </div>
+                <div
+                  style="font-size: 0.65rem; color: #64748b; margin-top: 4px"
+                >
+                  CreateGroupModal<br />incl. slug autofill
+                </div>
+              </div>
+              <div
+                style="
+                  background: #eff6ff;
+                  border: 1px solid #93c5fd;
+                  border-radius: 6px;
+                  padding: 8px;
+                  text-align: center;
+                "
+              >
+                <div
+                  style="font-size: 1.4rem; font-weight: 800; color: #2563eb"
+                >
+                  ~80
+                </div>
+                <div
+                  style="font-size: 0.65rem; color: #64748b; margin-top: 4px"
+                >
+                  unsaved-changes<br />blocker + modal
+                </div>
+              </div>
+              <div
+                style="
+                  background: #eff6ff;
+                  border: 1px solid #93c5fd;
+                  border-radius: 6px;
+                  padding: 8px;
+                  text-align: center;
+                "
+              >
+                <div
+                  style="font-size: 1.4rem; font-weight: 800; color: #2563eb"
+                >
+                  ~60
+                </div>
+                <div
+                  style="font-size: 0.65rem; color: #64748b; margin-top: 4px"
+                >
+                  group state sync<br />(knownGroupSlugs)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Problem -->
+          <div>
+            <p class="diagram-label">Problem</p>
+            <p class="text-sm text-gray-700 mb-2">
+              The route component owns: DnD sensor setup, drag state, dirty
+              tracking, unsaved-changes blocker, group-state reconciliation
+              after loader revalidation, create-group modal (with its own slug
+              autofill), unsaved-changes modal, save/delete fetchers, and all
+              render logic. This is
+              <strong>seven distinct concerns in one file</strong>.
+            </p>
+            <p class="text-sm text-gray-700">
+              The fragile area is the
+              <strong>knownGroupSlugsRef + savedTreeRef dance</strong>: when the
+              loader revalidates after a group is created, the component must
+              detect new slugs and append them to <em>both</em>
+              <code>tree</code> and <code>savedTreeRef</code> simultaneously —
+              otherwise the new group appears as an unsaved change. This is
+              correct today but has no unit test harness. A future maintainer
+              adding another state update in this area has no safety net.
+            </p>
+          </div>
+
+          <!-- Before / After diagram -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="diagram-box">
+              <p class="diagram-label">Before — everything in site-list.tsx</p>
+              <div
+                style="
+                  border: 2px solid #fca5a5;
+                  border-radius: 8px;
+                  padding: 12px;
+                  background: #fff1f2;
+                "
+              >
+                <div
+                  style="
+                    text-align: center;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    color: #be123c;
+                    margin-bottom: 8px;
+                  "
+                >
+                  site-list.tsx (755 lines)
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                    font-size: 0.7rem;
+                  "
+                >
+                  <div class="connector">📦 loader (auth + PDS fetch)</div>
+                  <div class="connector">
+                    ⚡ action (createGroup, deleteGroup, saveSite,
+                    removeArticle)
+                  </div>
+                  <div class="connector">
+                    🎯 DnD sensor setup + drag event handlers
+                  </div>
+                  <div class="connector">💾 dirty tracking + savedTreeRef</div>
+                  <div class="connector">
+                    🚧 unsaved-changes blocker + proceed-after-save ref
+                  </div>
+                  <div class="connector">
+                    🔄 knownGroupSlugs reconciliation with loader
+                  </div>
+                  <div class="connector">
+                    🪟 CreateGroupModal (slug autofill)
+                  </div>
+                  <div class="connector">🪟 UnsavedChangesModal</div>
+                  <div class="connector">🖼 full render tree</div>
+                </div>
+              </div>
+            </div>
+            <div class="diagram-box">
+              <p class="diagram-label">After — extracted seams</p>
+              <div style="display: flex; flex-direction: column; gap: 4px">
+                <div
+                  style="
+                    border: 1px solid #86efac;
+                    border-radius: 6px;
+                    padding: 8px;
+                    background: #f0fdf4;
+                    font-size: 0.7rem;
+                  "
+                >
+                  <strong>useSiteListDnD(tree, setTree)</strong><br />
+                  <span style="color: #64748b"
+                    >DnD sensors, handlers, activeItem state. Pure hook,
+                    mockable.</span
+                  >
+                </div>
+                <div
+                  style="
+                    border: 1px solid #86efac;
+                    border-radius: 6px;
+                    padding: 8px;
+                    background: #f0fdf4;
+                    font-size: 0.7rem;
+                  "
+                >
+                  <strong>useDirtyTree(initialTree)</strong><br />
+                  <span style="color: #64748b"
+                    >tree + savedTreeRef + isDirty + sync logic. The fragile
+                    dance lives here, testable in isolation.</span
+                  >
+                </div>
+                <div
+                  style="
+                    border: 1px solid #93c5fd;
+                    border-radius: 6px;
+                    padding: 8px;
+                    background: #eff6ff;
+                    font-size: 0.7rem;
+                  "
+                >
+                  <strong>CreateGroupModal</strong> (app/components/)<br />
+                  <span style="color: #64748b"
+                    >Reusable — already needed in groups.tsx. Slug autofill
+                    shared.</span
+                  >
+                </div>
+                <div
+                  style="
+                    border: 1px solid #93c5fd;
+                    border-radius: 6px;
+                    padding: 8px;
+                    background: #eff6ff;
+                    font-size: 0.7rem;
+                  "
+                >
+                  <strong>UnsavedChangesModal</strong> (app/components/)<br />
+                  <span style="color: #64748b"
+                    >Generic — could be used anywhere useBlocker()
+                    appears.</span
+                  >
+                </div>
+                <div
+                  style="
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    padding: 8px;
+                    background: #f8fafc;
+                    font-size: 0.7rem;
+                  "
+                >
+                  <strong>site-list.tsx</strong> (~280 lines)<br />
+                  <span style="color: #64748b"
+                    >Loader, action, wiring. Readable.</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Benefits -->
+          <div>
+            <p class="diagram-label">Benefits</p>
+            <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+              <li>
+                <strong>Locality:</strong> the fragile
+                savedTreeRef/knownGroupSlugs logic lives in one testable hook. A
+                bug there doesn't require reading 700 lines of context to find.
+              </li>
+              <li>
+                <strong>Leverage:</strong> <code>CreateGroupModal</code> is
+                already duplicated (see candidate 3); extracting it kills two
+                birds. <code>UnsavedChangesModal</code> appears in
+                <code>create.tsx</code> and <code>edit.tsx</code> too — same
+                payoff.
+              </li>
+              <li>
+                <strong>Tests:</strong> <code>useDirtyTree</code> can be
+                unit-tested with <code>renderHook</code>; the fragile
+                group-reconciliation race condition becomes a pure state test.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+     CANDIDATE 3 — create/edit duplication
+     ═══════════════════════════════════════════════════════════════ -->
+      <div class="card">
+        <div class="card-header bg-white">
+          <span class="text-lg font-bold">3</span>
+          <div class="flex-1">
+            <h2 class="font-bold text-gray-900">
+              create.tsx / edit.tsx Shared Logic Spread
+            </h2>
+            <p class="text-sm text-gray-500">
+              ~84 lines duplicated; hasTextContent copied verbatim;
+              site-selection state reinvented
+            </p>
+          </div>
+          <span class="badge-explore text-xs font-bold px-3 py-1 rounded-full"
+            >Worth exploring</span
+          >
+        </div>
+        <div class="card-body space-y-6">
+          <div>
+            <p class="diagram-label">Files involved</p>
+            <span class="file-pill hot"
+              >app/routes/article/create/create.tsx</span
+            >
+            <span class="file-pill hot">app/routes/article/edit/edit.tsx</span>
+            <span class="file-pill">app/services/article.server.ts</span>
+            <span class="file-pill"
+              >app/components/ArticleForm/ArticleForm.tsx</span
+            >
+          </div>
+
+          <div>
+            <p class="diagram-label">Problem</p>
+            <p class="text-sm text-gray-700 mb-2">
+              Both routes share the same conceptual lifecycle: load sites for
+              the multi-select, handle site assignment changes, validate fields,
+              build the PDS record, show a dirty-state warning, toast on
+              success, and navigate. They've been extracted at the
+              <em>data</em> layer (<code>article.server.ts</code>) and at the
+              <em>render</em> layer (<code>ArticleForm</code>), but not at the
+              <em>state</em> layer — the glue logic between them is duplicated.
+            </p>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="diagram-box">
+                <p class="diagram-label">Duplicated exactly</p>
+                <div class="space-y-1 text-xs">
+                  <div class="node-box bad">
+                    <code>hasTextContent(html)</code> — strips tags, checks
+                    non-empty. Identical in both files.
+                  </div>
+                  <div class="node-box bad">
+                    <code>selectedSites: string[]</code> +
+                    <code>setSelectedSites</code> — same state shape, same
+                    initialisation from loader, same change handler
+                  </div>
+                  <div class="node-box bad">
+                    Toast-then-navigate pattern on action success — same
+                    useEffect shape
+                  </div>
+                </div>
+              </div>
+              <div class="diagram-box">
+                <p class="diagram-label">
+                  Nearly identical but intentionally different
+                </p>
+                <div class="space-y-1 text-xs">
+                  <div class="node-box neutral">
+                    Unsaved-changes blocker — same useBlocker pattern; create
+                    checks isDirty from form fields; edit checks isDirty from
+                    CID mismatch or site changes
+                  </div>
+                  <div class="node-box neutral">
+                    Slug autofill — create has title→slug sync; edit never
+                    autofills (intentional; slug is the rkey)
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="diagram-label">Solution</p>
+            <p class="text-sm text-gray-700">
+              Move <code>hasTextContent</code> into
+              <code>article.server.ts</code> (it's a pure utility used
+              server-side in both actions). Extract a
+              <code>useArticleSites(initialSiteRkeys)</code> hook that owns
+              <code>selectedSites</code> state and the add/remove change handler
+              — the hook's interface is the same in both routes, even if the
+              initialisation differs slightly. The toast-then-navigate effect is
+              already consistent; extracting it further would be
+              over-engineering.
+            </p>
+          </div>
+
+          <div>
+            <p class="diagram-label">Benefits</p>
+            <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+              <li>
+                <strong>Locality:</strong> <code>hasTextContent</code> lives
+                next to the other article validation logic rather than silently
+                diverging across two files.
+              </li>
+              <li>
+                <strong>Leverage:</strong> modest — the duplication isn't
+                causing bugs yet. Worth doing alongside a wider tidy of the
+                article routes.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+     CANDIDATE 4 — toSlug duplication
+     ═══════════════════════════════════════════════════════════════ -->
+      <div class="card">
+        <div class="card-header bg-white">
+          <span class="text-lg font-bold">4</span>
+          <div class="flex-1">
+            <h2 class="font-bold text-gray-900">toSlug Duplication</h2>
+            <p class="text-sm text-gray-500">
+              Defined independently in siteTree.ts and create.tsx; groups.tsx
+              already imports correctly
+            </p>
+          </div>
+          <span class="badge-explore text-xs font-bold px-3 py-1 rounded-full"
+            >Worth exploring</span
+          >
+        </div>
+        <div class="card-body space-y-6">
+          <div>
+            <p class="diagram-label">Files involved</p>
+            <span class="file-pill hot"
+              >app/routes/article/site-list/siteTree.ts</span
+            >
+            <span class="file-pill hot"
+              >app/routes/article/create/create.tsx</span
+            >
+            <span class="file-pill">app/routes/groups/groups.tsx</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4">
+            <div class="diagram-box">
+              <p class="diagram-label">siteTree.ts (exported, tested)</p>
+              <pre class="text-xs bg-gray-50 p-2 rounded overflow-auto">
+export function toSlug(title: string) {
+  return title.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}</pre
+              >
+            </div>
+            <div class="diagram-box">
+              <p class="diagram-label">create.tsx (private, untested)</p>
+              <pre class="text-xs bg-gray-50 p-2 rounded overflow-auto">
+function slugify(title: string) {
+  return title.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}</pre
+              >
+            </div>
+            <div class="diagram-box">
+              <p class="diagram-label">groups.tsx (correct import)</p>
+              <pre class="text-xs bg-gray-50 p-2 rounded overflow-auto">
+import { toSlug } from
+  "~/routes/article/
+    site-list/siteTree";
+// ✓ no local copy</pre
+              >
+            </div>
+          </div>
+
+          <div>
+            <p class="diagram-label">Solution</p>
+            <p class="text-sm text-gray-700">
+              Move <code>toSlug</code> to <code>app/hooks/utils.ts</code> (which
+              already exports <code>slugFromUri</code> and
+              <code>flattenArticles</code>). <code>siteTree.ts</code> and
+              <code>create.tsx</code> both import from there.
+              <code>groups.tsx</code> updates its import path. Three callers,
+              one canonical home.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+     CANDIDATE 5 — Dual SiteData types
+     ═══════════════════════════════════════════════════════════════ -->
+      <div class="card">
+        <div class="card-header bg-white">
+          <span class="text-lg font-bold">5</span>
+          <div class="flex-1">
+            <h2 class="font-bold text-gray-900">Dual SiteData Types</h2>
+            <p class="text-sm text-gray-500">
+              Two types share the same name in different layers; one is a
+              display card, one is a tree manifest
+            </p>
+          </div>
+          <span class="badge-explore text-xs font-bold px-3 py-1 rounded-full"
+            >Worth exploring</span
+          >
+        </div>
+        <div class="card-body space-y-6">
+          <div>
+            <p class="diagram-label">Files involved</p>
+            <span class="file-pill hot">app/components/types.ts</span>
+            <span class="file-pill hot"
+              >app/routes/article/site-list/siteTree.ts</span
+            >
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="diagram-box">
+              <p class="diagram-label">components/types.ts — display shape</p>
+              <pre class="text-xs bg-gray-50 p-2 rounded overflow-auto">
+type SiteData = {
+  rkey, cid, title, url, urlPrefix,
+  description?, splashImageUrl?,
+  logoImageUrl?,
+  groupCount,   // ← summary count
+  articleCount  // ← summary count
+}</pre
+              >
+              <p class="text-xs text-gray-500 mt-2">
+                Used by: SiteTile, SiteListItem, sites.tsx, list.tsx
+              </p>
+            </div>
+            <div class="diagram-box">
+              <p class="diagram-label">siteTree.ts — manifest shape</p>
+              <pre class="text-xs bg-gray-50 p-2 rounded overflow-auto">
+type SiteData = {
+  rkey, cid, url, title, urlPrefix,
+  groups: SiteGroup[],       // ← full array
+  ungroupedArticles: ArticleRef[] // ← full array
+}</pre
+              >
+              <p class="text-xs text-gray-500 mt-2">
+                Used by: site-list.tsx loader, devFixtures
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p class="diagram-label">Solution</p>
+            <p class="text-sm text-gray-700">
+              The display shape is a <strong>Site summary card</strong> — rename
+              it to <code>SiteCard</code> in <code>components/types.ts</code>.
+              The manifest shape is the full <strong>Site manifest</strong> used
+              for DnD tree construction — rename it to
+              <code>SiteManifest</code> in <code>siteTree.ts</code>. Both names
+              map directly to domain concepts. The UBIQUITOUS_LANGUAGE glossary
+              doesn't have a term for either shape, so this is a naming
+              addition, not a conflict. Update callers (<code>SiteTile</code>,
+              <code>SiteListItem</code>, etc.) to import <code>SiteCard</code>.
+            </p>
+          </div>
+
+          <div>
+            <p class="diagram-label">Note</p>
+            <p class="text-sm text-gray-500">
+              CLAUDE.md already acknowledges this split exists and calls the
+              shapes intentionally separate. This is a pure rename for
+              navigational clarity, not a structural change. Low risk, low
+              friction.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+     CANDIDATE 6 — article.server.ts shallowness
+     ═══════════════════════════════════════════════════════════════ -->
+      <div class="card">
+        <div class="card-header bg-white">
+          <span class="text-lg font-bold">6</span>
+          <div class="flex-1">
+            <h2 class="font-bold text-gray-900">
+              article.server.ts — Too Shallow to Justify?
+            </h2>
+            <p class="text-sm text-gray-500">
+              74 lines, 2 callers, 4 micro-transforms; narrow extraction that
+              may not earn its interface
+            </p>
+          </div>
+          <span class="badge-specul text-xs font-bold px-3 py-1 rounded-full"
+            >Speculative</span
+          >
+        </div>
+        <div class="card-body space-y-4">
+          <div>
+            <p class="diagram-label">Files involved</p>
+            <span class="file-pill hot">app/services/article.server.ts</span>
+            <span class="file-pill">app/routes/article/create/create.tsx</span>
+            <span class="file-pill">app/routes/article/edit/edit.tsx</span>
+          </div>
+
+          <div>
+            <p class="diagram-label">Deletion test</p>
+            <p class="text-sm text-gray-700">
+              Delete <code>article.server.ts</code> →
+              <code>validateArticleFields</code> (3 lines),
+              <code>buildArticleRecord</code> (5 lines), and
+              <code>buildArticleRef</code> (7 lines) each land in two places.
+              That's a small duplication but <code>buildArticleRef</code> is
+              load-bearing for Candidate 1 — it's the one canonical construction
+              site. <strong>Don't delete.</strong> But consider whether the
+              module should grow rather than stay at 74 lines.
+            </p>
+          </div>
+
+          <div>
+            <p class="diagram-label">Alternative</p>
+            <p class="text-sm text-gray-700">
+              Rather than deleting or leaving as-is,
+              <code>article.server.ts</code> could absorb
+              <code>hasTextContent</code> (from Candidate 3),
+              <code>addArticleToSites</code> is already here but not listed in
+              CLAUDE.md's exports table — it's the right home for
+              site-assignment logic. Make the module <em>deeper</em> by drawing
+              more article-lifecycle logic into it, rather than questioning its
+              existence.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+     TOP RECOMMENDATION
+     ═══════════════════════════════════════════════════════════════ -->
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <h2 class="font-bold text-blue-900 mb-3">Top recommendation</h2>
+        <p class="text-sm text-blue-800 mb-3">
+          Start with <strong>Candidate 1 — ArticleRef Propagation</strong>. It's
+          the only architectural issue that will get
+          <em>worse with every feature you add</em>. The fix is contained and
+          surgical: replace the four duplicate maps in
+          <code>siteTree.ts</code> with two named conversion functions (<code
+            >articleRefFromNode</code
+          >
+          / <code>nodeFromArticleRef</code>), and update the round-trip tests.
+          Nothing outside <code>siteTree.ts</code> changes. Time: half a day.
+        </p>
+        <p class="text-sm text-blue-800">
+          <strong>Candidate 2 — site-list.tsx</strong> is higher-effort but has
+          higher payoff for long-term maintainability. The right order is 1 → 2
+          → 3+4 together (natural co-location tidy), and treat Candidate 5 as a
+          rename-and-forget. Candidate 6 resolves itself as a by-product of
+          Candidate 3.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
