@@ -262,9 +262,14 @@ function Landing() {
         </div>
         <div className={styles.topMargin}></div>
         <div className={styles.bottomMargin}>
-          <div className={styles.psLogoContainer}>
+          <a
+            href="https://perpetualsummer.ltd/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.psLogoContainer}
+          >
             <SvgIcon name={SvgImageList.PerpetualSummerLogoAndText} />
-          </div>
+          </a>
         </div>
         <div className={styles.rightGutter}></div>
       </div>
