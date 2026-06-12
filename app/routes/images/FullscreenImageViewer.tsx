@@ -52,6 +52,16 @@ export function FullscreenImageViewer({
         maxData.height > window.screen.height
       : true;
 
+  // Escape key exits fullscreen — browser-native fullscreen exit on Escape
+  // doesn't fire in headless Chromium, so we handle it explicitly.
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onExit();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onExit]);
+
   // Chevron auto-hide on pointer:fine devices
   const hideTimerRef = useRef<number | undefined>(undefined);
   useEffect(() => {
