@@ -4,7 +4,9 @@ export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  reporter: process.env.CI
+    ? [["github"], ["junit", { outputFile: "test-results/junit.xml" }]]
+    : [["list"]],
   use: {
     baseURL: "http://localhost:3008",
     storageState: "e2e/.auth/session.json",
