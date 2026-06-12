@@ -61,6 +61,8 @@ deploy:
   before_script:
     - eval $(ssh-agent -s)
     - echo "Key first line:" && head -1 "$SSH_DEPLOY_KEY"
+    - echo "Key last line:" && tail -1 "$SSH_DEPLOY_KEY"
+    - echo "Key line count:" && wc -l "$SSH_DEPLOY_KEY"
     - chmod 400 "$SSH_DEPLOY_KEY" && ssh-add "$SSH_DEPLOY_KEY"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
