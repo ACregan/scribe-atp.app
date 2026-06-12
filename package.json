@@ -1,6 +1,6 @@
 {
   "name": "scribe-atp.app",
-  "version": "5.0.1",
+  "version": "5.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,9 @@
     "typecheck:image-service": "tsc -p image-service/tsconfig.json --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "bump:minor": "npm version minor --no-git-tag-version && git tag v$(node -p \"require('./package.json').version\")",
+    "bump:patch": "npm version patch --no-git-tag-version && git tag v$(node -p \"require('./package.json').version\")"
   },
   "dependencies": {
     "@atproto/api": "^0.19.18",

@@ -152,12 +152,17 @@
 }
 @media (max-width: 799px) {
   .landingGrid {
+    grid-template-rows: 1rem auto 1fr 6rem;
     grid-template-columns: 4rem 2fr 1fr 4rem;
   }
   .landingLogo {
     text-align: left;
     word-break: break-all;
-    font-size: 6rem;
+    font-size: 5rem;
+    line-height: 6.5rem;
+  }
+  .blurbContainer > p {
+    font-size: 1.3rem;
   }
 }
 
