@@ -1,3 +1,166 @@
+/* ── Landing (unauthenticated) ───────────────────────────────────────────────── */
+
+.landing {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 2rem;
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.landingVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: var(--home-video-filters);
+}
+
+.landingGrid {
+  position: absolute;
+  inset: 0;
+
+  display: grid;
+  grid-template-columns: 10rem 2fr 1fr 10rem;
+  grid-template-rows: 6rem 1fr 6rem;
+  grid-auto-rows: 1fr;
+  gap: 0em 0em;
+  grid-auto-flow: column;
+  grid-template-areas:
+    "topMargin topMargin topMargin topMargin"
+    "leftGutter leftSection rightSection rightGutter"
+    "bottomMargin bottomMargin bottomMargin bottomMargin";
+}
+
+.leftGutter {
+  grid-area: leftGutter;
+}
+
+.leftSection {
+  grid-area: leftSection;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+.landingLogo {
+  font-size: 10rem;
+  font-weight: 300;
+  text-decoration: underline;
+  text-decoration-thickness: 0.5rem;
+  text-underline-offset: 1rem;
+}
+.landingLogo > strong {
+  font-weight: 800;
+}
+.landingTagline {
+  font-size: 2.4rem;
+  color: var(--text-secondary);
+  margin: 0;
+  text-align: left;
+}
+
+.rightSection {
+  grid-area: rightSection;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+}
+.blurbContainer {
+  position: relative;
+}
+.landingActions {
+  display: flex;
+  gap: 1.2rem;
+  margin-top: 2.4rem;
+  position: absolute;
+  bottom: -5rem;
+  left: 0;
+}
+.landingActions button {
+  padding: 1rem 2rem;
+}
+
+.topMargin {
+  grid-area: topMargin;
+}
+
+.bottomMargin {
+  grid-area: bottomMargin;
+  display: flex;
+  justify-content: center;
+}
+.psLogoContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  position: fixed;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 5rem;
+  width: 16rem;
+}
+.psLogoContainer > svg {
+  fill: var(--home-pslogo-fill);
+}
+
+.rightGutter {
+  grid-area: rightGutter;
+}
+
+.landingTitle {
+  font-size: 4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+@media (max-width: 1079px) {
+  .landingGrid {
+    position: absolute;
+    inset: 0;
+
+    display: grid;
+    grid-template-columns: 10rem 2fr 1fr 10rem;
+    grid-template-rows: 6rem 1fr 1fr 6rem;
+    grid-auto-rows: 1fr;
+    gap: 0em 0em;
+    grid-auto-flow: column;
+    grid-template-areas:
+      "topMargin topMargin topMargin topMargin"
+      "leftGutter leftSection leftSection rightGutter"
+      "leftGutter rightSection rightSection rightGutter"
+      "bottomMargin bottomMargin bottomMargin bottomMargin";
+  }
+  .leftSection {
+    justify-content: flex-end;
+  }
+  .rightSection {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 799px) {
+  .landingGrid {
+    grid-template-columns: 4rem 2fr 1fr 4rem;
+  }
+  .landingLogo {
+    text-align: left;
+    word-break: break-all;
+    font-size: 6rem;
+  }
+}
+
 /* ── Section headings ────────────────────────────────────────────────────────── */
 
 .sectionTitle {

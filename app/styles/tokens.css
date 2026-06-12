@@ -36,6 +36,10 @@
 
   /* Component Specific */
 
+  /* Home.tsx */
+  --home-video-filters: none;
+  --home-pslogo-fill: var(--mine-shaft);
+
   /* groups.tsx <GroupSiteItem /> & article/list.tsx .articleItem*/
   --group-site-item-border-colour: var(--mine-shaft);
 
@@ -145,6 +149,10 @@
   --action-danger: var(--cinnabar);
 
   /* Component Specific */
+
+  /* Home.tsx */
+  --home-video-filters: sepia(100%) hue-rotate(344deg) brightness(1) invert(1);
+  --home-pslogo-fill: var(--white);
   /* groups.tsx <GroupSiteItem /> */
   --group-site-item-border-colour: var(--jacaranda);
 

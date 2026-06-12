@@ -7,7 +7,6 @@ import {
   useRealOAuth,
 } from "~/services/auth.server";
 import { devHomeLoader } from "~/services/devFixtures.server";
-import { redirect } from "react-router";
 import { useModal } from "~/components/Modal/useModal";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
@@ -23,7 +22,7 @@ import {
   PageSectionColumns,
   PageSectionColumn,
 } from "~/components/PageContainer/PageContainer";
-import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
@@ -75,10 +74,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { handle, did } = await getAuthSession(request);
 
   if (!did) {
-    throw redirect("/login");
+    return { isAuthenticated: false as const };
   }
 
-  if (!useRealOAuth) return devHomeLoader(handle);
+  if (!useRealOAuth) {
+    return { isAuthenticated: true as const, ...devHomeLoader(handle) };
+  }
 
   const agent = await getAtpAgent(did);
   const [articlesResult, sitesResult] = await Promise.all([
@@ -155,6 +156,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   ).length;
 
   return {
+    isAuthenticated: true as const,
     userName: handle ?? null,
     isDev: IS_DEV,
     recentArticles,
@@ -208,6 +210,75 @@ export async function action({ request }: Route.ActionArgs) {
 
 export function HydrateFallback() {
   return <Spinner size="large" />;
+}
+
+function Landing() {
+  return (
+    <div className={styles.landing}>
+      <video
+        className={styles.landingVideo}
+        src={"/video/dot-wave-1.mp4"}
+        muted
+        autoPlay
+        loop
+      />
+      <div className={styles.landingGrid}>
+        <div className={styles.leftGutter}></div>
+        <div className={styles.leftSection}>
+          <h2 className={styles.landingLogo}>
+            Scribe<strong>CMS</strong>
+          </h2>
+          <p className={styles.landingTagline}>
+            AT Protocol-powered content management.
+          </p>
+        </div>
+        <div className={styles.rightSection}>
+          <div className={styles.blurbContainer}>
+            <p>
+              Scribe is a content management system built on the AT Protocol —
+              the same open network that powers Bluesky. Your articles are
+              stored in your own Personal Data Server, meaning your content
+              belongs to you, is publicly readable by anyone, and travels with
+              your identity across the open web. No lock-in, no black boxes.
+              Just your words, in your repository.
+            </p>
+            <div className={styles.landingActions}>
+              <a
+                href="https://bsky.app/signup"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button type="button" variant="secondary" tabIndex={-1}>
+                  Sign Up
+                </Button>
+              </a>
+              <Link to="/login">
+                <Button type="button" variant="primary" tabIndex={-1}>
+                  Login
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+        <div className={styles.topMargin}></div>
+        <div className={styles.bottomMargin}>
+          <div className={styles.psLogoContainer}>
+            <SvgIcon name={SvgImageList.PerpetualSummerLogoAndText} />
+          </div>
+        </div>
+        <div className={styles.rightGutter}></div>
+      </div>
+      {/* <h1 className={styles.landingTitle}>Scribe ATP</h1>
+      <p className={styles.landingTagline}>
+        AT Protocol-powered content management.
+      </p>
+      <Link to="/login">
+        <Button type="button" variant="primary" tabIndex={-1}>
+          Sign in with Bluesky
+        </Button>
+      </Link> */}
+    </div>
+  );
 }
 
 function GroupSiteItem({
@@ -265,7 +336,6 @@ function GroupSiteItem({
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { isDev, recentArticles, orphanedArticleCount, sites } = loaderData;
   const nukeModal = useModal();
   const devToolsModal = useModal();
   const fetcher = useFetcher<{
@@ -297,6 +367,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       });
     }
   }, [fetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!loaderData.isAuthenticated) {
+    return <Landing />;
+  }
+
+  const { isDev, recentArticles, orphanedArticleCount, sites } = loaderData;
 
   function handleNukeConfirm() {
     nukeModal.close();
