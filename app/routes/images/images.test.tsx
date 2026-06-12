@@ -135,11 +135,14 @@ const BASE_LOADER_DATA = {
   profiles: {},
 };
 
+const ImagesRouteComponent = ImagesRoute as unknown as React.ComponentType<{
+  loaderData: typeof BASE_LOADER_DATA & { serviceError?: boolean };
+}>;
+
 function renderRoute(
   loaderData: typeof BASE_LOADER_DATA & { serviceError?: boolean },
 ) {
-  // ImagesRoute expects Route.ComponentProps — at runtime this is just { loaderData }
-  return render(<ImagesRoute loaderData={loaderData as never} />);
+  return render(<ImagesRouteComponent loaderData={loaderData} />);
 }
 
 // ── tests ────────────────────────────────────────────────────────────────────

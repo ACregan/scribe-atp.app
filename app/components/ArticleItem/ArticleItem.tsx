@@ -140,7 +140,6 @@ export default ArticleItem;
 
 export function ArticleItemPreview({
   title,
-  uri,
   createdAt,
 }: {
   title: string;
@@ -153,11 +152,9 @@ export function ArticleItemPreview({
         <SvgIcon name={SvgImageList.DragHandle} />
       </div>
       <div className={styles.titleContainer}>
+        <IconBadge icon={SvgImageList.Document} size="small" />
         <strong>{title}</strong>
         {createdAt && <span>{new Date(createdAt).toLocaleDateString()}</span>}
-      </div>
-      <div className={styles.information}>
-        <small style={{ fontFamily: "monospace" }}>{uri}</small>
       </div>
       <div className={styles.buttonContainer} />
     </li>

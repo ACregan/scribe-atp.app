@@ -30,17 +30,18 @@ vi.mock("react-router", () => ({
     <a href={to}>{children}</a>
   ),
   Form: React.forwardRef<HTMLFormElement, React.ComponentPropsWithRef<"form">>(
-  ({ children, method, onSubmit, className, style }, ref) => (
-    <form
-      ref={ref}
-      method={method}
-      onSubmit={onSubmit}
-      className={className}
-      style={style}
-    >
-      {children}
-    </form>
-  )),
+    ({ children, method, onSubmit, className, style }, ref) => (
+      <form
+        ref={ref}
+        method={method}
+        onSubmit={onSubmit}
+        className={className}
+        style={style}
+      >
+        {children}
+      </form>
+    ),
+  ),
 }));
 
 // Mock useModal with a mutable reference
@@ -335,7 +336,6 @@ describe("ArticleItem", () => {
       );
 
       expect(screen.getByText("Preview Title")).toBeInTheDocument();
-      expect(screen.getByText("at://preview/uri")).toBeInTheDocument();
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
       expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });

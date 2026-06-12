@@ -17,9 +17,12 @@ import { LinkNode, AutoLinkNode } from "@lexical/link";
 import {
   $getRoot,
   $insertNodes,
+  COMMAND_PRIORITY_EDITOR,
   type EditorState,
   type LexicalEditor,
 } from "lexical";
+import { $createImageNode, ImageNode, INSERT_IMAGE_COMMAND } from "./imageNode";
+import { ExtendedTextNode } from "./ExtendedTextNode";
 import { ToolbarPlugin } from "./ToolbarPlugin";
 import styles from "./RichTextEditor.module.css";
 
@@ -34,6 +37,8 @@ const EDITOR_NODES = [
   CodeHighlightNode,
   LinkNode,
   AutoLinkNode,
+  ImageNode,
+  ExtendedTextNode,
 ];
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -111,6 +116,25 @@ function CodeHighlightPlugin() {
   return null;
 }
 
+// ── Image plugin ──────────────────────────────────────────────────────────────
+
+function ImagePlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    return editor.registerCommand(
+      INSERT_IMAGE_COMMAND,
+      ({ src, altText }) => {
+        editor.update(() => {
+          $insertNodes([$createImageNode(src, altText)]);
+        });
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR,
+    );
+  }, [editor]);
+  return null;
+}
+
 // ── Initial value plugin ──────────────────────────────────────────────────────
 
 function InitialValuePlugin({ html }: { html: string }) {
@@ -144,9 +168,16 @@ function HiddenFieldPlugin({
   onChange: (html: string) => void;
 }) {
   const [editor] = useLexicalComposerContext();
+  const lastHtmlRef = useRef("");
 
   function handleChange(state: EditorState, ed: LexicalEditor) {
-    state.read(() => onChange($generateHtmlFromNodes(ed)));
+    state.read(() => {
+      const newHtml = $generateHtmlFromNodes(ed);
+      if (newHtml !== lastHtmlRef.current) {
+        lastHtmlRef.current = newHtml;
+        onChange(newHtml);
+      }
+    });
   }
 
   return <OnChangePlugin onChange={handleChange} />;
@@ -221,6 +252,7 @@ export function RichTextEditor({
         <CheckListPlugin />
         <LinkPlugin />
         <CodeHighlightPlugin />
+        <ImagePlugin />
         <InitialValuePlugin html={defaultValue} />
         <HiddenFieldPlugin name={name} onChange={handleHtmlChange} />
       </LexicalComposer>

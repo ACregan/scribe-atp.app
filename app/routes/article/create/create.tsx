@@ -1,9 +1,5 @@
 import type { Route } from "./+types/create";
-import {
-  Form,
-  useBlocker,
-  type unstable_BlockerFunction as BlockerFunction,
-} from "react-router";
+import { Form, useBlocker, type BlockerFunction } from "react-router";
 import {
   PageContainer,
   PageContainerHeading,
@@ -159,6 +155,11 @@ export default function Create({
     setIsDirty(true);
   }
 
+  function handleContentChange(html: string) {
+    setContentHtml(html);
+    setIsDirty(true);
+  }
+
   function handleSitesChange(rkeys: string[]) {
     setSelectedSites(rkeys);
     setIsDirty(true);
@@ -191,7 +192,7 @@ export default function Create({
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}
-          onContentChange={setContentHtml}
+          onContentChange={handleContentChange}
           error={actionData?.error}
           columnar
         />
