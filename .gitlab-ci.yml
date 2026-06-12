@@ -1,6 +1,7 @@
 stages:
   - unit
   - e2e
+  - deploy
 
 unit:
   stage: unit
@@ -49,3 +50,22 @@ e2e:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+deploy:
+  stage: deploy
+  tags:
+    - playwright
+  environment:
+    name: production
+    url: https://scribe-atp.app
+  before_script:
+    - eval $(ssh-agent -s)
+    - echo "$SSH_DEPLOY_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh $VPS_USER@$VPS_HOST
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: false
