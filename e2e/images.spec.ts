@@ -70,7 +70,7 @@ test("Close button in the preview modal dismisses it", async ({ page }) => {
   await page.getByAltText("landscape.jpg").dblclick();
   await expect(page.getByRole("dialog")).toBeVisible();
   // The footer Close button (text "Close", not the × header button)
-  await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
 });
 
