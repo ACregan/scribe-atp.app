@@ -148,7 +148,7 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
                   )}
                 </div>
               </div>
-            ) : location.pathname !== "/login" ? (
+            ) : location.pathname !== "/login" && location.pathname !== "/" ? (
               <Link to="/login">
                 <Button type="button" variant="primary">
                   LOGIN
