@@ -1,10 +1,12 @@
 stages:
+  - typecheck
   - unit
   - e2e
   - deploy
 
-unit:
-  stage: unit
+typecheck:
+  stage: typecheck
+  interruptible: true
   tags:
     - playwright
   cache:
@@ -15,9 +17,33 @@ unit:
       - node_modules/
   script:
     - npm ci
-    - npm run test:run
+    - npm run typecheck
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.js"
+        - "**/*.json"
+        - ".gitlab-ci.yml"
+
+unit:
+  stage: unit
+  interruptible: true
+  tags:
+    - playwright
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+  script:
+    - npm ci
+    - npm run test:coverage
+  coverage: '/All files\s*\|\s*([\d.]+)/'
   artifacts:
-    when: on_failure
+    when: always
     paths:
       - coverage/
     expire_in: 7 days
@@ -33,6 +59,7 @@ unit:
 
 e2e:
   stage: e2e
+  interruptible: true
   tags:
     - playwright
   timeout: 20 minutes
@@ -52,6 +79,8 @@ e2e:
     paths:
       - playwright-report/
       - test-results/
+    reports:
+      junit: test-results/junit.xml
     expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
