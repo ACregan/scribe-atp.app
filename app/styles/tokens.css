@@ -34,7 +34,7 @@
   --action-primary: var(--blue-ribbon);
   --action-danger: var(--cinnabar);
 
-  /* Component Specific */
+  /* -=-=-=- COMPONENT SPECIFIC =-=-=- */
 
   /* Home.tsx */
   --home-video-filters: none;
@@ -78,6 +78,9 @@
   --dropdown-menu-text-colour: var(--white, #fff);
   --dropdown-menu-text-colour_hover: var(--wild-sand);
   --dropdown-menu-text-colour_active: var(--surface-muted);
+  --inline-code-text-color: var(--silver);
+  --inline-code-border-color: var(--charcoal);
+  --inline-code-background-color: var(--dorado);
 
   /* /images/ Image Tile */
   --action-button-background: var(--white);
@@ -148,7 +151,7 @@
   --action-primary: var(--flamingo);
   --action-danger: var(--cinnabar);
 
-  /* Component Specific */
+  /* -=-=-=- COMPONENT SPECIFIC =-=-=- */
 
   /* Home.tsx */
   --home-video-filters: sepia(100%) hue-rotate(344deg) brightness(1) invert(1);

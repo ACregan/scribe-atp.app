@@ -321,11 +321,13 @@
 
 .inlineCode {
   font-family: "Courier New", Courier, monospace;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-color);
+  color: var(--inline-code-text-color);
+  border: 1px solid var(--inline-code-border-color);
+  background: var(--inline-code-background-color);
   border-radius: 3px;
   padding: 0.1em 0.35em;
   font-size: 0.9em;
+  font-weight: 400;
 }
 
 /* ── Block theme classes ───────────────────────────────────────────────────── */
