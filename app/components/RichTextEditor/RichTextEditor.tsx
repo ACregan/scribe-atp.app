@@ -22,6 +22,7 @@ import {
   type LexicalEditor,
 } from "lexical";
 import { $createImageNode, ImageNode, INSERT_IMAGE_COMMAND } from "./imageNode";
+import { ExtendedTextNode } from "./ExtendedTextNode";
 import { ToolbarPlugin } from "./ToolbarPlugin";
 import styles from "./RichTextEditor.module.css";
 
@@ -37,6 +38,7 @@ const EDITOR_NODES = [
   LinkNode,
   AutoLinkNode,
   ImageNode,
+  ExtendedTextNode,
 ];
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
