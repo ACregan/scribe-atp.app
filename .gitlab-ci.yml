@@ -22,7 +22,6 @@ unit:
       - coverage/
     expire_in: 7 days
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 e2e:
@@ -48,7 +47,6 @@ e2e:
       - test-results/
     expire_in: 7 days
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 deploy:
