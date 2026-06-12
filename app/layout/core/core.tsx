@@ -12,6 +12,8 @@ import { Spinner } from "~/components/Spinner/Spinner";
 import { Toasts } from "~/components/Toast/Toast";
 import DarkModeSwitch from "~/components/DarkModeSwitch/DarkModeSwitch";
 import { ThemeProvider, useTheme } from "~/context/ThemeContext";
+import Tooltip, { TooltipBubble } from "~/components/Tooltip/Tooltip";
+import { version } from "../../../package.json";
 
 type BskyProfile = {
   displayName?: string;
@@ -108,9 +110,17 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
       >
         <header>
           <div className={styles.logoContainer}>
-            <h4>
-              Scribe<span>CMS</span>
-            </h4>
+            <Tooltip
+              anchorName="app-version"
+              anchorPosition="right"
+              anchorContent={
+                <TooltipBubble pointerLocation="left">v{version}</TooltipBubble>
+              }
+            >
+              <h4>
+                Scribe<span>CMS</span>
+              </h4>
+            </Tooltip>
             <h6>
               Powered By{" "}
               <span>
