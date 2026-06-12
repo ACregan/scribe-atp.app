@@ -155,6 +155,11 @@ export default function Create({
     setIsDirty(true);
   }
 
+  function handleContentChange(html: string) {
+    setContentHtml(html);
+    setIsDirty(true);
+  }
+
   function handleSitesChange(rkeys: string[]) {
     setSelectedSites(rkeys);
     setIsDirty(true);
@@ -187,7 +192,7 @@ export default function Create({
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}
-          onContentChange={setContentHtml}
+          onContentChange={handleContentChange}
           error={actionData?.error}
           columnar
         />
