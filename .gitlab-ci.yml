@@ -23,6 +23,13 @@ unit:
     expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.js"
+        - "**/*.css"
+        - "**/*.json"
+        - ".gitlab-ci.yml"
 
 e2e:
   stage: e2e
@@ -48,6 +55,13 @@ e2e:
     expire_in: 7 days
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.js"
+        - "**/*.css"
+        - "**/*.json"
+        - ".gitlab-ci.yml"
 
 deploy:
   stage: deploy
