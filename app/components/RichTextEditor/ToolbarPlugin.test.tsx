@@ -36,13 +36,22 @@ vi.mock("lexical", () => ({
   REDO_COMMAND: "REDO",
   SELECTION_CHANGE_COMMAND: "SELECTION_CHANGE",
   UNDO_COMMAND: "UNDO",
+  createCommand: vi.fn((type: string) => ({ type })),
+  DecoratorNode: class {},
+  TextNode: class {
+    static importDOM() {
+      return null;
+    }
+  },
 }));
 
 // ─── Lexical plugins ──────────────────────────────────────────────────────────
 
 vi.mock("@lexical/utils", () => ({
-  mergeRegister: (...fns: Array<() => void>) =>
-    () => fns.forEach((f) => f()),
+  mergeRegister:
+    (...fns: Array<() => void>) =>
+    () =>
+      fns.forEach((f) => f()),
   $findMatchingParent: vi.fn(() => null),
   $getNearestNodeOfType: vi.fn(() => null),
 }));
@@ -154,9 +163,7 @@ describe("ToolbarPlugin", () => {
       expect(
         screen.getByRole("button", { name: /Format/ }),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /Align/ }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Align/ })).toBeInTheDocument();
     });
 
     it("renders text colour and background colour pickers", () => {
@@ -229,9 +236,7 @@ describe("ToolbarPlugin", () => {
       expect(
         screen.getByRole("button", { name: "Code Block" }),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Quote" }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quote" })).toBeInTheDocument();
     });
 
     it("opens the Format dropdown and shows formatting options", () => {
@@ -251,9 +256,7 @@ describe("ToolbarPlugin", () => {
     it("opens the Align dropdown and shows alignment options", () => {
       render(<ToolbarPlugin />);
       fireEvent.mouseDown(screen.getByRole("button", { name: /Align/ }));
-      expect(
-        screen.getByRole("button", { name: "Left" }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Left" })).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Center" }),
       ).toBeInTheDocument();
@@ -265,7 +268,9 @@ describe("ToolbarPlugin", () => {
     it("dispatches a format command when a Format dropdown item is clicked", () => {
       render(<ToolbarPlugin />);
       fireEvent.mouseDown(screen.getByRole("button", { name: /Format/ }));
-      fireEvent.mouseDown(screen.getByRole("button", { name: "Strikethrough" }));
+      fireEvent.mouseDown(
+        screen.getByRole("button", { name: "Strikethrough" }),
+      );
       expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
         "FORMAT_TEXT",
         "strikethrough",

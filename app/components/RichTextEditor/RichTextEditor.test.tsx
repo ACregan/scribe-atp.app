@@ -80,10 +80,14 @@ vi.mock("@lexical/link", () => ({
   AutoLinkNode: class {},
 }));
 
-vi.mock("lexical", () => ({
-  $getRoot: vi.fn(() => ({ clear: vi.fn(), select: vi.fn() })),
-  $insertNodes: vi.fn(),
-}));
+vi.mock("lexical", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("lexical")>();
+  return {
+    ...actual,
+    $getRoot: vi.fn(() => ({ clear: vi.fn(), select: vi.fn() })),
+    $insertNodes: vi.fn(),
+  };
+});
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
