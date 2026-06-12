@@ -19,7 +19,7 @@ import {
 } from "~/services/articleSiteSync.server";
 import { type SiteRecordValue } from "~/routes/article/site-list/siteTree";
 import { devEditLoader } from "~/services/devFixtures.server";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
@@ -212,6 +212,9 @@ export default function EditArticle({
   const [titleValue, setTitleValue] = useState(title);
   const [urlValue, setUrlValue] = useState(url);
   const [contentHtml, setContentHtml] = useState(content);
+  // Skip the first onContentChange call — that's InitialValuePlugin loading the
+  // existing content, not a user edit.
+  const contentInitializedRef = useRef(false);
   const navigate = useNavigate();
   const { addToast } = useToast();
 
@@ -235,6 +238,15 @@ export default function EditArticle({
     if (titleEl) setTitleValue(titleEl.value);
     if (urlEl) setUrlValue(urlEl.value);
     setIsDirty(true);
+  }
+
+  function handleContentChange(html: string) {
+    setContentHtml(html);
+    if (contentInitializedRef.current) {
+      setIsDirty(true);
+    } else {
+      contentInitializedRef.current = true;
+    }
   }
 
   function handleSitesChange(rkeys: string[]) {
@@ -278,7 +290,7 @@ export default function EditArticle({
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}
-          onContentChange={setContentHtml}
+          onContentChange={handleContentChange}
           error={actionData?.error}
           columnar
         />
