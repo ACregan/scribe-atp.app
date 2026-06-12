@@ -273,15 +273,6 @@ function Landing() {
         </div>
         <div className={styles.rightGutter}></div>
       </div>
-      {/* <h1 className={styles.landingTitle}>Scribe ATP</h1>
-      <p className={styles.landingTagline}>
-        AT Protocol-powered content management.
-      </p>
-      <Link to="/login">
-        <Button type="button" variant="primary" tabIndex={-1}>
-          Sign in with Bluesky
-        </Button>
-      </Link> */}
     </div>
   );
 }
@@ -487,8 +478,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                           article.updatedAt ?? article.createdAt,
                         )}
                       </Pill>
-                      <Link to={`/article/edit/${article.url}`}>
+                      <Link to={`/article/view/${article.url}`}>
                         <Button type="button" variant="secondary" tabIndex={-1}>
+                          View
+                        </Button>
+                      </Link>
+                      <Link to={`/article/edit/${article.url}`}>
+                        <Button type="button" variant="primary" tabIndex={-1}>
                           Edit
                         </Button>
                       </Link>
