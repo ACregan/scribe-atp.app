@@ -1,9 +1,5 @@
 import type { Route } from "./+types/create";
-import {
-  Form,
-  useBlocker,
-  type unstable_BlockerFunction as BlockerFunction,
-} from "react-router";
+import { Form, useBlocker, type BlockerFunction } from "react-router";
 import {
   PageContainer,
   PageContainerHeading,

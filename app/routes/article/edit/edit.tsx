@@ -4,7 +4,7 @@ import {
   redirect,
   useNavigate,
   useBlocker,
-  type unstable_BlockerFunction as BlockerFunction,
+  type BlockerFunction,
 } from "react-router";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
@@ -188,7 +188,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   return { ok: true, title };
 }
-
 
 export default function EditArticle({
   loaderData,

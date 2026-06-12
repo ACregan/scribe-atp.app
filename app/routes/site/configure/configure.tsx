@@ -1,8 +1,4 @@
-import {
-  useNavigate,
-  useBlocker,
-  type unstable_BlockerFunction as BlockerFunction,
-} from "react-router";
+import { useNavigate, useBlocker, type BlockerFunction } from "react-router";
 import { useEffect, useState, useMemo } from "react";
 import {
   PageContainer,
