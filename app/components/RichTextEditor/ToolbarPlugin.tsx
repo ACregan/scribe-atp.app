@@ -47,6 +47,7 @@ import {
   $isAtNodeEnd,
   $patchStyleText,
 } from "@lexical/selection";
+import { INSERT_IMAGE_COMMAND } from "./imageNode";
 import styles from "./RichTextEditor.module.css";
 
 // ─── Web Speech API types (not in default TS lib) ─────────────────────────────
@@ -100,7 +101,11 @@ function $setBlocksType(
     const topLevel = $isElementNode(anchor)
       ? anchor
       : anchor.getTopLevelElement();
-    if (topLevel !== null && $isElementNode(topLevel) && !$isListNode(topLevel)) {
+    if (
+      topLevel !== null &&
+      $isElementNode(topLevel) &&
+      !$isListNode(topLevel)
+    ) {
       const newEl = createElement();
       for (const child of topLevel.getChildren()) {
         newEl.append(child);
@@ -115,16 +120,31 @@ function $setBlocksType(
 
 type BlockType =
   | "paragraph"
-  | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
-  | "bullet" | "number" | "check"
-  | "quote" | "code";
+  | "h1"
+  | "h2"
+  | "h3"
+  | "h4"
+  | "h5"
+  | "h6"
+  | "bullet"
+  | "number"
+  | "check"
+  | "quote"
+  | "code";
 
 const BLOCK_LABELS: Record<BlockType, string> = {
   paragraph: "Normal",
-  h1: "Heading 1", h2: "Heading 2", h3: "Heading 3",
-  h4: "Heading 4", h5: "Heading 5", h6: "Heading 6",
-  bullet: "Bullet List", number: "Numbered List", check: "Check List",
-  quote: "Quote", code: "Code Block",
+  h1: "Heading 1",
+  h2: "Heading 2",
+  h3: "Heading 3",
+  h4: "Heading 4",
+  h5: "Heading 5",
+  h6: "Heading 6",
+  bullet: "Bullet List",
+  number: "Numbered List",
+  check: "Check List",
+  quote: "Quote",
+  code: "Code Block",
 };
 
 const FONT_FAMILIES = [
@@ -152,8 +172,12 @@ function getSelectedNode(sel: ReturnType<typeof $getSelection>) {
   const fNode = focus.getNode();
   if (aNode === fNode) return aNode;
   return sel.isBackward()
-    ? ($isAtNodeEnd(focus) ? aNode : fNode)
-    : ($isAtNodeEnd(anchor) ? aNode : fNode);
+    ? $isAtNodeEnd(focus)
+      ? aNode
+      : fNode
+    : $isAtNodeEnd(anchor)
+      ? aNode
+      : fNode;
 }
 
 // ─── Dropdown ─────────────────────────────────────────────────────────────────
@@ -191,10 +215,7 @@ function Dropdown({
         {label} <span className={styles.dropdownArrow}>▾</span>
       </button>
       {open && (
-        <div
-          className={styles.dropdownMenu}
-          onClick={() => setOpen(false)}
-        >
+        <div className={styles.dropdownMenu} onClick={() => setOpen(false)}>
           {children}
         </div>
       )}
@@ -258,6 +279,10 @@ export function ToolbarPlugin() {
   const [isLinkEditing, setIsLinkEditing] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
+  // Image editing
+  const [isImageEditing, setIsImageEditing] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+
   // Speech
   const [isSpeechActive, setIsSpeechActive] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
@@ -277,16 +302,32 @@ export function ToolbarPlugin() {
     setIsCode(selection.hasFormat("code"));
     setIsHighlight(selection.hasFormat("highlight"));
 
-    const rawFont = $getSelectionStyleValueForProperty(selection, "font-family", "Arial");
+    const rawFont = $getSelectionStyleValueForProperty(
+      selection,
+      "font-family",
+      "Arial",
+    );
     setFontFamily(rawFont || "Arial");
 
-    const rawSize = $getSelectionStyleValueForProperty(selection, "font-size", DEFAULT_FONT_SIZE);
+    const rawSize = $getSelectionStyleValueForProperty(
+      selection,
+      "font-size",
+      DEFAULT_FONT_SIZE,
+    );
     setFontSize(rawSize || DEFAULT_FONT_SIZE);
 
-    const rawColor = $getSelectionStyleValueForProperty(selection, "color", "#000000");
+    const rawColor = $getSelectionStyleValueForProperty(
+      selection,
+      "color",
+      "#000000",
+    );
     setFontColor(rawColor.startsWith("#") ? rawColor : "#000000");
 
-    const rawBg = $getSelectionStyleValueForProperty(selection, "background-color", "#ffffff");
+    const rawBg = $getSelectionStyleValueForProperty(
+      selection,
+      "background-color",
+      "#ffffff",
+    );
     setBgColor(rawBg.startsWith("#") ? rawBg : "#ffffff");
 
     const node = getSelectedNode(selection);
@@ -305,7 +346,7 @@ export function ToolbarPlugin() {
 
     if ($isListNode(el)) {
       const parentList = $getNearestNodeOfType<ListNode>(anchor, ListNode);
-      setBlockType(((parentList ?? el).getListType()) as BlockType);
+      setBlockType((parentList ?? el).getListType() as BlockType);
     } else if ($isHeadingNode(el)) {
       setBlockType(el.getTag() as BlockType);
     } else if ($isCodeNode(el)) {
@@ -320,17 +361,26 @@ export function ToolbarPlugin() {
     return mergeRegister(
       editor.registerCommand(
         SELECTION_CHANGE_COMMAND,
-        () => { updateToolbar(); return false; },
+        () => {
+          updateToolbar();
+          return false;
+        },
         COMMAND_PRIORITY_CRITICAL,
       ),
       editor.registerCommand(
         CAN_UNDO_COMMAND,
-        (payload) => { setCanUndo(payload); return false; },
+        (payload) => {
+          setCanUndo(payload);
+          return false;
+        },
         COMMAND_PRIORITY_CRITICAL,
       ),
       editor.registerCommand(
         CAN_REDO_COMMAND,
-        (payload) => { setCanRedo(payload); return false; },
+        (payload) => {
+          setCanRedo(payload);
+          return false;
+        },
         COMMAND_PRIORITY_CRITICAL,
       ),
       editor.registerUpdateListener(({ editorState }) => {
@@ -360,11 +410,19 @@ export function ToolbarPlugin() {
         const sel = $getSelection();
         if (!$isRangeSelection(sel)) return;
         switch (type) {
-          case "paragraph": $setBlocksType(sel, () => $createParagraphNode()); break;
-          case "quote":     $setBlocksType(sel, () => $createQuoteNode()); break;
-          case "code":      $setBlocksType(sel, () => $createCodeNode()); break;
+          case "paragraph":
+            $setBlocksType(sel, () => $createParagraphNode());
+            break;
+          case "quote":
+            $setBlocksType(sel, () => $createQuoteNode());
+            break;
+          case "code":
+            $setBlocksType(sel, () => $createCodeNode());
+            break;
           default:
-            $setBlocksType(sel, () => $createHeadingNode(type as HeadingTagType));
+            $setBlocksType(sel, () =>
+              $createHeadingNode(type as HeadingTagType),
+            );
         }
       });
     }
@@ -386,8 +444,14 @@ export function ToolbarPlugin() {
         "font-size": null,
       });
       const formats: TextFormatType[] = [
-        "bold", "italic", "underline", "strikethrough",
-        "code", "subscript", "superscript", "highlight",
+        "bold",
+        "italic",
+        "underline",
+        "strikethrough",
+        "code",
+        "subscript",
+        "superscript",
+        "highlight",
       ];
       for (const node of sel.getNodes()) {
         if ($isTextNode(node)) {
@@ -426,6 +490,19 @@ export function ToolbarPlugin() {
       });
     }
     setIsLinkEditing(false);
+  }
+
+  function insertImage() {
+    setImageUrl("");
+    setIsImageEditing(true);
+  }
+
+  function confirmImage() {
+    const src = imageUrl.trim();
+    if (src) {
+      editor.dispatchCommand(INSERT_IMAGE_COMMAND, { src, altText: "" });
+    }
+    setIsImageEditing(false);
   }
 
   // ── Speech to text ────────────────────────────────────────────────────────
@@ -477,14 +554,29 @@ export function ToolbarPlugin() {
 
   return (
     <div className={styles.toolbar}>
-
       {/* History */}
-      <button type="button" title="Undo" disabled={!canUndo} className={btn()}
-        onMouseDown={(e) => { e.preventDefault(); editor.dispatchCommand(UNDO_COMMAND, undefined); }}>
+      <button
+        type="button"
+        title="Undo"
+        disabled={!canUndo}
+        className={btn()}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          editor.dispatchCommand(UNDO_COMMAND, undefined);
+        }}
+      >
         ↩
       </button>
-      <button type="button" title="Redo" disabled={!canRedo} className={btn()}
-        onMouseDown={(e) => { e.preventDefault(); editor.dispatchCommand(REDO_COMMAND, undefined); }}>
+      <button
+        type="button"
+        title="Redo"
+        disabled={!canRedo}
+        className={btn()}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          editor.dispatchCommand(REDO_COMMAND, undefined);
+        }}
+      >
         ↪
       </button>
 
@@ -492,22 +584,46 @@ export function ToolbarPlugin() {
 
       {/* Block type */}
       <Dropdown label={BLOCK_LABELS[blockType] ?? "Normal"}>
-        <DropdownItem label="Normal" active={blockType === "paragraph"}
-          onClick={() => setBlockTypeTo("paragraph")} />
-        {(["h1","h2","h3","h4","h5","h6"] as HeadingTagType[]).map((tag) => (
-          <DropdownItem key={tag} label={BLOCK_LABELS[tag as BlockType]}
-            active={blockType === tag} onClick={() => setBlockTypeTo(tag as BlockType)} />
-        ))}
-        <DropdownItem label="Bullet List" active={blockType === "bullet"}
-          onClick={() => setBlockTypeTo("bullet")} />
-        <DropdownItem label="Numbered List" active={blockType === "number"}
-          onClick={() => setBlockTypeTo("number")} />
-        <DropdownItem label="Check List" active={blockType === "check"}
-          onClick={() => setBlockTypeTo("check")} />
-        <DropdownItem label="Quote" active={blockType === "quote"}
-          onClick={() => setBlockTypeTo("quote")} />
-        <DropdownItem label="Code Block" active={blockType === "code"}
-          onClick={() => setBlockTypeTo("code")} />
+        <DropdownItem
+          label="Normal"
+          active={blockType === "paragraph"}
+          onClick={() => setBlockTypeTo("paragraph")}
+        />
+        {(["h1", "h2", "h3", "h4", "h5", "h6"] as HeadingTagType[]).map(
+          (tag) => (
+            <DropdownItem
+              key={tag}
+              label={BLOCK_LABELS[tag as BlockType]}
+              active={blockType === tag}
+              onClick={() => setBlockTypeTo(tag as BlockType)}
+            />
+          ),
+        )}
+        <DropdownItem
+          label="Bullet List"
+          active={blockType === "bullet"}
+          onClick={() => setBlockTypeTo("bullet")}
+        />
+        <DropdownItem
+          label="Numbered List"
+          active={blockType === "number"}
+          onClick={() => setBlockTypeTo("number")}
+        />
+        <DropdownItem
+          label="Check List"
+          active={blockType === "check"}
+          onClick={() => setBlockTypeTo("check")}
+        />
+        <DropdownItem
+          label="Quote"
+          active={blockType === "quote"}
+          onClick={() => setBlockTypeTo("quote")}
+        />
+        <DropdownItem
+          label="Code Block"
+          active={blockType === "code"}
+          onClick={() => setBlockTypeTo("code")}
+        />
       </Dropdown>
 
       <span className={styles.divider} />
@@ -520,7 +636,9 @@ export function ToolbarPlugin() {
         onChange={(e) => applyStyle({ "font-family": e.target.value })}
       >
         {FONT_FAMILIES.map((f) => (
-          <option key={f} value={f}>{f}</option>
+          <option key={f} value={f}>
+            {f}
+          </option>
         ))}
       </select>
 
@@ -534,43 +652,88 @@ export function ToolbarPlugin() {
         title="Font size"
         onChange={(e) => applyStyle({ "font-size": `${e.target.value}px` })}
       />
-      <button type="button" title="Decrease font size" className={btn()}
-        onMouseDown={(e) => { e.preventDefault(); changeFontSize(-1); }}>
+      <button
+        type="button"
+        title="Decrease font size"
+        className={btn()}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          changeFontSize(-1);
+        }}
+      >
         −
       </button>
-      <button type="button" title="Increase font size" className={btn()}
-        onMouseDown={(e) => { e.preventDefault(); changeFontSize(+1); }}>
+      <button
+        type="button"
+        title="Increase font size"
+        className={btn()}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          changeFontSize(+1);
+        }}
+      >
         +
       </button>
 
       <span className={styles.divider} />
 
       {/* Bold / Italic / Underline */}
-      <button type="button" title="Bold" className={btn(isBold)}
-        onMouseDown={(e) => { e.preventDefault(); editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold"); }}>
+      <button
+        type="button"
+        title="Bold"
+        className={btn(isBold)}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
+        }}
+      >
         <b>B</b>
       </button>
-      <button type="button" title="Italic" className={btn(isItalic)}
-        onMouseDown={(e) => { e.preventDefault(); editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic"); }}>
+      <button
+        type="button"
+        title="Italic"
+        className={btn(isItalic)}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
+        }}
+      >
         <i>I</i>
       </button>
-      <button type="button" title="Underline" className={btn(isUnderline)}
-        onMouseDown={(e) => { e.preventDefault(); editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline"); }}>
+      <button
+        type="button"
+        title="Underline"
+        className={btn(isUnderline)}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
+        }}
+      >
         <u>U</u>
       </button>
 
       <span className={styles.divider} />
 
       {/* Inline code + link */}
-      <button type="button" title="Inline code" className={btn(isCode)}
-        onMouseDown={(e) => { e.preventDefault(); editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code"); }}>
+      <button
+        type="button"
+        title="Inline code"
+        className={btn(isCode)}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
+        }}
+      >
         {"</>"}
       </button>
       <button
         type="button"
         title={isLink ? "Remove link" : "Insert link"}
         className={btn(isLink)}
-        onMouseDown={(e) => { e.preventDefault(); insertLink(); }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          insertLink();
+        }}
       >
         🔗
       </button>
@@ -588,10 +751,73 @@ export function ToolbarPlugin() {
               if (e.key === "Escape") setIsLinkEditing(false);
             }}
           />
-          <button type="button" className={btn()}
-            onMouseDown={(e) => { e.preventDefault(); confirmLink(); }}>✓</button>
-          <button type="button" className={btn()}
-            onMouseDown={(e) => { e.preventDefault(); setIsLinkEditing(false); }}>✕</button>
+          <button
+            type="button"
+            className={btn()}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              confirmLink();
+            }}
+          >
+            ✓
+          </button>
+          <button
+            type="button"
+            className={btn()}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsLinkEditing(false);
+            }}
+          >
+            ✕
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        title="Insert image"
+        className={btn(isImageEditing)}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          insertImage();
+        }}
+      >
+        🖼
+      </button>
+      {isImageEditing && (
+        <>
+          <input
+            type="url"
+            className={styles.linkInput}
+            value={imageUrl}
+            placeholder="Image URL…"
+            autoFocus
+            onChange={(e) => setImageUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmImage();
+              if (e.key === "Escape") setIsImageEditing(false);
+            }}
+          />
+          <button
+            type="button"
+            className={btn()}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              confirmImage();
+            }}
+          >
+            ✓
+          </button>
+          <button
+            type="button"
+            className={btn()}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsImageEditing(false);
+            }}
+          >
+            ✕
+          </button>
         </>
       )}
 
@@ -599,36 +825,82 @@ export function ToolbarPlugin() {
 
       {/* Text colour */}
       <label className={styles.colorLabel} title="Text colour">
-        <span className={styles.colorSwatch} style={{ borderBottom: `3px solid ${fontColor}` }}>A</span>
-        <input type="color" className={styles.colorInput} value={fontColor}
-          onChange={(e) => applyStyle({ color: e.target.value })} />
+        <span
+          className={styles.colorSwatch}
+          style={{ borderBottom: `3px solid ${fontColor}` }}
+        >
+          A
+        </span>
+        <input
+          type="color"
+          className={styles.colorInput}
+          value={fontColor}
+          onChange={(e) => applyStyle({ color: e.target.value })}
+        />
       </label>
 
       {/* Background colour */}
       <label className={styles.colorLabel} title="Background colour">
-        <span className={styles.colorSwatch} style={{ backgroundColor: bgColor }}>A</span>
-        <input type="color" className={styles.colorInput} value={bgColor}
-          onChange={(e) => applyStyle({ "background-color": e.target.value })} />
+        <span
+          className={styles.colorSwatch}
+          style={{ backgroundColor: bgColor }}
+        >
+          A
+        </span>
+        <input
+          type="color"
+          className={styles.colorInput}
+          value={bgColor}
+          onChange={(e) => applyStyle({ "background-color": e.target.value })}
+        />
       </label>
 
       <span className={styles.divider} />
 
       {/* Format dropdown */}
       <Dropdown label="Format">
-        <DropdownItem label="Strikethrough" active={isStrikethrough}
-          onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")} />
-        <DropdownItem label="Subscript" active={isSubscript}
-          onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "subscript")} />
-        <DropdownItem label="Superscript" active={isSuperscript}
-          onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "superscript")} />
-        <DropdownItem label="Highlight" active={isHighlight}
-          onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "highlight")} />
-        <DropdownItem label="Lowercase"
-          onClick={() => transformCase((s) => s.toLowerCase())} />
-        <DropdownItem label="Uppercase"
-          onClick={() => transformCase((s) => s.toUpperCase())} />
-        <DropdownItem label="Capitalise"
-          onClick={() => transformCase((s) => s.replace(/\b\w/g, (c) => c.toUpperCase()))} />
+        <DropdownItem
+          label="Strikethrough"
+          active={isStrikethrough}
+          onClick={() =>
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")
+          }
+        />
+        <DropdownItem
+          label="Subscript"
+          active={isSubscript}
+          onClick={() =>
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "subscript")
+          }
+        />
+        <DropdownItem
+          label="Superscript"
+          active={isSuperscript}
+          onClick={() =>
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "superscript")
+          }
+        />
+        <DropdownItem
+          label="Highlight"
+          active={isHighlight}
+          onClick={() =>
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "highlight")
+          }
+        />
+        <DropdownItem
+          label="Lowercase"
+          onClick={() => transformCase((s) => s.toLowerCase())}
+        />
+        <DropdownItem
+          label="Uppercase"
+          onClick={() => transformCase((s) => s.toUpperCase())}
+        />
+        <DropdownItem
+          label="Capitalise"
+          onClick={() =>
+            transformCase((s) => s.replace(/\b\w/g, (c) => c.toUpperCase()))
+          }
+        />
         <DropdownItem label="Clear formatting" onClick={clearFormatting} />
       </Dropdown>
 
@@ -636,17 +908,34 @@ export function ToolbarPlugin() {
 
       {/* Alignment dropdown */}
       <Dropdown label="Align">
-        {(["left","center","right","justify","start","end"] as ElementFormatType[]).map((a) => (
+        {(
+          [
+            "left",
+            "center",
+            "right",
+            "justify",
+            "start",
+            "end",
+          ] as ElementFormatType[]
+        ).map((a) => (
           <DropdownItem
             key={a}
             label={a.charAt(0).toUpperCase() + a.slice(1)}
             onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, a)}
           />
         ))}
-        <DropdownItem label="Outdent"
-          onClick={() => editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)} />
-        <DropdownItem label="Indent"
-          onClick={() => editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)} />
+        <DropdownItem
+          label="Outdent"
+          onClick={() =>
+            editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
+          }
+        />
+        <DropdownItem
+          label="Indent"
+          onClick={() =>
+            editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
+          }
+        />
       </Dropdown>
 
       {/* Speech — pushed to the right */}
@@ -655,11 +944,13 @@ export function ToolbarPlugin() {
         type="button"
         title={isSpeechActive ? "Stop dictation" : "Start dictation"}
         className={`${btn()} ${isSpeechActive ? styles.speechActive : ""}`}
-        onMouseDown={(e) => { e.preventDefault(); toggleSpeech(); }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          toggleSpeech();
+        }}
       >
         🎤{isSpeechActive ? " Stop" : ""}
       </button>
-
     </div>
   );
 }

@@ -17,9 +17,11 @@ import { LinkNode, AutoLinkNode } from "@lexical/link";
 import {
   $getRoot,
   $insertNodes,
+  COMMAND_PRIORITY_EDITOR,
   type EditorState,
   type LexicalEditor,
 } from "lexical";
+import { $createImageNode, ImageNode, INSERT_IMAGE_COMMAND } from "./imageNode";
 import { ToolbarPlugin } from "./ToolbarPlugin";
 import styles from "./RichTextEditor.module.css";
 
@@ -34,6 +36,7 @@ const EDITOR_NODES = [
   CodeHighlightNode,
   LinkNode,
   AutoLinkNode,
+  ImageNode,
 ];
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -108,6 +111,25 @@ const theme = {
 function CodeHighlightPlugin() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => registerCodeHighlighting(editor), [editor]);
+  return null;
+}
+
+// ── Image plugin ──────────────────────────────────────────────────────────────
+
+function ImagePlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    return editor.registerCommand(
+      INSERT_IMAGE_COMMAND,
+      ({ src, altText }) => {
+        editor.update(() => {
+          $insertNodes([$createImageNode(src, altText)]);
+        });
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR,
+    );
+  }, [editor]);
   return null;
 }
 
@@ -221,6 +243,7 @@ export function RichTextEditor({
         <CheckListPlugin />
         <LinkPlugin />
         <CodeHighlightPlugin />
+        <ImagePlugin />
         <InitialValuePlugin html={defaultValue} />
         <HiddenFieldPlugin name={name} onChange={handleHtmlChange} />
       </LexicalComposer>
