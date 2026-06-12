@@ -168,9 +168,16 @@ function HiddenFieldPlugin({
   onChange: (html: string) => void;
 }) {
   const [editor] = useLexicalComposerContext();
+  const lastHtmlRef = useRef("");
 
   function handleChange(state: EditorState, ed: LexicalEditor) {
-    state.read(() => onChange($generateHtmlFromNodes(ed)));
+    state.read(() => {
+      const newHtml = $generateHtmlFromNodes(ed);
+      if (newHtml !== lastHtmlRef.current) {
+        lastHtmlRef.current = newHtml;
+        onChange(newHtml);
+      }
+    });
   }
 
   return <OnChangePlugin onChange={handleChange} />;
