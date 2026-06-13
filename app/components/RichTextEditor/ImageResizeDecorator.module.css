@@ -37,13 +37,13 @@
 
 .resetBtn {
   position: absolute;
-  bottom: 0.4rem;
+  bottom: 1rem;
   right: 0.4rem;
   font-size: 1.1rem;
   padding: 0.2rem 0.6rem;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff !important;
+  background: var(--action-primary);
+  border: 1px solid var(--surface-neutral);
   border-radius: 0.2rem;
   cursor: pointer;
   white-space: nowrap;
@@ -52,7 +52,8 @@
 }
 
 .resetBtn:hover {
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--action-primary);
+  text-decoration: underline;
 }
 
 /* ── Width badge ─────────────────────────────────────────────────────────────── */
