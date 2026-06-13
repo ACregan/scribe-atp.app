@@ -8,6 +8,7 @@ import {
   type NodeKey,
   type SerializedLexicalNode,
 } from "lexical";
+import { ImageResizeDecorator } from "./ImageResizeDecorator";
 
 export type InsertImagePayload = { src: string; altText: string };
 
@@ -53,7 +54,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
 
   static importDOM() {
     return {
-      img: () => ({
+      img: (_node: Node) => ({
         conversion: convertImageElement,
         priority: 0 as const,
       }),
@@ -87,7 +88,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     };
   }
 
-  exportDOM(): { element: HTMLElement } {
+  exportDOM(_editor: LexicalEditor): { element: HTMLElement } {
     const element = document.createElement("img");
     element.setAttribute("src", this.__src);
     element.setAttribute("alt", this.__altText);
@@ -110,10 +111,11 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
 
   decorate(_editor: LexicalEditor): JSX.Element {
     return (
-      <img
+      <ImageResizeDecorator
+        nodeKey={this.__key}
         src={this.__src}
-        alt={this.__altText}
-        style={{ maxWidth: "100%", display: "block", margin: "0.8rem 0" }}
+        altText={this.__altText}
+        width={this.__width}
       />
     );
   }
