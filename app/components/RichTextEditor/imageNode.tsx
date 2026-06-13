@@ -17,11 +17,19 @@ export const INSERT_IMAGE_COMMAND: LexicalCommand<InsertImagePayload> =
 type SerializedImageNode = SerializedLexicalNode & {
   src: string;
   altText: string;
+  width?: number | null;
 };
 
 function convertImageElement(domNode: Node): { node: ImageNode } | null {
   if (domNode instanceof HTMLImageElement) {
-    return { node: $createImageNode(domNode.src, domNode.alt) };
+    const styleWidth = parseInt(domNode.style.width);
+    const attrWidth = parseInt(domNode.getAttribute("width") ?? "");
+    const width = !isNaN(styleWidth)
+      ? styleWidth
+      : !isNaN(attrWidth)
+        ? attrWidth
+        : null;
+    return { node: $createImageNode(domNode.src, domNode.alt, width) };
   }
   return null;
 }
@@ -29,17 +37,18 @@ function convertImageElement(domNode: Node): { node: ImageNode } | null {
 export class ImageNode extends DecoratorNode<JSX.Element> {
   __src: string;
   __altText: string;
+  __width: number | null;
 
   static getType(): string {
     return "image";
   }
 
   static clone(node: ImageNode): ImageNode {
-    return new ImageNode(node.__src, node.__altText, node.__key);
+    return new ImageNode(node.__src, node.__altText, node.__width, node.__key);
   }
 
   static importJSON(data: SerializedImageNode): ImageNode {
-    return $createImageNode(data.src, data.altText);
+    return $createImageNode(data.src, data.altText, data.width ?? null);
   }
 
   static importDOM() {
@@ -51,10 +60,21 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     };
   }
 
-  constructor(src: string, altText: string, key?: NodeKey) {
+  constructor(
+    src: string,
+    altText: string,
+    width?: number | null,
+    key?: NodeKey,
+  ) {
     super(key);
     this.__src = src;
     this.__altText = altText;
+    this.__width = width ?? null;
+  }
+
+  setWidth(width: number | null): void {
+    const writable = this.getWritable();
+    writable.__width = width;
   }
 
   exportJSON(): SerializedImageNode {
@@ -63,6 +83,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
       type: "image",
       src: this.__src,
       altText: this.__altText,
+      width: this.__width,
     };
   }
 
@@ -70,6 +91,9 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     const element = document.createElement("img");
     element.setAttribute("src", this.__src);
     element.setAttribute("alt", this.__altText);
+    if (this.__width !== null) {
+      element.style.width = `${this.__width}px`;
+    }
     element.style.maxWidth = "100%";
     return { element };
   }
@@ -95,6 +119,10 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   }
 }
 
-export function $createImageNode(src: string, altText: string): ImageNode {
-  return new ImageNode(src, altText);
+export function $createImageNode(
+  src: string,
+  altText: string,
+  width?: number | null,
+): ImageNode {
+  return new ImageNode(src, altText, width);
 }
