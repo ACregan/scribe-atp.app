@@ -50,6 +50,7 @@ import {
   $patchStyleText,
 } from "@lexical/selection";
 import { INSERT_IMAGE_COMMAND } from "./imageNode";
+import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { ImagePickerModal } from "~/components/ImagePickerModal/ImagePickerModal";
@@ -890,7 +891,7 @@ export function ToolbarPlugin() {
             openImagePicker();
           }}
         >
-          🖼
+          <SvgIcon name={SvgImageList.Image} fill="currentColor" />
         </button>
 
         <span className={styles.divider} />
