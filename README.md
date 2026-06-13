@@ -12,7 +12,7 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 
 - Sign in with any Bluesky account via OAuth (PKCE)
 - Full-featured rich text editor: headings H1–H6, lists (bullet/numbered/checklist), code blocks with syntax highlighting, links, text colour and background, font family and size, subscript, superscript, strikethrough, indentation, alignment, and speech-to-text via the Web Speech API
-- **Image insertion from the Image Library** — the 🖼 toolbar button opens a picker modal that browses the Image Library; selecting an image inserts it at the cursor at its `max` Variant URL
+- **Image insertion from the Image Library** — the Image toolbar button (SVG icon) opens a picker modal that browses the Image Library; selecting an image inserts it at the cursor at its `max` Variant URL
 - **Resizable images** — drag the left or right handle on any inserted image to resize it; width persists through save and reload; minimum 80px
 - **Keyboard shortcuts** in the rich text editor — `Ctrl+Shift+1–9` for block types, `Ctrl+K` for links, `Ctrl+\`` for inline code, `Ctrl+Shift+S`for strikethrough,`Ctrl+\` to clear formatting; `?` button opens a full reference; shortcut hints shown in toolbar tooltips and dropdown items
 - **Article edit UX** — save button shows "No Changes" (disabled) when clean and "Save Changes" (enabled) when dirty; stays on the edit page after saving; navigates to the edit page after creating a new article

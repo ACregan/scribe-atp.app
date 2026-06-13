@@ -24,6 +24,7 @@ import {
 import { $createImageNode, ImageNode, INSERT_IMAGE_COMMAND } from "./imageNode";
 import { ExtendedTextNode } from "./ExtendedTextNode";
 import { ToolbarPlugin } from "./ToolbarPlugin";
+import { StatsPlugin } from "./StatsPlugin";
 import styles from "./RichTextEditor.module.css";
 
 // ── Nodes registered with the editor ─────────────────────────────────────────
@@ -246,6 +247,7 @@ export function RichTextEditor({
               ErrorBoundary={({ children }) => <>{children}</>}
             />
           </div>
+          <StatsPlugin />
         </div>
         <HistoryPlugin />
         <ListPlugin />
