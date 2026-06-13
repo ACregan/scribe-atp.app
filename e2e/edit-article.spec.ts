@@ -6,16 +6,28 @@ test("edit page loads with existing article content", async ({ page }) => {
   await expect(page.getByLabel("URL slug")).toHaveValue("dev-mode-article");
 });
 
-test("save button is disabled until a change is made", async ({ page }) => {
+test("save button reads 'No Changes' when clean and 'Save Changes' when dirty", async ({
+  page,
+}) => {
   await page.goto("/article/edit/dev-mode-article");
-  await expect(
-    page.getByRole("button", { name: "Save Changes" }),
-  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: "No Changes" })).toBeDisabled();
 
   await page.getByLabel("Title").fill("Updated Title");
   await expect(
     page.getByRole("button", { name: "Save Changes" }),
   ).toBeEnabled();
+});
+
+test("saving stays on the edit page and resets the button to No Changes", async ({
+  page,
+}) => {
+  await page.goto("/article/edit/dev-mode-article");
+  await page.getByLabel("Title").fill("Updated Title");
+  await page.getByRole("button", { name: "Save Changes" }).click();
+
+  await expect(page).toHaveURL("/article/edit/dev-mode-article");
+  await expect(page.getByText("Article saved")).toBeVisible({ timeout: 8000 });
+  await expect(page.getByRole("button", { name: "No Changes" })).toBeDisabled();
 });
 
 test("navigating away with unsaved changes shows blocker modal", async ({
