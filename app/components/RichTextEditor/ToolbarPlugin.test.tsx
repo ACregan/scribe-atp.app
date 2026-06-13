@@ -29,9 +29,11 @@ vi.mock("lexical", () => ({
   CAN_REDO_COMMAND: "CAN_REDO",
   CAN_UNDO_COMMAND: "CAN_UNDO",
   COMMAND_PRIORITY_CRITICAL: 4,
+  COMMAND_PRIORITY_NORMAL: 2,
   FORMAT_ELEMENT_COMMAND: "FORMAT_ELEMENT",
   FORMAT_TEXT_COMMAND: "FORMAT_TEXT",
   INDENT_CONTENT_COMMAND: "INDENT",
+  KEY_DOWN_COMMAND: "KEY_DOWN",
   OUTDENT_CONTENT_COMMAND: "OUTDENT",
   REDO_COMMAND: "REDO",
   SELECTION_CHANGE_COMMAND: "SELECTION_CHANGE",
@@ -113,15 +115,15 @@ describe("ToolbarPlugin", () => {
 
     it("renders Bold, Italic, and Underline buttons", () => {
       render(<ToolbarPlugin />);
-      expect(screen.getByTitle("Bold")).toBeInTheDocument();
-      expect(screen.getByTitle("Italic")).toBeInTheDocument();
-      expect(screen.getByTitle("Underline")).toBeInTheDocument();
+      expect(screen.getByTitle("Bold (Ctrl+B)")).toBeInTheDocument();
+      expect(screen.getByTitle("Italic (Ctrl+I)")).toBeInTheDocument();
+      expect(screen.getByTitle("Underline (Ctrl+U)")).toBeInTheDocument();
     });
 
     it("renders inline code and link buttons", () => {
       render(<ToolbarPlugin />);
-      expect(screen.getByTitle("Inline code")).toBeInTheDocument();
-      expect(screen.getByTitle("Insert link")).toBeInTheDocument();
+      expect(screen.getByTitle("Inline code (Ctrl+`)")).toBeInTheDocument();
+      expect(screen.getByTitle("Insert link (Ctrl+K)")).toBeInTheDocument();
     });
 
     it("renders the block type dropdown showing Normal by default", () => {
@@ -188,7 +190,7 @@ describe("ToolbarPlugin", () => {
   describe("format button commands", () => {
     it("dispatches FORMAT_TEXT_COMMAND with 'bold' when Bold is clicked", () => {
       render(<ToolbarPlugin />);
-      fireEvent.mouseDown(screen.getByTitle("Bold"));
+      fireEvent.mouseDown(screen.getByTitle("Bold (Ctrl+B)"));
       expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
         "FORMAT_TEXT",
         "bold",
@@ -197,7 +199,7 @@ describe("ToolbarPlugin", () => {
 
     it("dispatches FORMAT_TEXT_COMMAND with 'italic' when Italic is clicked", () => {
       render(<ToolbarPlugin />);
-      fireEvent.mouseDown(screen.getByTitle("Italic"));
+      fireEvent.mouseDown(screen.getByTitle("Italic (Ctrl+I)"));
       expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
         "FORMAT_TEXT",
         "italic",
@@ -206,7 +208,7 @@ describe("ToolbarPlugin", () => {
 
     it("dispatches FORMAT_TEXT_COMMAND with 'underline' when Underline is clicked", () => {
       render(<ToolbarPlugin />);
-      fireEvent.mouseDown(screen.getByTitle("Underline"));
+      fireEvent.mouseDown(screen.getByTitle("Underline (Ctrl+U)"));
       expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
         "FORMAT_TEXT",
         "underline",
@@ -215,7 +217,7 @@ describe("ToolbarPlugin", () => {
 
     it("dispatches FORMAT_TEXT_COMMAND with 'code' when Inline code is clicked", () => {
       render(<ToolbarPlugin />);
-      fireEvent.mouseDown(screen.getByTitle("Inline code"));
+      fireEvent.mouseDown(screen.getByTitle("Inline code (Ctrl+`)"));
       expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
         "FORMAT_TEXT",
         "code",
@@ -228,28 +230,30 @@ describe("ToolbarPlugin", () => {
       render(<ToolbarPlugin />);
       fireEvent.mouseDown(screen.getByRole("button", { name: /Normal/ }));
       expect(
-        screen.getByRole("button", { name: "Heading 1" }),
+        screen.getByRole("button", { name: /Heading 1/ }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Bullet List" }),
+        screen.getByRole("button", { name: /Bullet List/ }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Code Block" }),
+        screen.getByRole("button", { name: /Code Block/ }),
       ).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Quote" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^Quote/ }),
+      ).toBeInTheDocument();
     });
 
     it("opens the Format dropdown and shows formatting options", () => {
       render(<ToolbarPlugin />);
       fireEvent.mouseDown(screen.getByRole("button", { name: /Format/ }));
       expect(
-        screen.getByRole("button", { name: "Strikethrough" }),
+        screen.getByRole("button", { name: /Strikethrough/ }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Subscript" }),
+        screen.getByRole("button", { name: /Subscript/ }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Clear formatting" }),
+        screen.getByRole("button", { name: /Clear formatting/ }),
       ).toBeInTheDocument();
     });
 
@@ -269,7 +273,7 @@ describe("ToolbarPlugin", () => {
       render(<ToolbarPlugin />);
       fireEvent.mouseDown(screen.getByRole("button", { name: /Format/ }));
       fireEvent.mouseDown(
-        screen.getByRole("button", { name: "Strikethrough" }),
+        screen.getByRole("button", { name: /Strikethrough/ }),
       );
       expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
         "FORMAT_TEXT",
@@ -291,11 +295,11 @@ describe("ToolbarPlugin", () => {
       render(<ToolbarPlugin />);
       fireEvent.mouseDown(screen.getByRole("button", { name: /Format/ }));
       expect(
-        screen.getByRole("button", { name: "Strikethrough" }),
+        screen.getByRole("button", { name: /Strikethrough/ }),
       ).toBeInTheDocument();
       fireEvent.mouseDown(document.body);
       expect(
-        screen.queryByRole("button", { name: "Strikethrough" }),
+        screen.queryByRole("button", { name: /Strikethrough/ }),
       ).not.toBeInTheDocument();
     });
   });
@@ -303,13 +307,13 @@ describe("ToolbarPlugin", () => {
   describe("link editing", () => {
     it("shows the URL input when Insert link is clicked", () => {
       render(<ToolbarPlugin />);
-      fireEvent.mouseDown(screen.getByTitle("Insert link"));
+      fireEvent.mouseDown(screen.getByTitle("Insert link (Ctrl+K)"));
       expect(screen.getByPlaceholderText("https://…")).toBeInTheDocument();
     });
 
     it("hides the URL input when Escape is pressed in the link field", () => {
       render(<ToolbarPlugin />);
-      fireEvent.mouseDown(screen.getByTitle("Insert link"));
+      fireEvent.mouseDown(screen.getByTitle("Insert link (Ctrl+K)"));
       fireEvent.keyDown(screen.getByPlaceholderText("https://…"), {
         key: "Escape",
       });
@@ -320,7 +324,7 @@ describe("ToolbarPlugin", () => {
 
     it("dispatches TOGGLE_LINK_COMMAND when Enter is pressed with a URL", () => {
       render(<ToolbarPlugin />);
-      fireEvent.mouseDown(screen.getByTitle("Insert link"));
+      fireEvent.mouseDown(screen.getByTitle("Insert link (Ctrl+K)"));
       const input = screen.getByPlaceholderText("https://…");
       fireEvent.change(input, { target: { value: "https://example.com" } });
       fireEvent.keyDown(input, { key: "Enter" });

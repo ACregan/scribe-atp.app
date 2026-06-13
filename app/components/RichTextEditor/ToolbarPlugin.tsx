@@ -10,7 +10,9 @@ import {
   CAN_REDO_COMMAND,
   CAN_UNDO_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
+  COMMAND_PRIORITY_NORMAL,
   FORMAT_ELEMENT_COMMAND,
+  KEY_DOWN_COMMAND,
   FORMAT_TEXT_COMMAND,
   INDENT_CONTENT_COMMAND,
   OUTDENT_CONTENT_COMMAND,
@@ -48,6 +50,8 @@ import {
   $patchStyleText,
 } from "@lexical/selection";
 import { INSERT_IMAGE_COMMAND } from "./imageNode";
+import { Modal } from "~/components/Modal/Modal";
+import { useModal } from "~/components/Modal/useModal";
 import styles from "./RichTextEditor.module.css";
 
 // ─── Web Speech API types (not in default TS lib) ─────────────────────────────
@@ -226,10 +230,12 @@ function Dropdown({
 function DropdownItem({
   label,
   active,
+  shortcut,
   onClick,
 }: {
   label: string;
   active?: boolean;
+  shortcut?: string;
   onClick: () => void;
 }) {
   return (
@@ -241,7 +247,8 @@ function DropdownItem({
         onClick();
       }}
     >
-      {label}
+      <span>{label}</span>
+      {shortcut && <span className={styles.dropdownShortcut}>{shortcut}</span>}
     </button>
   );
 }
@@ -286,6 +293,13 @@ export function ToolbarPlugin() {
   // Speech
   const [isSpeechActive, setIsSpeechActive] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  // Shortcuts modal
+  const {
+    isOpen: isShortcutsOpen,
+    open: openShortcuts,
+    close: closeShortcuts,
+  } = useModal();
 
   // ── Sync toolbar state with selection ────────────────────────────────────
 
@@ -546,6 +560,103 @@ export function ToolbarPlugin() {
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
 
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // Registered in a separate effect so insertLink() always closes over the
+  // current isLink value without needing it in the main mergeRegister deps.
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_DOWN_COMMAND,
+      (event: KeyboardEvent) => {
+        const ctrl = event.ctrlKey || event.metaKey;
+        if (!ctrl) return false;
+
+        // CTRL+Shift+1–9 — block type
+        // Uses event.code (physical key position) so the shortcut works on all
+        // keyboard layouts regardless of what Shift+digit produces (e.g. "!").
+        // CTRL+ALT was avoided: on Windows, Ctrl+Alt == AltGr, which produces
+        // composed characters via beforeinput that keydown preventDefault cannot
+        // suppress. CTRL+Shift+0 was removed: on Windows it is reserved by the
+        // OS input method manager regardless of keyboard layout configuration.
+        if (event.shiftKey && !event.altKey) {
+          const digitMatch = event.code.match(/^Digit([1-9])$/);
+          if (digitMatch) {
+            event.preventDefault();
+            switch (digitMatch[1]) {
+              case "1":
+                setBlockTypeTo("h1");
+                break;
+              case "2":
+                setBlockTypeTo("h2");
+                break;
+              case "3":
+                setBlockTypeTo("h3");
+                break;
+              case "4":
+                setBlockTypeTo("h4");
+                break;
+              case "5":
+                setBlockTypeTo("h5");
+                break;
+              case "6":
+                setBlockTypeTo("h6");
+                break;
+              case "7":
+                setBlockTypeTo("number");
+                break;
+              case "8":
+                setBlockTypeTo("bullet");
+                break;
+              case "9":
+                setBlockTypeTo("quote");
+                break;
+            }
+            return true;
+          }
+        }
+
+        // CTRL+Shift+` — normal paragraph
+        // Backtick key is used because Ctrl+Shift+0 is intercepted by the
+        // Windows OS input method manager on systems with multiple keyboard
+        // layouts. event.code is layout-independent.
+        if (event.shiftKey && !event.altKey && event.code === "Backquote") {
+          event.preventDefault();
+          setBlockTypeTo("paragraph");
+          return true;
+        }
+
+        // CTRL+Shift+S — strikethrough
+        if (event.shiftKey && !event.altKey && event.key === "S") {
+          event.preventDefault();
+          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough");
+          return true;
+        }
+
+        if (!event.shiftKey && !event.altKey) {
+          switch (event.key) {
+            // CTRL+` — inline code
+            case "`":
+              event.preventDefault();
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
+              return true;
+            // CTRL+\ — clear formatting
+            case "\\":
+              event.preventDefault();
+              clearFormatting();
+              return true;
+            // CTRL+K — insert / edit link (link input has autoFocus)
+            case "k":
+              event.preventDefault();
+              insertLink();
+              return true;
+          }
+        }
+
+        return false;
+      },
+      COMMAND_PRIORITY_NORMAL,
+    );
+  }, [editor, isLink]); // isLink needed so insertLink() sees current link state
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   function btn(active?: boolean) {
@@ -553,404 +664,537 @@ export function ToolbarPlugin() {
   }
 
   return (
-    <div className={styles.toolbar}>
-      {/* History */}
-      <button
-        type="button"
-        title="Undo"
-        disabled={!canUndo}
-        className={btn()}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(UNDO_COMMAND, undefined);
-        }}
-      >
-        ↩
-      </button>
-      <button
-        type="button"
-        title="Redo"
-        disabled={!canRedo}
-        className={btn()}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(REDO_COMMAND, undefined);
-        }}
-      >
-        ↪
-      </button>
-
-      <span className={styles.divider} />
-
-      {/* Block type */}
-      <Dropdown label={BLOCK_LABELS[blockType] ?? "Normal"}>
-        <DropdownItem
-          label="Normal"
-          active={blockType === "paragraph"}
-          onClick={() => setBlockTypeTo("paragraph")}
-        />
-        {(["h1", "h2", "h3", "h4", "h5", "h6"] as HeadingTagType[]).map(
-          (tag) => (
-            <DropdownItem
-              key={tag}
-              label={BLOCK_LABELS[tag as BlockType]}
-              active={blockType === tag}
-              onClick={() => setBlockTypeTo(tag as BlockType)}
-            />
-          ),
-        )}
-        <DropdownItem
-          label="Bullet List"
-          active={blockType === "bullet"}
-          onClick={() => setBlockTypeTo("bullet")}
-        />
-        <DropdownItem
-          label="Numbered List"
-          active={blockType === "number"}
-          onClick={() => setBlockTypeTo("number")}
-        />
-        <DropdownItem
-          label="Check List"
-          active={blockType === "check"}
-          onClick={() => setBlockTypeTo("check")}
-        />
-        <DropdownItem
-          label="Quote"
-          active={blockType === "quote"}
-          onClick={() => setBlockTypeTo("quote")}
-        />
-        <DropdownItem
-          label="Code Block"
-          active={blockType === "code"}
-          onClick={() => setBlockTypeTo("code")}
-        />
-      </Dropdown>
-
-      <span className={styles.divider} />
-
-      {/* Font family */}
-      <select
-        className={styles.toolbarSelect}
-        value={fontFamily}
-        title="Font family"
-        onChange={(e) => applyStyle({ "font-family": e.target.value })}
-      >
-        {FONT_FAMILIES.map((f) => (
-          <option key={f} value={f}>
-            {f}
-          </option>
-        ))}
-      </select>
-
-      {/* Font size */}
-      <input
-        type="number"
-        className={styles.fontSizeInput}
-        value={parsePx(fontSize)}
-        min={8}
-        max={96}
-        title="Font size"
-        onChange={(e) => applyStyle({ "font-size": `${e.target.value}px` })}
-      />
-      <button
-        type="button"
-        title="Decrease font size"
-        className={btn()}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          changeFontSize(-1);
-        }}
-      >
-        −
-      </button>
-      <button
-        type="button"
-        title="Increase font size"
-        className={btn()}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          changeFontSize(+1);
-        }}
-      >
-        +
-      </button>
-
-      <span className={styles.divider} />
-
-      {/* Bold / Italic / Underline */}
-      <button
-        type="button"
-        title="Bold"
-        className={btn(isBold)}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
-        }}
-      >
-        <b>B</b>
-      </button>
-      <button
-        type="button"
-        title="Italic"
-        className={btn(isItalic)}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
-        }}
-      >
-        <i>I</i>
-      </button>
-      <button
-        type="button"
-        title="Underline"
-        className={btn(isUnderline)}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
-        }}
-      >
-        <u>U</u>
-      </button>
-
-      <span className={styles.divider} />
-
-      {/* Inline code + link */}
-      <button
-        type="button"
-        title="Inline code"
-        className={btn(isCode)}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
-        }}
-      >
-        {"</>"}
-      </button>
-      <button
-        type="button"
-        title={isLink ? "Remove link" : "Insert link"}
-        className={btn(isLink)}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          insertLink();
-        }}
-      >
-        🔗
-      </button>
-      {isLinkEditing && (
-        <>
-          <input
-            type="url"
-            className={styles.linkInput}
-            value={linkUrl}
-            placeholder="https://…"
-            autoFocus
-            onChange={(e) => setLinkUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") confirmLink();
-              if (e.key === "Escape") setIsLinkEditing(false);
-            }}
-          />
-          <button
-            type="button"
-            className={btn()}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              confirmLink();
-            }}
-          >
-            ✓
-          </button>
-          <button
-            type="button"
-            className={btn()}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setIsLinkEditing(false);
-            }}
-          >
-            ✕
-          </button>
-        </>
-      )}
-      <button
-        type="button"
-        title="Insert image"
-        className={btn(isImageEditing)}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          insertImage();
-        }}
-      >
-        🖼
-      </button>
-      {isImageEditing && (
-        <>
-          <input
-            type="url"
-            className={styles.linkInput}
-            value={imageUrl}
-            placeholder="Image URL…"
-            autoFocus
-            onChange={(e) => setImageUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") confirmImage();
-              if (e.key === "Escape") setIsImageEditing(false);
-            }}
-          />
-          <button
-            type="button"
-            className={btn()}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              confirmImage();
-            }}
-          >
-            ✓
-          </button>
-          <button
-            type="button"
-            className={btn()}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setIsImageEditing(false);
-            }}
-          >
-            ✕
-          </button>
-        </>
-      )}
-
-      <span className={styles.divider} />
-
-      {/* Text colour */}
-      <label className={styles.colorLabel} title="Text colour">
-        <span
-          className={styles.colorSwatch}
-          style={{ borderBottom: `3px solid ${fontColor}` }}
+    <>
+      <div className={styles.toolbar}>
+        {/* History */}
+        <button
+          type="button"
+          title="Undo"
+          disabled={!canUndo}
+          className={btn()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.dispatchCommand(UNDO_COMMAND, undefined);
+          }}
         >
-          A
-        </span>
-        <input
-          type="color"
-          className={styles.colorInput}
-          value={fontColor}
-          onChange={(e) => applyStyle({ color: e.target.value })}
-        />
-      </label>
-
-      {/* Background colour */}
-      <label className={styles.colorLabel} title="Background colour">
-        <span
-          className={styles.colorSwatch}
-          style={{ backgroundColor: bgColor }}
+          ↩
+        </button>
+        <button
+          type="button"
+          title="Redo"
+          disabled={!canRedo}
+          className={btn()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.dispatchCommand(REDO_COMMAND, undefined);
+          }}
         >
-          A
-        </span>
-        <input
-          type="color"
-          className={styles.colorInput}
-          value={bgColor}
-          onChange={(e) => applyStyle({ "background-color": e.target.value })}
-        />
-      </label>
+          ↪
+        </button>
 
-      <span className={styles.divider} />
+        <span className={styles.divider} />
 
-      {/* Format dropdown */}
-      <Dropdown label="Format">
-        <DropdownItem
-          label="Strikethrough"
-          active={isStrikethrough}
-          onClick={() =>
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")
-          }
-        />
-        <DropdownItem
-          label="Subscript"
-          active={isSubscript}
-          onClick={() =>
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "subscript")
-          }
-        />
-        <DropdownItem
-          label="Superscript"
-          active={isSuperscript}
-          onClick={() =>
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "superscript")
-          }
-        />
-        <DropdownItem
-          label="Highlight"
-          active={isHighlight}
-          onClick={() =>
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "highlight")
-          }
-        />
-        <DropdownItem
-          label="Lowercase"
-          onClick={() => transformCase((s) => s.toLowerCase())}
-        />
-        <DropdownItem
-          label="Uppercase"
-          onClick={() => transformCase((s) => s.toUpperCase())}
-        />
-        <DropdownItem
-          label="Capitalise"
-          onClick={() =>
-            transformCase((s) => s.replace(/\b\w/g, (c) => c.toUpperCase()))
-          }
-        />
-        <DropdownItem label="Clear formatting" onClick={clearFormatting} />
-      </Dropdown>
-
-      <span className={styles.divider} />
-
-      {/* Alignment dropdown */}
-      <Dropdown label="Align">
-        {(
-          [
-            "left",
-            "center",
-            "right",
-            "justify",
-            "start",
-            "end",
-          ] as ElementFormatType[]
-        ).map((a) => (
+        {/* Block type */}
+        <Dropdown label={BLOCK_LABELS[blockType] ?? "Normal"}>
           <DropdownItem
-            key={a}
-            label={a.charAt(0).toUpperCase() + a.slice(1)}
-            onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, a)}
+            label="Normal"
+            shortcut="Ctrl+Shift+`"
+            active={blockType === "paragraph"}
+            onClick={() => setBlockTypeTo("paragraph")}
           />
-        ))}
-        <DropdownItem
-          label="Outdent"
-          onClick={() =>
-            editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
-          }
-        />
-        <DropdownItem
-          label="Indent"
-          onClick={() =>
-            editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
-          }
-        />
-      </Dropdown>
+          {(["h1", "h2", "h3", "h4", "h5", "h6"] as HeadingTagType[]).map(
+            (tag, i) => (
+              <DropdownItem
+                key={tag}
+                label={BLOCK_LABELS[tag as BlockType]}
+                shortcut={`Ctrl+Shift+${i + 1}`}
+                active={blockType === tag}
+                onClick={() => setBlockTypeTo(tag as BlockType)}
+              />
+            ),
+          )}
+          <DropdownItem
+            label="Bullet List"
+            shortcut="Ctrl+Shift+8"
+            active={blockType === "bullet"}
+            onClick={() => setBlockTypeTo("bullet")}
+          />
+          <DropdownItem
+            label="Numbered List"
+            shortcut="Ctrl+Shift+7"
+            active={blockType === "number"}
+            onClick={() => setBlockTypeTo("number")}
+          />
+          <DropdownItem
+            label="Check List"
+            active={blockType === "check"}
+            onClick={() => setBlockTypeTo("check")}
+          />
+          <DropdownItem
+            label="Quote"
+            shortcut="Ctrl+Shift+9"
+            active={blockType === "quote"}
+            onClick={() => setBlockTypeTo("quote")}
+          />
+          <DropdownItem
+            label="Code Block"
+            active={blockType === "code"}
+            onClick={() => setBlockTypeTo("code")}
+          />
+        </Dropdown>
 
-      {/* Speech — pushed to the right */}
-      <span style={{ flex: 1 }} />
-      <button
-        type="button"
-        title={isSpeechActive ? "Stop dictation" : "Start dictation"}
-        className={`${btn()} ${isSpeechActive ? styles.speechActive : ""}`}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          toggleSpeech();
-        }}
+        <span className={styles.divider} />
+
+        {/* Font family */}
+        <select
+          className={styles.toolbarSelect}
+          value={fontFamily}
+          title="Font family"
+          onChange={(e) => applyStyle({ "font-family": e.target.value })}
+        >
+          {FONT_FAMILIES.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+        </select>
+
+        {/* Font size */}
+        <input
+          type="number"
+          className={styles.fontSizeInput}
+          value={parsePx(fontSize)}
+          min={8}
+          max={96}
+          title="Font size"
+          onChange={(e) => applyStyle({ "font-size": `${e.target.value}px` })}
+        />
+        <button
+          type="button"
+          title="Decrease font size"
+          className={btn()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            changeFontSize(-1);
+          }}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          title="Increase font size"
+          className={btn()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            changeFontSize(+1);
+          }}
+        >
+          +
+        </button>
+
+        <span className={styles.divider} />
+
+        {/* Bold / Italic / Underline */}
+        <button
+          type="button"
+          title="Bold (Ctrl+B)"
+          className={btn(isBold)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
+          }}
+        >
+          <b>B</b>
+        </button>
+        <button
+          type="button"
+          title="Italic (Ctrl+I)"
+          className={btn(isItalic)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
+          }}
+        >
+          <i>I</i>
+        </button>
+        <button
+          type="button"
+          title="Underline (Ctrl+U)"
+          className={btn(isUnderline)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
+          }}
+        >
+          <u>U</u>
+        </button>
+
+        <span className={styles.divider} />
+
+        {/* Inline code + link */}
+        <button
+          type="button"
+          title="Inline code (Ctrl+`)"
+          className={btn(isCode)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
+          }}
+        >
+          {"</>"}
+        </button>
+        <button
+          type="button"
+          title={isLink ? "Remove link (Ctrl+K)" : "Insert link (Ctrl+K)"}
+          className={btn(isLink)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            insertLink();
+          }}
+        >
+          🔗
+        </button>
+        {isLinkEditing && (
+          <>
+            <input
+              type="url"
+              className={styles.linkInput}
+              value={linkUrl}
+              placeholder="https://…"
+              autoFocus
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmLink();
+                if (e.key === "Escape") setIsLinkEditing(false);
+              }}
+            />
+            <button
+              type="button"
+              className={btn()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                confirmLink();
+              }}
+            >
+              ✓
+            </button>
+            <button
+              type="button"
+              className={btn()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsLinkEditing(false);
+              }}
+            >
+              ✕
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          title="Insert image"
+          className={btn(isImageEditing)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            insertImage();
+          }}
+        >
+          🖼
+        </button>
+        {isImageEditing && (
+          <>
+            <input
+              type="url"
+              className={styles.linkInput}
+              value={imageUrl}
+              placeholder="Image URL…"
+              autoFocus
+              onChange={(e) => setImageUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmImage();
+                if (e.key === "Escape") setIsImageEditing(false);
+              }}
+            />
+            <button
+              type="button"
+              className={btn()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                confirmImage();
+              }}
+            >
+              ✓
+            </button>
+            <button
+              type="button"
+              className={btn()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsImageEditing(false);
+              }}
+            >
+              ✕
+            </button>
+          </>
+        )}
+
+        <span className={styles.divider} />
+
+        {/* Text colour */}
+        <label className={styles.colorLabel} title="Text colour">
+          <span
+            className={styles.colorSwatch}
+            style={{ borderBottom: `3px solid ${fontColor}` }}
+          >
+            A
+          </span>
+          <input
+            type="color"
+            className={styles.colorInput}
+            value={fontColor}
+            onChange={(e) => applyStyle({ color: e.target.value })}
+          />
+        </label>
+
+        {/* Background colour */}
+        <label className={styles.colorLabel} title="Background colour">
+          <span
+            className={styles.colorSwatch}
+            style={{ backgroundColor: bgColor }}
+          >
+            A
+          </span>
+          <input
+            type="color"
+            className={styles.colorInput}
+            value={bgColor}
+            onChange={(e) => applyStyle({ "background-color": e.target.value })}
+          />
+        </label>
+
+        <span className={styles.divider} />
+
+        {/* Format dropdown */}
+        <Dropdown label="Format">
+          <DropdownItem
+            label="Strikethrough"
+            shortcut="Ctrl+Shift+S"
+            active={isStrikethrough}
+            onClick={() =>
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")
+            }
+          />
+          <DropdownItem
+            label="Subscript"
+            active={isSubscript}
+            onClick={() =>
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "subscript")
+            }
+          />
+          <DropdownItem
+            label="Superscript"
+            active={isSuperscript}
+            onClick={() =>
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "superscript")
+            }
+          />
+          <DropdownItem
+            label="Highlight"
+            active={isHighlight}
+            onClick={() =>
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "highlight")
+            }
+          />
+          <DropdownItem
+            label="Lowercase"
+            onClick={() => transformCase((s) => s.toLowerCase())}
+          />
+          <DropdownItem
+            label="Uppercase"
+            onClick={() => transformCase((s) => s.toUpperCase())}
+          />
+          <DropdownItem
+            label="Capitalise"
+            onClick={() =>
+              transformCase((s) => s.replace(/\b\w/g, (c) => c.toUpperCase()))
+            }
+          />
+          <DropdownItem
+            label="Clear formatting"
+            shortcut="Ctrl+\"
+            onClick={clearFormatting}
+          />
+        </Dropdown>
+
+        <span className={styles.divider} />
+
+        {/* Alignment dropdown */}
+        <Dropdown label="Align">
+          {(
+            [
+              "left",
+              "center",
+              "right",
+              "justify",
+              "start",
+              "end",
+            ] as ElementFormatType[]
+          ).map((a) => (
+            <DropdownItem
+              key={a}
+              label={a.charAt(0).toUpperCase() + a.slice(1)}
+              onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, a)}
+            />
+          ))}
+          <DropdownItem
+            label="Outdent"
+            onClick={() =>
+              editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined)
+            }
+          />
+          <DropdownItem
+            label="Indent"
+            onClick={() =>
+              editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined)
+            }
+          />
+        </Dropdown>
+
+        {/* Speech + shortcuts reference — pushed to the right */}
+        <span style={{ flex: 1 }} />
+        <button
+          type="button"
+          title={isSpeechActive ? "Stop dictation" : "Start dictation"}
+          className={`${btn()} ${isSpeechActive ? styles.speechActive : ""}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            toggleSpeech();
+          }}
+        >
+          🎤{isSpeechActive ? " Stop" : ""}
+        </button>
+        <button
+          type="button"
+          title="Keyboard shortcuts"
+          className={btn()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            openShortcuts();
+          }}
+        >
+          ?
+        </button>
+      </div>
+
+      <Modal
+        isOpen={isShortcutsOpen}
+        onClose={closeShortcuts}
+        title="Keyboard shortcuts"
       >
-        🎤{isSpeechActive ? " Stop" : ""}
-      </button>
-    </div>
+        <table className={styles.shortcutsTable}>
+          <tbody>
+            <tr>
+              <th colSpan={2}>Block type</th>
+            </tr>
+            <tr>
+              <td>Normal</td>
+              <td>
+                <kbd>Ctrl+Shift+`</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Heading 1–6</td>
+              <td>
+                <kbd>Ctrl+Shift+1–6</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Numbered list</td>
+              <td>
+                <kbd>Ctrl+Shift+7</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Bullet list</td>
+              <td>
+                <kbd>Ctrl+Shift+8</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Blockquote</td>
+              <td>
+                <kbd>Ctrl+Shift+9</kbd>
+              </td>
+            </tr>
+            <tr>
+              <th colSpan={2}>Inline format</th>
+            </tr>
+            <tr>
+              <td>Bold</td>
+              <td>
+                <kbd>Ctrl+B</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Italic</td>
+              <td>
+                <kbd>Ctrl+I</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Underline</td>
+              <td>
+                <kbd>Ctrl+U</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Strikethrough</td>
+              <td>
+                <kbd>Ctrl+Shift+S</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Inline code</td>
+              <td>
+                <kbd>Ctrl+`</kbd>
+              </td>
+            </tr>
+            <tr>
+              <th colSpan={2}>Other</th>
+            </tr>
+            <tr>
+              <td>Insert / edit link</td>
+              <td>
+                <kbd>Ctrl+K</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Clear formatting</td>
+              <td>
+                <kbd>Ctrl+\</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Undo</td>
+              <td>
+                <kbd>Ctrl+Z</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Redo</td>
+              <td>
+                <kbd>Ctrl+Y</kbd>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p className={styles.shortcutsNote}>
+          On Windows with multiple keyboard layouts installed, some
+          Ctrl+Shift+number shortcuts may be intercepted by the OS language
+          switcher. Remove unused layouts in Windows language settings to
+          restore them.
+        </p>
+      </Modal>
+    </>
   );
 }
