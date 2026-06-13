@@ -17,6 +17,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  // TODO: add a second webServer entry for the Image Service (port 3009) so
+  // E2E tests can exercise the full image-pick-and-insert flow in the editor.
+  // Until then, ImagePickerModal E2E tests only cover modal open/close; the
+  // insert-image-appears-in-editor assertion lives in unit tests only.
   webServer: {
     command: "npm run build && npm run start",
     port: 3008,
