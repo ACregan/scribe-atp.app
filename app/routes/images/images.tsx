@@ -25,6 +25,14 @@ import { BulkDeleteModal } from "./BulkDeleteModal";
 import { BulkMoveModal } from "./BulkMoveModal";
 import { AddToNewFolderModal } from "./AddToNewFolderModal";
 import { bulkMove, deleteFolder } from "~/services/imageServiceClient";
+import {
+  type BrowseFolder,
+  type BrowseImage,
+  VARIANT_ORDER,
+  VARIANT_LABEL,
+  thumbUrl,
+  largestSizeVariant,
+} from "~/components/ImagePickerModal/imageBrowserTypes";
 import { Spinner } from "~/components/Spinner/Spinner";
 import {
   PageContainer,
@@ -33,25 +41,6 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import styles from "./images.module.css";
-
-type BrowseFolder = {
-  id: number;
-  user_did: string;
-  name: string;
-  parent_id: number | null;
-  created_at?: string;
-};
-
-type BrowseImage = {
-  id: number;
-  user_did: string;
-  filename: string;
-  original_name: string;
-  width: number;
-  height: number;
-  sizes: Record<string, { width: number; height: number; bytes?: number }>;
-  created_at: string;
-};
 
 type UserProfile = {
   displayName: string | null;
@@ -67,23 +56,6 @@ type LoaderData = {
   profiles: Record<string, UserProfile>;
   serviceError?: boolean;
 };
-
-const VARIANT_ORDER = ["thumb", "600", "1200", "1800", "max"];
-const VARIANT_LABEL: Record<string, string> = {
-  thumb: "Thumb",
-  "600": "600w",
-  "1200": "1200w",
-  "1800": "1800w",
-  max: "Max",
-};
-
-function largestSizeVariant(sizes: BrowseImage["sizes"]): string | null {
-  for (let i = VARIANT_ORDER.length - 1; i >= 0; i--) {
-    if (VARIANT_ORDER[i] !== "thumb" && VARIANT_ORDER[i] in sizes)
-      return VARIANT_ORDER[i];
-  }
-  return null;
-}
 
 const DEV_DID = "did:dev:user";
 
@@ -222,18 +194,6 @@ export async function loader({ request }: Route.LoaderArgs) {
       serviceError: true,
     } satisfies LoaderData;
   }
-}
-
-function thumbUrl(image: BrowseImage): string {
-  const variant =
-    "thumb" in image.sizes
-      ? "thumb"
-      : "600" in image.sizes
-        ? "600"
-        : "1200" in image.sizes
-          ? "1200"
-          : "max";
-  return `/image-storage/${image.user_did}/${image.filename}/${variant}.webp`;
 }
 
 function Draggable({

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-import type { BrowseImage } from "./ImagePreviewModal";
+import type { BrowseImage } from "~/components/ImagePickerModal/imageBrowserTypes";
 import styles from "./FullscreenImageViewer.module.css";
 
 type Props = {
@@ -176,7 +176,10 @@ export function FullscreenImageViewer({
           <button
             type="button"
             className={`${styles.actionButton} ${styles.closeButton}`}
-            onClick={(e) => { e.stopPropagation(); onExit(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onExit();
+            }}
             aria-label="Exit fullscreen"
           >
             <SvgIcon name={SvgImageList.FullscreenClose} fill="currentColor" />
@@ -189,7 +192,10 @@ export function FullscreenImageViewer({
       <button
         type="button"
         className={`${styles.chevronButton} ${chevronVisible ? styles.chevronVisible : ""}`}
-        onClick={(e) => { e.stopPropagation(); setInfoPaneOpen((o) => !o); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setInfoPaneOpen((o) => !o);
+        }}
         aria-label={infoPaneOpen ? "Hide info" : "Show info"}
       >
         <SvgIcon

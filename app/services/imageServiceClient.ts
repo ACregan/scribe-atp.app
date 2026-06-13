@@ -1,3 +1,10 @@
+export type {
+  BrowseFolder,
+  BrowseImage,
+  BrowseResponse,
+} from "~/components/ImagePickerModal/imageBrowserTypes";
+import type { BrowseResponse } from "~/components/ImagePickerModal/imageBrowserTypes";
+
 export type FolderOption = {
   id: number;
   name: string;
@@ -97,6 +104,17 @@ export async function bulkDelete(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ imageIds, folderIds, confirm: true }),
   });
+}
+
+// ── Browse ────────────────────────────────────────────────────────────────────
+
+export async function browseFolders(
+  folderId?: number,
+): Promise<BrowseResponse> {
+  const url = folderId
+    ? `/api/image-service/browse?folderId=${folderId}`
+    : "/api/image-service/browse";
+  return request<BrowseResponse>(url);
 }
 
 // ── Upload (XHR + SSE — callers manage progress and cancellation) ─────────────
