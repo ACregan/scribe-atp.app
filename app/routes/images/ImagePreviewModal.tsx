@@ -6,19 +6,15 @@ import { MoveImageModal } from "./MoveImageModal";
 import { FullscreenImageViewer } from "./FullscreenImageViewer";
 import { useToast } from "~/components/Toast/ToastContext";
 import { deleteImage } from "~/services/imageServiceClient";
+import {
+  type BrowseImage,
+  VARIANT_ORDER,
+  VARIANT_LABEL,
+} from "~/components/ImagePickerModal/imageBrowserTypes";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import styles from "./ImagePreviewModal.module.css";
 
-export type BrowseImage = {
-  id: number;
-  user_did: string;
-  filename: string;
-  original_name: string;
-  width: number;
-  height: number;
-  sizes: Record<string, { width: number; height: number; bytes?: number }>;
-  created_at: string;
-};
+export type { BrowseImage };
 
 type Props = {
   isOpen: boolean;
@@ -35,15 +31,6 @@ type Props = {
   onClose: () => void;
   onDelete: (imageId: number) => void;
   onMove: () => void;
-};
-
-const VARIANT_ORDER = ["thumb", "600", "1200", "1800", "max"];
-const VARIANT_LABEL: Record<string, string> = {
-  thumb: "Thumb",
-  "600": "600w",
-  "1200": "1200w",
-  "1800": "1800w",
-  max: "Max",
 };
 
 function largestVariant(sizes: BrowseImage["sizes"]): string {

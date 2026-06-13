@@ -50,3 +50,32 @@ test("discarding changes navigates away", async ({ page }) => {
   await page.getByRole("button", { name: "Discard & Leave" }).click();
   await expect(page).toHaveURL("/");
 });
+
+// ── Image picker ───────────────────────────────────────────────────────────────
+
+test("image picker modal opens when the Insert image toolbar button is clicked", async ({
+  page,
+}) => {
+  await page.goto("/article/edit/dev-mode-article");
+  await page.locator('[contenteditable="true"]').waitFor();
+
+  await page.locator('[title="Insert image"]').click();
+
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Image Library" }),
+  ).toBeVisible();
+});
+
+test("image picker modal closes when the close button is clicked", async ({
+  page,
+}) => {
+  await page.goto("/article/edit/dev-mode-article");
+  await page.locator('[contenteditable="true"]').waitFor();
+
+  await page.locator('[title="Insert image"]').click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+
+  await page.getByRole("button", { name: "Close modal" }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+});

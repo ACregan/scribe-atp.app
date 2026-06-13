@@ -88,6 +88,26 @@ vi.mock("@lexical/selection", () => ({
   $patchStyleText: vi.fn(),
 }));
 
+vi.mock("~/components/ImagePickerModal/ImagePickerModal", () => ({
+  ImagePickerModal: ({
+    isOpen,
+    onClose,
+    onPick,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    onPick: (src: string, altText: string) => void;
+  }) =>
+    isOpen ? (
+      <div data-testid="image-picker-modal">
+        <button onClick={() => onPick("https://example.com/img.webp", "img")}>
+          Pick Image
+        </button>
+        <button onClick={onClose}>Close</button>
+      </div>
+    ) : null,
+}));
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("ToolbarPlugin", () => {
@@ -184,6 +204,30 @@ describe("ToolbarPlugin", () => {
       expect(
         screen.queryByPlaceholderText("https://…"),
       ).not.toBeInTheDocument();
+    });
+
+    it("renders the insert image button", () => {
+      render(<ToolbarPlugin />);
+      expect(screen.getByTitle("Insert image")).toBeInTheDocument();
+    });
+
+    it("opens the ImagePickerModal when the insert image button is clicked", () => {
+      render(<ToolbarPlugin />);
+      expect(
+        screen.queryByTestId("image-picker-modal"),
+      ).not.toBeInTheDocument();
+      fireEvent.mouseDown(screen.getByTitle("Insert image"));
+      expect(screen.getByTestId("image-picker-modal")).toBeInTheDocument();
+    });
+
+    it("dispatches INSERT_IMAGE_COMMAND when an image is picked", () => {
+      render(<ToolbarPlugin />);
+      fireEvent.mouseDown(screen.getByTitle("Insert image"));
+      fireEvent.click(screen.getByText("Pick Image"));
+      expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
+        { type: "INSERT_IMAGE_COMMAND" },
+        { src: "https://example.com/img.webp", altText: "img" },
+      );
     });
   });
 

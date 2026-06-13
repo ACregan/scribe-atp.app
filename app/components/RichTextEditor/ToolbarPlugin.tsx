@@ -52,6 +52,7 @@ import {
 import { INSERT_IMAGE_COMMAND } from "./imageNode";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
+import { ImagePickerModal } from "~/components/ImagePickerModal/ImagePickerModal";
 import styles from "./RichTextEditor.module.css";
 
 // ─── Web Speech API types (not in default TS lib) ─────────────────────────────
@@ -286,9 +287,12 @@ export function ToolbarPlugin() {
   const [isLinkEditing, setIsLinkEditing] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
 
-  // Image editing
-  const [isImageEditing, setIsImageEditing] = useState(false);
-  const [imageUrl, setImageUrl] = useState("");
+  // Image picker
+  const {
+    isOpen: isImagePickerOpen,
+    open: openImagePicker,
+    close: closeImagePicker,
+  } = useModal();
 
   // Speech
   const [isSpeechActive, setIsSpeechActive] = useState(false);
@@ -504,19 +508,6 @@ export function ToolbarPlugin() {
       });
     }
     setIsLinkEditing(false);
-  }
-
-  function insertImage() {
-    setImageUrl("");
-    setIsImageEditing(true);
-  }
-
-  function confirmImage() {
-    const src = imageUrl.trim();
-    if (src) {
-      editor.dispatchCommand(INSERT_IMAGE_COMMAND, { src, altText: "" });
-    }
-    setIsImageEditing(false);
   }
 
   // ── Speech to text ────────────────────────────────────────────────────────
@@ -893,50 +884,14 @@ export function ToolbarPlugin() {
         <button
           type="button"
           title="Insert image"
-          className={btn(isImageEditing)}
+          className={btn(isImagePickerOpen)}
           onMouseDown={(e) => {
             e.preventDefault();
-            insertImage();
+            openImagePicker();
           }}
         >
           🖼
         </button>
-        {isImageEditing && (
-          <>
-            <input
-              type="url"
-              className={styles.linkInput}
-              value={imageUrl}
-              placeholder="Image URL…"
-              autoFocus
-              onChange={(e) => setImageUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") confirmImage();
-                if (e.key === "Escape") setIsImageEditing(false);
-              }}
-            />
-            <button
-              type="button"
-              className={btn()}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                confirmImage();
-              }}
-            >
-              ✓
-            </button>
-            <button
-              type="button"
-              className={btn()}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setIsImageEditing(false);
-              }}
-            >
-              ✕
-            </button>
-          </>
-        )}
 
         <span className={styles.divider} />
 
@@ -1195,6 +1150,13 @@ export function ToolbarPlugin() {
           restore them.
         </p>
       </Modal>
+      <ImagePickerModal
+        isOpen={isImagePickerOpen}
+        onClose={closeImagePicker}
+        onPick={(src, altText) => {
+          editor.dispatchCommand(INSERT_IMAGE_COMMAND, { src, altText });
+        }}
+      />
     </>
   );
 }
