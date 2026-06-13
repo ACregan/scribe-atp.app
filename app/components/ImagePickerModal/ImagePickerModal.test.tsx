@@ -5,13 +5,11 @@ import type { BrowseResponse } from "./imageBrowserTypes";
 
 // ─── Mock imageServiceClient ──────────────────────────────────────────────────
 
-const mockBrowseFolders = vi.fn<
-  [number | undefined],
-  Promise<BrowseResponse>
->();
+const mockBrowseFolders =
+  vi.fn<(folderId?: number) => Promise<BrowseResponse>>();
 
 vi.mock("~/services/imageServiceClient", () => ({
-  browseFolders: (...args: [number | undefined]) => mockBrowseFolders(...args),
+  browseFolders: (folderId?: number) => mockBrowseFolders(folderId),
 }));
 
 // ─── Mock child components ────────────────────────────────────────────────────
