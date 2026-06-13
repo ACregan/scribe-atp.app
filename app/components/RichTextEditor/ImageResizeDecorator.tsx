@@ -23,6 +23,7 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
   const isDragging = dragWidth !== null;
 
   const containerRef = useRef<HTMLDivElement>(null);
+
   const dragStateRef = useRef<{
     startX: number;
     startWidth: number;
@@ -59,18 +60,17 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
     };
   }, [isDragging, dragWidth, editor, nodeKey]);
 
-  // Click outside to deselect
+  // Click outside to deselect. Does not depend on isSelected so the listener
+  // is stable and not re-attached on every Lexical selection change.
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
-      if (!isSelected) return;
-      if (!containerRef.current?.contains(e.target as Node)) {
-        clearSelection();
-        setSelected(false);
-      }
+      if (containerRef.current?.contains(e.target as Node)) return;
+      clearSelection();
+      setSelected(false);
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [isSelected, setSelected, clearSelection]);
+  }, [clearSelection, setSelected]);
 
   function startDrag(e: React.MouseEvent, side: "left" | "right") {
     e.preventDefault(); // keep text cursor out of drag
@@ -87,8 +87,18 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
 
   function handleImageMouseDown(e: React.MouseEvent) {
     e.preventDefault();
+    e.stopPropagation(); // prevent Lexical's contenteditable mousedown handler from resetting selection
     clearSelection();
     setSelected(true);
+  }
+
+  function handleResetWidth(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    editor.update(() => {
+      const node = $getNodeByKey<ImageNode>(nodeKey);
+      node?.setWidth(null);
+    });
   }
 
   const showHandles = isHovered || isSelected;
@@ -126,6 +136,7 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
         style={imgStyle}
         draggable={false}
         onMouseDown={handleImageMouseDown}
+        onClick={(e) => e.stopPropagation()}
       />
 
       {showHandles && (
@@ -138,6 +149,17 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
 
       {isDragging && dragWidth !== null && (
         <div className={styles.badge}>{Math.round(dragWidth)}px</div>
+      )}
+
+      {showHandles && width !== null && (
+        <button
+          type="button"
+          className={styles.resetBtn}
+          onMouseDown={handleResetWidth}
+          title="Remove manual width"
+        >
+          Reset size
+        </button>
       )}
     </div>
   );
