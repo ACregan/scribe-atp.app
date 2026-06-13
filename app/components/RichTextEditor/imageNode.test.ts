@@ -127,6 +127,19 @@ describe("convertImageElement", () => {
       expect((result as { node: ImageNode }).node.__width).toBeNull();
     });
   });
+
+  it("preserves relative src attribute without browser resolution", async () => {
+    const img = document.createElement("img");
+    img.setAttribute("src", "/image-storage/did:plc:abc/uuid/max.webp");
+    img.setAttribute("alt", "photo");
+
+    await withEditor(() => {
+      const result = ImageNode.importDOM()!.img(img).conversion(img);
+      expect((result as { node: ImageNode }).node.__src).toBe(
+        "/image-storage/did:plc:abc/uuid/max.webp",
+      );
+    });
+  });
 });
 
 // ─── clone ────────────────────────────────────────────────────────────────────

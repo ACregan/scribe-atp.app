@@ -30,7 +30,13 @@ function convertImageElement(domNode: Node): { node: ImageNode } | null {
       : !isNaN(attrWidth)
         ? attrWidth
         : null;
-    return { node: $createImageNode(domNode.src, domNode.alt, width) };
+    return {
+      node: $createImageNode(
+        domNode.getAttribute("src") ?? domNode.src,
+        domNode.alt,
+        width,
+      ),
+    };
   }
   return null;
 }
