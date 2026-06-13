@@ -12,6 +12,8 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 
 - Sign in with any Bluesky account via OAuth (PKCE)
 - Full-featured rich text editor: headings H1–H6, lists (bullet/numbered/checklist), code blocks with syntax highlighting, links, image insertion by URL, text colour and background, font family and size, subscript, superscript, strikethrough, indentation, alignment, and speech-to-text via the Web Speech API
+- **Keyboard shortcuts** in the rich text editor — `Ctrl+Shift+1–9` for block types, `Ctrl+K` for links, `Ctrl+\`` for inline code, `Ctrl+Shift+S` for strikethrough, `Ctrl+\` to clear formatting; `?` button opens a full reference; shortcut hints shown in toolbar tooltips and dropdown items
+- **Article edit UX** — save button shows "No Changes" (disabled) when clean and "Save Changes" (enabled) when dirty; stays on the edit page after saving; navigates to the edit page after creating a new article
 - Organise articles into sites and named groups with drag-and-drop ordering
 - Assign articles to multiple sites
 - Unassigned articles alert — the dashboard flags any articles not referenced by any site

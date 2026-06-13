@@ -324,3 +324,41 @@ Systematic pass targeting WCAG 2.1 AA compliance across the application.
 - **`<Link><Button>` double tab stop** — every `<Button>` nested inside a `<Link>` now carries `tabIndex={-1}`. The `<a>` is the single tab stop; the button is kept in the DOM for pointer access but removed from the keyboard tab order.
 - **Button `type` default** — `Button` component defaults to `type="button"`. Prevents accidental form submission when a `<Button>` sits inside a `<Form>` without an explicit type; all intentional submit buttons already pass `type="submit"` explicitly.
 - **`DarkModeSwitch`** — converted from a `<div>` to a `<button>` with a dynamic `aria-label` ("Switch to light mode" / "Switch to dark mode").
+
+## FEATURE: Lexical Editor Enhancements
+
+### Status: Implemented (June 2026)
+
+Two editor improvements shipped together.
+
+### Save Changes UX
+
+The article edit route (`/article/edit/:url`) no longer redirects to `/article/list` after a successful save. It stays on the page.
+
+- **Save button** — shows `"No Changes"` (disabled) when the form is clean and `"Save Changes"` (enabled) when dirty. `isDirty` resets to `false` after a successful save.
+- **CID management** — the latest `cid` is held in `useState(cid)` as `cidValue`. The action returns `newCid` from each successful `putRecord`; the component updates state with it. This prevents stale `swapRecord` failures on a second save without a page reload.
+- **Slug rename** — performs a soft `navigate("/article/edit/${newSlug}", { replace: true })` rather than a hard redirect, keeping the user on the edit page at the updated URL.
+- **Create → edit flow** — `create.tsx` (real OAuth mode) navigates to `/article/edit/${slug}` after save, landing on the edit page for the newly created article.
+
+### Keyboard Shortcuts
+
+`KEY_DOWN_COMMAND` handler registered in `ToolbarPlugin.tsx`. Uses `event.code` (physical key position) for digit matching to work across keyboard layouts.
+
+| Shortcut         | Action              |
+| ---------------- | ------------------- |
+| `Ctrl+Shift+\``  | Normal paragraph    |
+| `Ctrl+Shift+1–6` | Heading 1–6         |
+| `Ctrl+Shift+7`   | Numbered list       |
+| `Ctrl+Shift+8`   | Bullet list         |
+| `Ctrl+Shift+9`   | Blockquote          |
+| `Ctrl+Shift+S`   | Strikethrough       |
+| `Ctrl+\``        | Inline code         |
+| `Ctrl+\`         | Clear formatting    |
+| `Ctrl+K`         | Insert / edit link  |
+
+**Platform notes:**
+- `Ctrl+Alt` (AltGr) was rejected: composed characters are inserted via `beforeinput` and cannot be suppressed with `keydown.preventDefault()`.
+- `Ctrl+Shift+0` was rejected: intercepted by the Windows OS input method manager universally.
+- `Ctrl+Shift+N` digits may be intercepted on Windows systems with multiple keyboard layouts installed (each layout is assigned `Ctrl+Shift+N`). `Ctrl+Shift+\`` (backtick) avoids this — Windows does not assign language shortcuts to symbol keys.
+
+**Discoverability** — toolbar button `title` attributes include shortcut hints (e.g. `"Bold (Ctrl+B)"`). `DropdownItem` has an optional `shortcut?: string` prop that renders muted monospace text. A `?` toolbar button opens a modal with a full shortcut reference table.

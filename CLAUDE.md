@@ -404,8 +404,29 @@ The toolbar lives in `app/components/RichTextEditor/ToolbarPlugin.tsx` and is re
 | Format ▾      | Strikethrough, Subscript, Superscript, Highlight, Lowercase, Uppercase, Capitalise, Clear formatting |
 | Align ▾       | Left, Center, Right, Justify, Start, End, Outdent, Indent                                            |
 | Speech        | 🎤 Speech-to-text via Web Speech API (browser-dependent; inserts recognised text at cursor)          |
+| Shortcuts     | `?` button opens a modal listing all keyboard shortcuts                                              |
 
 Toolbar buttons use `onMouseDown + e.preventDefault()` (not `onClick`) to avoid stealing editor focus.
+
+**Keyboard shortcuts** — handled by a `KEY_DOWN_COMMAND` registered in a separate `useEffect` (with `[editor, isLink]` deps so `insertLink()` always closes over the current `isLink` state). Uses `event.code` (physical key position) for digit matching so shortcuts work regardless of keyboard layout:
+
+| Shortcut              | Action                  | Notes                                                                 |
+| --------------------- | ----------------------- | --------------------------------------------------------------------- |
+| `Ctrl+Shift+\``       | Normal paragraph        | Backtick key — avoids Windows OS-reserved `Ctrl+Shift+0`             |
+| `Ctrl+Shift+1–6`      | Heading 1–6             | Some may be intercepted by Windows language switcher on multi-layout systems |
+| `Ctrl+Shift+7`        | Numbered list           |                                                                       |
+| `Ctrl+Shift+8`        | Bullet list             |                                                                       |
+| `Ctrl+Shift+9`        | Blockquote              |                                                                       |
+| `Ctrl+Shift+S`        | Strikethrough           |                                                                       |
+| `Ctrl+\``             | Inline code             |                                                                       |
+| `Ctrl+\`              | Clear formatting        |                                                                       |
+| `Ctrl+K`              | Insert / edit link      | Opens the inline URL input; auto-focuses it on mount                  |
+| `Ctrl+B/I/U`          | Bold / Italic / Underline | Handled natively by Lexical                                          |
+| `Ctrl+Z` / `Ctrl+Y`   | Undo / Redo             | Handled natively by Lexical                                           |
+
+**Why `Ctrl+Alt` was not used:** on Windows, `Ctrl+Alt` is equivalent to AltGr. AltGr characters are composed and inserted via the `beforeinput` event — `keydown.preventDefault()` does not suppress them. `Ctrl+Shift+0` was also dropped: it is intercepted by the Windows input method manager regardless of keyboard layout.
+
+**Discoverability** — toolbar button `title` attributes include the shortcut hint (e.g. `"Bold (Ctrl+B)"`). Dropdown items (`DropdownItem`) accept an optional `shortcut?: string` prop that renders muted monospace text on the right side of the item. The `?` button opens a modal with a full shortcuts reference table.
 
 All theme classes for Lexical nodes (headings, lists, code highlight tokens, links, text formats) are defined in `RichTextEditor.module.css` and wired into the `theme` object in `RichTextEditor.tsx`.
 
@@ -641,7 +662,7 @@ The dashboard Quick Actions link directly to these `/new` routes. When `useBlock
 
 ## Toast + navigate pattern
 
-Routes that save and then redirect (e.g. `article/edit`, `site/configure`) use this pattern so the toast survives the navigation:
+Routes that save and then redirect (e.g. `site/configure`) use this pattern so the toast survives the navigation:
 
 ```ts
 // action — return data instead of redirect
@@ -659,6 +680,26 @@ useEffect(() => {
 ```
 
 This works because `ToastProvider` is mounted at the core layout level and persists across React Router soft navigations — the toast state is not reset when the route changes.
+
+## Article edit — save UX
+
+`/article/edit` does **not** redirect after a successful save. It stays on the edit page and:
+
+- Shows a **"Article saved"** toast (auto-expires)
+- Resets `isDirty` to `false`
+- Updates `cidValue` state with `newCid` returned from the action — prevents a stale `swapRecord` on a second save without a page reload
+- On a **slug rename**: performs a soft `navigate("/article/edit/${newSlug}", { replace: true })` instead of a hard redirect, so the URL updates without a full page reload
+
+**Save button states** — the footer submit button reflects dirty state:
+
+| State   | Label        | Enabled |
+| ------- | ------------ | ------- |
+| Clean   | No Changes   | No      |
+| Dirty   | Save Changes | Yes     |
+
+`isDirty` is set to `true` by any form input change or content edit, and reset to `false` after a successful save. `cidValue` is held in `useState(cid)` — the initial CID comes from the loader; subsequent saves update it via `actionData.newCid` without requiring the loader to re-run.
+
+**Create → edit flow** — `create.tsx` (real OAuth mode) navigates to `/article/edit/${slug}` after a successful save, landing the user on the edit page for the newly created article. Dev-bypass mode stays on the create page and shows a toast.
 
 ## Client metadata
 
@@ -725,7 +766,7 @@ The project uses **Vitest** with **React Testing Library** for component unit te
 - Child components are mocked with `vi.mock(...)` to isolate the component under test
 - React Router primitives (`Form`, `Link`, `NavLink`) are mocked per-file
 - dnd-kit hooks (`useSortable`, `useDndContext`) are mocked to return static values; `vi.hoisted()` is required for any mock variable referenced inside a `vi.mock()` factory
-- Lexical editor internals are mocked wholesale in `RichTextEditor.test.tsx` and `ToolbarPlugin.test.tsx`; `useLexicalComposerContext` is mocked via `vi.hoisted`. `RichTextEditor.test.tsx` uses `importOriginal` for the `lexical` mock (`vi.mock("lexical", async (importOriginal) => ({ ...actual, ... }))`) so that new Lexical exports added by `imageNode.tsx` or `ExtendedTextNode.ts` are available automatically — only `$getRoot` and `$insertNodes` are overridden. `ToolbarPlugin.test.tsx` uses a manual mock and must be kept in sync when new `lexical` exports are imported.
+- Lexical editor internals are mocked wholesale in `RichTextEditor.test.tsx` and `ToolbarPlugin.test.tsx`; `useLexicalComposerContext` is mocked via `vi.hoisted`. `RichTextEditor.test.tsx` uses `importOriginal` for the `lexical` mock (`vi.mock("lexical", async (importOriginal) => ({ ...actual, ... }))`) so that new Lexical exports added by `imageNode.tsx` or `ExtendedTextNode.ts` are available automatically — only `$getRoot` and `$insertNodes` are overridden. `ToolbarPlugin.test.tsx` uses a manual mock and must be kept in sync when new `lexical` exports are imported. Current mock includes `KEY_DOWN_COMMAND` and `COMMAND_PRIORITY_NORMAL` (added when the keyboard shortcuts handler was introduced). Test selectors use the full title attribute strings including shortcut hints (e.g. `getByTitle("Bold (Ctrl+B)")`), and regex matchers for dropdown items that include shortcut text (e.g. `getByRole("button", { name: /Strikethrough/ })`).
 
 ### Test philosophy
 
