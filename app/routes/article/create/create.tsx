@@ -1,5 +1,10 @@
 import type { Route } from "./+types/create";
-import { Form, useBlocker, type BlockerFunction } from "react-router";
+import {
+  Form,
+  useNavigate,
+  useBlocker,
+  type BlockerFunction,
+} from "react-router";
 import {
   PageContainer,
   PageContainerHeading,
@@ -124,6 +129,7 @@ export default function Create({
   const [urlValue, setUrlValue] = useState("");
   const [contentHtml, setContentHtml] = useState("");
   const slugDirtyRef = useRef(false);
+  const navigate = useNavigate();
   const { addToast } = useToast();
 
   const canSave =
@@ -172,6 +178,10 @@ export default function Create({
       content: actionData.title,
       variant: "primary",
     });
+    if (!actionData.devMode) {
+      const slug = actionData.uri.split("/").pop()!;
+      navigate(`/article/edit/${slug}`);
+    }
   }, [actionData]);
 
   return (

@@ -1,7 +1,6 @@
 import type { Route } from "./+types/edit";
 import {
   Form,
-  redirect,
   useNavigate,
   useBlocker,
   type BlockerFunction,
@@ -112,7 +111,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const validationError = validateArticleFields(title, newUrl);
   if (validationError) return { error: validationError };
 
-  if (!useRealOAuth) return redirect("/article/list");
+  if (!useRealOAuth) return { ok: true, title };
 
   const { agent, did } = await requireAtpAgent(request);
   const oldArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${oldRkey}`;
@@ -149,13 +148,34 @@ export async function action({ request, params }: Route.ActionArgs) {
           console.error("Failed to delete old record after rename:", err);
         });
     } else {
-      await agent.com.atproto.repo.putRecord({
+      const putResult = await agent.com.atproto.repo.putRecord({
         repo: did,
         collection: ARTICLE_COLLECTION,
         rkey: oldRkey,
         record,
         swapRecord: cid ?? undefined,
       });
+      const newArticleRef = buildArticleRef({
+        uri: newArticleUri,
+        title,
+        url: newUrl,
+        splashImageUrl,
+        synopsis,
+        createdAt,
+        updatedAt: now,
+      });
+      const siteChanges = computeSiteAssignmentChanges(
+        oldSiteRkeys,
+        newSiteRkeys,
+      );
+      await syncSiteArticleRefs(
+        agent,
+        did,
+        siteChanges,
+        oldArticleUri,
+        newArticleRef,
+      );
+      return { ok: true, title, newCid: putResult.data.cid };
     }
   } catch (err) {
     console.error("Failed to update article:", err);
@@ -186,7 +206,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     newArticleRef,
   );
 
-  return { ok: true, title };
+  return { ok: true, title, newSlug: newUrl };
 }
 
 export default function EditArticle({
@@ -212,6 +232,10 @@ export default function EditArticle({
   const [titleValue, setTitleValue] = useState(title);
   const [urlValue, setUrlValue] = useState(url);
   const [contentHtml, setContentHtml] = useState(content);
+  // Held in state so it updates after a successful non-rename save without
+  // re-running the loader (putRecord produces a new CID; stale CID would fail
+  // the swapRecord check on the next save).
+  const [cidValue, setCidValue] = useState(cid);
   // Skip the first onContentChange call — that's InitialValuePlugin loading the
   // existing content, not a user edit.
   const contentInitializedRef = useRef(false);
@@ -261,12 +285,17 @@ export default function EditArticle({
       content: actionData.title,
       variant: "primary",
     });
-    navigate("/article/list");
+    if (actionData.newSlug) {
+      navigate(`/article/edit/${actionData.newSlug}`, { replace: true });
+    } else {
+      setIsDirty(false);
+      if (actionData.newCid) setCidValue(actionData.newCid);
+    }
   }, [actionData]);
 
   return (
     <Form method="post" id="edit-article-form" onInput={handleFormInput}>
-      <input type="hidden" name="cid" value={cid ?? ""} />
+      <input type="hidden" name="cid" value={cidValue ?? ""} />
       <input type="hidden" name="createdAt" value={createdAt} />
       <input
         type="hidden"
@@ -302,7 +331,7 @@ export default function EditArticle({
           type="submit"
           disabled={!isDirty || !canSave}
         >
-          Save Changes
+          {isDirty ? "Save Changes" : "No Changes"}
         </Button>
       </FooterPortal>
 
