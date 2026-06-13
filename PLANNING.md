@@ -251,9 +251,11 @@ Windows Explorer-style grid of images and folders. Behaviour:
 - **Drag and drop** — dnd-kit `PointerSensor` (8px activation distance to distinguish clicks from drags); folder tiles are drop targets; dragging a selected item moves all selected items; dragging an unselected item moves only that item; `DragOverlay` shows item name or "N items" badge; errors surface as persistent danger toasts.
 - **Image preview modal** — double-click opens a modal showing the image at full width. Variant selector buttons switch the displayed URL and show per-Variant dimensions and file size (KB). Also shows original filename, upload date, and folder path. Prev/Next navigation (arrow keys supported). Own images get inline Delete (with inline confirmation state) and Move actions.
 
-### Deferred
+### Image Library integration with the Lexical editor
 
-**Inline image picker in the Lexical editor** — a picker modal launchable from within the article editor to browse the Image Library and insert an image URL directly, without copy-paste. Deferred until the Image Library itself is complete.
+**Inline image picker (June 2026)** — the toolbar's 🖼 button no longer shows an inline URL input. It opens `ImagePickerModal` (`app/components/ImagePickerModal/`), which browses the Image Library folder tree, shows image thumbnails, and on selection dispatches `INSERT_IMAGE_COMMAND` with the `max` Variant URL. Shared browser types (`BrowseFolder`, `BrowseImage`, `BrowseResponse`, helper functions) live in `imageBrowserTypes.ts` and are imported by both the picker and the `/images` route. `browseFolders(folderId?)` was added to `imageServiceClient.ts` for this purpose.
+
+**Resizable images (June 2026)** — `ImageNode` stores `__width: number | null` (default null). Width round-trips through HTML (`style="width: Npx; max-width: 100%;"`) and Lexical JSON (`width` field, backwards-compatible). `ImageNode.decorate()` returns `<ImageResizeDecorator>` which renders left/right drag handles on hover or Lexical node selection. Drag updates local state; mouseup commits via a single `editor.update(() => node.setWidth(finalWidth))`. Minimum width: 80px. A pixel badge overlays the image during drag.
 
 ## FEATURE: Dashboard
 
@@ -329,7 +331,7 @@ Systematic pass targeting WCAG 2.1 AA compliance across the application.
 
 ### Status: Implemented (June 2026)
 
-Two editor improvements shipped together.
+Four editor improvements shipped in this cycle.
 
 ### Save Changes UX
 
@@ -344,21 +346,30 @@ The article edit route (`/article/edit/:url`) no longer redirects to `/article/l
 
 `KEY_DOWN_COMMAND` handler registered in `ToolbarPlugin.tsx`. Uses `event.code` (physical key position) for digit matching to work across keyboard layouts.
 
-| Shortcut         | Action              |
-| ---------------- | ------------------- |
-| `Ctrl+Shift+\``  | Normal paragraph    |
-| `Ctrl+Shift+1–6` | Heading 1–6         |
-| `Ctrl+Shift+7`   | Numbered list       |
-| `Ctrl+Shift+8`   | Bullet list         |
-| `Ctrl+Shift+9`   | Blockquote          |
-| `Ctrl+Shift+S`   | Strikethrough       |
-| `Ctrl+\``        | Inline code         |
-| `Ctrl+\`         | Clear formatting    |
-| `Ctrl+K`         | Insert / edit link  |
+| Shortcut         | Action             |
+| ---------------- | ------------------ |
+| `Ctrl+Shift+\``  | Normal paragraph   |
+| `Ctrl+Shift+1–6` | Heading 1–6        |
+| `Ctrl+Shift+7`   | Numbered list      |
+| `Ctrl+Shift+8`   | Bullet list        |
+| `Ctrl+Shift+9`   | Blockquote         |
+| `Ctrl+Shift+S`   | Strikethrough      |
+| `Ctrl+\``        | Inline code        |
+| `Ctrl+\`         | Clear formatting   |
+| `Ctrl+K`         | Insert / edit link |
 
 **Platform notes:**
+
 - `Ctrl+Alt` (AltGr) was rejected: composed characters are inserted via `beforeinput` and cannot be suppressed with `keydown.preventDefault()`.
 - `Ctrl+Shift+0` was rejected: intercepted by the Windows OS input method manager universally.
 - `Ctrl+Shift+N` digits may be intercepted on Windows systems with multiple keyboard layouts installed (each layout is assigned `Ctrl+Shift+N`). `Ctrl+Shift+\`` (backtick) avoids this — Windows does not assign language shortcuts to symbol keys.
 
 **Discoverability** — toolbar button `title` attributes include shortcut hints (e.g. `"Bold (Ctrl+B)"`). `DropdownItem` has an optional `shortcut?: string` prop that renders muted monospace text. A `?` toolbar button opens a modal with a full shortcut reference table.
+
+### Image Library Picker
+
+The toolbar's 🖼 button opens `ImagePickerModal` instead of an inline URL input. The modal browses the Image Service folder tree, shows thumbnails, and dispatches `INSERT_IMAGE_COMMAND` on selection. See the Image Library section above for detail.
+
+### Resizable Images
+
+Inserted images can be resized by dragging handles on their left and right edges. Width is stored on `ImageNode` and round-trips through HTML and Lexical JSON. See the Image Library section above for detail.
