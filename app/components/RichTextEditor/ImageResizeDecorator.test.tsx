@@ -25,7 +25,7 @@ vi.mock("@lexical/react/useLexicalNodeSelection", () => ({
 }));
 
 vi.mock("lexical", () => ({
-  $getNodeByKey: vi.fn(() => ({ setWidth: vi.fn() })),
+  $getNodeByKey: vi.fn(() => ({ setWidth: vi.fn(), setAltText: vi.fn() })),
 }));
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -160,6 +160,94 @@ describe("ImageResizeDecorator", () => {
       const badge = screen.getByText(/px$/);
       const displayedWidth = parseInt(badge.textContent!);
       expect(displayedWidth).toBeGreaterThanOrEqual(80);
+    });
+  });
+
+  describe("Alt text button", () => {
+    it("shows the Alt text button when hovered", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.mouseEnter(screen.getByAltText("test image").parentElement!);
+      expect(screen.getByRole("button", { name: "Alt text" })).toBeInTheDocument();
+    });
+
+    it("shows the Alt text button when node is selected", () => {
+      mockIsSelected.value = true;
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      expect(screen.getByRole("button", { name: "Alt text" })).toBeInTheDocument();
+    });
+
+    it("does not show the Alt text button when neither hovered nor selected", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      expect(screen.queryByRole("button", { name: "Alt text" })).not.toBeInTheDocument();
+    });
+
+    it("opens the modal when clicked", () => {
+      mockIsSelected.value = true;
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    it("pre-fills the textarea with the current altText", () => {
+      mockIsSelected.value = true;
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      expect(screen.getByRole("textbox")).toHaveValue("test image");
+    });
+  });
+
+  describe("Alt text modal", () => {
+    beforeEach(() => {
+      mockIsSelected.value = true;
+    });
+
+    it("Save button is disabled when altText is unchanged", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    });
+
+    it("Save button is enabled after changing the value", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "a better description" },
+      });
+      expect(screen.getByRole("button", { name: "Save" })).not.toBeDisabled();
+    });
+
+    it("Save button is enabled when alt text is cleared to empty string", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } });
+      expect(screen.getByRole("button", { name: "Save" })).not.toBeDisabled();
+    });
+
+    it("calls editor.update when Save is clicked", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "new description" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(mockEditor.update).toHaveBeenCalled();
+    });
+
+    it("closes the modal after saving", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "new description" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("closes the modal when Cancel is clicked without saving", () => {
+      render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+      fireEvent.click(screen.getByRole("button", { name: "Alt text" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 });

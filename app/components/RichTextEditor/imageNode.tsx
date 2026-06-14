@@ -84,6 +84,11 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     writable.__width = width;
   }
 
+  setAltText(altText: string): void {
+    const writable = this.getWritable();
+    writable.__altText = altText;
+  }
+
   exportJSON(): SerializedImageNode {
     return {
       ...super.exportJSON(),

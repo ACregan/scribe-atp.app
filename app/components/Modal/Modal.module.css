@@ -12,6 +12,9 @@
   padding: 0;
   background: transparent;
   overflow: visible;
+  /* Reset line-height: dialogs are top-layer overlays and must not inherit
+     line-height: 0 (or similar) from a parent image/decorator wrapper. */
+  line-height: 1.5;
 }
 
 .dialog::backdrop {

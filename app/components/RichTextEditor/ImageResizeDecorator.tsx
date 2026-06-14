@@ -2,10 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import { $getNodeByKey, type NodeKey } from "lexical";
+import { Modal } from "~/components/Modal/Modal";
+import { Button } from "~/components/Button/Button";
+import { Textarea } from "~/components/Textarea/Textarea";
 import type { ImageNode } from "./imageNode";
 import styles from "./ImageResizeDecorator.module.css";
 
 const MIN_WIDTH = 80;
+
+// Module-level set so isModalOpen survives decorator remounts.
+// useState would reset on remount; this doesn't.
+const openModals = new Set<NodeKey>();
 
 type Props = {
   nodeKey: NodeKey;
@@ -21,6 +28,11 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
   const [isHovered, setIsHovered] = useState(false);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const isDragging = dragWidth !== null;
+
+  const [isModalOpen, setIsModalOpen] = useState(() =>
+    openModals.has(nodeKey),
+  );
+  const [modalAltText, setModalAltText] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -121,6 +133,28 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
     });
   }
 
+  function handleOpenModal() {
+    setModalAltText(altText);
+    openModals.add(nodeKey);
+    setIsModalOpen(true);
+  }
+
+  function handleCloseModal() {
+    openModals.delete(nodeKey);
+    setIsModalOpen(false);
+  }
+
+  function handleSaveAltText() {
+    editor.update(
+      () => {
+        const node = $getNodeByKey<ImageNode>(nodeKey);
+        node?.setAltText(modalAltText);
+      },
+      { discrete: true },
+    );
+    handleCloseModal();
+  }
+
   const showHandles = isHovered || isSelected;
   const displayWidth = dragWidth ?? width;
   const imgStyle: React.CSSProperties = displayWidth
@@ -171,6 +205,20 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
         <div className={styles.badge}>{Math.round(dragWidth)}px</div>
       )}
 
+      {showHandles && (
+        <button
+          type="button"
+          className={styles.altTextBtn}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={handleOpenModal}
+        >
+          Alt text
+        </button>
+      )}
+
       {showHandles && width !== null && (
         <button
           type="button"
@@ -181,6 +229,35 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
           Reset size
         </button>
       )}
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        title="Edit alt text"
+        footer={
+          <>
+            <Button variant="secondary" onClick={handleCloseModal}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveAltText}
+              disabled={modalAltText === altText}
+            >
+              Save
+            </Button>
+          </>
+        }
+      >
+        <Textarea
+          id="alt-text-input"
+          label="Alt text"
+          rows={3}
+          placeholder="Describe the image, or leave empty for decorative images"
+          value={modalAltText}
+          onChange={(e) => setModalAltText(e.target.value)}
+        />
+      </Modal>
     </div>
   );
 }

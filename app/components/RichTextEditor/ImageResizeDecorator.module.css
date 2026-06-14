@@ -33,6 +33,29 @@
   opacity: 1;
 }
 
+/* ── Alt text button (visible on hover / selection) ──────────────────────────── */
+
+.altTextBtn {
+  position: absolute;
+  bottom: 1rem;
+  left: 0.4rem;
+  font-size: 1.1rem;
+  padding: 0.2rem 0.6rem;
+  color: #fff !important;
+  background: var(--action-primary);
+  border: 1px solid var(--surface-neutral);
+  border-radius: 0.2rem;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.4;
+  z-index: 15;
+}
+
+.altTextBtn:hover {
+  background: var(--action-primary);
+  text-decoration: underline;
+}
+
 /* ── Reset size button (visible on hover / selection when width is set) ───────── */
 
 .resetBtn {
