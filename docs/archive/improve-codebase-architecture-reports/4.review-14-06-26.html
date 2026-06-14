@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review — scribe-atp.app — 2026-06-14</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .leak { stroke: #dc2626; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+
+      .module-box {
+        border: 2px solid #334155;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 4px 8px;
+      }
+      .module-deep {
+        background: #0f172a;
+        color: #e2e8f0;
+        border-color: #6366f1;
+        border-width: 3px;
+      }
+      .module-shallow {
+        background: #fafafa;
+        color: #475569;
+        border-color: #94a3b8;
+        border-style: dashed;
+      }
+      .module-leak {
+        border-color: #dc2626;
+        background: #fff1f1;
+        color: #991b1b;
+      }
+      .arrow {
+        fill: none;
+        stroke: #64748b;
+        stroke-width: 1.5;
+        marker-end: url(#arrowhead);
+      }
+      .arrow-leak {
+        stroke: #dc2626;
+        stroke-width: 2;
+        marker-end: url(#arrowhead-red);
+      }
+      .seam-line {
+        stroke: #6366f1;
+        stroke-width: 2;
+        stroke-dasharray: 6 4;
+      }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <!-- HEADER -->
+      <header class="border-b border-slate-200 pb-8">
+        <div class="flex items-start justify-between">
+          <div>
+            <h1 class="text-3xl font-serif font-bold text-slate-900">Architecture Review</h1>
+            <p class="text-slate-500 mt-1 font-mono text-sm">scribe-atp.app &nbsp;·&nbsp; 2026-06-14 &nbsp;·&nbsp; report #0001</p>
+          </div>
+          <div class="text-right text-xs text-slate-400 space-y-1 pt-1">
+            <div class="flex items-center gap-2 justify-end">
+              <div class="w-8 h-3 rounded border-2 border-slate-400 bg-white"></div>
+              <span>module</span>
+            </div>
+            <div class="flex items-center gap-2 justify-end">
+              <div class="w-8 h-3 rounded border-2 border-indigo-500 bg-slate-900"></div>
+              <span>deep module</span>
+            </div>
+            <div class="flex items-center gap-2 justify-end">
+              <svg class="w-8 h-3"><line x1="0" y1="6" x2="32" y2="6" stroke="#6366f1" stroke-width="2" stroke-dasharray="4 3"/></svg>
+              <span>seam</span>
+            </div>
+            <div class="flex items-center gap-2 justify-end">
+              <svg class="w-8 h-3"><line x1="0" y1="6" x2="32" y2="6" stroke="#dc2626" stroke-width="2"/></svg>
+              <span>leakage</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- CANDIDATES -->
+      <section id="candidates" class="space-y-14">
+
+        <!-- CANDIDATE 1 -->
+        <article id="c1" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-white px-8 pt-8 pb-4">
+            <div class="flex items-start justify-between gap-4">
+              <h2 class="text-xl font-serif font-semibold text-slate-900">Deepen the article persistence module</h2>
+              <div class="flex gap-2 flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Strong</span>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">in-process</span>
+              </div>
+            </div>
+            <p class="font-mono text-xs text-slate-400 mt-2">
+              app/services/article.server.ts &nbsp;·&nbsp;
+              app/routes/article/create/create.tsx &nbsp;·&nbsp;
+              app/routes/article/edit/edit.tsx
+            </p>
+          </div>
+
+          <!-- DIAGRAM -->
+          <div class="px-8 py-6 bg-slate-50 border-y border-slate-100">
+            <div class="grid grid-cols-2 gap-8">
+              <!-- BEFORE -->
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">Before</p>
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                  <pre class="mermaid text-xs">
+flowchart TD
+  A["create.tsx action"] -->|"buildArticleRecord()"| B["article.server.ts"]
+  A -->|"buildArticleRef() ← inline too"| B
+  A -->|"agent.createRecord()"| PDS["PDS"]
+  A -->|"addArticleToSites()"| B
+  B --> PDS
+
+  E["edit.tsx action"] -->|"buildArticleRecord()"| B
+  E -->|"buildArticleRef() × 2 (duplication)"| B
+  E -->|"agent.putRecord()"| PDS
+  E -->|"agent.createRecord() (rename)"| PDS
+  E -->|"site sync inline"| SITES["site records"]
+
+  classDef shallow fill:#fafafa,stroke:#94a3b8,stroke-dasharray:4 4,color:#475569
+  classDef leak fill:#fff1f1,stroke:#dc2626,color:#991b1b
+  classDef svc fill:#f8fafc,stroke:#334155
+  class A,E shallow
+  class B svc
+                  </pre>
+                </div>
+              </div>
+              <!-- AFTER -->
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">After</p>
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                  <pre class="mermaid text-xs">
+flowchart TD
+  A["create.tsx action"] -->|"createArticle(fields, siteRkeys)"| B
+  E["edit.tsx action"] -->|"updateArticle(fields, old, siteRkeys)"| B
+
+  B["article.server.ts\n(deep module)"] --> PDS["PDS"]
+  B --> SITES["site records"]
+
+  classDef deep fill:#0f172a,stroke:#6366f1,stroke-width:3px,color:#e2e8f0
+  classDef thin fill:#fafafa,stroke:#94a3b8,stroke-dasharray:4 4,color:#475569
+  class B deep
+  class A,E thin
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-8 py-6 grid grid-cols-2 gap-8">
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Problem</p>
+              <p class="text-sm text-slate-600"><code class="text-xs bg-slate-100 px-1 rounded">buildArticleRef()</code> is called in <code class="text-xs bg-slate-100 px-1 rounded">create.tsx</code> and duplicated twice in <code class="text-xs bg-slate-100 px-1 rounded">edit.tsx</code>; site assignment and CID swapping logic live inside route actions, not the persistence module.</p>
+              <p class="text-sm font-medium text-slate-700 mb-2 mt-4">Solution</p>
+              <p class="text-sm text-slate-600">Export <code class="text-xs bg-slate-100 px-1 rounded">createArticle()</code> and <code class="text-xs bg-slate-100 px-1 rounded">updateArticle()</code> from <code class="text-xs bg-slate-100 px-1 rounded">article.server.ts</code> — each orchestrates the PDS write, ref construction, and site sync in one call. Routes become thin: validate → call → respond.</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Wins</p>
+              <ul class="text-sm text-slate-600 space-y-1.5">
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Locality: ArticleRef shape changes touch one module</li>
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Leverage: CID swap + site sync behind one interface</li>
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Interface shrinks; route actions collapse to ~20 lines each</li>
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Tests can cover create/update behaviour at a single seam</li>
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Eliminates dead-code duplication in edit.tsx rename path</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- CANDIDATE 2 -->
+        <article id="c2" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-white px-8 pt-8 pb-4">
+            <div class="flex items-start justify-between gap-4">
+              <h2 class="text-xl font-serif font-semibold text-slate-900">Decompose the Image Library route</h2>
+              <div class="flex gap-2 flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Worth exploring</span>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">in-process</span>
+              </div>
+            </div>
+            <p class="font-mono text-xs text-slate-400 mt-2">
+              app/routes/images/images.tsx (1 051 lines)
+            </p>
+          </div>
+
+          <!-- DIAGRAM: cross-section -->
+          <div class="px-8 py-6 bg-slate-50 border-y border-slate-100">
+            <div class="grid grid-cols-2 gap-8">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">Before — one 1 051-line module</p>
+                <div class="space-y-1">
+                  <div class="module-box h-9 module-leak">Loader (profile resolution + error fallback + dev fixtures) — calls fetch() directly</div>
+                  <div class="module-box h-7 module-shallow">Multi-select state machine (9 useState hooks)</div>
+                  <div class="module-box h-7 module-shallow">Modal visibility state (8 modals)</div>
+                  <div class="module-box h-7 module-shallow">Drag-drop orchestration (f: / i: prefix parsing → bulkMove)</div>
+                  <div class="module-box h-24 module-shallow">Grid rendering + inline tile rendering + DragOverlay</div>
+                  <div class="module-box h-6 module-shallow">Breadcrumb rendering</div>
+                  <div class="module-box h-6 module-shallow">Action handler (8 switch cases)</div>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">After — thin route + extracted modules</p>
+                <div class="space-y-1.5">
+                  <div class="module-box h-8 module-deep">images.tsx — thin orchestrator (loader + action dispatch)</div>
+                  <div class="module-box h-10 module-deep">useImageLibrary() — multi-select + modal state + mutations</div>
+                  <div class="module-box h-10 module-deep">ImageGrid — pure rendering (folders + images + overlays)</div>
+                  <div class="module-box h-8 module-deep">imageServiceClient.ts — loader browse call moved here</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-8 py-6 grid grid-cols-2 gap-8">
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Problem</p>
+              <p class="text-sm text-slate-600">At 1 051 lines, <code class="text-xs bg-slate-100 px-1 rounded">images.tsx</code> holds every concern of the Image Library in one file — loader network calls, multi-select state, 8 modal flags, drag-drop logic, and rendering. The loader calls <code class="text-xs bg-slate-100 px-1 rounded">fetch()</code> directly while mutations use <code class="text-xs bg-slate-100 px-1 rounded">imageServiceClient</code> — an inconsistency that makes the seam invisible.</p>
+              <p class="text-sm font-medium text-slate-700 mb-2 mt-4">Solution</p>
+              <p class="text-sm text-slate-600">Extract a <code class="text-xs bg-slate-100 px-1 rounded">useImageLibrary()</code> hook owning selection state, modal flags, and mutation calls; extract <code class="text-xs bg-slate-100 px-1 rounded">ImageGrid</code> as a pure rendering module; move the loader browse call into <code class="text-xs bg-slate-100 px-1 rounded">imageServiceClient</code>.</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Wins</p>
+              <ul class="text-sm text-slate-600 space-y-1.5">
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Locality: multi-select bugs live in one hook</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Leverage: <code class="text-xs bg-slate-100 px-1 rounded">ImageGrid</code> reusable in ImagePickerModal</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Interface: <code class="text-xs bg-slate-100 px-1 rounded">imageServiceClient</code> seam covers all HTTP calls</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Tests can cover hook state transitions without rendering</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- CANDIDATE 3 -->
+        <article id="c3" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-white px-8 pt-8 pb-4">
+            <div class="flex items-start justify-between gap-4">
+              <h2 class="text-xl font-serif font-semibold text-slate-900">Surface the site-record mutation seam</h2>
+              <div class="flex gap-2 flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Worth exploring</span>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">in-process</span>
+              </div>
+            </div>
+            <p class="font-mono text-xs text-slate-400 mt-2">
+              app/services/articleSiteSync.server.ts &nbsp;·&nbsp;
+              app/routes/article/edit/edit.tsx (loader, lines 66–77) &nbsp;·&nbsp;
+              app/routes/article/site-list/siteTree.ts
+            </p>
+          </div>
+
+          <!-- DIAGRAM -->
+          <div class="px-8 py-6 bg-slate-50 border-y border-slate-100">
+            <div class="grid grid-cols-2 gap-8">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">Before — raw shape leaks everywhere</p>
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                  <pre class="mermaid text-xs">
+flowchart LR
+  Loader["edit.tsx loader\n(understands SiteRecordValue\nnested groups/articles)"]
+  Action["edit.tsx action\n(calls articleSiteSync\nwith SiteRecordValue)"]
+  Sync["articleSiteSync\n.server.ts\n(mutateSiteRecord callback\nexposes SiteRecordValue)"]
+  Tree["siteTree.ts\n(removeArticleRef,\nupdateArticleRef)"]
+
+  Loader -->|raw SiteRecordValue| PDS["PDS"]
+  Action --> Sync
+  Sync -->|callback receives\nraw SiteRecordValue| Tree
+  Sync -->|fetch-transform-write| PDS
+
+  classDef leak fill:#fff1f1,stroke:#dc2626,color:#991b1b
+  classDef ok fill:#f8fafc,stroke:#334155,color:#475569
+  class Loader,Action leak
+  class Sync,Tree ok
+                  </pre>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">After — raw shape hidden behind service</p>
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                  <pre class="mermaid text-xs">
+flowchart LR
+  Loader["edit.tsx loader"]
+  Action["edit.tsx action"]
+  Sync["articleSiteSync\n.server.ts\n(deep module:\nfindSitesContaining,\naddToSites, removeFromSites,\nrefreshInSites)"]
+  PDS["PDS"]
+
+  Loader -->|"findSitesContaining(articleUri)"| Sync
+  Action -->|"refreshInSites / addToSites\n/ removeFromSites"| Sync
+  Sync --> PDS
+
+  classDef deep fill:#0f172a,stroke:#6366f1,stroke-width:3px,color:#e2e8f0
+  classDef thin fill:#fafafa,stroke:#94a3b8,stroke-dasharray:4 4,color:#475569
+  class Sync deep
+  class Loader,Action thin
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-8 py-6 grid grid-cols-2 gap-8">
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Problem</p>
+              <p class="text-sm text-slate-600">The <code class="text-xs bg-slate-100 px-1 rounded">edit.tsx</code> loader manually filters raw <code class="text-xs bg-slate-100 px-1 rounded">SiteRecordValue</code> to find which sites reference an article — understanding the nested <code class="text-xs bg-slate-100 px-1 rounded">groups[].articles[]</code> structure inline. <code class="text-xs bg-slate-100 px-1 rounded">articleSiteSync</code> exists but exposes a callback-based <code class="text-xs bg-slate-100 px-1 rounded">mutateSiteRecord</code> pattern that forces callers to supply a transformation that also understands the raw shape.</p>
+              <p class="text-sm font-medium text-slate-700 mb-2 mt-4">Solution</p>
+              <p class="text-sm text-slate-600">Give <code class="text-xs bg-slate-100 px-1 rounded">articleSiteSync.server.ts</code> a vocabulary-level interface — <code class="text-xs bg-slate-100 px-1 rounded">findSitesContaining(uri)</code>, <code class="text-xs bg-slate-100 px-1 rounded">addToSites()</code>, <code class="text-xs bg-slate-100 px-1 rounded">removeFromSites()</code>, <code class="text-xs bg-slate-100 px-1 rounded">refreshInSites()</code> — and push the raw-record knowledge into its implementation.</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Wins</p>
+              <ul class="text-sm text-slate-600 space-y-1.5">
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Locality: site record structure changes stay inside one module</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Leverage: loader query + action mutations through one seam</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Interface: no <code class="text-xs bg-slate-100 px-1 rounded">SiteRecordValue</code> in route scope</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Tests can verify site-finding logic without route setup</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- CANDIDATE 4 -->
+        <article id="c4" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-white px-8 pt-8 pb-4">
+            <div class="flex items-start justify-between gap-4">
+              <h2 class="text-xl font-serif font-semibold text-slate-900">Stop calling ToolbarPlugin a plugin</h2>
+              <div class="flex gap-2 flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Worth exploring</span>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">in-process</span>
+              </div>
+            </div>
+            <p class="font-mono text-xs text-slate-400 mt-2">
+              app/components/RichTextEditor/ToolbarPlugin.tsx (1 232 lines) &nbsp;·&nbsp;
+              app/components/RichTextEditor/RichTextEditor.tsx
+            </p>
+          </div>
+
+          <!-- DIAGRAM: mass diagram -->
+          <div class="px-8 py-6 bg-slate-50 border-y border-slate-100">
+            <div class="grid grid-cols-2 gap-8">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">Before — "plugin" misnaming hides real structure</p>
+                <div class="space-y-3">
+                  <!-- RichTextEditor -->
+                  <div>
+                    <p class="text-xs font-mono text-slate-500 mb-1">RichTextEditor.tsx</p>
+                    <div class="flex gap-1 h-20">
+                      <div class="bg-indigo-100 border-2 border-indigo-300 rounded w-1/3 flex items-center justify-center text-xs text-indigo-700 font-mono">interface<br/>(3 props)</div>
+                      <div class="bg-slate-100 border border-slate-300 rounded flex-1 flex items-center justify-center text-xs text-slate-500 font-mono">implementation<br/>(341 lines)<br/>+ fullscreen chrome</div>
+                    </div>
+                  </div>
+                  <!-- ToolbarPlugin -->
+                  <div>
+                    <p class="text-xs font-mono text-slate-500 mb-1">ToolbarPlugin.tsx — "plugin" but only one exists</p>
+                    <div class="flex gap-1 h-36">
+                      <div class="bg-red-100 border-2 border-red-300 rounded w-1/3 flex items-center justify-center text-xs text-red-700 font-mono text-center">interface<br/>(5 props incl.<br/>fullscreen state)</div>
+                      <div class="bg-slate-100 border border-slate-300 rounded flex-1 flex items-center justify-center text-xs text-slate-500 font-mono">implementation<br/>(1 232 lines)<br/>100+ state vars<br/>tightly bound to<br/>Lexical internals</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">After — honest structure, no swappable seam claimed</p>
+                <div class="space-y-3">
+                  <!-- RichTextEditor -->
+                  <div>
+                    <p class="text-xs font-mono text-slate-500 mb-1">RichTextEditor.tsx</p>
+                    <div class="flex gap-1 h-20">
+                      <div class="bg-indigo-100 border-2 border-indigo-300 rounded w-1/3 flex items-center justify-center text-xs text-indigo-700 font-mono">interface<br/>(3 props)</div>
+                      <div class="bg-slate-900 border-2 border-indigo-500 rounded flex-1 flex items-center justify-center text-xs text-slate-200 font-mono">deep: fullscreen +<br/>composition stays<br/>internal</div>
+                    </div>
+                  </div>
+                  <!-- EditorToolbar (renamed) -->
+                  <div>
+                    <p class="text-xs font-mono text-slate-500 mb-1">EditorToolbar (internal sub-module, honest name)</p>
+                    <div class="flex gap-1 h-36">
+                      <div class="bg-slate-100 border-2 border-slate-400 rounded w-1/3 flex items-center justify-center text-xs text-slate-600 font-mono text-center">interface<br/>(same 5 props,<br/>no seam implied)</div>
+                      <div class="bg-slate-100 border border-slate-300 rounded flex-1 flex items-center justify-center text-xs text-slate-500 font-mono">implementation<br/>(unchanged)<br/>1 232 lines of<br/>Lexical logic</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-8 py-6 grid grid-cols-2 gap-8">
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Problem</p>
+              <p class="text-sm text-slate-600">The name "ToolbarPlugin" implies it satisfies a Lexical plugin interface and could be swapped. It cannot — it is the only toolbar and it couples tightly to <code class="text-xs bg-slate-100 px-1 rounded">RichTextEditor</code>'s fullscreen state via five props. The <em>seam is hypothetical</em>: one adapter. The name creates false expectations for future contributors.</p>
+              <p class="text-sm font-medium text-slate-700 mb-2 mt-4">Solution</p>
+              <p class="text-sm text-slate-600">Rename <code class="text-xs bg-slate-100 px-1 rounded">ToolbarPlugin</code> → <code class="text-xs bg-slate-100 px-1 rounded">EditorToolbar</code>. Move fullscreen chrome logic (mouse timer, hide/show) fully into <code class="text-xs bg-slate-100 px-1 rounded">RichTextEditor.tsx</code> so the toolbar receives only editor state, not view state. No interface change required — this is a naming and locality fix.</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Wins</p>
+              <ul class="text-sm text="slate-600 space-y-1.5">
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Locality: fullscreen view logic lives in one place</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Honest name: future contributors don't build on a false seam</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Interface: toolbar props shrink (no more isFullscreen/chromVisible)</li>
+                <li class="flex gap-2"><span class="text-amber-500 font-bold">→</span> Low risk: rename + move, no logic change</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- CANDIDATE 5 -->
+        <article id="c5" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-white px-8 pt-8 pb-4">
+            <div class="flex items-start justify-between gap-4">
+              <h2 class="text-xl font-serif font-semibold text-slate-900">Seal the auth.server OAuth internals</h2>
+              <div class="flex gap-2 flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700">Speculative</span>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">in-process</span>
+              </div>
+            </div>
+            <p class="font-mono text-xs text-slate-400 mt-2">
+              app/services/auth.server.ts &nbsp;·&nbsp;
+              app/routes/auth/callback.tsx
+            </p>
+          </div>
+
+          <!-- DIAGRAM -->
+          <div class="px-8 py-6 bg-slate-50 border-y border-slate-100">
+            <div class="grid grid-cols-2 gap-8">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">Before — oauthClient exported</p>
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                  <pre class="mermaid text-xs">
+flowchart TD
+  Login["login.tsx\noauthClient.authorize()"] --> Auth["auth.server.ts\nexports oauthClient"]
+  CB["callback.tsx\noauthClient.processCallback()"] --> Auth
+  Routes["all routes\nrequireAtpAgent()"] --> Auth
+  ClientMeta["client-metadata.ts\nOAUTH_METADATA_STATIC\nOAUTH_SCOPE"] --> Auth
+
+  classDef leak fill:#fff1f1,stroke:#dc2626,color:#991b1b
+  class Login,CB,ClientMeta leak
+                  </pre>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">After — OAuth client hidden</p>
+                <div class="rounded-lg border border-slate-200 bg-white p-4">
+                  <pre class="mermaid text-xs">
+flowchart TD
+  Login["login.tsx\nstartOAuthFlow(handle)"] --> Auth
+  CB["callback.tsx\nhandleOAuthCallback(params)"] --> Auth
+  Routes["all routes\nrequireAtpAgent()"] --> Auth
+  ClientMeta["client-metadata.ts\ngetClientMetadata()"] --> Auth
+
+  Auth["auth.server.ts\n(deep module:\noauthClient internal)"]
+
+  classDef deep fill:#0f172a,stroke:#6366f1,stroke-width:3px,color:#e2e8f0
+  classDef thin fill:#fafafa,stroke:#94a3b8,stroke-dasharray:4 4,color:#475569
+  class Auth deep
+  class Login,CB,Routes,ClientMeta thin
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-8 py-6 grid grid-cols-2 gap-8">
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Problem</p>
+              <p class="text-sm text-slate-600"><code class="text-xs bg-slate-100 px-1 rounded">oauthClient</code> is exported from <code class="text-xs bg-slate-100 px-1 rounded">auth.server.ts</code> and called directly in <code class="text-xs bg-slate-100 px-1 rounded">callback.tsx</code> and <code class="text-xs bg-slate-100 px-1 rounded">login.tsx</code>. <code class="text-xs bg-slate-100 px-1 rounded">OAUTH_METADATA_STATIC</code> and <code class="text-xs bg-slate-100 px-1 rounded">OAUTH_SCOPE</code> are also exported for <code class="text-xs bg-slate-100 px-1 rounded">client-metadata.ts</code> — the OAuth library leaks into four callers.</p>
+              <p class="text-sm font-medium text-slate-700 mb-2 mt-4">Solution</p>
+              <p class="text-sm text-slate-600">Wrap <code class="text-xs bg-slate-100 px-1 rounded">oauthClient</code> calls in named functions (<code class="text-xs bg-slate-100 px-1 rounded">startOAuthFlow</code>, <code class="text-xs bg-slate-100 px-1 rounded">handleOAuthCallback</code>, <code class="text-xs bg-slate-100 px-1 rounded">getClientMetadata</code>) and stop exporting the client instance. Low priority — friction is light today.</p>
+              <div class="mt-4 p-3 rounded bg-amber-50 border border-amber-200">
+                <p class="text-xs text-amber-800"><strong>Note:</strong> The exported constants serve a genuine need — <code class="text-xs bg-slate-100 px-1 rounded">client-metadata.ts</code> must produce JSON that matches what <code class="text-xs bg-slate-100 px-1 rounded">NodeOAuthClient</code> was configured with. This is coupling by domain requirement, not by poor design.</p>
+              </div>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Wins</p>
+              <ul class="text-sm text-slate-600 space-y-1.5">
+                <li class="flex gap-2"><span class="text-slate-400 font-bold">→</span> Locality: OAuth library swap touches one module</li>
+                <li class="flex gap-2"><span class="text-slate-400 font-bold">→</span> Interface: callers need no knowledge of NodeOAuthClient</li>
+                <li class="flex gap-2"><span class="text-slate-400 font-bold">→</span> Speculative — low friction today, higher if multi-account is added</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- CANDIDATE 6 -->
+        <article id="c6" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-white px-8 pt-8 pb-4">
+            <div class="flex items-start justify-between gap-4">
+              <h2 class="text-xl font-serif font-semibold text-slate-900">Add a testable seam at route action logic</h2>
+              <div class="flex gap-2 flex-shrink-0">
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Strong</span>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">in-process</span>
+              </div>
+            </div>
+            <p class="font-mono text-xs text-slate-400 mt-2">
+              app/routes/article/create/create.tsx &nbsp;·&nbsp;
+              app/routes/article/edit/edit.tsx &nbsp;·&nbsp;
+              app/routes/article/site-list/siteTree.ts (has tests) &nbsp;·&nbsp;
+              app/services/article.server.ts (has tests)
+            </p>
+          </div>
+
+          <!-- DIAGRAM: call-graph collapse -->
+          <div class="px-8 py-6 bg-slate-50 border-y border-slate-100">
+            <div class="grid grid-cols-2 gap-8">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">Before — complex logic, no test seam</p>
+                <div class="space-y-1">
+                  <div class="module-box h-7 module-shallow">validate fields (title, slug, content)</div>
+                  <div class="module-box h-7 module-shallow">parse oldSiteRkeys / newSiteRkeys from FormData</div>
+                  <div class="module-box h-7 module-shallow">buildArticleRecord()</div>
+                  <div class="module-box h-7 module-shallow">agent.putRecord() + CID swap</div>
+                  <div class="module-box h-7 module-shallow">slug rename: createRecord → deleteRecord</div>
+                  <div class="module-box h-7 module-shallow">computeSiteAssignmentChanges()</div>
+                  <div class="module-box h-7 module-shallow">removeFromSites / addToSites / refreshInSites</div>
+                  <div class="mt-1 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 text-center">0 tests · all logic coupled to Request/Response</div>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-4">After — logic behind testable interface</p>
+                <div class="space-y-2">
+                  <div class="module-box h-10 module-deep">article.server.ts: createArticle(fields, agent, siteRkeys)</div>
+                  <div class="module-box h-10 module-deep">article.server.ts: updateArticle(fields, old, agent, siteChanges)</div>
+                  <div class="module-box h-10 module-deep">articleSiteSync: findSitesContaining / addToSites / removeFromSites</div>
+                  <div class="mt-1 p-2 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-700 text-center">Tests call these functions directly · no HTTP involved</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-8 py-6 grid grid-cols-2 gap-8">
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Problem</p>
+              <p class="text-sm text-slate-600">The slug-rename path, CID swap, and site assignment logic in <code class="text-xs bg-slate-100 px-1 rounded">edit.tsx</code> action carry meaningful business risk and zero test coverage. The current shape — logic embedded in a React Router action function that takes a <code class="text-xs bg-slate-100 px-1 rounded">Request</code> — means every test path requires HTTP round-trips. This is the same root cause as candidate #1: the seam is at the HTTP boundary instead of the domain boundary.</p>
+              <p class="text-sm font-medium text-slate-700 mb-2 mt-4">Solution</p>
+              <p class="text-sm text-slate-600">This is the test-coverage corollary of deepening <code class="text-xs bg-slate-100 px-1 rounded">article.server.ts</code> (candidate #1). Once logic moves there, tests can call <code class="text-xs bg-slate-100 px-1 rounded">createArticle()</code> and <code class="text-xs bg-slate-100 px-1 rounded">updateArticle()</code> directly with a mock agent — no React Router setup needed.</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-slate-700 mb-2">Wins</p>
+              <ul class="text-sm text-slate-600 space-y-1.5">
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Leverage: one mock agent covers all action tests</li>
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Locality: slug-rename and CID-swap bugs have a home</li>
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Interface: test surface matches the domain action, not HTTP</li>
+                <li class="flex gap-2"><span class="text-emerald-500 font-bold">→</span> Directly linked to candidate #1 — one effort, two wins</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- TOP RECOMMENDATION -->
+      <section id="top-recommendation" class="bg-slate-900 text-white rounded-xl p-8">
+        <p class="text-xs uppercase tracking-wider text-slate-400 font-medium mb-3">Top recommendation</p>
+        <h2 class="text-2xl font-serif font-bold mb-3">
+          <a href="#c1" class="hover:text-indigo-400 transition-colors">Deepen article.server.ts</a>
+        </h2>
+        <p class="text-slate-300 text-sm leading-relaxed max-w-2xl">
+          Candidates #1 and #6 are the same refactor viewed from two angles: move <code class="bg-slate-800 px-1 rounded text-xs">createArticle</code> and <code class="bg-slate-800 px-1 rounded text-xs">updateArticle</code> into <code class="bg-slate-800 px-1 rounded text-xs">article.server.ts</code> and the three wins arrive together — duplicated <code class="bg-slate-800 px-1 rounded text-xs">buildArticleRef</code> calls disappear, route actions shrink to orchestration only, and the business logic finally has a test seam that doesn't require HTTP. It's the highest-leverage single change in the codebase right now.
+        </p>
+        <div class="mt-4 flex gap-4 text-xs text-slate-400">
+          <span>Risk: <strong class="text-white">Low</strong></span>
+          <span>Scope: <strong class="text-white">2–3 files</strong></span>
+          <span>Linked: <a href="#c3" class="text-indigo-400 hover:underline">candidate #3</a> is a natural follow-on</span>
+        </div>
+      </section>
+
+    </main>
+  </body>
+</html>
