@@ -257,7 +257,7 @@ Windows Explorer-style grid of images and folders. Behaviour:
 
 **Resizable images (June 2026)** — `ImageNode` stores `__width: number | null` (default null). Width round-trips through HTML (`style="width: Npx; max-width: 100%;"`) and Lexical JSON (`width` field, backwards-compatible). `ImageNode.decorate()` returns `<ImageResizeDecorator>` which renders left/right drag handles on hover or Lexical node selection. Drag updates local state; mouseup commits via a single `editor.update(() => node.setWidth(finalWidth))`. Minimum width: 80px. A pixel badge overlays the image during drag. A **Reset size** button appears on hover/selection when a manual width is set, allowing the user to revert to natural/fluid width. The click-outside deselect handler uses a stable dep array (`[clearSelection, setSelected]`) so it is not re-registered on every Lexical selection change.
 
-**Attempted: Editable alt text on images (June 2026 — abandoned)** — four separate attempts were made to add an inline alt text `<input>` inside `ImageResizeDecorator`. All failed because the decorator renders _inside_ the Lexical `contenteditable` DOM tree, which means: (1) native keyboard events from the input bubble to Lexical's listeners before React's synthetic handlers fire; (2) focusing the input blurs the contenteditable, which causes Lexical to call `$setSelection(null)` — hiding any UI that depends on `isSelected`; (3) Lexical reconciliation triggered by selection updates can unmount and remount the decorator component, resetting `useState`; (4) async `editor.update()` inside `onBlur` loses the race with form submission; (5) dirty-state detection requires a Lexical node update on every keystroke. These five constraints interact and must all be solved simultaneously — no partial fix was stable. See the detailed lessons-learned block in CLAUDE.md (under "Attempted: alt text input on images"). Deferred for a future session.
+**Editable alt text on images (June 2026)** — An `"Alt text"` button (bottom-left of the image, visible on hover/select, same pill style as "Reset size") opens a `<Modal>` with a `<Textarea>` pre-filled with the current alt text. Save is disabled until the value changes; empty string is allowed (valid decorative-image declaration). `ImageNode.setAltText()` commits via `editor.update(fn, { discrete: true })` so the update is synchronous. A module-level `Set<NodeKey> openModals` survives decorator remounts where `useState` would reset. Images are inserted with `altText: ""` — filenames are worse than empty for screen readers. Design rationale and the five failure modes of the earlier inline-input approach are documented in `docs/adr/0007-image-alt-text-modal-not-inline.md`.
 
 ## FEATURE: Dashboard
 
@@ -386,10 +386,10 @@ Three Lexical editor bugs fixed after the initial Enhancements release.
 
 **Root cause:** `handlePick` in `ImagePickerModal.tsx` passed the raw `/image-storage/...` path from `variantUrl()` to `INSERT_IMAGE_COMMAND`. External blog sites resolve relative URLs against their own domain, not the image host.
 
-**Fix:** `handlePick` now prefixes with `window.location.origin`:
+**Fix:** `handlePick` now prefixes with `window.location.origin` and passes `""` as alt text (changed from `image.original_name` — filenames are worse than empty for screen readers):
 
 ```ts
-onPick(`${window.location.origin}${variantUrl(image, variant)}`, image.original_name);
+onPick(`${window.location.origin}${variantUrl(image, variant)}`, "");
 ```
 
 All image `src` attributes stored in article HTML are now absolute URLs.
@@ -423,3 +423,13 @@ Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to 
 **Fix — `edit.tsx`:** Removed `contentInitializedRef` entirely. Because `HiddenFieldPlugin`'s two guards prevent any init-phase call from reaching `handleContentChange`, every call that does arrive is a genuine user edit.
 
 **Fix — `StatsPlugin`:** Replaced `OnChangePlugin` with `editor.registerUpdateListener` + `dirtyElements.size === 0 && dirtyLeaves.size === 0` guard (skips pure selection/cursor changes). Unlike `HiddenFieldPlugin`, `StatsPlugin` does **not** use the `isEmpty` guard — zero stats on an empty editor is correct, and skipping `InitialValuePlugin` would cause the on-load "0 words" regression. The `dirtyElements`/`dirtyLeaves` check is sufficient.
+
+---
+
+#### Bug 4 — Alt text modal buttons and textarea were collapsed to near-zero height
+
+**Symptom:** After implementing the alt text modal on `ImageResizeDecorator`, the modal's Save/Cancel buttons were only a few pixels high, the textarea appeared smaller than an `<input>`, and labels overflowed.
+
+**Root cause:** `ImageResizeDecorator` renders inside a `.wrapper` div with `line-height: 0` (required to suppress whitespace below the image). The `<dialog>` element is a DOM child of `.wrapper`, so even though `showModal()` promotes it to the browser's top layer visually, CSS `line-height` is still inherited from the DOM ancestor. `line-height: 0` caused button and textarea text height to collapse to zero.
+
+**Fix:** Added `line-height: 1.5` to the `.dialog` rule in `Modal.module.css`. This resets the value at the dialog root regardless of what DOM parent it is nested under, so the `Modal` component is robust to any inherited `line-height` context.
