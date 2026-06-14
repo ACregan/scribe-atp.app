@@ -11,19 +11,17 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import {
   getAtpAgent,
-  requireAuth,
   requireAtpAgent,
+  requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
 import {
   validateArticleFields,
-  buildArticleRecord,
-  buildArticleRef,
+  createArticle,
   loadSiteOptions,
 } from "~/services/article.server";
 import { toSlug } from "~/hooks/utils";
 import { hasTextContent } from "~/components/utils";
-import { addArticleToSites } from "~/services/articleSiteSync.server";
 import { devCreateLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
@@ -75,36 +73,13 @@ export async function action({ request }: Route.ActionArgs) {
 
   try {
     const agent = await getAtpAgent(did);
-    const now = new Date().toISOString();
-    const result = await agent.com.atproto.repo.createRecord({
-      repo: did,
-      collection: ARTICLE_COLLECTION,
-      rkey: url,
-      record: buildArticleRecord({
-        title,
-        content,
-        url,
-        splashImageUrl,
-        synopsis,
-        createdAt: now,
-        updatedAt: now,
-      }),
-    });
-
-    if (selectedSiteRkeys.length > 0) {
-      const articleRef = buildArticleRef({
-        uri: result.data.uri,
-        title,
-        url,
-        splashImageUrl,
-        synopsis,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await addArticleToSites(agent, did, selectedSiteRkeys, articleRef);
-    }
-
-    return { uri: result.data.uri, devMode: false, title };
+    const { uri } = await createArticle(
+      agent,
+      did,
+      { title, content, url, splashImageUrl, synopsis },
+      selectedSiteRkeys,
+    );
+    return { uri, devMode: false, title };
   } catch (err) {
     console.error("Failed to write article to PDS:", err);
     return {

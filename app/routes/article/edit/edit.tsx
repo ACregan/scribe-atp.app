@@ -8,14 +8,9 @@ import {
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
-  buildArticleRecord,
-  buildArticleRef,
+  updateArticle,
 } from "~/services/article.server";
 import { hasTextContent } from "~/components/utils";
-import {
-  computeSiteAssignmentChanges,
-  syncSiteArticleRefs,
-} from "~/services/articleSiteSync.server";
 import { type SiteRecordValue } from "~/routes/article/site-list/siteTree";
 import { devEditLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";
@@ -109,104 +104,30 @@ export async function action({ request, params }: Route.ActionArgs) {
   );
 
   const validationError = validateArticleFields(title, newUrl);
-  if (validationError) return { error: validationError };
+  if (validationError) return { ok: false as const, error: validationError };
 
-  if (!useRealOAuth) return { ok: true, title };
-
-  const { agent, did } = await requireAtpAgent(request);
-  const oldArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${oldRkey}`;
-  const newArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${newUrl}`;
-  const slugChanged = newUrl !== oldRkey;
-
-  const now = new Date().toISOString();
-  const record = buildArticleRecord({
-    title,
-    content,
-    url: newUrl,
-    splashImageUrl,
-    synopsis,
-    createdAt,
-    updatedAt: now,
-  });
+  if (!useRealOAuth) return { ok: true as const, title };
 
   try {
-    if (slugChanged) {
-      await agent.com.atproto.repo.createRecord({
-        repo: did,
-        collection: ARTICLE_COLLECTION,
-        rkey: newUrl,
-        record,
-      });
-      await agent.com.atproto.repo
-        .deleteRecord({
-          repo: did,
-          collection: ARTICLE_COLLECTION,
-          rkey: oldRkey,
-          swapRecord: cid ?? undefined,
-        })
-        .catch((err) => {
-          console.error("Failed to delete old record after rename:", err);
-        });
-    } else {
-      const putResult = await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: ARTICLE_COLLECTION,
-        rkey: oldRkey,
-        record,
-        swapRecord: cid ?? undefined,
-      });
-      const newArticleRef = buildArticleRef({
-        uri: newArticleUri,
-        title,
-        url: newUrl,
-        splashImageUrl,
-        synopsis,
-        createdAt,
-        updatedAt: now,
-      });
-      const siteChanges = computeSiteAssignmentChanges(
-        oldSiteRkeys,
-        newSiteRkeys,
-      );
-      await syncSiteArticleRefs(
-        agent,
-        did,
-        siteChanges,
-        oldArticleUri,
-        newArticleRef,
-      );
-      return { ok: true, title, newCid: putResult.data.cid };
-    }
+    const { agent, did } = await requireAtpAgent(request);
+    const result = await updateArticle(agent, did, {
+      oldRkey,
+      fields: { title, content, url: newUrl, splashImageUrl, synopsis, createdAt },
+      cid,
+      oldSiteRkeys,
+      newSiteRkeys,
+    });
+    return { ok: true as const, title, ...result };
   } catch (err) {
     console.error("Failed to update article:", err);
     return {
+      ok: false as const,
       error:
         err instanceof Error
           ? err.message
           : "Failed to save. Please try again.",
     };
   }
-
-  const newArticleRef = buildArticleRef({
-    uri: newArticleUri,
-    title,
-    url: newUrl,
-    splashImageUrl,
-    synopsis,
-    createdAt,
-    updatedAt: now,
-  });
-
-  const siteChanges = computeSiteAssignmentChanges(oldSiteRkeys, newSiteRkeys);
-  await syncSiteArticleRefs(
-    agent,
-    did,
-    siteChanges,
-    oldArticleUri,
-    newArticleRef,
-  );
-
-  return { ok: true, title, newSlug: newUrl };
 }
 
 export default function EditArticle({
