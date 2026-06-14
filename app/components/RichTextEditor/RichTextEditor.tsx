@@ -16,7 +16,7 @@ import { LinkNode, AutoLinkNode } from "@lexical/link";
 import { $getRoot, $insertNodes, COMMAND_PRIORITY_EDITOR } from "lexical";
 import { $createImageNode, ImageNode, INSERT_IMAGE_COMMAND } from "./imageNode";
 import { ExtendedTextNode } from "./ExtendedTextNode";
-import { ToolbarPlugin } from "./ToolbarPlugin";
+import { EditorToolbar } from "./EditorToolbar";
 import { StatsPlugin } from "./StatsPlugin";
 import styles from "./RichTextEditor.module.css";
 
@@ -296,13 +296,17 @@ export function RichTextEditor({
       >
         <div className={styles.editorWrapper} ref={wrapperRef}>
           <div className={styles.editorContent}>
-            <ToolbarPlugin
-              isFullscreen={isFullscreen}
-              chromVisible={chromVisible}
-              onToggleFullscreen={handleToggleFullscreen}
-              toolbarPinned={toolbarPinned}
-              onToggleToolbarPin={() => setToolbarPinned((p) => !p)}
-            />
+            <div className={[
+              isFullscreen ? styles.toolbarFullscreen : "",
+              isFullscreen && !chromVisible && !toolbarPinned ? styles.toolbarHidden : "",
+            ].filter(Boolean).join(" ") || undefined}>
+              <EditorToolbar
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={handleToggleFullscreen}
+                toolbarPinned={toolbarPinned}
+                onToggleToolbarPin={() => setToolbarPinned((p) => !p)}
+              />
+            </div>
             <div className={[
               styles.editorInner,
               isFullscreen && toolbarPinned ? styles.editorInnerPinTop : "",
