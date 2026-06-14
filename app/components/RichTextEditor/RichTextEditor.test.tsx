@@ -2,9 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { RichTextEditor } from "./RichTextEditor";
 
-// ─── Mock ToolbarPlugin — tested separately ───────────────────────────────────
-vi.mock("./ToolbarPlugin", () => ({
-  ToolbarPlugin: () => <div data-testid="toolbar" />,
+// ─── Mock EditorToolbar — tested separately ──────────────────────────────────
+vi.mock("./EditorToolbar", () => ({
+  EditorToolbar: () => <div data-testid="toolbar" />,
 }));
 
 // ─── Mock all Lexical React adapters ─────────────────────────────────────────

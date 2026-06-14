@@ -255,23 +255,21 @@ function DropdownItem({
   );
 }
 
-// ─── ToolbarPlugin ────────────────────────────────────────────────────────────
+// ─── EditorToolbar ────────────────────────────────────────────────────────────
 
-type ToolbarPluginProps = {
+type EditorToolbarProps = {
   isFullscreen?: boolean;
-  chromVisible?: boolean;
   onToggleFullscreen?: () => void;
   toolbarPinned?: boolean;
   onToggleToolbarPin?: () => void;
 };
 
-export function ToolbarPlugin({
+export function EditorToolbar({
   isFullscreen = false,
-  chromVisible = true,
   onToggleFullscreen = () => {},
   toolbarPinned = false,
   onToggleToolbarPin = () => {},
-}: ToolbarPluginProps) {
+}: EditorToolbarProps) {
   const [editor] = useLexicalComposerContext();
 
   // History
@@ -676,13 +674,7 @@ export function ToolbarPlugin({
     return `${styles.toolbarBtn}${active ? ` ${styles.toolbarBtnActive}` : ""}`;
   }
 
-  const toolbarClass = [
-    styles.toolbar,
-    isFullscreen ? styles.toolbarFullscreen : "",
-    isFullscreen && !chromVisible && !toolbarPinned ? styles.toolbarHidden : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const toolbarClass = styles.toolbar;
 
   return (
     <>

@@ -71,6 +71,30 @@ export async function addArticleToSites(
   );
 }
 
+export async function findSitesContaining(
+  agent: Agent,
+  did: string,
+  articleUri: string,
+): Promise<string[]> {
+  const result = await agent.com.atproto.repo.listRecords({
+    repo: did,
+    collection: SITE_COLLECTION,
+    limit: 100,
+  });
+  return result.data.records
+    .filter((record) => {
+      const value = record.value as SiteRecordValue;
+      const inTopLevel = (value.ungroupedArticles ?? []).some(
+        (a) => a.uri === articleUri,
+      );
+      const inGroups = (value.groups ?? []).some((g) =>
+        (g.articles ?? []).some((a) => a.uri === articleUri),
+      );
+      return inTopLevel || inGroups;
+    })
+    .map((record) => record.uri.split("/").pop()!);
+}
+
 /**
  * Applies all site ArticleRef changes arising from an article edit.
  * Phase 1 (parallel): remove from unassigned sites, update ref in retained sites.
