@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import {
   countWords,
@@ -103,5 +103,36 @@ describe("StatsPlugin", () => {
     render(<StatsPlugin />);
     const bar = screen.getByText(/0 words/);
     expect(bar.textContent).toMatch(/·/);
+  });
+
+  describe("stats pin button", () => {
+    it("does not render the pin button when not in fullscreen", () => {
+      render(<StatsPlugin isFullscreen={false} />);
+      expect(screen.queryByTitle("Pin stats")).not.toBeInTheDocument();
+    });
+
+    it("renders the pin button in fullscreen mode", () => {
+      render(<StatsPlugin isFullscreen={true} />);
+      expect(screen.getByTitle("Pin stats")).toBeInTheDocument();
+    });
+
+    it("calls onToggleStatsPin when clicked", () => {
+      const onToggleStatsPin = vi.fn();
+      render(<StatsPlugin isFullscreen={true} onToggleStatsPin={onToggleStatsPin} />);
+      fireEvent.mouseDown(screen.getByTitle("Pin stats"));
+      expect(onToggleStatsPin).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows Unpin stats title when pinned", () => {
+      render(<StatsPlugin isFullscreen={true} statsPinned={true} />);
+      expect(screen.getByTitle("Unpin stats")).toBeInTheDocument();
+    });
+
+    it("does not apply barHidden when pinned even if chrome is not visible", () => {
+      const { container } = render(
+        <StatsPlugin isFullscreen={true} chromVisible={false} statsPinned={true} />,
+      );
+      expect(container.firstChild).not.toHaveClass("barHidden");
+    });
   });
 });

@@ -191,6 +191,7 @@
   --article-list-item-background-colour: var(--mirage);
 
   /* Lexical */
+  --text-editor: var(--wild-sand);
   --dropdown-menu-text-colour: var(--cloud-burst);
   --dropdown-menu-text-colour_hover: var(--flamingo);
   --dropdown-menu-text-colour_active: var(--flamingo);

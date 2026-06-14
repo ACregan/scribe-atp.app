@@ -379,4 +379,84 @@ describe("ToolbarPlugin", () => {
       });
     });
   });
+
+  describe("fullscreen button", () => {
+    it("renders the fullscreen button", () => {
+      render(<ToolbarPlugin />);
+      expect(screen.getByTitle("Fullscreen (Ctrl+Shift+F)")).toBeInTheDocument();
+    });
+
+    it("calls onToggleFullscreen when the fullscreen button is clicked", () => {
+      const onToggleFullscreen = vi.fn();
+      render(<ToolbarPlugin onToggleFullscreen={onToggleFullscreen} />);
+      fireEvent.mouseDown(screen.getByTitle("Fullscreen (Ctrl+Shift+F)"));
+      expect(onToggleFullscreen).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows Exit fullscreen title when isFullscreen is true", () => {
+      render(<ToolbarPlugin isFullscreen={true} />);
+      expect(screen.getByTitle("Exit fullscreen (Ctrl+Shift+F)")).toBeInTheDocument();
+    });
+
+    it("applies toolbarFullscreen class when isFullscreen is true", () => {
+      const { container } = render(<ToolbarPlugin isFullscreen={true} />);
+      const toolbar = container.firstChild as HTMLElement;
+      expect(toolbar.className).toMatch(/toolbarFullscreen/);
+    });
+
+    it("applies toolbarHidden class when isFullscreen is true and chromVisible is false", () => {
+      const { container } = render(
+        <ToolbarPlugin isFullscreen={true} chromVisible={false} />,
+      );
+      const toolbar = container.firstChild as HTMLElement;
+      expect(toolbar.className).toMatch(/toolbarHidden/);
+    });
+
+    it("does not apply toolbarHidden class when chromVisible is true", () => {
+      const { container } = render(
+        <ToolbarPlugin isFullscreen={true} chromVisible={true} />,
+      );
+      const toolbar = container.firstChild as HTMLElement;
+      expect(toolbar.className).not.toMatch(/toolbarHidden/);
+    });
+
+    it("shows the fullscreen shortcut in the keyboard shortcuts modal", () => {
+      render(<ToolbarPlugin />);
+      fireEvent.mouseDown(screen.getByTitle("Keyboard shortcuts"));
+      expect(screen.getByText("Fullscreen")).toBeInTheDocument();
+      expect(screen.getByText("Ctrl+Shift+F")).toBeInTheDocument();
+    });
+  });
+
+  describe("toolbar pin button", () => {
+    it("does not render the pin button when not in fullscreen", () => {
+      render(<ToolbarPlugin isFullscreen={false} />);
+      expect(screen.queryByTitle("Pin toolbar")).not.toBeInTheDocument();
+    });
+
+    it("renders the pin button in fullscreen mode", () => {
+      render(<ToolbarPlugin isFullscreen={true} />);
+      expect(screen.getByTitle("Pin toolbar")).toBeInTheDocument();
+    });
+
+    it("calls onToggleToolbarPin when clicked", () => {
+      const onToggleToolbarPin = vi.fn();
+      render(<ToolbarPlugin isFullscreen={true} onToggleToolbarPin={onToggleToolbarPin} />);
+      fireEvent.mouseDown(screen.getByTitle("Pin toolbar"));
+      expect(onToggleToolbarPin).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows Unpin toolbar title when pinned", () => {
+      render(<ToolbarPlugin isFullscreen={true} toolbarPinned={true} />);
+      expect(screen.getByTitle("Unpin toolbar")).toBeInTheDocument();
+    });
+
+    it("does not apply toolbarHidden when pinned even if chrome is not visible", () => {
+      const { container } = render(
+        <ToolbarPlugin isFullscreen={true} chromVisible={false} toolbarPinned={true} />,
+      );
+      const toolbar = container.firstChild as HTMLElement;
+      expect(toolbar.className).not.toMatch(/toolbarHidden/);
+    });
+  });
 });

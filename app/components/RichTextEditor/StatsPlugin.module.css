@@ -7,4 +7,51 @@
   text-align: right;
   user-select: none;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.counts {
+  flex: 1;
+}
+
+.pinBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.pinBtn:hover {
+  border-color: var(--border-color);
+  background: var(--surface-muted);
+}
+
+.pinBtnActive {
+  color: var(--action-primary);
+  border-color: var(--action-primary);
+}
+
+.barFullscreen {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  will-change: transform;
+  transition: transform 0.3s ease;
+}
+
+.barHidden {
+  transform: translateY(100%);
+  pointer-events: none;
 }

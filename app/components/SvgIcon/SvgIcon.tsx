@@ -23,6 +23,8 @@ export const SvgImageList = {
   DarkMode: "DarkMode",
   LightMode: "LightMode",
   PerpetualSummerLogoAndText: "PerpetualSummerLogoAndText",
+  Pin: "Pin",
+  Pinned: "Pinned",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -465,6 +467,34 @@ const SvgIcon: React.FC<SVGiconProp> = ({
           <g id="_x31_st">
             <path d="M200,20C131.7,20,69.1,58.8,38.7,120c107.5,0,215,0,322.6,0C330.9,58.8,268.3,20,200,20z" />
           </g>
+        </svg>
+      );
+
+    case SvgImageList.Pin:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+          fill={fill}
+        >
+          <path
+            fillRule="evenodd"
+            d="m290.292 40.875 181.083 180.927-30.167 30.188-30.183-30.16-67.275 67.274-18.938 79.292L260.198 433l-75.438-75.437L94.17 448H64v-30.17l90.59-90.438-75.413-75.413 64.594-64.594 79.291-18.948 67.241-67.231-30.168-30.143zm30.19 90.486-75.774 75.764-79.291 18.948-25.907 25.906 120.688 120.688 25.906-25.896 18.938-79.302 75.803-75.794z"
+          ></path>
+        </svg>
+      );
+
+    case SvgImageList.Pinned:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+          fill={fill}
+        >
+          <path
+            fillRule="evenodd"
+            d="M471.375 221.802 290.292 40.875l-30.157 30.188 30.168 30.143-67.241 67.231-79.291 18.948-64.594 64.594 75.413 75.413L64 417.831V448h30.169l90.591-90.437L260.198 433l64.614-64.604 18.938-79.292 67.275-67.275 30.183 30.161z"
+          ></path>
         </svg>
       );
 

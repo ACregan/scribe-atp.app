@@ -257,7 +257,21 @@ function DropdownItem({
 
 // ─── ToolbarPlugin ────────────────────────────────────────────────────────────
 
-export function ToolbarPlugin() {
+type ToolbarPluginProps = {
+  isFullscreen?: boolean;
+  chromVisible?: boolean;
+  onToggleFullscreen?: () => void;
+  toolbarPinned?: boolean;
+  onToggleToolbarPin?: () => void;
+};
+
+export function ToolbarPlugin({
+  isFullscreen = false,
+  chromVisible = true,
+  onToggleFullscreen = () => {},
+  toolbarPinned = false,
+  onToggleToolbarPin = () => {},
+}: ToolbarPluginProps) {
   const [editor] = useLexicalComposerContext();
 
   // History
@@ -623,6 +637,13 @@ export function ToolbarPlugin() {
           return true;
         }
 
+        // CTRL+Shift+F — toggle distraction-free fullscreen
+        if (event.shiftKey && !event.altKey && event.key === "F") {
+          event.preventDefault();
+          onToggleFullscreen();
+          return true;
+        }
+
         if (!event.shiftKey && !event.altKey) {
           switch (event.key) {
             // CTRL+` — inline code
@@ -647,7 +668,7 @@ export function ToolbarPlugin() {
       },
       COMMAND_PRIORITY_NORMAL,
     );
-  }, [editor, isLink]); // isLink needed so insertLink() sees current link state
+  }, [editor, isLink, onToggleFullscreen]); // isLink needed so insertLink() sees current link state
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -655,9 +676,17 @@ export function ToolbarPlugin() {
     return `${styles.toolbarBtn}${active ? ` ${styles.toolbarBtnActive}` : ""}`;
   }
 
+  const toolbarClass = [
+    styles.toolbar,
+    isFullscreen ? styles.toolbarFullscreen : "",
+    isFullscreen && !chromVisible && !toolbarPinned ? styles.toolbarHidden : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <>
-      <div className={styles.toolbar}>
+      <div className={toolbarClass}>
         {/* History */}
         <button
           type="button"
@@ -1040,6 +1069,40 @@ export function ToolbarPlugin() {
         >
           ?
         </button>
+
+        <span className={styles.divider} />
+
+        {isFullscreen && (
+          <button
+            type="button"
+            title={toolbarPinned ? "Unpin toolbar" : "Pin toolbar"}
+            className={btn(toolbarPinned)}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onToggleToolbarPin();
+            }}
+          >
+            <SvgIcon
+              name={toolbarPinned ? SvgImageList.Pinned : SvgImageList.Pin}
+              fill="currentColor"
+            />
+          </button>
+        )}
+
+        <button
+          type="button"
+          title={isFullscreen ? "Exit fullscreen (Ctrl+Shift+F)" : "Fullscreen (Ctrl+Shift+F)"}
+          className={btn()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onToggleFullscreen();
+          }}
+        >
+          <SvgIcon
+            name={isFullscreen ? SvgImageList.FullscreenClose : SvgImageList.FullscreenOpen}
+            fill="currentColor"
+          />
+        </button>
       </div>
 
       <Modal
@@ -1128,6 +1191,12 @@ export function ToolbarPlugin() {
               <td>Clear formatting</td>
               <td>
                 <kbd>Ctrl+\</kbd>
+              </td>
+            </tr>
+            <tr>
+              <td>Fullscreen</td>
+              <td>
+                <kbd>Ctrl+Shift+F</kbd>
               </td>
             </tr>
             <tr>
