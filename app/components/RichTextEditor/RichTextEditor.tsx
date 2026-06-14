@@ -156,16 +156,19 @@ function InitialValuePlugin({ html }: { html: string }) {
 
 function HiddenFieldPlugin({
   name,
+  initialHtml,
   onChange,
 }: {
   name: string;
+  initialHtml: string;
   onChange: (html: string) => void;
 }) {
   const [editor] = useLexicalComposerContext();
-  const lastHtmlRef = useRef("");
+  const lastHtmlRef = useRef(initialHtml);
 
   useEffect(() => {
-    return editor.registerUpdateListener(({ editorState }) => {
+    return editor.registerUpdateListener(({ editorState, prevEditorState }) => {
+      if (prevEditorState.isEmpty()) return;
       editorState.read(() => {
         const newHtml = $generateHtmlFromNodes(editor);
         if (newHtml !== lastHtmlRef.current) {
@@ -251,7 +254,7 @@ export function RichTextEditor({
         <CodeHighlightPlugin />
         <ImagePlugin />
         <InitialValuePlugin html={defaultValue} />
-        <HiddenFieldPlugin name={name} onChange={handleHtmlChange} />
+        <HiddenFieldPlugin name={name} initialHtml={defaultValue} onChange={handleHtmlChange} />
       </LexicalComposer>
       <textarea name={name} value={html} onChange={() => {}} hidden readOnly />
     </div>
