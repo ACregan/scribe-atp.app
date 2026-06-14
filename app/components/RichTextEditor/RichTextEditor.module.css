@@ -18,13 +18,71 @@
 .editorWrapper {
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--white, #fff);
+  background: var(--surface-input);
   color: var(--text-primary);
   overflow: hidden;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* editorContent is transparent to the parent flex layout in normal mode */
+.editorContent {
+  display: contents;
+}
+
+/* ── Fullscreen mode ───────────────────────────────────────────────────────── */
+
+.editorWrapper:fullscreen {
+  background: var(--surface-page);
+  border: none;
+  border-radius: 0;
+  align-items: center;
+}
+
+/* In fullscreen, editorContent becomes the constrained writing column.
+   No overflow: hidden here — the viewport clips naturally and keeping it
+   out avoids stacking-context repaints that cause image flicker when the
+   toolbar/stats bar compositor layers are promoted. */
+.editorWrapper:fullscreen .editorContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 100rem;
+  position: relative;
+  background: var(--surface-page);
+}
+
+/* Toolbar overlays the top of the column and slides away when chrome hides.
+   will-change: transform pre-allocates the compositor layer when fullscreen
+   begins so there is no layer-promotion jank at animation start. */
+.toolbarFullscreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  will-change: transform;
+  transition: transform 0.3s ease;
+}
+
+.toolbarHidden {
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+/* Margin on editorInner (flex child) reserves space outside the scroll container
+   so pinned chrome doesn't obscure the first/last line of text. Using margin
+   rather than padding keeps the scrollbar height correct on long articles. */
+.editorInnerPinTop {
+  margin-top: 3.7rem;
+}
+
+.editorInnerPinBottom {
+  margin-bottom: 3.2rem;
 }
 
 .editorInner {
@@ -34,6 +92,9 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  transition:
+    margin-top 0.3s ease,
+    margin-bottom 0.3s ease;
 }
 
 .contentEditable {
@@ -134,7 +195,7 @@
   font-size: 1.3rem;
   border: 1px solid var(--border-color);
   border-radius: 3px;
-  background: var(--white, #fff);
+  background: var(--surface-input);
   cursor: pointer;
   max-width: 14rem;
 }
@@ -147,7 +208,7 @@
   border: 1px solid var(--border-color);
   border-radius: 3px;
   text-align: center;
-  background: var(--white, #fff);
+  background: var(--surface-input);
 }
 
 /* ── Dropdowns ─────────────────────────────────────────────────────────────── */
@@ -283,7 +344,7 @@
   border: 1px solid var(--border-color);
   border-radius: 3px;
   min-width: 22rem;
-  background: var(--white, #fff);
+  background: var(--surface-input);
 }
 
 /* ── Speech button ─────────────────────────────────────────────────────────── */
@@ -438,7 +499,7 @@
   height: 1.4rem;
   border: 2px solid var(--border-color);
   border-radius: 2px;
-  background: var(--white, #fff);
+  background: var(--surface-input);
 }
 
 .listItemChecked::before {

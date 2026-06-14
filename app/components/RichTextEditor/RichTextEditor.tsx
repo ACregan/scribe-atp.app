@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -102,6 +102,16 @@ const theme = {
   link: styles.link,
 };
 
+// ── Stable error boundary for RichTextPlugin ──────────────────────────────────
+// Defined outside the component so its reference never changes between renders.
+// RichTextPlugin passes ErrorBoundary as a JSX element type to useDecorators(),
+// so a new function reference causes all decorator nodes (images) to unmount and
+// remount on every render — visually flickering. A module-level component avoids
+// this entirely.
+function LexicalErrorBoundary({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
 // ── Code highlight plugin ─────────────────────────────────────────────────────
 
 function CodeHighlightPlugin() {
@@ -199,8 +209,60 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const [html, setHtml] = useState(defaultValue);
   const [mounted, setMounted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [chromVisible, setChromVisible] = useState(true);
+  const [toolbarPinned, setToolbarPinned] = useState(false);
+  const [statsPinned, setStatsPinned] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => setMounted(true), []);
+
+  // Sync isFullscreen with actual browser fullscreen state so Escape key
+  // and other native exits are handled correctly.
+  useEffect(() => {
+    function handleFullscreenChange() {
+      const inFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(inFullscreen);
+      if (!inFullscreen) {
+        setChromVisible(true);
+        setToolbarPinned(false);
+        setStatsPinned(false);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      }
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // When fullscreen is active, hide chrome after 2 s of mouse inactivity;
+  // any mousemove resets the timer and makes chrome visible again.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const wrapper = wrapperRef.current;
+
+    function handleMouseMove() {
+      setChromVisible(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setChromVisible(false), 2000);
+    }
+
+    hideTimerRef.current = setTimeout(() => setChromVisible(false), 2000);
+    wrapper?.addEventListener("mousemove", handleMouseMove);
+    return () => {
+      wrapper?.removeEventListener("mousemove", handleMouseMove);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setChromVisible(true);
+    };
+  }, [isFullscreen]);
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      wrapperRef.current?.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
 
   function handleHtmlChange(newHtml: string) {
     setHtml(newHtml);
@@ -232,20 +294,37 @@ export function RichTextEditor({
           onError: (err) => console.error("Lexical error:", err),
         }}
       >
-        <div className={styles.editorWrapper}>
-          <ToolbarPlugin />
-          <div className={styles.editorInner}>
-            <RichTextPlugin
-              contentEditable={
-                <ContentEditable className={styles.contentEditable} />
-              }
-              placeholder={
-                <div className={styles.placeholder}>Start writing…</div>
-              }
-              ErrorBoundary={({ children }) => <>{children}</>}
+        <div className={styles.editorWrapper} ref={wrapperRef}>
+          <div className={styles.editorContent}>
+            <ToolbarPlugin
+              isFullscreen={isFullscreen}
+              chromVisible={chromVisible}
+              onToggleFullscreen={handleToggleFullscreen}
+              toolbarPinned={toolbarPinned}
+              onToggleToolbarPin={() => setToolbarPinned((p) => !p)}
+            />
+            <div className={[
+              styles.editorInner,
+              isFullscreen && toolbarPinned ? styles.editorInnerPinTop : "",
+              isFullscreen && statsPinned ? styles.editorInnerPinBottom : "",
+            ].filter(Boolean).join(" ")}>
+              <RichTextPlugin
+                contentEditable={
+                  <ContentEditable className={styles.contentEditable} />
+                }
+                placeholder={
+                  <div className={styles.placeholder}>Start writing…</div>
+                }
+                ErrorBoundary={LexicalErrorBoundary}
+              />
+            </div>
+            <StatsPlugin
+              isFullscreen={isFullscreen}
+              chromVisible={chromVisible}
+              statsPinned={statsPinned}
+              onToggleStatsPin={() => setStatsPinned((p) => !p)}
             />
           </div>
-          <StatsPlugin />
         </div>
         <HistoryPlugin />
         <ListPlugin />
