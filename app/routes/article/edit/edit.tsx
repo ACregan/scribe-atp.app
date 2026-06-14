@@ -9,13 +9,14 @@ import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
   updateArticle,
+  loadSiteOptions,
 } from "~/services/article.server";
+import { findSitesContaining } from "~/services/articleSiteSync.server";
 import { hasTextContent } from "~/components/utils";
-import { type SiteRecordValue } from "~/routes/article/site-list/siteTree";
 import { devEditLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
+import { ARTICLE_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageContainerHeading,
@@ -39,37 +40,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const { agent, did } = await requireAtpAgent(request);
   const articleUri = `at://${did}/${ARTICLE_COLLECTION}/${params.articleUrl}`;
 
-  const [articleResult, sitesResult] = await Promise.all([
+  const [articleResult, sites, currentSiteRkeys] = await Promise.all([
     agent.com.atproto.repo.getRecord({
       repo: did,
       collection: ARTICLE_COLLECTION,
       rkey: params.articleUrl,
     }),
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: SITE_COLLECTION,
-      limit: 100,
-    }),
+    loadSiteOptions(agent, did),
+    findSitesContaining(agent, did, articleUri),
   ]);
-
-  const sites = sitesResult.data.records.map((record) => ({
-    rkey: record.uri.split("/").pop()!,
-    title: String((record.value as Record<string, unknown>).title ?? ""),
-    url: String((record.value as Record<string, unknown>).url ?? ""),
-  }));
-
-  const currentSiteRkeys = sitesResult.data.records
-    .filter((record) => {
-      const value = record.value as SiteRecordValue;
-      const inTopLevel = (value.ungroupedArticles ?? []).some(
-        (a) => a.uri === articleUri,
-      );
-      const inGroups = (value.groups ?? []).some((g) =>
-        (g.articles ?? []).some((a) => a.uri === articleUri),
-      );
-      return inTopLevel || inGroups;
-    })
-    .map((record) => record.uri.split("/").pop()!);
 
   return {
     rkey: params.articleUrl,
