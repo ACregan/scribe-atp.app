@@ -252,7 +252,7 @@ describe("ImagePickerModal", () => {
       );
       fireEvent.click(screen.getByTitle("Insert Thumb"));
       expect(DEFAULT_PROPS.onPick).toHaveBeenCalledWith(
-        "/image-storage/did:test:user/abc123/thumb.webp",
+        "http://localhost:3000/image-storage/did:test:user/abc123/thumb.webp",
         "photo.jpg",
       );
     });
@@ -273,7 +273,7 @@ describe("ImagePickerModal", () => {
       );
       fireEvent.click(screen.getByTitle("Insert Max"));
       expect(DEFAULT_PROPS.onPick).toHaveBeenCalledWith(
-        "/image-storage/did:test:user/abc123/max.webp",
+        "http://localhost:3000/image-storage/did:test:user/abc123/max.webp",
         "photo.jpg",
       );
     });
@@ -287,7 +287,7 @@ describe("ImagePickerModal", () => {
       );
       fireEvent.click(screen.getByTitle("Insert photo.jpg"));
       expect(DEFAULT_PROPS.onPick).toHaveBeenCalledWith(
-        "/image-storage/did:test:user/abc123/max.webp",
+        "http://localhost:3000/image-storage/did:test:user/abc123/max.webp",
         "photo.jpg",
       );
     });
