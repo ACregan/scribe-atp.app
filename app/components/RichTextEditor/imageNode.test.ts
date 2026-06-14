@@ -142,6 +142,30 @@ describe("convertImageElement", () => {
   });
 });
 
+// ─── setAltText ───────────────────────────────────────────────────────────────
+
+describe("ImageNode.setAltText", () => {
+  it("updates the alt attribute in exportDOM output", async () => {
+    await withEditor((editor) => {
+      const node = $createImageNode("https://example.com/img.webp", "original");
+      node.setAltText("updated description");
+      const { element } = node.exportDOM(editor);
+      expect((element as HTMLImageElement).getAttribute("alt")).toBe(
+        "updated description",
+      );
+    });
+  });
+
+  it("allows setting empty alt text for decorative images", async () => {
+    await withEditor((editor) => {
+      const node = $createImageNode("https://example.com/img.webp", "original");
+      node.setAltText("");
+      const { element } = node.exportDOM(editor);
+      expect((element as HTMLImageElement).getAttribute("alt")).toBe("");
+    });
+  });
+});
+
 // ─── clone ────────────────────────────────────────────────────────────────────
 
 describe("ImageNode.clone", () => {
