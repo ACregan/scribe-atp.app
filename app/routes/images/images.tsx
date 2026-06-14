@@ -1,6 +1,7 @@
 import type { Route } from "./+types/images";
 import { Link } from "react-router";
 import { requireAuth, useRealOAuth } from "~/services/auth.server";
+import { browseImages } from "~/services/imageServiceClient.server";
 import { Button } from "~/components/Button/Button";
 import { UploadModal } from "./UploadModal";
 import { NewFolderModal } from "./NewFolderModal";
@@ -112,19 +113,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const url = new URL(request.url);
   const folderId = url.searchParams.get("folder");
-  const apiUrl = `http://localhost:3009/api/image-service/browse${folderId ? `?folderId=${folderId}` : ""}`;
 
   try {
-    const response = await fetch(apiUrl, {
-      headers: { Cookie: request.headers.get("Cookie") ?? "" },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok)
-      throw new Error(`Image Service returned ${response.status}`);
-    const data = (await response.json()) as Omit<
-      LoaderData,
-      "currentUserDid" | "profiles"
-    >;
+    const data = await browseImages(
+      folderId,
+      request.headers.get("Cookie") ?? "",
+    );
 
     const profiles: Record<string, UserProfile> = {};
     const didsToResolve = data.folder
