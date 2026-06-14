@@ -13,8 +13,8 @@ vi.mock("lexical", () => ({
   $getRoot: () => ({ getAllTextNodes: () => [] }),
 }));
 
-vi.mock("@lexical/react/LexicalOnChangePlugin", () => ({
-  OnChangePlugin: () => null,
+vi.mock("@lexical/react/LexicalComposerContext", () => ({
+  useLexicalComposerContext: () => [{ registerUpdateListener: () => () => {} }],
 }));
 
 // ─── countWords ───────────────────────────────────────────────────────────────
