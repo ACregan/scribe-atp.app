@@ -66,6 +66,14 @@
   margin-left: 1rem;
 }
 
+.logoContainer .version {
+  font-size: 1.2rem;
+  padding: 0 0.5rem;
+  transform: translateY(-1rem);
+  display: flex;
+  color: var(--text-secondary);
+}
+
 /* HEADER Right-aligned container */
 .rightAlignedItems {
   display: flex;

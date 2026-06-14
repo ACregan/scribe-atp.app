@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
-import { $getRoot, type EditorState } from "lexical";
+import { useState, useEffect } from "react";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { $getRoot } from "lexical";
 import styles from "./StatsPlugin.module.css";
 
 // ── Pure count functions (exported for unit tests) ────────────────────────────
@@ -25,25 +25,26 @@ function formatNumber(n: number): string {
 // ── Plugin ────────────────────────────────────────────────────────────────────
 
 export function StatsPlugin() {
+  const [editor] = useLexicalComposerContext();
   const [stats, setStats] = useState({ words: 0, chars: 0 });
 
-  function handleChange(state: EditorState) {
-    state.read(() => {
-      const text = $getRoot()
-        .getAllTextNodes()
-        .map((node) => node.getTextContent())
-        .join(" ");
-      setStats({ words: countWords(text), chars: countChars(text) });
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
+      if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
+      editorState.read(() => {
+        const text = $getRoot()
+          .getAllTextNodes()
+          .map((node) => node.getTextContent())
+          .join(" ");
+        setStats({ words: countWords(text), chars: countChars(text) });
+      });
     });
-  }
+  }, [editor]);
 
   return (
-    <>
-      <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
-      <div className={styles.bar}>
-        {formatNumber(stats.words)} words &middot; {formatNumber(stats.chars)}{" "}
-        chars &middot; {readingTime(stats.words)}
-      </div>
-    </>
+    <div className={styles.bar}>
+      {formatNumber(stats.words)} words &middot; {formatNumber(stats.chars)}{" "}
+      chars &middot; {readingTime(stats.words)}
+    </div>
   );
 }

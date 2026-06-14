@@ -236,9 +236,6 @@ export default function EditArticle({
   // re-running the loader (putRecord produces a new CID; stale CID would fail
   // the swapRecord check on the next save).
   const [cidValue, setCidValue] = useState(cid);
-  // Skip the first onContentChange call — that's InitialValuePlugin loading the
-  // existing content, not a user edit.
-  const contentInitializedRef = useRef(false);
   const navigate = useNavigate();
   const { addToast } = useToast();
 
@@ -266,11 +263,7 @@ export default function EditArticle({
 
   function handleContentChange(html: string) {
     setContentHtml(html);
-    if (contentInitializedRef.current) {
-      setIsDirty(true);
-    } else {
-      contentInitializedRef.current = true;
-    }
+    setIsDirty(true);
   }
 
   function handleSitesChange(rkeys: string[]) {

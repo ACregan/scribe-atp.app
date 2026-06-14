@@ -3,7 +3,6 @@ import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { CheckListPlugin } from "@lexical/react/LexicalCheckListPlugin";
@@ -14,13 +13,7 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode, CodeHighlightNode } from "@lexical/code";
 import { LinkNode, AutoLinkNode } from "@lexical/link";
-import {
-  $getRoot,
-  $insertNodes,
-  COMMAND_PRIORITY_EDITOR,
-  type EditorState,
-  type LexicalEditor,
-} from "lexical";
+import { $getRoot, $insertNodes, COMMAND_PRIORITY_EDITOR } from "lexical";
 import { $createImageNode, ImageNode, INSERT_IMAGE_COMMAND } from "./imageNode";
 import { ExtendedTextNode } from "./ExtendedTextNode";
 import { ToolbarPlugin } from "./ToolbarPlugin";
@@ -163,25 +156,30 @@ function InitialValuePlugin({ html }: { html: string }) {
 
 function HiddenFieldPlugin({
   name,
+  initialHtml,
   onChange,
 }: {
   name: string;
+  initialHtml: string;
   onChange: (html: string) => void;
 }) {
   const [editor] = useLexicalComposerContext();
-  const lastHtmlRef = useRef("");
+  const lastHtmlRef = useRef(initialHtml);
 
-  function handleChange(state: EditorState, ed: LexicalEditor) {
-    state.read(() => {
-      const newHtml = $generateHtmlFromNodes(ed);
-      if (newHtml !== lastHtmlRef.current) {
-        lastHtmlRef.current = newHtml;
-        onChange(newHtml);
-      }
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState, prevEditorState }) => {
+      if (prevEditorState.isEmpty()) return;
+      editorState.read(() => {
+        const newHtml = $generateHtmlFromNodes(editor);
+        if (newHtml !== lastHtmlRef.current) {
+          lastHtmlRef.current = newHtml;
+          onChange(newHtml);
+        }
+      });
     });
-  }
+  }, [editor, onChange]);
 
-  return <OnChangePlugin onChange={handleChange} />;
+  return null;
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
@@ -256,7 +254,7 @@ export function RichTextEditor({
         <CodeHighlightPlugin />
         <ImagePlugin />
         <InitialValuePlugin html={defaultValue} />
-        <HiddenFieldPlugin name={name} onChange={handleHtmlChange} />
+        <HiddenFieldPlugin name={name} initialHtml={defaultValue} onChange={handleHtmlChange} />
       </LexicalComposer>
       <textarea name={name} value={html} onChange={() => {}} hidden readOnly />
     </div>

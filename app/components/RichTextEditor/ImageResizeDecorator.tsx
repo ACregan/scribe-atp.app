@@ -30,6 +30,11 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
     side: "left" | "right";
   } | null>(null);
 
+  // True between mouseup and the Lexical width prop catching up.
+  // Prevents the catch-up effect from firing during an active drag
+  // where dragWidth happens to equal width at drag start.
+  const commitPendingRef = useRef(false);
+
   // Global mousemove / mouseup during drag
   useEffect(() => {
     if (!isDragging) return;
@@ -45,7 +50,10 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
       if (dragStateRef.current === null) return;
       const finalWidth = dragWidth;
       dragStateRef.current = null;
-      setDragWidth(null);
+      // Don't clear dragWidth here — wait for the Lexical width prop to catch
+      // up in the effect below, so there is no intermediate render where both
+      // dragWidth and width are stale.
+      commitPendingRef.current = true;
       editor.update(() => {
         const node = $getNodeByKey<ImageNode>(nodeKey);
         node?.setWidth(finalWidth);
@@ -59,6 +67,18 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
       document.removeEventListener("mouseup", onMouseUp);
     };
   }, [isDragging, dragWidth, editor, nodeKey]);
+
+  // Once the Lexical node width prop catches up to the last drag value, clear
+  // local drag state. This avoids the flash caused by dragWidth going null
+  // before the async editor.update() has committed the new width.
+  // commitPendingRef guards against firing during an active drag where
+  // dragWidth happens to equal width at drag start (e.g. second resize).
+  useEffect(() => {
+    if (commitPendingRef.current && dragWidth !== null && dragWidth === width) {
+      commitPendingRef.current = false;
+      setDragWidth(null);
+    }
+  }, [width, dragWidth]);
 
   // Click outside to deselect. Does not depend on isSelected so the listener
   // is stable and not re-attached on every Lexical selection change.

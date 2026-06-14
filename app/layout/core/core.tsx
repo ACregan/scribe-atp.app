@@ -113,9 +113,7 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
             <Tooltip
               anchorName="app-version"
               anchorPosition="right"
-              anchorContent={
-                <TooltipBubble pointerLocation="left">v{version}</TooltipBubble>
-              }
+              anchorContent={<span className={styles.version}>v{version}</span>}
             >
               <h4>
                 Scribe<span>CMS</span>
