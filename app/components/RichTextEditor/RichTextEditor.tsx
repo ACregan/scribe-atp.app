@@ -3,7 +3,6 @@ import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { CheckListPlugin } from "@lexical/react/LexicalCheckListPlugin";
@@ -14,13 +13,7 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode, CodeHighlightNode } from "@lexical/code";
 import { LinkNode, AutoLinkNode } from "@lexical/link";
-import {
-  $getRoot,
-  $insertNodes,
-  COMMAND_PRIORITY_EDITOR,
-  type EditorState,
-  type LexicalEditor,
-} from "lexical";
+import { $getRoot, $insertNodes, COMMAND_PRIORITY_EDITOR } from "lexical";
 import { $createImageNode, ImageNode, INSERT_IMAGE_COMMAND } from "./imageNode";
 import { ExtendedTextNode } from "./ExtendedTextNode";
 import { ToolbarPlugin } from "./ToolbarPlugin";
@@ -171,17 +164,19 @@ function HiddenFieldPlugin({
   const [editor] = useLexicalComposerContext();
   const lastHtmlRef = useRef("");
 
-  function handleChange(state: EditorState, ed: LexicalEditor) {
-    state.read(() => {
-      const newHtml = $generateHtmlFromNodes(ed);
-      if (newHtml !== lastHtmlRef.current) {
-        lastHtmlRef.current = newHtml;
-        onChange(newHtml);
-      }
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const newHtml = $generateHtmlFromNodes(editor);
+        if (newHtml !== lastHtmlRef.current) {
+          lastHtmlRef.current = newHtml;
+          onChange(newHtml);
+        }
+      });
     });
-  }
+  }, [editor, onChange]);
 
-  return <OnChangePlugin onChange={handleChange} />;
+  return null;
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
