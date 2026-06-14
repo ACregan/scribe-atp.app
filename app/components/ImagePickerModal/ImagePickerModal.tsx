@@ -78,7 +78,10 @@ export function ImagePickerModal({
   }
 
   function handlePick(image: BrowseImage, variant: string) {
-    onPick(variantUrl(image, variant), image.original_name);
+    onPick(
+      `${window.location.origin}${variantUrl(image, variant)}`,
+      image.original_name,
+    );
     onClose();
   }
 
