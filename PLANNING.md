@@ -375,3 +375,51 @@ The toolbar's 🖼 button opens `ImagePickerModal` instead of an inline URL inpu
 ### Resizable Images
 
 Inserted images can be resized by dragging handles on their left and right edges. Width is stored on `ImageNode` and round-trips through HTML and Lexical JSON. See the Image Library section above for detail.
+
+### Bug Fixes (June 2026)
+
+Three Lexical editor bugs fixed after the initial Enhancements release.
+
+#### Bug 1 — Image picker inserted relative URLs
+
+**Symptom:** Images inserted via `ImagePickerModal` worked in Scribe but appeared broken on external consumer sites.
+
+**Root cause:** `handlePick` in `ImagePickerModal.tsx` passed the raw `/image-storage/...` path from `variantUrl()` to `INSERT_IMAGE_COMMAND`. External blog sites resolve relative URLs against their own domain, not the image host.
+
+**Fix:** `handlePick` now prefixes with `window.location.origin`:
+
+```ts
+onPick(`${window.location.origin}${variantUrl(image, variant)}`, image.original_name);
+```
+
+All image `src` attributes stored in article HTML are now absolute URLs.
+
+---
+
+#### Bug 2 — Image resize drag showed flash / second resize failed
+
+**Symptom:** After releasing a drag handle, the width badge briefly flashed back to the start value before settling. On a second drag that started at the same pixel width as the node's stored width, the badge appeared and immediately vanished.
+
+**Root cause:** A catch-up `useEffect` in `ImageResizeDecorator` cleared `dragWidth` whenever `dragWidth === width` (i.e., Lexical had confirmed the new width in props). This effect also fired at drag *start* if the user grabbed the handle at the image's natural stored width — because `dragWidth` and `width` were equal before any movement had occurred.
+
+**Fix:** Added `commitPendingRef = useRef(false)`. Set to `true` on mouseup (before `editor.update()`); the catch-up `useEffect` now requires `commitPendingRef.current` to be `true` before clearing `dragWidth`, then resets the flag. This scopes the clear to the genuine post-commit path only.
+
+---
+
+#### Bug 3 — `/article/create` immediately marked dirty; `/article/edit` also immediately dirty after fixing bug 3; stats showed 0 on existing articles
+
+These three issues all share the same root cause in how Lexical's update listeners interact with the `InitialValuePlugin` content load.
+
+**Shared root cause:** `OnChangePlugin` (previously used by `HiddenFieldPlugin` and `StatsPlugin`) has a built-in `prevEditorState.isEmpty()` guard: it skips the update when the previous editor state was truly empty (`_nodeMap.size === 1 && _selection === null`). This guard served two roles simultaneously:
+1. Blocking the initial mount transition on `/article/create` (Lexical transitions from an empty state to an empty paragraph, which `OnChangePlugin` would otherwise treat as user input).
+2. Blocking the `InitialValuePlugin` content load on `/article/edit` (which also transitions from the empty initial state).
+
+Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to fix the Reset size dirty-state bug and the stats-on-load bug) removed role 1, causing `/article/create` to be marked dirty on mount.
+
+**Fix — `HiddenFieldPlugin`:** Uses `editor.registerUpdateListener` with two guards:
+1. `prevEditorState.isEmpty()` guard retained — blocks the initial mount transition on create page.
+2. `lastHtmlRef` initialised to `defaultValue` (the loaded content, NOT `""`). On the edit page, the `isEmpty` guard skips `InitialValuePlugin`, but any subsequent Lexical update produces the same HTML as the pre-seeded `lastHtmlRef` → equality check catches it → `onChange` is not called. Without this seeding, `lastHtmlRef` would be `""`, the first post-`InitialValuePlugin` update would see loaded HTML ≠ `""`, and `onChange` would fire falsely.
+
+**Fix — `edit.tsx`:** Removed `contentInitializedRef` entirely. Because `HiddenFieldPlugin`'s two guards prevent any init-phase call from reaching `handleContentChange`, every call that does arrive is a genuine user edit.
+
+**Fix — `StatsPlugin`:** Replaced `OnChangePlugin` with `editor.registerUpdateListener` + `dirtyElements.size === 0 && dirtyLeaves.size === 0` guard (skips pure selection/cursor changes). Unlike `HiddenFieldPlugin`, `StatsPlugin` does **not** use the `isEmpty` guard — zero stats on an empty editor is correct, and skipping `InitialValuePlugin` would cause the on-load "0 words" regression. The `dirtyElements`/`dirtyLeaves` check is sufficient.
