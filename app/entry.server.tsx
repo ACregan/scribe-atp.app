@@ -11,6 +11,28 @@ export const streamTimeout = 5_000;
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// SHA-256 hash of the inline theme-detection script in root.tsx Layout.
+// If the script content ever changes, recompute with:
+//   node -e "const c=require('crypto'),s='<script content>';console.log(c.createHash('sha256').update(s,'utf8').digest('base64'))"
+const THEME_SCRIPT_HASH =
+  "sha256-LY0WmDNgT2tT94lZyQ2tYxwi9P0ohZ5I8xEYNyKfi7Q=";
+
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' '${THEME_SCRIPT_HASH}'`,
+  // Lexical editor and article HTML use inline style attributes — unsafe-inline required
+  "style-src 'self' 'unsafe-inline'",
+  // 'self' for hosted images; https: for external images embedded in article HTML
+  "img-src 'self' data: https:",
+  "font-src 'self'",
+  // image upload XHR and SSE progress stream
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join("; ");
+
 function applySecurityHeaders(headers: Headers): void {
   headers.set("X-Frame-Options", "SAMEORIGIN");
   headers.set("X-Content-Type-Options", "nosniff");
@@ -19,6 +41,7 @@ function applySecurityHeaders(headers: Headers): void {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()"
   );
+  headers.set("Content-Security-Policy", CSP);
   if (isProduction) {
     headers.set(
       "Strict-Transport-Security",
