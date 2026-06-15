@@ -83,7 +83,7 @@ export default function handleRequest(
     );
 
     const { pipe, abort } = renderToPipeableStream(
-      <ServerRouter context={routerContext} url={request.url} />,
+      <ServerRouter context={routerContext} url={request.url} nonce={nonce} />,
       {
         nonce, // React applies this nonce to all Suspense streaming inline scripts
         [readyOption]() {

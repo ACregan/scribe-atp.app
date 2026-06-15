@@ -4,6 +4,7 @@ test("save button is disabled until title, slug and content are filled", async (
   page,
 }) => {
   await page.goto("/article/create");
+  await page.locator('[contenteditable="true"]').waitFor();
   const saveButton = page.getByRole("button", { name: "Save to PDS" });
 
   await expect(saveButton).toBeDisabled();
