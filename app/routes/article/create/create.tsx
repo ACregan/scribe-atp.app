@@ -60,7 +60,7 @@ export async function action({ request }: Route.ActionArgs) {
   const synopsis = formData.get("synopsis") as string;
   const selectedSiteRkeys = formData.getAll("sites") as string[];
 
-  const validationError = validateArticleFields(title, url);
+  const validationError = validateArticleFields(title, url, splashImageUrl);
   if (validationError) return { error: validationError };
 
   if (!useRealOAuth) {

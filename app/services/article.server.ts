@@ -1,5 +1,5 @@
 import { Agent } from "@atproto/api";
-import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE, IMAGE_URL_RE } from "~/constants";
 import type { SiteOption } from "~/components/types";
 import type { ArticleRef } from "~/hooks/types";
 import {
@@ -11,11 +11,14 @@ import {
 export function validateArticleFields(
   title: string,
   url: string,
+  splashImageUrl?: string,
 ): string | null {
   if (!title?.trim()) return "Title is required.";
   if (!url?.trim()) return "URL slug is required.";
   if (!SLUG_RE.test(url))
     return "URL slug must be lowercase letters, numbers, and hyphens only (e.g. my-article).";
+  if (splashImageUrl?.trim() && !IMAGE_URL_RE.test(splashImageUrl.trim()))
+    return "Splash Image URL must start with https://.";
   return null;
 }
 

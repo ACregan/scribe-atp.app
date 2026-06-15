@@ -14,7 +14,7 @@ import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
 
-import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
+import { SITE_COLLECTION, DOMAIN_RE, IMAGE_URL_RE } from "~/constants";
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +70,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       ok: false,
       error: "Domain must be a valid hostname (e.g. myblog.com).",
     };
+  if (splashImageUrl && !IMAGE_URL_RE.test(splashImageUrl))
+    return { ok: false, error: "Splash Image URL must start with https://." };
+  if (logoImageUrl && !IMAGE_URL_RE.test(logoImageUrl))
+    return { ok: false, error: "Logo Image URL must start with https://." };
 
   if (useRealOAuth) {
     try {
