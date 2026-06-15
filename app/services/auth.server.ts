@@ -7,6 +7,16 @@ if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET environment variable is required");
 }
 
+// E2E=true is intentional in CI (Playwright runs against a production build).
+// Reject it on a real production server where CI is not set.
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.E2E === "true" &&
+  process.env.CI !== "true"
+) {
+  throw new Error("E2E mode cannot be enabled in production");
+}
+
 const isProduction = process.env.NODE_ENV === "production";
 // Set DEV_USE_REAL_OAUTH=true in .env when you need to test real AT Protocol
 // calls locally. Requires PUBLIC_URL to be set to a tunnel URL (e.g. cloudflared).
