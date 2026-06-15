@@ -1,6 +1,6 @@
 {
   "name": "scribe-atp.app",
-  "version": "5.7.1",
+  "version": "5.7.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -39,8 +39,10 @@
     "classnames": "^2.5.1",
     "express": "^5.2.1",
     "isbot": "^5.1.36",
+    "isomorphic-dompurify": "^3.17.0",
     "lexical": "^0.44.0",
     "multer": "^2.1.1",
+    "pino": "^10.3.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router": "7.15.1",

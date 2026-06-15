@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 
 test("clicking logout redirects to the login page", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Logout" }).click();
+  const logoutButton = page.getByRole("button", { name: "Logout" });
+  await expect(logoutButton).toBeVisible();
+  await logoutButton.click();
   await expect(page).toHaveURL("/login");
 });
 

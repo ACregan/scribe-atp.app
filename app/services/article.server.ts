@@ -1,5 +1,5 @@
 import { Agent } from "@atproto/api";
-import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import { ARTICLE_COLLECTION, SITE_COLLECTION, SLUG_RE, IMAGE_URL_RE } from "~/constants";
 import type { SiteOption } from "~/components/types";
 import type { ArticleRef } from "~/hooks/types";
 import {
@@ -7,15 +7,19 @@ import {
   computeSiteAssignmentChanges,
   syncSiteArticleRefs,
 } from "~/services/articleSiteSync.server";
+import { logger } from "~/services/logger.server";
 
 export function validateArticleFields(
   title: string,
   url: string,
+  splashImageUrl?: string,
 ): string | null {
   if (!title?.trim()) return "Title is required.";
   if (!url?.trim()) return "URL slug is required.";
   if (!SLUG_RE.test(url))
     return "URL slug must be lowercase letters, numbers, and hyphens only (e.g. my-article).";
+  if (splashImageUrl?.trim() && !IMAGE_URL_RE.test(splashImageUrl.trim()))
+    return "Splash Image URL must start with https://.";
   return null;
 }
 
@@ -104,6 +108,7 @@ export async function createArticle(
     });
     await addArticleToSites(agent, did, siteRkeys, ref);
   }
+  logger.info({ event: "article.create", user_did: did, rkey: fields.url, site_count: siteRkeys.length }, "article.create");
   return { uri: result.data.uri };
 }
 
@@ -160,6 +165,7 @@ export async function updateArticle(
         console.error("Failed to delete old record after rename:", err);
       });
     await syncSiteArticleRefs(agent, did, siteChanges, oldArticleUri, ref);
+    logger.info({ event: "article.update", user_did: did, rkey: fields.url, old_rkey: oldRkey, slug_renamed: true }, "article.update");
     return { newSlug: fields.url };
   }
 
@@ -171,6 +177,7 @@ export async function updateArticle(
     swapRecord: cid ?? undefined,
   });
   await syncSiteArticleRefs(agent, did, siteChanges, oldArticleUri, ref);
+  logger.info({ event: "article.update", user_did: did, rkey: oldRkey, slug_renamed: false }, "article.update");
   return { newCid: putResult.data.cid };
 }
 

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import path from "node:path";
 import fs from "node:fs/promises";
 import db from "./db.js";
+import { logger } from "../../shared/logger.js";
 
 type ImageRow = { id: number; user_did: string; filename: string };
 
@@ -24,6 +25,7 @@ export function handleDeleteImage(req: Request, res: Response): void {
   // Delete the SQLite row first — if filesystem cleanup fails afterwards, no dangling
   // reference remains pointing to missing files.
   db.prepare("DELETE FROM images WHERE id = ?").run(imageId);
+  logger.info({ event: "image.delete", user_did: did, image_id: imageId, filename: image.filename }, "image.delete");
 
   if (storageRoot) {
     const dirPath = path.join(storageRoot, image.user_did, image.filename);

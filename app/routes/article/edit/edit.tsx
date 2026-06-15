@@ -82,7 +82,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     (formData.get("oldSiteRkeys") as string) || "[]",
   );
 
-  const validationError = validateArticleFields(title, newUrl);
+  const validationError = validateArticleFields(title, newUrl, splashImageUrl);
   if (validationError) return { ok: false as const, error: validationError };
 
   if (!useRealOAuth) return { ok: true as const, title };

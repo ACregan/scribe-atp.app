@@ -24,6 +24,7 @@ import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import SiteListItem from "~/components/SiteListItem/SiteListItem";
 import { useTheme } from "~/context/ThemeContext";
+import { logger } from "~/services/logger.server";
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -127,6 +128,7 @@ export async function action({ request }: Route.ActionArgs) {
       }
     }
 
+    logger.info({ event: "site.create", user_did: did, rkey, url }, "site.create");
     return { ok: true };
   }
 
@@ -150,6 +152,7 @@ export async function action({ request }: Route.ActionArgs) {
       }
     }
 
+    logger.info({ event: "site.delete", user_did: did, rkey }, "site.delete");
     return { ok: true };
   }
 

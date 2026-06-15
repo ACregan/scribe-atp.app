@@ -6,3 +6,6 @@ export const DOMAIN_RE = /^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/;
 
 // Article URL slug: lowercase letters, numbers, hyphens only
 export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// Image URLs must use https:// — rejects http://, javascript:, data:, relative paths
+export const IMAGE_URL_RE = /^https:\/\//i;

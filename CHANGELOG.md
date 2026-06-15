@@ -10,6 +10,46 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.7.2] — 2026-06-15
+
+### Security
+
+- **HTTP security headers** (`entry.server.tsx`) — `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, and `Strict-Transport-Security` (production only) applied to every response via a new `applySecurityHeaders()` function
+- **Content Security Policy** — `Content-Security-Policy` header added; inline theme-detection script whitelisted by SHA-256 hash (`'sha256-LY0WmDNgT2tT94lZyQ2tYxwi9P0ohZ5I8xEYNyKfi7Q='`); `style-src 'unsafe-inline'` retained for Lexical editor inline formatting
+- **Image URL protocol validation** — `splashImageUrl` and `logoImageUrl` inputs on article create/edit and site configure now reject anything that does not start with `https://`; shared constant `IMAGE_URL_RE` added to `app/constants.ts`
+- **HTML sanitisation** — article content rendered via `dangerouslySetInnerHTML` on `/article/view` is now passed through `isomorphic-dompurify` (server-side) before reaching the component
+- **E2E bypass guard** — `auth.server.ts` now throws at startup if `NODE_ENV=production`, `E2E=true`, and `CI` is not set; prevents the login bypass from accidentally reaching a live server
+- **Login rate limiting** — `/login` action is now limited to 10 attempts per IP per 15-minute rolling window; attempts tracked in a new `login_attempts` SQLite table; stale rows pruned on startup; `X-Forwarded-For` used for client IP; blocked requests return an error message
+- **Self-hosted Inter font** — Google Fonts dependency removed; Inter woff2 files already present in `public/fonts/Inter/` are now served via a local stylesheet; eliminates Google tracking on page load, removes external `font-src` and `style-src` CSP entries, and removes the supply-chain dependency
+- **Structured audit logging** — `pino` added for structured JSON logging to stdout (captured by PM2); security-relevant events logged: `auth.login_attempt`, `article.create`, `article.update`, `article.delete`, `site.create`, `site.delete`, `site.configure`, `article.nuke` (warn), `image.upload`, `image.delete`; shared logger in `shared/logger.ts`; app routes re-export via `app/services/logger.server.ts`; image service imports directly from `shared/logger.js`
+- **Unused Dockerfile removed** — stale file used a root-default base image and was not referenced in any pipeline
+
+### Fixed (internal)
+
+- `db.server.ts` migration now runs on every module load (outside the `global.__db` singleton guard) — `IF NOT EXISTS` makes all migrations idempotent; fixes `no such table` errors on Vite HMR reloads when new tables are added
+
+### Infrastructure (VPS — no code change)
+
+- nginx `access_log off` removed from `location /` — HTTP access logs re-enabled for the main app
+- Image storage path migrated from `/root/server/SITES/scribe-atp.app/image-storage/` to `/var/scribe/images/` (101/101 images verified); nginx alias and PM2 `IMAGE_STORAGE_ROOT` env updated
+- `docs/nginx/image-library.conf` updated to reflect new image storage path
+
+**Full audit report:** `docs/archive/security/1.security-review-15-06-26.md`
+
+---
+
+## [5.7.1] — 2026-06-15
+
+### Changed (internal)
+
+- `article.server.ts` deepened with `createArticle` and `updateArticle` — article create and edit route actions collapsed to thin orchestrators; business logic (slug validation, record building, site ref propagation) now unit-tested behind a named interface
+- `articleSiteSync.server.ts` gained `findSitesContaining` — edit loader no longer accesses site records directly; 6 new unit tests cover the seam
+- Image Library route (`images.tsx`) decomposed into `useImageLibrary.ts` hook and `ImageGrid.tsx` pure component; route file reduced from ~1,050 to ~270 lines
+- `imageServiceClient.server.ts` added — server-side Image Service client (direct `http://localhost:3009`) distinct from the browser-only proxy client
+- `ToolbarPlugin` renamed to `EditorToolbar` (file and component); `chromVisible` removed from the toolbar interface — fullscreen CSS class application moved to a wrapper div in `RichTextEditor.tsx` where all fullscreen state already lives
+
+---
+
 ## [5.7.0] — 2026-06-14
 
 ### Added

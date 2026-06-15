@@ -12,6 +12,7 @@ import {
   PageSection,
 } from "~/components/PageContainer/PageContainer";
 import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
+import { logger } from "~/services/logger.server";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
@@ -128,6 +129,7 @@ export async function action({ request }: Route.ActionArgs) {
     rkey,
     swapRecord: cid ?? undefined,
   });
+  logger.info({ event: "article.delete", user_did: did, rkey }, "article.delete");
   return { ok: true };
 }
 

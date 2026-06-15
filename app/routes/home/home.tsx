@@ -24,6 +24,7 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
+import { logger } from "~/services/logger.server";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -202,6 +203,7 @@ export async function action({ request }: Route.ActionArgs) {
       } while (cursor);
     }
 
+    logger.warn({ event: "article.nuke", user_did: did, deleted_count: deleted }, "article.nuke");
     return { ok: true, deleted, devMode: false };
   } catch (err) {
     return { error: `Nuke failed: ${String(err)}` };

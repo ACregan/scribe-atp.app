@@ -42,6 +42,7 @@ Scribe ATP provides the authoring interface: write, organise, and publish.
 | E2E testing          | Playwright (Chromium)                                      |
 | Image Service        | Express on port 3009                                       |
 | Image processing     | sharp — WebP Variant generation                            |
+| Structured logging   | pino — JSON logs to stdout                                 |
 | Production server    | react-router-serve on port 3008                            |
 
 ## Getting started
@@ -375,6 +376,38 @@ location / {
 
 The main app's SQLite session store (`data/oauth.db`) is single-host. For multi-instance deployments, replace it with a shared store (Turso/libSQL, Redis, etc.).
 
+## Security
+
+### HTTP headers
+
+Every response sets `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, `Content-Security-Policy`, and (in production) `Strict-Transport-Security`. Headers are applied in `app/entry.server.tsx`.
+
+### Content Security Policy
+
+The CSP whitelists the inline theme-detection script by SHA-256 hash rather than a per-request nonce. `style-src 'unsafe-inline'` is required because the Lexical editor and article HTML use inline `style` attributes for formatting. `img-src https:` allows external images embedded in article content. All font, script, and connect sources are `'self'`.
+
+If the inline theme script in `app/root.tsx` is ever changed, recompute the hash:
+
+```bash
+node -e "const c=require('crypto'),s='<script content here>';console.log(c.createHash('sha256').update(s,'utf8').digest('base64'))"
+```
+
+Then update `THEME_SCRIPT_HASH` in `app/entry.server.tsx`.
+
+### Login rate limiting
+
+The `/login` route limits submissions to 10 per IP per 15-minute rolling window, tracked in a `login_attempts` table in `data/oauth.db`. Client IPs are read from `X-Forwarded-For` (set by nginx). Blocked requests receive a user-facing error message; the window resets automatically.
+
+### HTML sanitisation
+
+Article HTML from the AT Protocol is sanitised server-side via `isomorphic-dompurify` before rendering with `dangerouslySetInnerHTML` on the `/article/view` route.
+
+### Audit logging
+
+Security-relevant events (login attempts, article/site/image mutations, the developer nuke tool) are logged as structured JSON to stdout using `pino`. In production, PM2 captures stdout to log files. See `docs/archive/security/1.security-review-15-06-26.md` for the full event schema.
+
+---
+
 ## Project documentation
 
 | File                      | Purpose                                                             |
@@ -383,5 +416,6 @@ The main app's SQLite session store (`data/oauth.db`) is single-host. For multi-
 | `PLANNING.md`             | Feature specs, data structures, and implementation notes            |
 | `UBIQUITOUS_LANGUAGE.md`  | Canonical glossary of domain terms                                  |
 | `docs/adr/`               | Architecture Decision Records                                       |
+| `docs/archive/security/`  | Security review reports                                             |
 | `app/hooks/useSite.md`    | `useSite` hook usage and examples                                   |
 | `app/hooks/useArticle.md` | `useArticle` hook usage and examples                                |

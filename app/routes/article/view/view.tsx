@@ -2,6 +2,7 @@ import type { Route } from "./+types/view";
 import { Link } from "react-router";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { devViewLoader } from "~/services/devFixtures.server";
+import DOMPurify from "isomorphic-dompurify";
 import { Button } from "~/components/Button/Button";
 import { ARTICLE_COLLECTION } from "~/constants";
 import {
@@ -24,9 +25,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     rkey: params.articleUrl,
   });
 
+  const rawContent = String(result.data.value.content ?? "");
   return {
     title: String(result.data.value.title ?? "(untitled)"),
-    content: String(result.data.value.content ?? ""),
+    content: DOMPurify.sanitize(rawContent, { FORCE_BODY: true }),
     splashImageUrl: String(result.data.value.splashImageUrl ?? ""),
     synopsis: String(result.data.value.synopsis ?? ""),
     createdAt: String(result.data.value.createdAt ?? ""),
