@@ -6,9 +6,10 @@ stages:
 
 typecheck:
   stage: typecheck
+  image: node:20
   interruptible: true
   tags:
-    - playwright
+    - SERVER-docker-runner
   cache:
     key:
       files:
@@ -29,9 +30,10 @@ typecheck:
 
 unit:
   stage: unit
+  image: node:20
   interruptible: true
   tags:
-    - playwright
+    - SERVER-docker-runner
   cache:
     key:
       files:
@@ -59,9 +61,11 @@ unit:
 
 e2e:
   stage: e2e
+  # Playwright image has Chromium pre-installed — no playwright install step needed
+  image: mcr.microsoft.com/playwright:v1.60.0-jammy
   interruptible: true
   tags:
-    - playwright
+    - SERVER-docker-runner
   timeout: 20 minutes
   cache:
     key:
@@ -69,10 +73,8 @@ e2e:
         - package-lock.json
     paths:
       - node_modules/
-      - /home/gitlab-runner/.cache/ms-playwright/
   script:
     - npm ci
-    - npx playwright install chromium
     - npx playwright test
   artifacts:
     when: always
@@ -94,6 +96,7 @@ e2e:
 
 deploy:
   stage: deploy
+  # Stays on Imhotep — shell executor with SSH tools, deploy doesn't benefit from Docker runner
   tags:
     - playwright
   environment:
