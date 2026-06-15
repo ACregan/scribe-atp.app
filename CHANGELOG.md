@@ -10,6 +10,18 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.7.1] — 2026-06-15
+
+### Changed (internal)
+
+- `article.server.ts` deepened with `createArticle` and `updateArticle` — article create and edit route actions collapsed to thin orchestrators; business logic (slug validation, record building, site ref propagation) now unit-tested behind a named interface
+- `articleSiteSync.server.ts` gained `findSitesContaining` — edit loader no longer accesses site records directly; 6 new unit tests cover the seam
+- Image Library route (`images.tsx`) decomposed into `useImageLibrary.ts` hook and `ImageGrid.tsx` pure component; route file reduced from ~1,050 to ~270 lines
+- `imageServiceClient.server.ts` added — server-side Image Service client (direct `http://localhost:3009`) distinct from the browser-only proxy client
+- `ToolbarPlugin` renamed to `EditorToolbar` (file and component); `chromVisible` removed from the toolbar interface — fullscreen CSS class application moved to a wrapper div in `RichTextEditor.tsx` where all fullscreen state already lives
+
+---
+
 ## [5.7.0] — 2026-06-14
 
 ### Added
