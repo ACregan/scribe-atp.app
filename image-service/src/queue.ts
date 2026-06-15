@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import { generateVariants } from "./variants.js";
 import { emitEvent, closeSSE } from "./sse.js";
 import db from "./db.js";
+import { logger } from "../../shared/logger.js";
 
 type QueueJob = {
   uploadId: string;
@@ -53,6 +54,7 @@ async function processJob(job: QueueJob): Promise<void> {
        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     ).run(did, folderId, uuid, originalName, sourceWidth, sourceHeight, JSON.stringify(sizes));
 
+    logger.info({ event: "image.upload", user_did: did, uuid, original_name: originalName }, "image.upload");
     emitEvent(uploadId, "complete", { uuid, sizes });
     closeSSE(uploadId);
   } catch (err) {

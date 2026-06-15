@@ -15,6 +15,7 @@ import styles from "./configure.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
 
 import { SITE_COLLECTION, DOMAIN_RE, IMAGE_URL_RE } from "~/constants";
+import { logger } from "~/services/logger.server";
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
+  logger.info({ event: "site.configure", user_did: did, rkey: siteSlug }, "site.configure");
   return { ok: true };
 }
 

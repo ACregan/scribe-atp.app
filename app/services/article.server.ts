@@ -7,6 +7,7 @@ import {
   computeSiteAssignmentChanges,
   syncSiteArticleRefs,
 } from "~/services/articleSiteSync.server";
+import { logger } from "~/services/logger.server";
 
 export function validateArticleFields(
   title: string,
@@ -107,6 +108,7 @@ export async function createArticle(
     });
     await addArticleToSites(agent, did, siteRkeys, ref);
   }
+  logger.info({ event: "article.create", user_did: did, rkey: fields.url, site_count: siteRkeys.length }, "article.create");
   return { uri: result.data.uri };
 }
 
@@ -163,6 +165,7 @@ export async function updateArticle(
         console.error("Failed to delete old record after rename:", err);
       });
     await syncSiteArticleRefs(agent, did, siteChanges, oldArticleUri, ref);
+    logger.info({ event: "article.update", user_did: did, rkey: fields.url, old_rkey: oldRkey, slug_renamed: true }, "article.update");
     return { newSlug: fields.url };
   }
 
@@ -174,6 +177,7 @@ export async function updateArticle(
     swapRecord: cid ?? undefined,
   });
   await syncSiteArticleRefs(agent, did, siteChanges, oldArticleUri, ref);
+  logger.info({ event: "article.update", user_did: did, rkey: oldRkey, slug_renamed: false }, "article.update");
   return { newCid: putResult.data.cid };
 }
 
