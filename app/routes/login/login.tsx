@@ -9,6 +9,7 @@ import {
   useRealOAuth,
   OAUTH_SCOPE,
 } from "~/services/auth.server";
+import { loginAttempts } from "~/services/db.server";
 import styles from "./login.module.css";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
@@ -44,6 +45,15 @@ export async function action({ request }: Route.ActionArgs) {
       "/",
     );
   }
+
+  const ip =
+    request.headers.get("X-Forwarded-For")?.split(",")[0].trim() ?? "unknown";
+
+  if (loginAttempts.isLimited(ip)) {
+    return { error: "Too many login attempts. Please try again in 15 minutes." };
+  }
+
+  loginAttempts.record(ip);
 
   try {
     const authUrl = await oauthClient.authorize(cleanHandle, {

@@ -34,6 +34,15 @@ function migrate(db: Database.Database) {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
+
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      ip         TEXT    NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+
+    CREATE INDEX IF NOT EXISTS login_attempts_ip_created
+      ON login_attempts (ip, created_at);
   `);
 }
 
@@ -43,10 +52,16 @@ function pruneStaleState(db: Database.Database) {
   db.prepare("DELETE FROM oauth_state WHERE created_at < unixepoch() - 600").run();
 }
 
+// Remove login_attempts rows outside the 15-minute rate-limit window.
+function pruneStaleLoginAttempts(db: Database.Database) {
+  db.prepare("DELETE FROM login_attempts WHERE created_at < unixepoch() - 900").run();
+}
+
 export const db = getDb();
 
 // Run TTL pruning once on startup; harmless if it runs on every HMR reload
 pruneStaleState(db);
+pruneStaleLoginAttempts(db);
 
 export const oauthStateStore = {
   get: (key: string) => {
@@ -65,6 +80,24 @@ export const oauthStateStore = {
     db.prepare("DELETE FROM oauth_state WHERE key = ?").run(key);
     return Promise.resolve();
   },
+};
+
+const RATE_LIMIT_WINDOW = 900; // 15 minutes in seconds
+const RATE_LIMIT_MAX = 10;
+
+export const loginAttempts = {
+  record: (ip: string) => {
+    db.prepare("INSERT INTO login_attempts (ip) VALUES (?)").run(ip);
+  },
+  count: (ip: string): number => {
+    const row = db
+      .prepare<[string, number], { n: number }>(
+        "SELECT COUNT(*) as n FROM login_attempts WHERE ip = ? AND created_at > unixepoch() - ?"
+      )
+      .get(ip, RATE_LIMIT_WINDOW);
+    return row?.n ?? 0;
+  },
+  isLimited: (ip: string): boolean => loginAttempts.count(ip) >= RATE_LIMIT_MAX,
 };
 
 export const oauthSessionStore = {
