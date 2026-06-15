@@ -16,8 +16,10 @@ function getDb(): Database.Database {
     fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
     global.__db = new Database(DB_PATH);
     global.__db.pragma("journal_mode = WAL");
-    migrate(global.__db);
   }
+  // Always run migrations — IF NOT EXISTS makes them idempotent. This ensures
+  // new tables are applied to existing connections on HMR reload.
+  migrate(global.__db);
   return global.__db;
 }
 
