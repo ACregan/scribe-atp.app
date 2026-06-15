@@ -614,19 +614,17 @@ Components that originally defined these types/utils inline (`SiteTile`, `Articl
 
 ### Content Security Policy
 
-The CSP is defined as a string array in `app/entry.server.tsx` and joined with `"; "`.
+The CSP is built per-request in `app/entry.server.tsx` using a cryptographic nonce.
 
-**Inline script** — the theme-detection script in `app/root.tsx` is static and whitelisted by SHA-256 hash rather than a per-request nonce (nonces are incompatible with caching; the script never changes at runtime). The hash constant is `THEME_SCRIPT_HASH` in `entry.server.tsx`:
+**Per-request nonce flow:**
 
-```ts
-const THEME_SCRIPT_HASH = "sha256-LY0WmDNgT2tT94lZyQ2tYxwi9P0ohZ5I8xEYNyKfi7Q=";
-```
+1. The root loader (`app/root.tsx`) generates a nonce with `randomBytes(16).toString("base64")` and returns it in loader data.
+2. `entry.server.tsx` reads it from `routerContext.staticHandlerContext.loaderData["root"]` (falls back to a fresh nonce for error pages).
+3. `buildCsp(nonce)` constructs `script-src 'self' 'nonce-${nonce}'`.
+4. `renderToPipeableStream` receives `{ nonce }` — React applies it to all Suspense streaming inline scripts.
+5. `app/root.tsx` Layout applies `nonce={nonce}` to the theme-detection `<script>`, `<Scripts>`, and `<ScrollRestoration>`.
 
-If the inline script in `root.tsx` is ever changed, recompute with:
-
-```bash
-node -e "const c=require('crypto'),s='<exact script content>';console.log(c.createHash('sha256').update(s,'utf8').digest('base64'))"
-```
+This approach is required because React 18 streaming SSR (`renderToPipeableStream`) injects dynamic inline `<script>` tags for Suspense boundary resolution (e.g. `$RC("S:0","B:0")`). These scripts have unpredictable content, so a static SHA-256 hash cannot whitelist them — a per-request nonce is the only correct solution.
 
 **`style-src 'unsafe-inline'`** is required because the Lexical editor applies text formatting as inline `style` attributes, and article HTML rendered via `dangerouslySetInnerHTML` may also contain inline styles. This is a known constraint.
 
