@@ -78,6 +78,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{if(!document.cookie.match(/(?:^|;\\s*)theme=/)){var dark=window.matchMedia('(prefers-color-scheme: dark)').matches;if(dark){document.documentElement.setAttribute('data-theme','dark');}}}catch(e){}})();`,
           }}
         />
+        {import.meta.env.PROD && (
+          <script
+            defer
+            src="https://analytics.perpetualsummer.ltd/script.js"
+            data-website-id="26af3d1e-1b9a-4d53-9d97-52d352aab090"
+          />
+        )}
       </head>
       <body>
         {children}
