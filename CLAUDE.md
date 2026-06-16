@@ -1092,11 +1092,20 @@ npx react-router typegen  # regenerate route types after adding routes
 
 ## CI / Branch discipline
 
-The GitLab CI pipeline (`.gitlab-ci.yml`) has three stages: `unit` → `e2e` → `deploy`.
+The GitLab CI pipeline (`.gitlab-ci.yml`) has four stages: `typecheck` → `unit` → `e2e` → `deploy`.
 
 - **Unit and E2E tests** run only on **merge request pipelines** (`$CI_PIPELINE_SOURCE == "merge_request_event"`). They do not run on direct pushes to `main`.
 - **Deploy** is a manual job that appears on the `main` branch pipeline after a merge.
 - **`main` is a protected branch** — direct pushes are blocked for everyone (push access level: No one). All changes must go through an MR. This makes the post-merge test run redundant and safe to omit.
+
+### Runner tags
+
+| Tag | Runner | Used by |
+|-----|--------|---------|
+| `SERVER-docker-runner` | Windows/Docker Desktop (Docker executor, faster) | typecheck, unit, e2e |
+| `playwright` | Imhotep (ARM64 Raspberry Pi, shell executor) | deploy only |
+
+The deploy job stays on `playwright` (Imhotep) deliberately — if the Windows machine is offline, deploys can still run. The typecheck/unit/e2e jobs don't need this fallback so they run on the faster Docker runner.
 
 If you need to temporarily allow a direct push (e.g. to fix CI config itself), update the branch protection via **Settings → Repository → Protected Branches** in GitLab, or via the API:
 
