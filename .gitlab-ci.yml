@@ -101,7 +101,7 @@ deploy:
     - playwright
   environment:
     name: production
-    url: https://scribe-atp.app
+    url: https://scribe-cms.app
   before_script:
     - eval $(ssh-agent -s)
     - printf '\n' >> "$SSH_DEPLOY_KEY"

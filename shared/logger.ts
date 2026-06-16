@@ -1,3 +1,3 @@
 import pino from "pino";
 
-export const logger = pino({ name: "scribe-atp" });
+export const logger = pino({ name: "scribe-cms" });
