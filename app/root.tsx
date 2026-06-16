@@ -21,7 +21,9 @@ import type { Theme } from "./services/theme.server";
 export async function loader({ request }: Route.LoaderArgs) {
   const theme = getTheme(request);
   const nonce = randomBytes(16).toString("base64");
-  return { theme, nonce };
+  const enableAnalytics =
+    process.env.NODE_ENV === "production" && process.env.E2E !== "true";
+  return { theme, nonce, enableAnalytics };
 }
 
 export function meta({}: Route.MetaArgs) {
@@ -58,7 +60,11 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const data = useRouteLoaderData<{ theme: Theme; nonce: string }>("root");
+  const data = useRouteLoaderData<{
+    theme: Theme;
+    nonce: string;
+    enableAnalytics: boolean;
+  }>("root");
   const theme = data?.theme ?? "light";
   const nonce = data?.nonce ?? "";
 
@@ -78,6 +84,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{if(!document.cookie.match(/(?:^|;\\s*)theme=/)){var dark=window.matchMedia('(prefers-color-scheme: dark)').matches;if(dark){document.documentElement.setAttribute('data-theme','dark');}}}catch(e){}})();`,
           }}
         />
+        {data?.enableAnalytics && (
+          <script
+            defer
+            src="https://analytics.perpetualsummer.ltd/script.js"
+            data-website-id="26af3d1e-1b9a-4d53-9d97-52d352aab090"
+          />
+        )}
       </head>
       <body>
         {children}
