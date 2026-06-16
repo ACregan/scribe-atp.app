@@ -1,4 +1,4 @@
-# Scribe ATP
+# Scribe CMS v5
 
 An AT Protocol-driven content management system. Authors write and store articles directly in their own [Bluesky](https://bsky.app) PDS (Personal Data Server) — the AT Protocol repository _is_ the database. No proprietary backend, no lock-in.
 
@@ -6,7 +6,7 @@ An AT Protocol-driven content management system. Authors write and store article
 
 Articles are stored as `app.scribe.article` records in the author's PDS. Sites (managed publications) are stored as `app.scribe.site` records. Because AT Protocol repositories are publicly readable without authentication, any consumer — a static site, a blog frontend, a feed — can fetch and display content directly from the PDS with no API key or intermediary.
 
-Scribe ATP provides the authoring interface: write, organise, and publish.
+Scribe CMS provides the authoring interface: write, organise, and publish.
 
 ## Features
 
@@ -70,7 +70,7 @@ SESSION_SECRET=your-32-plus-character-random-secret
 | Variable             | Required      | Purpose                                                                                                               |
 | -------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `SESSION_SECRET`     | Yes           | Signs the `__session` cookie — must be 32+ random characters. Shared with the Image Service for session verification. |
-| `PUBLIC_URL`         | Production    | Base URL e.g. `https://scribe-atp.app` — drives OAuth `client_id` and `redirect_uri`                                  |
+| `PUBLIC_URL`         | Production    | Base URL e.g. `https://scribe-cms.app` — drives OAuth `client_id` and `redirect_uri`                                  |
 | `DEV_USE_REAL_OAUTH` | Optional      | Set to `"true"` to use real Bluesky OAuth in development (requires a tunnel — see below)                              |
 | `DEV_TUNNEL_HOST`    | Optional      | Cloudflare tunnel hostname (without `https://`)                                                                       |
 | `DEV_PORT`           | Optional      | Dev server port if not 5173                                                                                           |
@@ -118,7 +118,7 @@ npx playwright test --ui      # E2E interactive UI mode
 
 ## Architecture
 
-Scribe ATP runs as two Node.js processes that share a `SESSION_SECRET`:
+Scribe CMS runs as two Node.js processes that share a `SESSION_SECRET`:
 
 ```
 Browser
@@ -217,7 +217,7 @@ GET https://{pds}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=app.scri
 
 ## Public hooks
 
-`app/hooks/` provides React hooks for reading Scribe ATP data directly from the AT Protocol — no auth, no API backend required. These are intended to be copied into consumer websites (a public blog, a read-only frontend, etc.).
+`app/hooks/` provides React hooks for reading Scribe CMS data directly from the AT Protocol — no auth, no API backend required. These are intended to be copied into consumer websites (a public blog, a read-only frontend, etc.).
 
 ### `useSite`
 

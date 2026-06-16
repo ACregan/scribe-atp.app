@@ -556,7 +556,7 @@ Use semantic tokens exclusively in CSS modules. Do not use raw palette names or 
 
 `app/services/auth.server.ts` also exports two server-only constants consumed by `client-metadata.ts`:
 
-- `PUBLIC_URL_DEFAULT` — the `"https://scribe-atp.app"` fallback string
+- `PUBLIC_URL_DEFAULT` — the `"https://scribe-cms.app"` fallback string
 - `OAUTH_METADATA_STATIC` — the stable OAuth client config fields (`grant_types`, `response_types`, etc.) shared between the `NodeOAuthClient` config and the `/client-metadata.json` response
 
 ## Shared component types and utilities

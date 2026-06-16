@@ -49,7 +49,7 @@ describe("IMAGE_URL_RE", () => {
     it.each([
       "https://example.com/image.webp",
       "https://cdn.myblog.com/splash.jpg",
-      "https://scribe-atp.app/image-storage/did/uuid/max.webp",
+      "https://scribe-cms.app/image-storage/did/uuid/max.webp",
       "HTTPS://example.com/image.jpg",
     ])("accepts '%s'", (url) => {
       expect(IMAGE_URL_RE.test(url)).toBe(true);
