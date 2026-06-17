@@ -10,6 +10,24 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.8.0] — 2026-06-16
+
+### Added
+
+- **Umami analytics** — privacy-friendly page-view tracking via self-hosted Umami instance (`analytics.perpetualsummer.ltd`); script injected only in production (suppressed in dev and E2E via a runtime loader flag); `script-src` and `connect-src` CSP directives updated to allow the analytics domain
+
+### Fixed
+
+- **Per-request CSP nonce** — replaced static SHA-256 hash with a cryptographic nonce generated per request; React 18 SSR streaming (`renderToPipeableStream`) injects dynamic inline `<script>` tags for Suspense boundary resolution whose content cannot be predicted, making a static hash unworkable; nonce is generated in the root loader and threaded through `entry.server.tsx`, `ServerRouter`, `<Scripts>`, and `<ScrollRestoration>`
+
+### Infrastructure
+
+- **CI runner migration** — typecheck, unit, and E2E jobs migrated from Imhotep (ARM64 Raspberry Pi, shell executor) to `SERVER-docker-runner` (Windows/Docker Desktop, Docker executor); CI time approximately halved from ~22 minutes to ~10 minutes; Imhotep retained for the deploy job only
+- **Domain migration** — canonical domain changed from `scribe-atp.app` to `scribe-cms.app`; nginx redirect from old domain added; PM2 `PUBLIC_URL` updated; OAuth `client_id` and `redirect_uri` now point to new domain; ADR added documenting the switch
+- **Rebrand** — package name, pino logger name, README, CI environment URL, and `CLAUDE.md` updated from `scribe-atp` to `scribe-cms` where safe to change (collection names and file paths unchanged)
+
+---
+
 ## [5.7.2] — 2026-06-15
 
 ### Security

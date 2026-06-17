@@ -109,7 +109,7 @@ deploy:
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
   script:
-    - ssh $VPS_USER@$VPS_HOST
+    - ssh $VPS_USER@$VPS_HOST "~/server/deploy.sh scribe-atp.app"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
