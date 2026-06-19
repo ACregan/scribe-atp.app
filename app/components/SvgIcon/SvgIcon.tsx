@@ -25,6 +25,8 @@ export const SvgImageList = {
   PerpetualSummerLogoAndText: "PerpetualSummerLogoAndText",
   Pin: "Pin",
   Pinned: "Pinned",
+  Plus: "Plus",
+  Cross: "Cross",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -498,6 +500,34 @@ const SvgIcon: React.FC<SVGiconProp> = ({
         </svg>
       );
 
+    case SvgImageList.Plus:
+      return (
+        <svg
+          role="image"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 -0.5 21 21"
+        >
+          <g fill="none" fillRule="evenodd" stroke="none" strokeWidth="1">
+            <g fill={fill} transform="translate(-379 -240)">
+              <g transform="translate(56 160)">
+                <path d="M344 89L344 91 334.55 91 334.55 100 332.45 100 332.45 91 323 91 323 89 332.45 89 332.45 80 334.55 80 334.55 89z"></path>
+              </g>
+            </g>
+          </g>
+        </svg>
+      );
+
+    case SvgImageList.Cross:
+      return (
+        <svg
+          role="image"
+          xmlns="http://www.w3.org/2000/svg"
+          fill={fill}
+          viewBox="0 -960 960 960"
+        >
+          <path d="M256-181.91L181.91-256l224-224-224-224L256-778.09l224 224 224-224L778.09-704l-224 224 224 224L704-181.91l-224-224-224 224z"></path>
+        </svg>
+      );
     default:
       return <p>To Err is Human</p>;
   }
