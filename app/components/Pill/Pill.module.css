@@ -24,3 +24,7 @@
 .danger {
   background: var(--action-danger);
 }
+
+.success {
+  background: var(--action-success);
+}

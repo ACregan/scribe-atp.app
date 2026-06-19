@@ -9,7 +9,7 @@ export interface ToastProps {
   content?: React.ReactNode;
   autoExpire?: boolean;
   expireTimeSeconds?: number;
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "success";
 }
 
 export interface ToastPropsWithId extends ToastProps {

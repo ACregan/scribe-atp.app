@@ -113,7 +113,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
-  logger.info({ event: "site.configure", user_did: did, rkey: siteSlug }, "site.configure");
+  logger.info(
+    { event: "site.configure", user_did: did, rkey: siteSlug },
+    "site.configure",
+  );
   return { ok: true };
 }
 
@@ -164,7 +167,7 @@ export default function ConfigureSite({
     addToast({
       heading: "Site configured",
       content: formValues.title,
-      variant: "primary",
+      variant: "success",
     });
     navigate("/sites");
   }, [actionData]);
@@ -275,7 +278,12 @@ export default function ConfigureSite({
             Cancel
           </Button>
         </Link>
-        <Button form="configure-site-form" type="submit" disabled={!isDirty}>
+        <Button
+          form="configure-site-form"
+          type="submit"
+          variant="success"
+          disabled={!isDirty}
+        >
           Save Changes
         </Button>
       </FooterPortal>

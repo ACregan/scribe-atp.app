@@ -345,6 +345,7 @@ export function ImageGrid({
                                 );
                               }}
                               aria-label="Select size variant"
+                              title="Select Size"
                             >
                               ▾
                             </button>

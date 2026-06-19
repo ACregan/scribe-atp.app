@@ -5,6 +5,7 @@ import {
   useBlocker,
   useNavigate,
   useLocation,
+  Form,
   Link,
 } from "react-router";
 import {
@@ -201,6 +202,70 @@ export async function action({ request, params }: Route.ActionArgs) {
     return redirect(`/article/list/${siteSlug}`);
   }
 
+  if (intent === "moveToDraft") {
+    const uri = formData.get("uri") as string;
+    if (!uri) return redirect(`/article/list/${siteSlug}`);
+
+    if (useRealOAuth) {
+      try {
+        const agent = await getAtpAgent(did);
+        await mutateSiteRecord(agent, did, siteSlug, (val) => {
+          let articleRef: ArticleRef | undefined;
+          const newGroups = (val.groups ?? []).map((g) => {
+            const found = g.articles.find((a) => a.uri === uri);
+            if (found) articleRef = found;
+            return { ...g, articles: g.articles.filter((a) => a.uri !== uri) };
+          });
+          if (!articleRef) return val;
+          return {
+            ...val,
+            groups: newGroups,
+            ungroupedArticles: [...(val.ungroupedArticles ?? []), articleRef],
+            updatedAt: new Date().toISOString(),
+          };
+        });
+      } catch (err) {
+        console.error("Failed to move article to drafts:", err);
+      }
+    }
+
+    return redirect(`/article/list/${siteSlug}`);
+  }
+
+  if (intent === "publishArticle") {
+    const uri = formData.get("uri") as string;
+    const groupSlug = formData.get("groupSlug") as string;
+    if (!uri || !groupSlug) return redirect(`/article/list/${siteSlug}`);
+
+    if (useRealOAuth) {
+      try {
+        const agent = await getAtpAgent(did);
+        await mutateSiteRecord(agent, did, siteSlug, (val) => {
+          const articleRef = (val.ungroupedArticles ?? []).find(
+            (a) => a.uri === uri,
+          );
+          if (!articleRef) return val;
+          return {
+            ...val,
+            ungroupedArticles: (val.ungroupedArticles ?? []).filter(
+              (a) => a.uri !== uri,
+            ),
+            groups: (val.groups ?? []).map((g) =>
+              g.slug === groupSlug
+                ? { ...g, articles: [...g.articles, articleRef] }
+                : g,
+            ),
+            updatedAt: new Date().toISOString(),
+          };
+        });
+      } catch (err) {
+        console.error("Failed to publish article:", err);
+      }
+    }
+
+    return redirect(`/article/list/${siteSlug}`);
+  }
+
   return redirect(`/article/list/${siteSlug}`);
 }
 
@@ -306,6 +371,56 @@ function CreateGroupModal({
   );
 }
 
+function PublishArticleModal({
+  article,
+  groups,
+}: {
+  article: { uri: string; title: string } | null;
+  groups: { slug: string; title: string }[];
+}) {
+  if (!article) return null;
+
+  if (groups.length === 0) {
+    return (
+      <p style={{ fontSize: "1.3rem", color: "var(--text-secondary)" }}>
+        No groups exist yet. Create a group first before publishing an article.
+      </p>
+    );
+  }
+
+  return (
+    <Form id="publish-article-form" method="post">
+      <input type="hidden" name="_intent" value="publishArticle" />
+      <input type="hidden" name="uri" value={article.uri} />
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+        <p style={{ margin: 0, fontSize: "1.3rem" }}>
+          Publish <strong>{article.title}</strong> to:
+        </p>
+        {groups.map((g) => (
+          <label
+            key={g.slug}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              fontSize: "1.3rem",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="radio"
+              name="groupSlug"
+              value={g.slug}
+              defaultChecked={groups.indexOf(g) === 0}
+            />
+            {g.title}
+          </label>
+        ))}
+      </div>
+    </Form>
+  );
+}
+
 export function HydrateFallback() {
   return <Spinner size="large" />;
 }
@@ -331,6 +446,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     close();
     if (isNewRoute) navigate(`/article/list/${site.rkey}`, { replace: true });
   }
+
+  const [publishingArticle, setPublishingArticle] = useState<{
+    uri: string;
+    title: string;
+  } | null>(null);
+  const publishModal = useModal();
 
   const { tree, setTree, isDirty, markSaved, removeGroup } = useDirtyTree(site);
   const {
@@ -361,7 +482,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     if (saveFetcher.state !== "idle" || !saveFetcher.data) return;
     if (saveFetcher.data.ok) {
       markSaved();
-      addToast({ heading: "Order saved", variant: "primary" });
+      addToast({ heading: "Order saved", variant: "success" });
       if (proceedAfterSaveRef.current) {
         proceedAfterSaveRef.current = false;
         blocker.proceed?.();
@@ -400,6 +521,14 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     formData.set("_intent", "deleteGroup");
     formData.set("rkey", slug);
     deleteFetcher.submit(formData, { method: "post" });
+  }
+
+  function handlePublishClick(uri: string) {
+    const rootGroup = tree.find((g) => g.id === "g:root");
+    const article = rootGroup?.children.find((c) => c.uri === uri);
+    if (!article) return;
+    setPublishingArticle({ uri, title: article.title });
+    publishModal.open();
   }
 
   function handleSave() {
@@ -462,9 +591,15 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                     })) as TreeArticle[]
                   }
                   isRoot={group.id === "g:root"}
-                  articleMode="site"
+                  articleMode={
+                    group.id === "g:root"
+                      ? "site-unpublished"
+                      : "site-published"
+                  }
                   urlAndPrefix={urlAndPrefix}
+                  siteName={site.title}
                   onDeleteConfirm={handleDeleteGroup}
+                  onPublishClick={handlePublishClick}
                   isDeleting={
                     isDeleting && deletingSlugRef.current === group.slug
                   }
@@ -500,13 +635,56 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       <FooterPortal>
         <Button
           type="button"
-          variant="primary"
+          variant="success"
           onClick={handleSave}
           disabled={isSaving || !isDirty}
         >
           {isSaving ? "Saving…" : "Save Order"}
         </Button>
       </FooterPortal>
+
+      <Modal
+        isOpen={publishModal.isOpen}
+        onClose={() => {
+          publishModal.close();
+          setPublishingArticle(null);
+        }}
+        title="Publish Article"
+        footer={
+          <div
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              justifyContent: "flex-end",
+            }}
+          >
+            <Button
+              variant="secondary"
+              onClick={() => {
+                publishModal.close();
+                setPublishingArticle(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="publish-article-form"
+              variant="success"
+              disabled={tree.filter((g) => g.id !== "g:root").length === 0}
+            >
+              Publish
+            </Button>
+          </div>
+        }
+      >
+        <PublishArticleModal
+          article={publishingArticle}
+          groups={tree
+            .filter((g) => g.id !== "g:root")
+            .map((g) => ({ slug: g.slug, title: g.title }))}
+        />
+      </Modal>
 
       <Modal
         isOpen={isOpen}
@@ -540,7 +718,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
               Discard & Leave
             </Button>
             <Button
-              variant="primary"
+              variant="success"
               disabled={isSaving}
               onClick={() => {
                 proceedAfterSaveRef.current = true;

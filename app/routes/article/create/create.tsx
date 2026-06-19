@@ -151,7 +151,7 @@ export default function Create({
     addToast({
       heading: actionData.devMode ? "Dev — article not saved" : "Article saved",
       content: actionData.title,
-      variant: "primary",
+      variant: actionData.devMode ? "primary" : "success",
     });
     if (!actionData.devMode) {
       const slug = actionData.uri.split("/").pop()!;
@@ -184,7 +184,12 @@ export default function Create({
       </PageContainer>
 
       <FooterPortal>
-        <Button form="create-article-form" type="submit" disabled={!canSave}>
+        <Button
+          form="create-article-form"
+          type="submit"
+          variant="success"
+          disabled={!canSave}
+        >
           Save to PDS
         </Button>
       </FooterPortal>

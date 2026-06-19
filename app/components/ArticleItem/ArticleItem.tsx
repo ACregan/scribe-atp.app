@@ -15,7 +15,10 @@ interface ArticleItemProps {
   title: string;
   createdAt: string;
   cid?: string;
-  mode?: "pds" | "site";
+  mode?: "pds" | "site" | "site-unpublished" | "site-published";
+  groupTitle?: string;
+  siteName?: string;
+  onPublishClick?: (uri: string) => void;
 }
 
 const ArticleItem: React.FC<ArticleItemProps> = ({
@@ -25,9 +28,14 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   createdAt,
   cid,
   mode = "pds",
+  groupTitle,
+  siteName,
+  onPublishClick,
 }) => {
   const deleteModal = useModal();
   const deleteFormRef = useRef<HTMLFormElement>(null);
+  const moveToDraftsModal = useModal();
+  const moveToDraftsFormRef = useRef<HTMLFormElement>(null);
 
   const {
     attributes,
@@ -54,12 +62,25 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
     deleteFormRef.current?.submit();
   };
 
-  const isSiteMode = mode === "site";
-  const deleteLabel = isSiteMode ? "Remove" : "Delete";
-  const modalTitle = isSiteMode ? "Remove Article" : "Delete Article";
-  const modalBody = isSiteMode
-    ? `Remove "${title}" from this site?`
-    : `Are you sure you want to delete "${title}"?`;
+  const handleMoveToDraftsClick = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    moveToDraftsModal.open();
+  };
+
+  const handleConfirmMoveToDrafts = () => {
+    moveToDraftsModal.close();
+    moveToDraftsFormRef.current?.submit();
+  };
+
+  const isPdsMode = mode === "pds";
+  const isUnpublishedMode = mode === "site" || mode === "site-unpublished";
+  const isPublishedMode = mode === "site-published";
+
+  const deleteLabel = isPdsMode ? "Delete" : "Remove from Site";
+  const deleteModalTitle = isPdsMode ? "Delete Article" : "Remove from Site";
+  const deleteModalBody = isPdsMode
+    ? `Are you sure you want to delete "${title}"?`
+    : `Remove "${title}" from this site?`;
 
   return (
     <>
@@ -76,63 +97,129 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
           <strong>{title}</strong>
           {createdAt && <span>{new Date(createdAt).toLocaleDateString()}</span>}
         </div>
-        {/* <div className={styles.information}>
-          <small style={{ fontFamily: "monospace" }}>{uri}</small>
-        </div> */}
         <div className={styles.buttonContainer}>
           <Link to={`/article/view/${uri.split("/").pop()}`}>
-            <Button type="button" variant="secondary">
+            <Button type="button" variant="secondary" tabIndex={-1}>
               View
             </Button>
           </Link>
           <Link to={`/article/edit/${uri.split("/").pop()}`}>
-            <Button type="button" variant="primary">
+            <Button type="button" variant="primary" tabIndex={-1}>
               Edit
             </Button>
           </Link>
-          <Form
-            ref={deleteFormRef}
-            method="post"
-            style={{ display: "inline" }}
-            onSubmit={handleDeleteClick}
-          >
-            {isSiteMode ? (
-              <>
-                <input type="hidden" name="_intent" value="removeArticle" />
-                <input type="hidden" name="uri" value={uri} />
-              </>
-            ) : (
-              <>
-                <input type="hidden" name="_intent" value="deleteArticle" />
-                <input type="hidden" name="rkey" value={uri.split("/").pop()} />
-                {cid && <input type="hidden" name="cid" value={cid} />}
-              </>
-            )}
-            <Button type="submit" variant="danger">
-              {deleteLabel}
+
+          {isUnpublishedMode && (
+            <Button
+              type="button"
+              variant="success"
+              onClick={() => onPublishClick?.(uri)}
+            >
+              Publish
             </Button>
-          </Form>
+          )}
+
+          {(isPdsMode || isUnpublishedMode) && (
+            <Form
+              ref={deleteFormRef}
+              method="post"
+              style={{ display: "inline" }}
+              onSubmit={handleDeleteClick}
+            >
+              {isUnpublishedMode ? (
+                <>
+                  <input type="hidden" name="_intent" value="removeArticle" />
+                  <input type="hidden" name="uri" value={uri} />
+                </>
+              ) : (
+                <>
+                  <input type="hidden" name="_intent" value="deleteArticle" />
+                  <input
+                    type="hidden"
+                    name="rkey"
+                    value={uri.split("/").pop()}
+                  />
+                  {cid && <input type="hidden" name="cid" value={cid} />}
+                </>
+              )}
+              <Button type="submit" variant="danger">
+                {deleteLabel}
+              </Button>
+            </Form>
+          )}
+
+          {isPublishedMode && (
+            <Form
+              ref={moveToDraftsFormRef}
+              method="post"
+              style={{ display: "inline" }}
+              onSubmit={handleMoveToDraftsClick}
+            >
+              <input type="hidden" name="_intent" value="moveToDraft" />
+              <input type="hidden" name="uri" value={uri} />
+              <Button type="submit" variant="danger">
+                Move to Drafts
+              </Button>
+            </Form>
+          )}
         </div>
       </li>
-      <Modal
-        isOpen={deleteModal.isOpen}
-        onClose={deleteModal.close}
-        title={modalTitle}
-        footer={
-          <div
-            style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
-          >
-            <Button onClick={deleteModal.close} variant="secondary">
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmDelete} variant="danger">
-              {deleteLabel}
-            </Button>
-          </div>
-        }
-      >
-        <p>{modalBody}</p>
-      </Modal>
+
+      {(isPdsMode || isUnpublishedMode) && (
+        <Modal
+          isOpen={deleteModal.isOpen}
+          onClose={deleteModal.close}
+          title={deleteModalTitle}
+          footer={
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Button onClick={deleteModal.close} variant="secondary">
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmDelete} variant="danger">
+                {deleteLabel}
+              </Button>
+            </div>
+          }
+        >
+          <p>{deleteModalBody}</p>
+        </Modal>
+      )}
+
+      {isPublishedMode && (
+        <Modal
+          isOpen={moveToDraftsModal.isOpen}
+          onClose={moveToDraftsModal.close}
+          title="Move to Drafts"
+          footer={
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Button onClick={moveToDraftsModal.close} variant="secondary">
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmMoveToDrafts} variant="success">
+                Confirm
+              </Button>
+            </div>
+          }
+        >
+          <p>
+            This article will no longer be published on{" "}
+            <strong>{siteName}</strong> under the <strong>{groupTitle}</strong>{" "}
+            group. Are you sure you want to proceed?
+          </p>
+        </Modal>
+      )}
     </>
   );
 };

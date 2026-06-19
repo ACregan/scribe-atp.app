@@ -101,6 +101,13 @@ PUBLIC_URL="https://your-tunnel-id.trycloudflare.com"
 
 Access the app through the tunnel URL. The tunnel URL changes on every restart.
 
+Dont forget to start the image-service `npm run dev:image-service` to be able to run a local instance of the image service. This has a path in the .env file too:
+
+```env
+# Proxy image-service in local dev
+IMAGE_STORAGE_ROOT='/home/c0un7z3r0/DEV/image-service-local-scribe'
+```
+
 ## Commands
 
 ```bash

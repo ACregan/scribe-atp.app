@@ -2,7 +2,7 @@ import styles from "./Button.module.css";
 import SvgIcon, { type SvgImageListTypes } from "~/components/SvgIcon/SvgIcon";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "success";
   icon?: SvgImageListTypes;
 };
 

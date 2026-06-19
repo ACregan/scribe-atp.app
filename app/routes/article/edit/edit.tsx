@@ -91,7 +91,14 @@ export async function action({ request, params }: Route.ActionArgs) {
     const { agent, did } = await requireAtpAgent(request);
     const result = await updateArticle(agent, did, {
       oldRkey,
-      fields: { title, content, url: newUrl, splashImageUrl, synopsis, createdAt },
+      fields: {
+        title,
+        content,
+        url: newUrl,
+        splashImageUrl,
+        synopsis,
+        createdAt,
+      },
       cid,
       oldSiteRkeys,
       newSiteRkeys,
@@ -176,7 +183,7 @@ export default function EditArticle({
     addToast({
       heading: "Article saved",
       content: actionData.title,
-      variant: "primary",
+      variant: "success",
     });
     if (actionData.newSlug) {
       navigate(`/article/edit/${actionData.newSlug}`, { replace: true });
@@ -222,6 +229,7 @@ export default function EditArticle({
         <Button
           form="edit-article-form"
           type="submit"
+          variant="success"
           disabled={!isDirty || !canSave}
         >
           {isDirty ? "Save Changes" : "No Changes"}

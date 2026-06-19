@@ -172,7 +172,7 @@ function CreateGroupModal({
       addToast({
         heading: "Group created",
         content: title,
-        variant: "primary",
+        variant: "success",
       });
       onCloseRef.current();
     }

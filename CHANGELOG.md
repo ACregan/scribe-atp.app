@@ -10,6 +10,17 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.9.0] — 2026-06-19
+
+### Added
+
+- **Publish/draft workflow** — articles on `/article/list/:siteSlug` now have explicit Publish and Move to Drafts actions alongside drag-and-drop reordering; the "Ungrouped Articles" root section is renamed "Unpublished Articles" to clarify draft status; Publish opens a group-picker modal so the author can choose where to place the article; Move to Drafts shows a confirmation modal naming the source site and group; backed by new `publishArticle` and `moveToDraft` server actions on the site-list route
+- **Success (`"success"`) variant** — new green variant added to `Button`, `Pill`, `Toast`, and `TooltipBubble`; backed by `--action-success` and `--toast-success-background-colour` semantic tokens (both map to the existing `--salem` palette colour); all save/submit/confirm buttons and positive-completion toasts updated to use the new variant (`"Article saved"`, `"Site configured"`, `"Group created"`, `"Order saved"`, etc.)
+- **Toast slide transitions** — toasts now slide in from the right on mount and slide out on dismiss; `ToastContainer` adds `overflow: hidden` to prevent scrollbar jank during transitions
+- **`TextArrayInput` component** (`app/components/TextArrayInput/`) — reusable controlled input for managing a list of string values; add/remove entries via keyboard or button; salvaged and integrated into the design system
+
+---
+
 ## [5.8.0] — 2026-06-16
 
 ### Added
