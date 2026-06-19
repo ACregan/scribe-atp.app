@@ -151,12 +151,8 @@ export function Select(props: SelectProps) {
       <select
         id={id}
         name={name}
-        {...(props.value !== undefined
-          ? {
-              value: props.value,
-              onChange: (e) => props.onChange?.(e.target.value),
-            }
-          : {})}
+        {...(props.value !== undefined ? { value: props.value } : {})}
+        onChange={(e) => props.onChange?.(e.target.value)}
         className={`${styles.select}${error ? ` ${styles.selectError}` : ""}`}
       >
         <option value="" disabled>

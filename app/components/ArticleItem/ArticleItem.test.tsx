@@ -82,6 +82,10 @@ vi.mock("../IconBadge/IconBadge", () => ({
   IconBadge: () => <div data-testid="icon-badge" />,
 }));
 
+vi.mock("../OverflowMenu/OverflowMenu", () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 // Mock SvgIcon
 vi.mock("../SvgIcon/SvgIcon", () => ({
   default: ({ name }: { name: string }) => (
