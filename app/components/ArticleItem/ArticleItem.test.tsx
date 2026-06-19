@@ -256,7 +256,7 @@ describe("ArticleItem", () => {
 
       render(<ArticleItem {...defaultProps} mode="site" />);
       const dialog = screen.getByRole("dialog");
-      expect(dialog).toHaveTextContent("Remove Article");
+      expect(dialog).toHaveTextContent("Remove from Site");
       expect(dialog).toHaveTextContent(
         `Remove "${defaultProps.title}" from this site?`,
       );

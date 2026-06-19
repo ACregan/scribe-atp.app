@@ -48,24 +48,39 @@ describe("Toast", () => {
   it("renders no content section when content is omitted", () => {
     const { container } = render(<Toast {...baseProps} />);
     // Only the header container div should be present, no toastContent div
-    expect(container.querySelector("[class*='toastContent']")).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[class*='toastContent']"),
+    ).not.toBeInTheDocument();
   });
 
   it("calls removeToast with the id when the close button is clicked", () => {
     const removeToast = vi.fn();
-    render(<Toast {...baseProps} removeToast={removeToast} />);
+    const { container } = render(
+      <Toast {...baseProps} removeToast={removeToast} />,
+    );
     fireEvent.click(screen.getByRole("button"));
+    // removeToast fires after the slide-out CSS transition completes
+    fireEvent.transitionEnd(container.firstElementChild!);
     expect(removeToast).toHaveBeenCalledWith("toast-1");
   });
 
   it("auto-removes after expireTimeSeconds when autoExpire is true", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const removeToast = vi.fn();
-    render(<Toast {...baseProps} removeToast={removeToast} autoExpire expireTimeSeconds={3} />);
+    const { container } = render(
+      <Toast
+        {...baseProps}
+        removeToast={removeToast}
+        autoExpire
+        expireTimeSeconds={3}
+      />,
+    );
     expect(removeToast).not.toHaveBeenCalled();
     act(() => {
       vi.advanceTimersByTime(3000);
     });
+    // removeToast fires after the slide-out CSS transition completes
+    fireEvent.transitionEnd(container.firstElementChild!);
     expect(removeToast).toHaveBeenCalledWith("toast-1");
     vi.useRealTimers();
   });
@@ -73,7 +88,9 @@ describe("Toast", () => {
   it("does not auto-remove when autoExpire is false", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const removeToast = vi.fn();
-    render(<Toast {...baseProps} removeToast={removeToast} autoExpire={false} />);
+    render(
+      <Toast {...baseProps} removeToast={removeToast} autoExpire={false} />,
+    );
     act(() => {
       vi.advanceTimersByTime(10000);
     });
@@ -93,7 +110,9 @@ describe("Toast", () => {
 
   it("applies the secondary variant class when variant='secondary'", () => {
     const { container } = render(<Toast {...baseProps} variant="secondary" />);
-    expect(container.firstElementChild?.className).toContain("secondaryVariant");
+    expect(container.firstElementChild?.className).toContain(
+      "secondaryVariant",
+    );
   });
 });
 

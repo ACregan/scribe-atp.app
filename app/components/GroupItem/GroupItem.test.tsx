@@ -159,7 +159,7 @@ describe("GroupItem", () => {
   describe("root mode (isRoot=true)", () => {
     it("renders Ungrouped Articles heading", () => {
       render(<GroupItem {...defaultProps} isRoot />);
-      expect(screen.getByText("Ungrouped Articles")).toBeInTheDocument();
+      expect(screen.getByText("Unpublished Articles")).toBeInTheDocument();
     });
 
     it("renders Groups heading", () => {
@@ -270,9 +270,9 @@ describe("GroupItem", () => {
   describe("hidden form inputs", () => {
     it("has deleteGroup intent", () => {
       render(<GroupItem {...defaultProps} />);
-      expect(
-        document.querySelector('input[name="_intent"]'),
-      ).toHaveValue("deleteGroup");
+      expect(document.querySelector('input[name="_intent"]')).toHaveValue(
+        "deleteGroup",
+      );
     });
 
     it("has rkey set to the slug", () => {
@@ -291,7 +291,9 @@ describe("GroupItem", () => {
 
     it("omits cid input when cid is not provided", () => {
       render(<GroupItem {...defaultProps} />);
-      expect(document.querySelector('input[name="cid"]')).not.toBeInTheDocument();
+      expect(
+        document.querySelector('input[name="cid"]'),
+      ).not.toBeInTheDocument();
     });
   });
 
