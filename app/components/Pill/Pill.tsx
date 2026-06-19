@@ -2,7 +2,7 @@ import styles from "./Pill.module.css";
 
 type PillProps = {
   children: React.ReactNode;
-  variant?: "default" | "primary" | "secondary" | "danger";
+  variant?: "default" | "primary" | "secondary" | "danger" | "success";
   className?: string;
 };
 

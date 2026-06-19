@@ -40,6 +40,12 @@
   color: var(--white, #fff);
 }
 
+.success {
+  background: var(--action-success);
+  border: 0.2rem solid var(--action-success);
+  color: var(--white, #fff);
+}
+
 .icon {
   display: inline-flex;
   width: 1.6rem;

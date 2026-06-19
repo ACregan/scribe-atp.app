@@ -75,7 +75,7 @@ const Tooltip: React.FC<TooltipProps> = ({
 interface TooltipBubbleProps {
   children: ReactNode;
   pointerLocation: AnchorPositionTypes;
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "success";
 }
 
 export const TooltipBubble: React.FC<TooltipBubbleProps> = ({
@@ -99,6 +99,7 @@ export const TooltipBubble: React.FC<TooltipBubbleProps> = ({
     primaryVariant: variant === "primary",
     secondaryVariant: variant === "secondary",
     dangerVariant: variant === "danger",
+    successVariant: variant === "success",
   });
   return <div className={pointerClasses}>{children}</div>;
 };

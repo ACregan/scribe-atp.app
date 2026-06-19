@@ -33,6 +33,7 @@
   /* Actions / brand */
   --action-primary: var(--blue-ribbon);
   --action-danger: var(--cinnabar);
+  --action-success: var(--salem);
 
   /* -=-=-=- COMPONENT SPECIFIC =-=-=- */
 
@@ -98,6 +99,7 @@
   --toast-secondary-background-colour: var(--white);
   --toast-secondary-text-colour: var(--blue-ribbon);
   --toast-danger-background-color: var(--cinnabar);
+  --toast-success-background-colour: var(--salem);
 
   /* ImagePreviewModal */
   --variant-button-border-color: var(--border-color);

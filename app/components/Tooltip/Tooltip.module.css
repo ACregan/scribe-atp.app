@@ -1,6 +1,7 @@
 /* Variables */
 :root {
   --danger-background-colour: var(--cinnabar);
+  --success-background-colour: var(--salem);
   --secondary-background-colour: var(--white);
   --secondary-text-colour: var(--blue-ribbon);
 }
@@ -182,6 +183,36 @@
 }
 .tooltipBubble.bottomRight.dangerVariant:after {
   border-top-color: var(--secondary-background-colour);
+}
+
+/* tooltipBubble SUCCESS VARIANT */
+.tooltipBubble.successVariant {
+  background: var(--success-background-colour);
+  color: var(--white);
+}
+.tooltipBubble.top.successVariant:after {
+  border-bottom-color: var(--success-background-colour);
+}
+.tooltipBubble.right.successVariant:after {
+  border-left-color: var(--success-background-colour);
+}
+.tooltipBubble.bottom.successVariant:after {
+  border-top-color: var(--success-background-colour);
+}
+.tooltipBubble.left.successVariant:after {
+  border-right-color: var(--success-background-colour);
+}
+.tooltipBubble.topRight.successVariant:after {
+  border-bottom-color: var(--success-background-colour);
+}
+.tooltipBubble.topLeft.successVariant:after {
+  border-bottom-color: var(--success-background-colour);
+}
+.tooltipBubble.bottomLeft.successVariant:after {
+  border-top-color: var(--success-background-colour);
+}
+.tooltipBubble.bottomRight.successVariant:after {
+  border-top-color: var(--success-background-colour);
 }
 
 /* tooltipBubble DANGER VARIANT */

@@ -69,6 +69,7 @@ const Toast: React.FC<ToastPropsWithId> = ({
     primaryVariant: variant === "primary",
     secondaryVariant: variant === "secondary",
     dangerVariant: variant === "danger",
+    successVariant: variant === "success",
   });
 
   // Slide in on mount
@@ -125,6 +126,10 @@ const Toast: React.FC<ToastPropsWithId> = ({
     },
     danger: {
       trackColour: "var(--cinnabar)",
+      progressColour: "var(--white)",
+    },
+    success: {
+      trackColour: "var(--salem)",
       progressColour: "var(--white)",
     },
   };

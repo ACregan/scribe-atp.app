@@ -1,8 +1,8 @@
 .toastContainer {
   position: absolute;
-  bottom: 0;
+  bottom: 6rem;
   right: 0;
-  padding: 0 3rem 6rem 0;
+  padding: 0 3rem 0 0;
   width: 26rem;
   overflow: hidden;
 }
@@ -26,6 +26,9 @@
 }
 .toast.dangerVariant {
   background: var(--toast-danger-background-color);
+}
+.toast.successVariant {
+  background: var(--toast-success-background-colour);
 }
 
 .toastHeaderContainer {
