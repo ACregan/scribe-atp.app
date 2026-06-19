@@ -28,7 +28,15 @@ type MultipleProps = BaseProps & {
 
 type SelectProps = SingleProps | MultipleProps;
 
-function MultiSelect({ id, name, label, error, options, value, onChange }: MultipleProps) {
+function MultiSelect({
+  id,
+  name,
+  label,
+  error,
+  options,
+  value,
+  onChange,
+}: MultipleProps) {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const selected = value ?? [];
@@ -36,7 +44,10 @@ function MultiSelect({ id, name, label, error, options, value, onChange }: Multi
   useEffect(() => {
     if (!isOpen) return;
     const handleOutside = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -91,14 +102,18 @@ function MultiSelect({ id, name, label, error, options, value, onChange }: Multi
             ) : (
               options.map((option) => {
                 const checked = selected.includes(option.value);
-                const inputId = id ? `${id}-${option.value}` : `${name}-${option.value}`;
+                const inputId = id
+                  ? `${id}-${option.value}`
+                  : `${name}-${option.value}`;
                 return (
                   <label key={option.value} className={styles.checkboxRow}>
                     <input
                       type="checkbox"
                       id={inputId}
                       checked={checked}
-                      onChange={(e) => handleChange(option.value, e.target.checked)}
+                      onChange={(e) =>
+                        handleChange(option.value, e.target.checked)
+                      }
                       className={styles.checkbox}
                     />
                     {option.label}
@@ -136,8 +151,12 @@ export function Select(props: SelectProps) {
       <select
         id={id}
         name={name}
-        value={props.value ?? ""}
-        onChange={(e) => props.onChange?.(e.target.value)}
+        {...(props.value !== undefined
+          ? {
+              value: props.value,
+              onChange: (e) => props.onChange?.(e.target.value),
+            }
+          : {})}
         className={`${styles.select}${error ? ` ${styles.selectError}` : ""}`}
       >
         <option value="" disabled>

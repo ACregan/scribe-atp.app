@@ -40,6 +40,7 @@ import { useState, useRef, useEffect } from "react";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
+import { Select } from "~/components/Select/Select";
 import { SITE_COLLECTION, SLUG_RE } from "~/constants";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
@@ -235,7 +236,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "publishArticle") {
     const uri = formData.get("uri") as string;
     const groupSlug = formData.get("groupSlug") as string;
-    if (!uri || !groupSlug) return redirect(`/article/list/${siteSlug}`);
+    if (!uri || !groupSlug) return { ok: false };
 
     if (useRealOAuth) {
       try {
@@ -263,7 +264,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       }
     }
 
-    return redirect(`/article/list/${siteSlug}`);
+    return { ok: true, uri, groupSlug };
   }
 
   return redirect(`/article/list/${siteSlug}`);
@@ -396,26 +397,10 @@ function PublishArticleModal({
         <p style={{ margin: 0, fontSize: "1.3rem" }}>
           Publish <strong>{article.title}</strong> to:
         </p>
-        {groups.map((g) => (
-          <label
-            key={g.slug}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.6rem",
-              fontSize: "1.3rem",
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="radio"
-              name="groupSlug"
-              value={g.slug}
-              defaultChecked={groups.indexOf(g) === 0}
-            />
-            {g.title}
-          </label>
-        ))}
+        <Select
+          name="groupSlug"
+          options={groups.map((g) => ({ value: g.slug, label: g.title }))}
+        />
       </div>
     </Form>
   );
@@ -453,7 +438,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   } | null>(null);
   const publishModal = useModal();
 
-  const { tree, setTree, isDirty, markSaved, removeGroup } = useDirtyTree(site);
+  const { tree, setTree, isDirty, markSaved, removeGroup, moveArticleToGroup } =
+    useDirtyTree(site);
   const {
     sensors,
     activeArticle,
@@ -471,6 +457,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     deletedSlug?: string;
     error?: string;
   }>();
+  const publishFetcher = useFetcher<{
+    ok?: boolean;
+    uri?: string;
+    groupSlug?: string;
+  }>();
+  const isPublishing = publishFetcher.state !== "idle";
   const isDeleting = deleteFetcher.state !== "idle";
   const deletingSlugRef = useRef<string | null>(null);
 
@@ -497,6 +489,15 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       });
     }
   }, [saveFetcher.state, saveFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (publishFetcher.state !== "idle" || !publishFetcher.data?.ok) return;
+    const { uri, groupSlug } = publishFetcher.data;
+    if (uri && groupSlug) moveArticleToGroup(uri, groupSlug);
+    publishModal.close();
+    setPublishingArticle(null);
+    addToast({ heading: "Article published", variant: "success" });
+  }, [publishFetcher.state, publishFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
@@ -668,12 +669,21 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
               Cancel
             </Button>
             <Button
-              type="submit"
-              form="publish-article-form"
+              type="button"
               variant="success"
-              disabled={tree.filter((g) => g.id !== "g:root").length === 0}
+              disabled={
+                tree.filter((g) => g.id !== "g:root").length === 0 ||
+                isPublishing
+              }
+              onClick={() => {
+                const form = document.getElementById(
+                  "publish-article-form",
+                ) as HTMLFormElement | null;
+                if (!form) return;
+                publishFetcher.submit(new FormData(form), { method: "post" });
+              }}
             >
-              Publish
+              {isPublishing ? "Publishing…" : "Publish"}
             </Button>
           </div>
         }

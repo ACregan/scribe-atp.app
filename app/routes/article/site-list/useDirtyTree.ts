@@ -74,5 +74,44 @@ export function useDirtyTree(site: SiteManifest) {
     setSavedTree((prev) => prev.filter((g) => g.slug !== slug));
   }
 
-  return { tree, setTree, savedTree, isDirty, markSaved, removeGroup };
+  function moveArticleToGroup(uri: string, groupSlug: string) {
+    setTree((prev) => {
+      const rootGroup = prev.find((g) => g.id === "g:root");
+      const article = rootGroup?.children.find((c) => c.uri === uri);
+      if (!article) return prev;
+      return prev.map((g) => {
+        if (g.id === "g:root") {
+          return { ...g, children: g.children.filter((c) => c.uri !== uri) };
+        }
+        if (g.slug === groupSlug) {
+          return { ...g, children: [...g.children, article] };
+        }
+        return g;
+      });
+    });
+    setSavedTree((prev) => {
+      const rootGroup = prev.find((g) => g.id === "g:root");
+      const article = rootGroup?.children.find((c) => c.uri === uri);
+      if (!article) return prev;
+      return prev.map((g) => {
+        if (g.id === "g:root") {
+          return { ...g, children: g.children.filter((c) => c.uri !== uri) };
+        }
+        if (g.slug === groupSlug) {
+          return { ...g, children: [...g.children, article] };
+        }
+        return g;
+      });
+    });
+  }
+
+  return {
+    tree,
+    setTree,
+    savedTree,
+    isDirty,
+    markSaved,
+    removeGroup,
+    moveArticleToGroup,
+  };
 }
