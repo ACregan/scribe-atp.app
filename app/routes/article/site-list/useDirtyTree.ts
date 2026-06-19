@@ -54,12 +54,12 @@ export function useDirtyTree(site: SiteManifest) {
       addToast({
         heading: "Group created",
         content: newGroups[0].title,
-        variant: "primary",
+        variant: "success",
       });
     } else {
       addToast({
         heading: `${newGroups.length} groups added`,
-        variant: "primary",
+        variant: "success",
       });
     }
   }, [site.groups]); // eslint-disable-line react-hooks/exhaustive-deps

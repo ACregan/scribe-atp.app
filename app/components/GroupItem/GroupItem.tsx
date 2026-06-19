@@ -28,9 +28,11 @@ interface GroupItemProps {
   slug: string;
   articleChildren: TreeArticle[];
   isRoot?: boolean;
-  articleMode?: "pds" | "site";
+  articleMode?: "pds" | "site" | "site-unpublished" | "site-published";
   urlAndPrefix?: string;
+  siteName?: string;
   onDeleteConfirm?: (slug: string) => void;
+  onPublishClick?: (uri: string) => void;
   isDeleting?: boolean;
 }
 
@@ -44,7 +46,9 @@ const GroupItem: React.FC<GroupItemProps> = ({
   isRoot = false,
   articleMode = "pds",
   urlAndPrefix,
+  siteName,
   onDeleteConfirm,
+  onPublishClick,
   isDeleting = false,
 }) => {
   const {
@@ -89,7 +93,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
       <>
         <li ref={setSortableRef} className={styles.groupItem_root}>
           <div className={styles.titleContainer_root}>
-            <strong className={styles.title}>Ungrouped Articles</strong>
+            <strong className={styles.title}>Unpublished Articles</strong>
           </div>
           <div className={styles.groupArticlesContainer}>
             <SortableContext
@@ -108,6 +112,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
                     title={article.title}
                     createdAt={article.createdAt}
                     mode={articleMode}
+                    siteName={siteName}
+                    onPublishClick={onPublishClick}
                   />
                 ))}
                 {articleChildren.length === 0 && (
@@ -211,6 +217,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   title={article.title}
                   createdAt={article.createdAt}
                   mode={articleMode}
+                  groupTitle={title}
+                  siteName={siteName}
                 />
               ))}
               {articleChildren.length === 0 && (
