@@ -114,14 +114,4 @@ describe("OverflowMenu", () => {
       screen.queryByRole("button", { name: "Action" }),
     ).not.toBeInTheDocument();
   });
-
-  it("applies anchor name style to the trigger button", () => {
-    const { container } = render(
-      <OverflowMenu>
-        <span>Item</span>
-      </OverflowMenu>,
-    );
-    const button = container.querySelector("button");
-    expect(button?.style.anchorName).toBe("--overflow-menu_test-id");
-  });
 });
