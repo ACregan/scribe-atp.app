@@ -61,12 +61,27 @@ const Toast: React.FC<ToastPropsWithId> = ({
   expireTimeSeconds = 5,
   variant = "primary",
 }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
   const toastClasses = cx({
     toast: true,
+    visible: isVisible,
     primaryVariant: variant === "primary",
     secondaryVariant: variant === "secondary",
     dangerVariant: variant === "danger",
   });
+
+  // Slide in on mount
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  const handleClose = () => setIsVisible(false);
+
+  // Once transition ends on the way out, remove from DOM
+  const handleTransitionEnd = () => {
+    if (!isVisible) removeToast(id);
+  };
 
   const [pct, setPct] = useState(100);
   const rafRef = useRef<number | null>(null);
@@ -89,12 +104,12 @@ const Toast: React.FC<ToastPropsWithId> = ({
     };
   }, [id, autoExpire, expireTimeSeconds]);
 
-  // Remove the toast once the timer expires
+  // Trigger slide-out once the timer expires (DOM removal happens in onTransitionEnd)
   useEffect(() => {
     if (!autoExpire) return;
-    const timer = setTimeout(() => removeToast(id), expireTimeSeconds * 1000);
+    const timer = setTimeout(handleClose, expireTimeSeconds * 1000);
     return () => clearTimeout(timer);
-  }, [id, autoExpire, expireTimeSeconds, removeToast]);
+  }, [id, autoExpire, expireTimeSeconds]);
 
   const { theme } = useTheme();
   const isDarkMode = theme === "dark";
@@ -115,7 +130,7 @@ const Toast: React.FC<ToastPropsWithId> = ({
   };
 
   return (
-    <div className={toastClasses}>
+    <div className={toastClasses} onTransitionEnd={handleTransitionEnd}>
       <div className={styles.toastHeaderContainer}>
         <span className={styles.toastHeader}>{heading}</span>
         <div className={styles.closeButtonContainer}>
@@ -124,7 +139,7 @@ const Toast: React.FC<ToastPropsWithId> = ({
           )}
           <button
             type="button"
-            onClick={() => removeToast(id)}
+            onClick={handleClose}
             className={styles.closeButton}
           >
             <SvgIcon name={SvgImageList.Close} fill="white" />
