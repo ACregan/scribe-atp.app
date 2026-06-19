@@ -8,6 +8,7 @@ import { useModal } from "../Modal/useModal";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconBadge } from "../IconBadge/IconBadge";
+import OverflowMenu from "../OverflowMenu/OverflowMenu";
 
 interface ArticleItemProps {
   id: string;
@@ -76,7 +77,6 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   const isUnpublishedMode = mode === "site" || mode === "site-unpublished";
   const isPublishedMode = mode === "site-published";
 
-  const deleteLabel = isPdsMode ? "Delete" : "Remove from Site";
   const deleteModalTitle = isPdsMode ? "Delete Article" : "Remove from Site";
   const deleteModalBody = isPdsMode
     ? `Are you sure you want to delete "${title}"?`
@@ -119,33 +119,42 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </Button>
           )}
 
-          {(isPdsMode || isUnpublishedMode) && (
+          {isPdsMode && (
             <Form
               ref={deleteFormRef}
               method="post"
               style={{ display: "inline" }}
               onSubmit={handleDeleteClick}
             >
-              {isUnpublishedMode ? (
-                <>
-                  <input type="hidden" name="_intent" value="removeArticle" />
-                  <input type="hidden" name="uri" value={uri} />
-                </>
-              ) : (
-                <>
-                  <input type="hidden" name="_intent" value="deleteArticle" />
-                  <input
-                    type="hidden"
-                    name="rkey"
-                    value={uri.split("/").pop()}
-                  />
-                  {cid && <input type="hidden" name="cid" value={cid} />}
-                </>
-              )}
+              <input type="hidden" name="_intent" value="deleteArticle" />
+              <input type="hidden" name="rkey" value={uri.split("/").pop()} />
+              {cid && <input type="hidden" name="cid" value={cid} />}
               <Button type="submit" variant="danger">
-                {deleteLabel}
+                Delete
               </Button>
             </Form>
+          )}
+
+          {isUnpublishedMode && (
+            <>
+              <Form
+                ref={deleteFormRef}
+                method="post"
+                style={{ display: "none" }}
+              >
+                <input type="hidden" name="_intent" value="removeArticle" />
+                <input type="hidden" name="uri" value={uri} />
+              </Form>
+              <OverflowMenu>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={deleteModal.open}
+                >
+                  Remove from Site
+                </Button>
+              </OverflowMenu>
+            </>
           )}
 
           {isPublishedMode && (
@@ -182,7 +191,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
                 Cancel
               </Button>
               <Button onClick={handleConfirmDelete} variant="danger">
-                {deleteLabel}
+                {isPdsMode ? "Delete" : "Remove from Site"}
               </Button>
             </div>
           }
