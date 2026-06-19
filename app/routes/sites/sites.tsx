@@ -128,7 +128,10 @@ export async function action({ request }: Route.ActionArgs) {
       }
     }
 
-    logger.info({ event: "site.create", user_did: did, rkey, url }, "site.create");
+    logger.info(
+      { event: "site.create", user_did: did, rkey, url },
+      "site.create",
+    );
     return { ok: true };
   }
 
@@ -202,7 +205,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     if (!createFetcher.data?.ok) return;
     handleCloseAddModal();
-    addToast({ heading: "Site created", variant: "primary" });
+    addToast({ heading: "Site created", variant: "success" });
   }, [createFetcher.data]);
 
   useEffect(() => {
