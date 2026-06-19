@@ -203,7 +203,10 @@ export async function action({ request }: Route.ActionArgs) {
       } while (cursor);
     }
 
-    logger.warn({ event: "article.nuke", user_did: did, deleted_count: deleted }, "article.nuke");
+    logger.warn(
+      { event: "article.nuke", user_did: did, deleted_count: deleted },
+      "article.nuke",
+    );
     return { ok: true, deleted, devMode: false };
   } catch (err) {
     return { error: `Nuke failed: ${String(err)}` };
@@ -556,6 +559,19 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 >
                   Add Danger Toast
                 </Button>
+                <Button
+                  onClick={() =>
+                    addToast({
+                      heading: "Success! This toast expires in 10 seconds.",
+                      content: "This is a success toast.",
+                      variant: "success",
+                      expireTimeSeconds: 10,
+                    })
+                  }
+                  variant="success"
+                >
+                  Add Success Toast
+                </Button>
               </div>
               <div className={styles.devToastButtons}>
                 <Button
@@ -596,6 +612,19 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   variant="danger"
                 >
                   Danger Persisting Toast
+                </Button>
+                <Button
+                  onClick={() =>
+                    addToast({
+                      heading: "Success Persisting Toast Message",
+                      content: "This success toast will not expire.",
+                      variant: "success",
+                      autoExpire: false,
+                    })
+                  }
+                  variant="success"
+                >
+                  Success Persisting Toast
                 </Button>
               </div>
 
