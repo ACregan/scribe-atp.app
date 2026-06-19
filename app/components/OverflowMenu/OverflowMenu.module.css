@@ -1,0 +1,25 @@
+.overflowButton {
+  height: 3rem;
+  width: 3rem;
+  background: var(--overflow-button-background);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.overflowButton > svg {
+  fill: var(--overflow-button-fill);
+}
+.overflowMenu {
+  position: absolute;
+  /* Place the top of the popover at the bottom edge of the anchor */
+  top: anchor(bottom);
+  /* Center the popover horizontally relative to the anchor */
+  left: anchor(center);
+  transform: translate(2rem, -3rem);
+  border-radius: 1rem;
+  padding: 1rem;
+
+  background: var(--overflow-button-menu-background);
+  border: 0.2rem solid var(--overflow-button-menu-border);
+  color: black;
+}

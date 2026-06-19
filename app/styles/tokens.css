@@ -122,6 +122,12 @@
   --copy-url-button-border-color_hover: var(--action-primary);
   --copy-url-button-background-color_hover: var(--action-primary);
   /* --copy-url-button-text-color_hover: var(); */
+
+  /* OverflowMenu */
+  --overflow-button-background: var(--action-primary);
+  --overflow-button-fill: var(--white);
+  --overflow-button-menu-border: var(--silver);
+  --overflow-button-menu-background: var(--white);
 }
 
 [data-theme="dark"] {
@@ -236,4 +242,10 @@
   --copy-url-button-border-color_hover: var(--white);
   --copy-url-button-background-color_hover: var(--white);
   /* --copy-url-button-text-color_hover: var(); */
+
+  /* OverflowMenu */
+  /* --overflow-button-background: var(--action-primary); */
+  --overflow-button-fill: var(--mirage);
+  --overflow-button-menu-border: var(--mirage);
+  --overflow-button-menu-background: var(--jaguar);
 }
