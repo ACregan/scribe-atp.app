@@ -27,6 +27,7 @@ export const SvgImageList = {
   Pinned: "Pinned",
   Plus: "Plus",
   Cross: "Cross",
+  ThreeDots: "ThreeDots",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -475,6 +476,7 @@ const SvgIcon: React.FC<SVGiconProp> = ({
     case SvgImageList.Pin:
       return (
         <svg
+          role="image"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 512 512"
           fill={fill}
@@ -489,6 +491,7 @@ const SvgIcon: React.FC<SVGiconProp> = ({
     case SvgImageList.Pinned:
       return (
         <svg
+          role="image"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 512 512"
           fill={fill}
@@ -528,6 +531,14 @@ const SvgIcon: React.FC<SVGiconProp> = ({
           <path d="M256-181.91L181.91-256l224-224-224-224L256-778.09l224 224 224-224L778.09-704l-224 224 224 224L704-181.91l-224-224-224 224z"></path>
         </svg>
       );
+
+    case SvgImageList.ThreeDots:
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill={fill}>
+          <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"></path>
+        </svg>
+      );
+
     default:
       return <p>To Err is Human</p>;
   }

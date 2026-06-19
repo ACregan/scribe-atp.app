@@ -25,6 +25,7 @@ import {
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { logger } from "~/services/logger.server";
+import OverflowMenu from "~/components/OverflowMenu/OverflowMenu";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -416,6 +417,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   Image Library
                 </Button>
               </Link>
+
+              <OverflowMenu>MENU STUFF</OverflowMenu>
             </div>
             {isDev && (
               <Button
