@@ -118,7 +118,7 @@ export async function action({ request }: Route.ActionArgs) {
             ...(logoImageUrl && { logoImageUrl }),
             contributors: [],
             groups: [],
-            articles: [],
+            ungroupedArticles: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
