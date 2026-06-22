@@ -51,18 +51,14 @@
   justify-content: center;
 }
 .landingLogo {
-  font-size: 10rem;
-  font-weight: 300;
-  text-decoration: underline;
-  text-decoration-thickness: 0.5rem;
-  text-underline-offset: 1rem;
+  height: 10rem;
+  margin-bottom: 2rem;
+  fill: var(--landing-page-logo-fill);
 }
-.landingLogo > strong {
-  font-weight: 800;
-}
+
 .landingTagline {
   font-size: 2.4rem;
-  color: var(--text-secondary);
+  color: var(--landing-page-tagline-color);
   margin: 0;
   text-align: left;
 }
@@ -77,6 +73,10 @@
 }
 .blurbContainer {
   position: relative;
+}
+.blurbContainer p {
+  font-weight: 400;
+  text-shadow: var(--landing-page-blurb-text-shadow);
 }
 .landingActions {
   display: flex;

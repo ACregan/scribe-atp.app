@@ -42,7 +42,7 @@ export function SiteTile({
               alt={`${site.title} logo`}
             />
           )}
-          <h2 className={styles.tileTitle}>{site.title}</h2>
+          <p className={styles.tileTitle}>{site.title}</p>
         </div>
 
         {site.description && (

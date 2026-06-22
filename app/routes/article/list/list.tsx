@@ -129,7 +129,10 @@ export async function action({ request }: Route.ActionArgs) {
     rkey,
     swapRecord: cid ?? undefined,
   });
-  logger.info({ event: "article.delete", user_did: did, rkey }, "article.delete");
+  logger.info(
+    { event: "article.delete", user_did: did, rkey },
+    "article.delete",
+  );
   return { ok: true };
 }
 
@@ -160,7 +163,10 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       }
     >
       <PageSection>
-        <h3 className={styles.sectionHeading}>Assigned Articles</h3>
+        <h6 className={styles.sectionHeading}>Assigned Articles</h6>{" "}
+        <p className={styles.sectionNote}>
+          These articles are assigned to at least one site.
+        </p>
         {assignedArticles.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No articles have been assigned to a site yet.</p>
@@ -202,7 +208,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
 
       {orphanedArticles.length > 0 && (
         <PageSection>
-          <h3 className={styles.sectionHeading}>Unassigned Articles</h3>
+          <h6 className={styles.sectionHeading}>Unassigned Articles</h6>
           <p className={styles.sectionNote}>
             These articles exist in your PDS but haven't been assigned to any
             site. Edit an article to assign it.
