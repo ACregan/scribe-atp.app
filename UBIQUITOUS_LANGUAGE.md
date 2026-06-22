@@ -13,7 +13,8 @@
 | **Article**            | A document (title, HTML content, slug, metadata) stored on the author's PDS. An Article is site-agnostic — it carries no reference to any Site or Group.           | Post, Page, Entry              |
 | **ArticleRef**         | A cached snapshot of Article metadata (all fields except content) stored inside a Site record. Allows Sites to be read without fetching each Article individually. | Article link, Article pointer  |
 | **Slug**               | A lowercase, dash-separated string that serves as both the URL path segment and the AT Protocol record key (rkey) for Articles and Groups.                         | URL, path, ID, handle          |
-| **Unassigned Article** | An Article that exists on the author's PDS but is not referenced in any Site's Groups or top-level articles list.                                                  | Orphan, Draft, Unpublished     |
+| **Draft Article**      | An Article that exists on the author's PDS but is not referenced in any Site record at all — not in any Group and not in `ungroupedArticles`. The **Draft** publication state. | Orphan |
+| **Ungrouped Article**  | An Article that is referenced in a Site's `ungroupedArticles` — assigned to a Site but not yet placed in any Group. The **Unpublished** publication state.                     | Draft, Orphan |
 
 ### Image Library
 
@@ -54,6 +55,18 @@
 - Every user has exactly one **User Image Folder** at the top level of the **Image Library**; it is created automatically on first upload.
 - A **User Image Folder** may contain images and subfolders; subfolders may only be created, deleted, or moved by the owning user.
 - Any authenticated user may browse and copy **Variant** URLs from any **User Image Folder**.
+
+## Publication States
+
+An Article moves through three publication states based on its relationship to Site records:
+
+| State | Condition | Term |
+| :---- | :-------- | :--- |
+| **Draft** | Exists on the author's PDS; not referenced in any Site record | Draft Article |
+| **Unpublished** | Referenced in a Site's `ungroupedArticles`; not in any Group | Ungrouped Article |
+| **Published** | Referenced in a Group within a Site record; has a canonical URL | — |
+
+The Site-assignment boundary (Draft → Unpublished) and the Group-membership boundary (Unpublished → Published) are both meaningful. Previously only the Group-membership boundary was documented as the publish boundary — this was an oversimplification.
 
 ## Flagged Ambiguities
 

@@ -35,7 +35,7 @@ function applySecurityHeaders(headers: Headers, nonce: string): void {
   headers.set("X-Frame-Options", "SAMEORIGIN");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  headers.set("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
   headers.set("Content-Security-Policy", buildCsp(nonce));
   if (isProduction) {
     headers.set(
