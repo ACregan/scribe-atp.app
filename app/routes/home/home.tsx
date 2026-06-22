@@ -231,9 +231,11 @@ function Landing() {
       <div className={styles.landingGrid}>
         <div className={styles.leftGutter}></div>
         <div className={styles.leftSection}>
-          <h2 className={styles.landingLogo}>
-            Scribe<strong>CMS</strong>
-          </h2>
+          <SvgIcon
+            className={styles.landingLogo}
+            name={SvgImageList.ScribeCMSLogo}
+          />
+
           <p className={styles.landingTagline}>
             AT Protocol-powered content management.
           </p>
@@ -417,8 +419,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   Image Library
                 </Button>
               </Link>
-
-              <OverflowMenu>MENU STUFF</OverflowMenu>
             </div>
             {isDev && (
               <Button

@@ -109,26 +109,27 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
         data-aside-state={asideState}
       >
         <header>
-          <div className={styles.logoContainer}>
-            <Tooltip
-              anchorName="app-version"
-              anchorPosition="right"
-              anchorContent={<span className={styles.version}>v{version}</span>}
-            >
-              <h4>
-                Scribe<span>CMS</span>
-              </h4>
-            </Tooltip>
-            <h6>
-              Powered By{" "}
-              <span>
-                <SvgIcon
-                  name={SvgImageList.ATProtoLogo}
-                  fill={"var(--text-secondary)"}
-                />
-              </span>
-            </h6>
-          </div>
+          <Tooltip
+            anchorName="app-version"
+            anchorPosition="right"
+            anchorContent={<span className={styles.version}>v{version}</span>}
+          >
+            <div className={styles.logoContainer}>
+              <SvgIcon
+                className={styles.headingLogo}
+                name={SvgImageList.ScribeCMSLogo}
+              />
+              <h6>
+                Powered By{" "}
+                <span>
+                  <SvgIcon
+                    name={SvgImageList.ATProtoLogo}
+                    fill={"var(--text-secondary)"}
+                  />
+                </span>
+              </h6>
+            </div>
+          </Tooltip>
           <div className={styles.rightAlignedItems}>
             {isAuthenticated ? (
               <div className={styles.userContainer}>

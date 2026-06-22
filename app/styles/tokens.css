@@ -37,6 +37,13 @@
 
   /* -=-=-=- COMPONENT SPECIFIC =-=-=- */
 
+  /* Landing Page */
+  --landing-page-logo-fill: var(--jacaranda);
+  --landing-page-tagline-color: var(--charcoal);
+  --landing-page-blurb-text-shadow:
+    0 0 1rem rgba(255, 255, 255, 1), 0 0 1rem rgba(255, 255, 255, 1),
+    0 0 0.3rem rgba(255, 255, 255, 1), 0 0 0.3rem rgba(255, 255, 255, 1);
+
   /* Home.tsx */
   --home-video-filters: none;
   --home-pslogo-fill: var(--mine-shaft);
@@ -160,6 +167,13 @@
   --action-danger: var(--cinnabar);
 
   /* -=-=-=- COMPONENT SPECIFIC =-=-=- */
+
+  /* Landing Page */
+  --landing-page-logo-fill: var(--white);
+  --landing-page-tagline-color: var(--alto);
+  --landing-page-blurb-text-shadow:
+    0 0 1rem rgba(0, 0, 0, 1), 0 0 1rem rgba(0, 0, 0, 1),
+    0 0 0.3rem rgba(0, 0, 0, 1), 0 0 0.3rem rgba(0, 0, 0, 1);
 
   /* Home.tsx */
   --home-video-filters: sepia(100%) hue-rotate(344deg) brightness(1) invert(1);

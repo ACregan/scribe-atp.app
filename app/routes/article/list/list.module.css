@@ -3,13 +3,13 @@
 .sectionHeading {
   font-size: 2.6rem;
   font-weight: 600;
-  margin: 0 0 0.8rem;
+  margin: 0 0 0.3rem;
 }
 
 .sectionNote {
   font-size: 1.3rem;
   color: var(--text-secondary);
-  margin: 0 0 1.2rem;
+  margin: 0;
 }
 
 .articleList {

@@ -46,13 +46,12 @@
   border-bottom: 0.1rem solid var(--border-color);
 }
 /* ScribeCMS LOGO */
-.logoContainer > h4 {
-  font-size: 3.8rem;
-  font-weight: 300;
-  margin: 0;
-}
-.logoContainer > h4 > span {
-  font-weight: 800;
+.headingLogo {
+  display: flex;
+  height: 3rem;
+  width: 19rem;
+  margin-bottom: 0.5rem;
+  fill: var(--landing-page-logo-fill);
 }
 .logoContainer > h6 {
   font-size: 1.4rem;
@@ -60,16 +59,18 @@
   margin: 0;
   display: flex;
   align-items: center;
+  user-select: none;
 }
 .logoContainer > h6 > span > svg {
+  /* ATProto logo svg*/
   height: 1.6rem;
   margin-left: 1rem;
 }
 
-.logoContainer .version {
+.version {
   font-size: 1.2rem;
   padding: 0 0.5rem;
-  transform: translateY(-1rem);
+  transform: translateY(-2rem);
   display: flex;
   color: var(--text-secondary);
 }
@@ -101,6 +102,7 @@
   font-size: 1.6rem;
   margin-right: 1rem;
   font-weight: 600;
+  letter-spacing: -0.05rem;
 }
 .userProfile > .userName > span.handle {
   font-size: 1.1rem;

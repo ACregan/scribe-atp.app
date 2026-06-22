@@ -62,12 +62,17 @@ interface SpeechRecognitionEvent extends Event {
   readonly results: SpeechRecognitionResultList;
 }
 
+interface SpeechRecognitionErrorEvent extends Event {
+  readonly error: string;
+  readonly message: string;
+}
+
 interface SpeechRecognitionInstance extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
   onresult: ((e: SpeechRecognitionEvent) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
   start(): void;
   stop(): void;
 }
@@ -556,7 +561,15 @@ export function EditorToolbar({
       });
     };
     rec.onend = () => setIsSpeechActive(false);
-    rec.onerror = () => setIsSpeechActive(false);
+    rec.onerror = (e: SpeechRecognitionErrorEvent) => {
+      setIsSpeechActive(false);
+      console.error("[SpeechRecognition] error:", e.error, e.message);
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        alert(
+          "Microphone access was denied.\n\nTo fix this, open your browser's site settings for this page and set Microphone to \"Allow\", then try again.",
+        );
+      }
+    };
     rec.start();
     recognitionRef.current = rec;
     setIsSpeechActive(true);
