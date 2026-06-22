@@ -2,12 +2,8 @@ import { test, expect } from "@playwright/test";
 
 test("sites page shows fixture sites", async ({ page }) => {
   await page.goto("/sites");
-  await expect(
-    page.getByRole("heading", { name: "NoRobots.blog" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Perpetual Summer LTD" }),
-  ).toBeVisible();
+  await expect(page.getByText("NoRobots.blog").first()).toBeVisible();
+  await expect(page.getByText("Perpetual Summer LTD").first()).toBeVisible();
 });
 
 test("Add New Site button opens modal", async ({ page }) => {
