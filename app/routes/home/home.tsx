@@ -252,7 +252,7 @@ function Landing() {
             </p>
             <div className={styles.landingActions}>
               <a
-                href="https://bsky.app/signup"
+                href="https://bsky.app/hashtag/Register"
                 target="_blank"
                 rel="noopener noreferrer"
               >

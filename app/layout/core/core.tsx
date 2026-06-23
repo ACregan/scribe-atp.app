@@ -1,5 +1,5 @@
 import type { Route } from "./+types/core";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router";
 import { getAuthSession, useRealOAuth } from "~/services/auth.server";
 import { getTheme } from "~/services/theme.server";
@@ -72,6 +72,19 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
+interface HeaderButtonProps {
+  url: string;
+  children: React.ReactNode;
+}
+
+const HeaderButton: React.FC<HeaderButtonProps> = ({ url, children }) => {
+  return (
+    <Link to={url} target="_blank" className={styles.headerButtonLink}>
+      <button className={styles.headerButton}>{children}</button>
+    </Link>
+  );
+};
+
 function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
   const { isAuthenticated, displayName, avatar, handle } = loaderData;
   const location = useLocation();
@@ -108,28 +121,44 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
         className={styles.coreLayout_container}
         data-aside-state={asideState}
       >
-        <header>
-          <Tooltip
-            anchorName="app-version"
-            anchorPosition="right"
-            anchorContent={<span className={styles.version}>v{version}</span>}
-          >
-            <div className={styles.logoContainer}>
-              <SvgIcon
-                className={styles.headingLogo}
-                name={SvgImageList.ScribeCMSLogo}
-              />
-              <h6>
-                Powered By{" "}
-                <span>
-                  <SvgIcon
-                    name={SvgImageList.ATProtoLogo}
-                    fill={"var(--text-secondary)"}
-                  />
-                </span>
-              </h6>
+        <header className={styles.coreHeader}>
+          <div className={styles.leftAlignedItems}>
+            <Tooltip
+              anchorName="app-version"
+              anchorPosition="right"
+              anchorContent={<span className={styles.version}>v{version}</span>}
+            >
+              <div className={styles.logoContainer}>
+                <SvgIcon
+                  className={styles.headingLogo}
+                  name={SvgImageList.ScribeCMSLogo}
+                />
+                <h6>
+                  Powered By{" "}
+                  <span>
+                    <SvgIcon
+                      name={SvgImageList.ATProtoLogo}
+                      fill={"var(--text-secondary)"}
+                    />
+                  </span>
+                </h6>
+              </div>
+            </Tooltip>
+            <div className={styles.linkButtonContainer}>
+              <HeaderButton url={"https://docs.scribe-atp.app/"}>
+                <SvgIcon name={SvgImageList.OpenInNewTab} />
+                Docs
+              </HeaderButton>
+              <HeaderButton url={"https://reader.scribe-atp.app/"}>
+                <SvgIcon name={SvgImageList.OpenInNewTab} />
+                Reader
+              </HeaderButton>
+              <HeaderButton url={"https://www.npmjs.com/org/scribe-atp"}>
+                <SvgIcon name={SvgImageList.OpenInNewTab} />
+                SDK
+              </HeaderButton>
             </div>
-          </Tooltip>
+          </div>
           <div className={styles.rightAlignedItems}>
             {isAuthenticated ? (
               <div className={styles.userContainer}>
