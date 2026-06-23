@@ -37,6 +37,10 @@
 
   /* -=-=-=- COMPONENT SPECIFIC =-=-=- */
 
+  /* Core Layout */
+  --header-button-colour: var(--blue-ribbon);
+  --header-button-colour_hover: var(--blue-ribbon_light);
+
   /* Landing Page */
   --landing-page-logo-fill: var(--jacaranda);
   --landing-page-tagline-color: var(--charcoal);

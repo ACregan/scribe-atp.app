@@ -433,3 +433,229 @@ Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to 
 **Root cause:** `ImageResizeDecorator` renders inside a `.wrapper` div with `line-height: 0` (required to suppress whitespace below the image). The `<dialog>` element is a DOM child of `.wrapper`, so even though `showModal()` promotes it to the browser's top layer visually, CSS `line-height` is still inherited from the DOM ancestor. `line-height: 0` caused button and textarea text height to collapse to zero.
 
 **Fix:** Added `line-height: 1.5` to the `.dialog` rule in `Modal.module.css`. This resets the value at the dialog root regardless of what DOM parent it is nested under, so the `Modal` component is robust to any inherited `line-height` context.
+
+---
+
+## MIGRATION: standard.site Article Lexicon Adoption
+
+### Status: Planned — not started
+
+### Decision
+
+Migrate `app.scribe.article` records to the `site.standard.document` lexicon defined by [standard.site](https://standard.site), while retaining `app.scribe.site` unchanged.
+
+The `site.standard.document` lexicon is the emerging community standard for long-form publishing on AT Protocol, adopted by Leaflet, Pckt, Offprint, and the WordPress ATmosphere plugin. Migrating articles makes Scribe content discoverable by any aggregator or reader that speaks standard.site, with no changes to the grouping/ordering structure that `app.scribe.site` provides.
+
+`app.scribe.site` is deliberately retained because `site.standard.publication` (the standard.site equivalent) has no concept of grouping, ordering, or manifests. The entire value of the site record — named groups, article ordering, published/unpublished state — has no counterpart in the standard.site spec. Adopting standard.site for the site record would require gutting these features.
+
+### Background: how standard.site works
+
+standard.site defines two core lexicons:
+
+- **`site.standard.publication`** — a minimal site record (url, name, description, icon, theme, discovery preferences)
+- **`site.standard.document`** — an article/document record with a required `site` field pointing to its publication
+
+The relationship is **document-centric**: documents reference their publication; the publication has no list of documents. To fetch all documents for a publication, a reader scans the author's entire `site.standard.document` collection and filters by the `site` field. There is no manifest, no defined ordering mechanism, and no grouping concept — these are left to individual platforms and aggregators.
+
+This is the fundamental reason `app.scribe.site` is retained: standard.site deliberately does not solve the structured ordering and grouping problem that Scribe's site manifest solves.
+
+### Field mapping: app.scribe.article → site.standard.document
+
+| Scribe field | Type | standard.site field | Type | Action |
+|---|---|---|---|---|
+| `title` | string | `title` | string | No change |
+| `synopsis` | string | `description` | string | Rename |
+| `updatedAt` | datetime | `updatedAt` | datetime | No change |
+| `createdAt` | datetime | `publishedAt` | datetime | Rename; semantic shifts slightly (creation time used as publish time) |
+| `url` (slug) | string | `path` | string | Rename; value stays the same (the slug) |
+| `content` (HTML) | string | `content` | open union | Wrap in `app.scribe.content.html` type (see below) |
+| `splashImageUrl` | string (URL) | `coverImage` | blob | **Not migrated** — standard.site expects a blob stored in the PDS; Scribe uses hosted URLs. Retain as Scribe extension field. |
+| — | — | `site` | string (required) | Populate with the `https://` URL of the first assigned site. Unresolved for draft articles — see open questions. |
+| — | — | `textContent` | string | Generate by stripping HTML from `content` on write. Provides a plaintext fallback for standard.site aggregators. |
+
+Fields present in `site.standard.document` but not planned for adoption: `tags`, `bskyPostRef`, `links`, `labels`, `contributors`. These can be adopted incrementally in future without any breaking change.
+
+### Field mapping: app.scribe.site → site.standard.publication
+
+This migration is **not planned**. For reference:
+
+| Scribe field | standard.site field | Notes |
+|---|---|---|
+| `url` | `url` | Direct match |
+| `title` | `name` | Rename only |
+| `description` | `description` | Direct match |
+| `logoImageUrl` | `icon` | Type mismatch (URL vs blob) |
+| `splashImageUrl` | — | No equivalent |
+| `urlPrefix` | — | No equivalent |
+| `groups` | — | **No equivalent — entire grouping structure** |
+| `ungroupedArticles` | — | **No equivalent — draft/unpublished state** |
+| `contributors` | — | No equivalent at publication level |
+| `createdAt` / `updatedAt` | — | No equivalent |
+
+### app.scribe.content.html
+
+A new content type to be defined (and eventually published as a formal lexicon) for use in the `content` open union field of `site.standard.document`. The `content` field in standard.site is deliberately open — it has no built-in content types. Different platforms define their own (e.g. `markpub.at` defines `at.markpub.markdown` for Markdown content).
+
+Shape:
+```json
+{
+  "$type": "app.scribe.content.html",
+  "html": "<p>Article body as serialised HTML.</p>"
+}
+```
+
+The SDK extracts the HTML from this wrapper transparently, so consumer sites and the reader see no change in the data they receive.
+
+### ArticleRef URI changes in app.scribe.site
+
+`app.scribe.site` stores article refs with AT URIs in the form:
+```
+at://did:plc:xyz/app.scribe.article/my-article-slug
+```
+
+After migration these become:
+```
+at://did:plc:xyz/site.standard.document/my-article-slug
+```
+
+The rkey (slug) is unchanged. The site manifest structure, group ordering, and all other fields are untouched — only the collection name in the URI changes. The migration script handles this rewrite.
+
+### What changes in each repo
+
+**`scribe-atp-sdk` (`@scribe-atp/core`) — major version bump**
+- Collection name: `app.scribe.article` → `site.standard.document` in all fetch calls
+- Type field renames: `synopsis` → `description`, `url` → `path`, `createdAt` → `publishedAt`
+- `content` handling: extract HTML from `app.scribe.content.html` union wrapper transparently
+- `Article` type updated to reflect new field names
+- SDK version: major bump (breaking change for any consumer referencing field names directly)
+
+**`scribe-atp.app` (CMS) — write paths, scopes, migration tool**
+- `ARTICLE_COLLECTION` constant: `app.scribe.article` → `site.standard.document`
+- `SCRIBE_COLLECTIONS` in nuke tool updated
+- OAuth scopes: `repo:app.scribe.article?action=*` → `repo:site.standard.document?action=*` (users must re-authenticate)
+- Write paths (`create.tsx`, `edit.tsx`): wrap content in `app.scribe.content.html`; generate `textContent` by stripping HTML; populate `site` field with assigned site's `https://` URL
+- ArticleRef field renames propagated through `buildArticleRef`, `nodeFromRef`, `articleRefFromNode`
+- Migration tool: one-time protected route (similar to the nuke tool on the home page) — see Migration Script section below
+
+**`norobots`, `perpetual-summer-ltd`, `anthonycregan.co.uk-2025`, `scribe-atp-reader` — low touch**
+- `npm update @scribe-atp/core` / `pnpm update @scribe-atp/core`
+- Any direct field references (`article.synopsis`, `article.url`, `article.createdAt`) need renaming to match new field names — TypeScript compiler will surface these at `npm update` time
+
+### Migration script
+
+A one-time protected route in the CMS (e.g. `/migrate/articles`), accessible only to authenticated users, similar to the existing nuke tool. Not a standalone script — uses the existing `requireAtpAgent` infrastructure.
+
+**Steps the script performs:**
+
+1. Fetch all `app.scribe.article` records from the PDS
+2. Fetch all `app.scribe.site` records to build a map of `articleUri → siteUrl[]`
+3. For each article:
+   - Map fields to `site.standard.document` shape (renames, content wrapping, textContent generation)
+   - Populate `site` field: use `https://` URL of the first site the article belongs to; skip (leave as `app.scribe.article`) if unassigned — see open questions
+   - `createRecord` on `site.standard.document` collection with the **same rkey** (slug is preserved)
+4. For each `app.scribe.site` record:
+   - Rewrite all ArticleRef `uri` fields: replace `/app.scribe.article/` with `/site.standard.document/` in the AT URI string
+   - `putRecord` the updated site manifest
+5. `deleteRecord` for all original `app.scribe.article` records
+
+The script should display a dry-run summary (counts of articles to migrate, sites to update, draft articles that will be skipped) before executing, and report success/failure per record.
+
+### Release sequence
+
+```
+Phase 1 — Build (parallel workstreams)
+  SDK:  feature branch → implement type changes, content union, new collection name → major version bump
+  CMS:  feature branch → update write paths, scopes, content wrapping, textContent → build migration tool
+
+Phase 2 — Coordinated release day
+  1. Deploy updated CMS (writes new articles as site.standard.document from this point)
+  2. Run migration tool once — migrates all existing PDS records, updates site manifests
+  3. Verify: existing consumer sites still resolve articles (old SDK reads app.scribe.article which still exists briefly)
+  4. Publish updated SDK (major version)
+  5. npm update / pnpm update on all consumer sites and reader
+  6. Deploy consumer sites and reader
+  7. Re-authenticate in CMS (scope change forces new OAuth consent)
+
+Phase 3 — Verify
+  - Existing articles readable by consumer sites and reader
+  - Site manifests resolve correctly (updated URIs)
+  - New articles written as site.standard.document
+  - No app.scribe.article records remain on PDS
+```
+
+**Critical ordering constraint:** the migration tool must run and complete before the new SDK is deployed to consumer sites. Consumer sites using the old SDK can still read `app.scribe.article` records that exist briefly in parallel. Once the migration is complete and old records are deleted, consumer sites must be on the new SDK.
+
+### Open questions and unresolved decisions
+
+These are the points that need resolution before implementation begins. A grill session on this plan should work through each one.
+
+---
+
+**1. Draft articles and the required `site` field**
+
+`site.standard.document` requires every record to have a `site` field. Draft articles in Scribe — those on the PDS but not referenced in any site manifest — have no site to point at.
+
+Options:
+- **Skip drafts in migration** — leave unassigned articles as `app.scribe.article` until they are assigned to a site. The CMS would then write them as `site.standard.document` (with a `site` value) on first site assignment. Clean semantic line: a `site.standard.document` is something that belongs to a publication; a draft genuinely doesn't yet. Requires the CMS to handle two collection names temporarily.
+- **Create a "drafts" publication** — create a `site.standard.publication` (or `app.scribe.site`) record representing "drafts" and point unassigned articles at it. A workaround that doesn't reflect the actual intent of the field.
+- **Drop the standalone draft concept** — require every article to be assigned to a site from creation. Simplifies the model but changes the authoring workflow significantly.
+- **Use a placeholder `https://` URL** — populate `site` with the author's primary domain or a generic URL. Technically valid per the spec but semantically misleading.
+
+**Decision needed:** which of these is acceptable, and what happens to articles that are currently unassigned on the PDS at migration time?
+
+---
+
+**2. Multi-site articles and the singular `site` field**
+
+`site.standard.document`'s `site` field is a single string. Scribe allows one article to appear in multiple sites (it appears in multiple site manifests). The standard.site model has no way to express multiple publication memberships on the document record itself.
+
+Options:
+- **Use the first assigned site** — nominate one as the canonical publication. The `links` field (open union) on `site.standard.document` could potentially express secondary associations, but this is non-standard.
+- **Accept the limitation** — for external consumers, the article appears to belong to one publication only. Internal Scribe behaviour (multi-site) is unaffected because membership is governed by the `app.scribe.site` manifests, not the document record.
+
+**Decision needed:** is multi-site article assignment a feature worth preserving in the standard.site field, or is the `app.scribe.site` manifest the authoritative source for that and the `site` field on the document is just "primary publication"?
+
+---
+
+**3. splashImageUrl vs coverImage**
+
+standard.site's `coverImage` is a blob — stored directly in the PDS. Scribe uses hosted URLs pointing at the Image Service. These are architecturally incompatible without a significant storage model change.
+
+Current plan: retain `splashImageUrl` as a Scribe extension field on the `site.standard.document` record and do not populate `coverImage`. AT Protocol lexicons are extensible with additional fields beyond the spec.
+
+**Question:** is this acceptable long-term? Aggregators and readers that support `coverImage` will not see Scribe article splash images. Could become relevant if standard.site adoption grows and cover image display becomes common. The alternative (storing images as PDS blobs) is a significant architectural change and likely not worth it.
+
+---
+
+**4. Publishing app.scribe.content.html as a formal lexicon**
+
+Using `app.scribe.content.html` as a `$type` in the content union does not require a published lexicon — any `$type` string is valid in an open union. However, publishing it formally would:
+- Document the HTML content type for other tools that may want to render Scribe articles
+- Establish Scribe's contribution to the standard.site ecosystem
+- Be required if the type is ever to be used by third parties
+
+**Decision needed:** publish the content type lexicon before migration (making it official from day one) or after (when there is more certainty about the shape)? Where does it live — `scribe-atp-sdk` repo, a dedicated `scribe-atp-lexicons` repo, or elsewhere?
+
+---
+
+**5. The grouping lexicon — longer-term question**
+
+standard.site has no grouping concept. If Scribe's grouping approach were published as a formal lexicon (e.g. `app.scribe.group`), it could potentially become a contribution to the wider ecosystem — other platforms could adopt it for structured ordered content.
+
+This is explicitly deferred and not part of this migration. It requires a separate design session because the document-centric model makes grouping significantly more complex than the manifest approach. Questions that would need resolving:
+- Does a group record embed an ordered list of document URIs, or do documents reference a group?
+- How is ordering expressed in a document-centric model?
+- Is the grouping lexicon meant to be adopted by other platforms, or is it Scribe-specific?
+- Would publishing a grouping lexicon eventually make `app.scribe.site` redundant?
+
+**Not blocked on:** the article migration can proceed without resolving the grouping lexicon question.
+
+---
+
+**6. Eventual migration of app.scribe.site**
+
+Even if `app.scribe.site` is retained now, should there be a long-term plan to migrate it to `site.standard.publication` and express the grouping structure via a published Scribe lexicon? Or is `app.scribe.site` the permanent home for the structured manifest?
+
+This is a strategic question about whether Scribe is positioning itself as a standard.site-compatible platform or as a parallel ecosystem. The article migration is a step toward the former; retaining `app.scribe.site` permanently is a step toward the latter.
+
+**Not blocked on:** this can be decided after the article migration ships and the standard.site ecosystem has more time to develop a grouping story of its own.

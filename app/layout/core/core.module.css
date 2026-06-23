@@ -34,7 +34,8 @@
 .coreLayout_container[data-aside-state="expanded"] {
   grid-template-columns: 20rem 1fr;
 }
-.coreLayout_container > header {
+
+.coreHeader {
   grid-area: header;
   display: flex;
   align-items: center;
@@ -44,6 +45,46 @@
   padding: 0 2rem;
   box-shadow: 0 -20px 6px -20px var(--surface-shadow-color) inset;
   border-bottom: 0.1rem solid var(--border-color);
+}
+.leftAlignedItems {
+  display: flex;
+  align-items: center;
+}
+.linkButtonContainer {
+  display: flex;
+  align-items: center;
+  margin-left: 3rem;
+}
+.headerButtonLink {
+  text-decoration: none;
+}
+.headerButton {
+  background: none;
+  display: flex;
+  align-items: center;
+  border-radius: 0.6rem;
+  /* border: 0.2rem solid var(--header-button-colour); */
+  border: 0.2rem solid
+    color-mix(in srgb, var(--header-button-colour), transparent 100%);
+  color: var(--header-button-colour);
+  cursor: pointer;
+  padding: 0.5rem 1.2rem;
+  margin-left: 1rem;
+  transition: all 0.2s ease-in-out;
+}
+.headerButton:hover {
+  border: 0.2rem solid var(--header-button-colour_hover);
+  color: var(--header-button-colour_hover);
+  text-decoration: underline;
+}
+.headerButton > svg {
+  height: 2rem;
+  margin-right: 1rem;
+  fill: color-mix(in srgb, var(--header-button-colour_hover), transparent 100%);
+  transition: all 0.2s ease-in-out;
+}
+.headerButton:hover > svg {
+  fill: var(--header-button-colour_hover);
 }
 /* ScribeCMS LOGO */
 .headingLogo {
