@@ -3,6 +3,7 @@
 // typed to match the corresponding loader's return shape so TypeScript will
 // catch shape mismatches at call sites when the real loader changes.
 
+import { ARTICLE_COLLECTION } from "~/constants";
 import type { SiteCard, SiteOption } from "~/components/types";
 import type { SiteManifest } from "~/routes/article/site-list/siteTree";
 import type { ArticleRef } from "~/hooks/types";
@@ -220,6 +221,10 @@ export function devEditLoader(articleUrl: string): {
   cid: string;
   sites: SiteOption[];
   currentSiteRkeys: string[];
+  collection: string;
+  publishedSite: string | null;
+  publishedAt: string | null;
+  publishedPath: string | null;
 } {
   return {
     rkey: articleUrl,
@@ -232,6 +237,10 @@ export function devEditLoader(articleUrl: string): {
     cid: "dev-cid",
     sites: DEV_SITE_OPTIONS,
     currentSiteRkeys: [],
+    collection: ARTICLE_COLLECTION,
+    publishedSite: null,
+    publishedAt: null,
+    publishedPath: null,
   };
 }
 

@@ -9,14 +9,20 @@ import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
   updateArticle,
+  buildArticleRef,
   loadSiteOptions,
 } from "~/services/article.server";
-import { findSitesContaining } from "~/services/articleSiteSync.server";
+import {
+  findSitesContaining,
+  computeSiteAssignmentChanges,
+  syncSiteArticleRefs,
+} from "~/services/articleSiteSync.server";
 import { hasTextContent } from "~/components/utils";
 import { devEditLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION } from "~/constants";
+import { ARTICLE_COLLECTION, DOCUMENT_COLLECTION } from "~/constants";
+import { logger } from "~/services/logger.server";
 import {
   PageContainer,
   PageContainerHeading,
@@ -38,19 +44,37 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!useRealOAuth) return devEditLoader(params.articleUrl);
 
   const { agent, did } = await requireAtpAgent(request);
-  const articleUri = `at://${did}/${ARTICLE_COLLECTION}/${params.articleUrl}`;
 
-  const [articleResult, sites, currentSiteRkeys] = await Promise.all([
-    agent.com.atproto.repo.getRecord({
+  const siteOptionsPromise = loadSiteOptions(agent, did);
+
+  let articleResult: Awaited<
+    ReturnType<typeof agent.com.atproto.repo.getRecord>
+  >;
+  let collection: string;
+  try {
+    articleResult = await agent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      rkey: params.articleUrl,
+    });
+    collection = DOCUMENT_COLLECTION;
+  } catch {
+    articleResult = await agent.com.atproto.repo.getRecord({
       repo: did,
       collection: ARTICLE_COLLECTION,
       rkey: params.articleUrl,
-    }),
-    loadSiteOptions(agent, did),
+    });
+    collection = ARTICLE_COLLECTION;
+  }
+
+  const articleUri = `at://${did}/${collection}/${params.articleUrl}`;
+  const [sites, currentSiteRkeys] = await Promise.all([
+    siteOptionsPromise,
     findSitesContaining(agent, did, articleUri),
   ]);
 
-  const rawContent = articleResult.data.value.content;
+  const value = articleResult.data.value as Record<string, unknown>;
+  const rawContent = value.content;
   const content =
     typeof rawContent === "object" &&
     rawContent !== null &&
@@ -59,22 +83,25 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       : String(rawContent ?? "");
 
   return {
+    collection,
     rkey: params.articleUrl,
-    title: String(articleResult.data.value.title ?? ""),
+    title: String(value.title ?? ""),
     content,
     slug: params.articleUrl,
-    splashImageUrl: String(articleResult.data.value.splashImageUrl ?? ""),
-    description: String(
-      articleResult.data.value.description ??
-        articleResult.data.value.synopsis ??
-        "",
-    ),
-    createdAt: String(
-      articleResult.data.value.createdAt ?? new Date().toISOString(),
-    ),
+    splashImageUrl: String(value.splashImageUrl ?? ""),
+    description: String(value.description ?? value.synopsis ?? ""),
+    createdAt: String(value.createdAt ?? new Date().toISOString()),
     cid: articleResult.data.cid ?? null,
     sites,
     currentSiteRkeys,
+    publishedSite:
+      collection === DOCUMENT_COLLECTION ? String(value.site ?? "") : null,
+    publishedAt:
+      collection === DOCUMENT_COLLECTION
+        ? String(value.publishedAt ?? "")
+        : null,
+    publishedPath:
+      collection === DOCUMENT_COLLECTION ? String(value.path ?? "") : null,
   };
 }
 
@@ -89,7 +116,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   const createdAt =
     (formData.get("createdAt") as string) || new Date().toISOString();
   const oldRkey = params.articleUrl;
-  const newSiteRkeys = formData.getAll("sites") as string[];
+  const collection =
+    (formData.get("collection") as string) || ARTICLE_COLLECTION;
   const oldSiteRkeys: string[] = JSON.parse(
     (formData.get("oldSiteRkeys") as string) || "[]",
   );
@@ -99,6 +127,113 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (!useRealOAuth) return { ok: true as const, title };
 
+  if (collection === DOCUMENT_COLLECTION) {
+    const publishedSite = (formData.get("publishedSite") as string) || "";
+    const publishedAt = (formData.get("publishedAt") as string) || "";
+    const publishedPath = (formData.get("publishedPath") as string) || "";
+
+    try {
+      const { agent, did } = await requireAtpAgent(request);
+      const slugChanged = newSlug !== oldRkey;
+      const now = new Date().toISOString();
+      const siteChanges = computeSiteAssignmentChanges(
+        oldSiteRkeys,
+        oldSiteRkeys,
+      );
+      const updatedRecord = {
+        $type: DOCUMENT_COLLECTION,
+        title,
+        content: { $type: "app.scribe.content.html", html: content },
+        splashImageUrl: splashImageUrl?.trim() || undefined,
+        description: description?.trim() || undefined,
+        site: publishedSite,
+        publishedAt,
+        createdAt,
+        updatedAt: now,
+      };
+
+      if (slugChanged) {
+        const newPath = publishedPath.replace(/\/[^/]+$/, `/${newSlug}`);
+        await agent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey: newSlug,
+          record: { ...updatedRecord, path: newPath },
+        });
+        await agent.com.atproto.repo
+          .deleteRecord({
+            repo: did,
+            collection: DOCUMENT_COLLECTION,
+            rkey: oldRkey,
+            swapRecord: cid ?? undefined,
+          })
+          .catch((err) =>
+            console.error("Failed to delete old published record:", err),
+          );
+        const oldUri = `at://${did}/${DOCUMENT_COLLECTION}/${oldRkey}`;
+        const newUri = `at://${did}/${DOCUMENT_COLLECTION}/${newSlug}`;
+        const ref = buildArticleRef({
+          uri: newUri,
+          title,
+          slug: newSlug,
+          splashImageUrl,
+          description,
+          publishedAt,
+          createdAt,
+          updatedAt: now,
+        });
+        await syncSiteArticleRefs(agent, did, siteChanges, oldUri, ref);
+        logger.info(
+          {
+            event: "article.update",
+            user_did: did,
+            rkey: newSlug,
+            old_rkey: oldRkey,
+            slug_renamed: true,
+          },
+          "article.update",
+        );
+        return { ok: true as const, title, newSlug };
+      }
+
+      const putResult = await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: DOCUMENT_COLLECTION,
+        rkey: oldRkey,
+        record: { ...updatedRecord, path: publishedPath },
+        swapRecord: cid ?? undefined,
+      });
+      const uri = `at://${did}/${DOCUMENT_COLLECTION}/${oldRkey}`;
+      const ref = buildArticleRef({
+        uri,
+        title,
+        slug: oldRkey,
+        splashImageUrl,
+        description,
+        publishedAt,
+        createdAt,
+        updatedAt: now,
+      });
+      await syncSiteArticleRefs(agent, did, siteChanges, uri, ref);
+      logger.info(
+        { event: "article.update", user_did: did, rkey: oldRkey, slug_renamed: false },
+        "article.update",
+      );
+      return { ok: true as const, title, newCid: putResult.data.cid };
+    } catch (err) {
+      console.error("Failed to update published article:", err);
+      return {
+        ok: false as const,
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to save. Please try again.",
+      };
+    }
+  }
+
+  // Draft (ARTICLE_COLLECTION) path
+  const newSiteRkeys = formData.getAll("sites") as string[];
   try {
     const { agent, did } = await requireAtpAgent(request);
     const result = await updateArticle(agent, did, {
@@ -142,6 +277,10 @@ export default function EditArticle({
     cid,
     sites,
     currentSiteRkeys,
+    collection,
+    publishedSite,
+    publishedAt,
+    publishedPath,
   } = loaderData;
 
   const [selectedSites, setSelectedSites] =
@@ -214,10 +353,20 @@ export default function EditArticle({
         name="oldSiteRkeys"
         value={JSON.stringify(currentSiteRkeys)}
       />
+      <input type="hidden" name="collection" value={collection} />
+      {collection === DOCUMENT_COLLECTION && (
+        <>
+          <input type="hidden" name="publishedSite" value={publishedSite ?? ""} />
+          <input type="hidden" name="publishedAt" value={publishedAt ?? ""} />
+          <input type="hidden" name="publishedPath" value={publishedPath ?? ""} />
+        </>
+      )}
       <PageContainer
         title={
           <PageContainerHeading icon={SvgImageList.Document}>
-            Edit Article
+            {collection === DOCUMENT_COLLECTION
+              ? "Edit Published Article"
+              : "Edit Article"}
           </PageContainerHeading>
         }
         fixed
