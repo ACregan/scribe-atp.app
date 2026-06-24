@@ -41,7 +41,12 @@ import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
 import { Select } from "~/components/Select/Select";
-import { SITE_COLLECTION, SLUG_RE } from "~/constants";
+import {
+  ARTICLE_COLLECTION,
+  DOCUMENT_COLLECTION,
+  SITE_COLLECTION,
+  SLUG_RE,
+} from "~/constants";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
   type SiteManifest,
@@ -50,10 +55,14 @@ import {
   toSlug,
   treeToSiteData,
   removeArticleRef,
+  updateArticleRef,
 } from "./siteTree";
 import { useDirtyTree } from "./useDirtyTree";
 import { useSiteListDnD } from "./useSiteListDnD";
-import { mutateSiteRecord } from "~/services/articleSiteSync.server";
+import {
+  findSitesContaining,
+  mutateSiteRecord,
+} from "~/services/articleSiteSync.server";
 import { devSiteListLoader } from "~/services/devFixtures.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
@@ -210,23 +219,85 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
+        const rkey = uri.split("/").pop()!;
+        const now = new Date().toISOString();
+
+        const publishedResult = await agent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey,
+        });
+        const published = publishedResult.data.value as Record<string, unknown>;
+
+        // Create app.scribe.article draft — preserve all fields, drop site/publishedAt, reset path
+        const draftRecord: Record<string, unknown> = { ...published };
+        delete draftRecord.site;
+        delete draftRecord.publishedAt;
+        draftRecord.$type = ARTICLE_COLLECTION;
+        draftRecord.path = `/${rkey}`;
+        draftRecord.updatedAt = now;
+
+        await agent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: ARTICLE_COLLECTION,
+          rkey,
+          record: draftRecord,
+        });
+
+        const newUri = `at://${did}/${ARTICLE_COLLECTION}/${rkey}`;
+        const draftRef: ArticleRef = {
+          uri: newUri,
+          title: String(published.title ?? ""),
+          slug: rkey,
+          splashImageUrl: published.splashImageUrl
+            ? String(published.splashImageUrl)
+            : null,
+          description: published.description
+            ? String(published.description)
+            : null,
+          createdAt: String(published.createdAt ?? now),
+          updatedAt: now,
+        };
+
+        // Find all sites containing the published URI before mutating
+        const allSiteRkeys = await findSitesContaining(agent, did, uri);
+        const otherSiteRkeys = allSiteRkeys.filter((r) => r !== siteSlug);
+
+        // Current site: move from named group → ungroupedArticles, rewrite URI
         await mutateSiteRecord(agent, did, siteSlug, (val) => {
-          let articleRef: ArticleRef | undefined;
+          let existingRef: ArticleRef | undefined;
           const newGroups = (val.groups ?? []).map((g) => {
             const found = g.articles.find((a) => a.uri === uri);
-            if (found) articleRef = found;
+            if (found) existingRef = found;
             return { ...g, articles: g.articles.filter((a) => a.uri !== uri) };
           });
-          if (!articleRef) return val;
+          const ref = existingRef ? { ...existingRef, ...draftRef } : draftRef;
           return {
             ...val,
             groups: newGroups,
-            ungroupedArticles: [...(val.ungroupedArticles ?? []), articleRef],
-            updatedAt: new Date().toISOString(),
+            ungroupedArticles: [...(val.ungroupedArticles ?? []), ref],
+            updatedAt: now,
           };
         });
+
+        // Other sites: rewrite URI in-place, keeping current group position
+        await Promise.allSettled(
+          otherSiteRkeys.map((rk) =>
+            mutateSiteRecord(agent, did, rk, (val) =>
+              updateArticleRef(val, uri, draftRef),
+            ),
+          ),
+        );
+
+        // Delete the published record
+        await agent.com.atproto.repo.deleteRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey,
+          swapRecord: publishedResult.data.cid,
+        });
       } catch (err) {
-        console.error("Failed to move article to drafts:", err);
+        console.error("Failed to move article to draft:", err);
       }
     }
 
@@ -241,11 +312,68 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
+        const rkey = uri.split("/").pop()!;
+        const publishedAt = new Date().toISOString();
+
+        // Fetch draft and site in parallel
+        const [draftResult, siteResult] = await Promise.all([
+          agent.com.atproto.repo.getRecord({
+            repo: did,
+            collection: ARTICLE_COLLECTION,
+            rkey,
+          }),
+          agent.com.atproto.repo.getRecord({
+            repo: did,
+            collection: SITE_COLLECTION,
+            rkey: siteSlug,
+          }),
+        ]);
+
+        const draft = draftResult.data.value as Record<string, unknown>;
+        const siteVal = siteResult.data.value as SiteRecordValue;
+        const siteUrl = siteVal.urlPrefix
+          ? `https://${siteVal.url}/${siteVal.urlPrefix}`
+          : `https://${siteVal.url}`;
+
+        // Create site.standard.document record
+        await agent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey,
+          record: {
+            ...draft,
+            $type: DOCUMENT_COLLECTION,
+            path: `/${groupSlug}/${rkey}`,
+            site: siteUrl,
+            publishedAt,
+            updatedAt: publishedAt,
+          },
+        });
+
+        const newUri = `at://${did}/${DOCUMENT_COLLECTION}/${rkey}`;
+        const updatedRef: ArticleRef = {
+          uri: newUri,
+          title: String(draft.title ?? ""),
+          slug: rkey,
+          splashImageUrl: draft.splashImageUrl
+            ? String(draft.splashImageUrl)
+            : null,
+          description: draft.description ? String(draft.description) : null,
+          createdAt: String(draft.createdAt ?? publishedAt),
+          publishedAt,
+          updatedAt: publishedAt,
+        };
+
+        // Find all sites containing the draft URI before mutating
+        const allSiteRkeys = await findSitesContaining(agent, did, uri);
+        const otherSiteRkeys = allSiteRkeys.filter((r) => r !== siteSlug);
+
+        // Current site: move from ungroupedArticles → named group, rewrite URI
         await mutateSiteRecord(agent, did, siteSlug, (val) => {
-          const articleRef = (val.ungroupedArticles ?? []).find(
+          const existing = (val.ungroupedArticles ?? []).find(
             (a) => a.uri === uri,
           );
-          if (!articleRef) return val;
+          const ref = existing ? { ...existing, ...updatedRef } : updatedRef;
           return {
             ...val,
             ungroupedArticles: (val.ungroupedArticles ?? []).filter(
@@ -253,14 +381,32 @@ export async function action({ request, params }: Route.ActionArgs) {
             ),
             groups: (val.groups ?? []).map((g) =>
               g.slug === groupSlug
-                ? { ...g, articles: [...g.articles, articleRef] }
+                ? { ...g, articles: [...g.articles, ref] }
                 : g,
             ),
-            updatedAt: new Date().toISOString(),
+            updatedAt: publishedAt,
           };
+        });
+
+        // Other sites: rewrite URI in-place, keeping current group position
+        await Promise.allSettled(
+          otherSiteRkeys.map((rk) =>
+            mutateSiteRecord(agent, did, rk, (val) =>
+              updateArticleRef(val, uri, updatedRef),
+            ),
+          ),
+        );
+
+        // Delete the draft
+        await agent.com.atproto.repo.deleteRecord({
+          repo: did,
+          collection: ARTICLE_COLLECTION,
+          rkey,
+          swapRecord: draftResult.data.cid,
         });
       } catch (err) {
         console.error("Failed to publish article:", err);
+        return { ok: false };
       }
     }
 
