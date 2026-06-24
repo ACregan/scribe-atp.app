@@ -127,21 +127,6 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   });
 
-  const referencedUris = new Set<string>();
-  for (const record of sitesResult.data.records) {
-    const value = record.value as Record<string, unknown>;
-    const groups = value.groups as
-      | Array<{ articles?: Array<{ uri: string }> }>
-      | undefined;
-    const topArticles = value.ungroupedArticles as
-      | Array<{ uri: string }>
-      | undefined;
-    groups?.forEach((g) =>
-      g.articles?.forEach((a) => referencedUris.add(a.uri)),
-    );
-    topArticles?.forEach((a) => referencedUris.add(a.uri));
-  }
-
   const recentArticles: RecentArticleItem[] = [
     ...articlesResult.data.records,
     ...documentsResult.data.records,
@@ -161,9 +146,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     )
     .slice(0, 10);
 
-  const orphanedArticleCount = articlesResult.data.records.filter(
-    (r) => !referencedUris.has(r.uri),
-  ).length;
+  const orphanedArticleCount = articlesResult.data.records.length;
 
   return {
     isAuthenticated: true as const,

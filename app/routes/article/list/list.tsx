@@ -71,7 +71,6 @@ export async function loader({ request }: Route.LoaderArgs) {
   ]);
 
   const assignmentMap = new Map<string, Assignment[]>();
-  const draftUrisInSites = new Set<string>();
 
   for (const record of sitesResult.data.records) {
     const value = record.value as Record<string, unknown>;
@@ -82,7 +81,6 @@ export async function loader({ request }: Route.LoaderArgs) {
       const list = assignmentMap.get(a.uri) ?? [];
       list.push({ siteTitle, siteRkey });
       assignmentMap.set(a.uri, list);
-      if (a.uri.includes(`/${ARTICLE_COLLECTION}/`)) draftUrisInSites.add(a.uri);
     }
 
     for (const g of (value.groups as Array<{
@@ -94,8 +92,6 @@ export async function loader({ request }: Route.LoaderArgs) {
         const list = assignmentMap.get(a.uri) ?? [];
         list.push({ siteTitle, siteRkey, groupTitle: g.title });
         assignmentMap.set(a.uri, list);
-        if (a.uri.includes(`/${ARTICLE_COLLECTION}/`))
-          draftUrisInSites.add(a.uri);
       }
     }
   }
@@ -116,7 +112,6 @@ export async function loader({ request }: Route.LoaderArgs) {
     );
 
   const orphanedDrafts: OrphanedDraft[] = draftsResult.data.records
-    .filter((record) => !draftUrisInSites.has(record.uri))
     .map((record) => {
       const value = record.value as Record<string, unknown>;
       return {
