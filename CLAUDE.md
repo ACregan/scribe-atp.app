@@ -281,7 +281,7 @@ Key design decisions for `app.scribe.site`:
 
 The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
 
-The `/article/list` route shows two sections: a site picker (links to `/article/list/:siteSlug` for each site) and an **Unassigned Articles** section listing any `app.scribe.article` records not referenced in any site's `ungroupedArticles` or `groups[x].articles`. The loader fetches both article and site records in parallel, builds a `Set` of referenced URIs from all site values, and returns the difference as `orphanedArticles`. The route has a `deleteArticle` action for removing orphaned articles directly. The section is hidden when there are no orphans.
+The `/article/list` route shows three sections: a site picker (links to `/article/list/:siteSlug` for each site), a **Published Articles** section listing all `site.standard.document` records with their site and group assignments, and an **Orphaned Drafts** section listing any `app.scribe.article` records not referenced in any site's `ungroupedArticles` or `groups[x].articles`. The loader fetches published, draft, and site records in parallel, builds a `Set` of referenced draft URIs, and returns `{ publishedArticles, orphanedDrafts }`. The route has a `deleteArticle` action for removing orphaned drafts directly. The orphaned section is hidden when there are none.
 
 The site picker renders each site as a `SiteListItem` (from `app/components/SiteListItem/`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, the site title, composed URL, and group/article count badges. The loader maps all `SiteCard` fields from the site record. Both image fields fall back to a CSS gradient when absent. `onDelete` is not passed here — deletion is only available on `/sites`.
 
@@ -329,8 +329,6 @@ repo:app.scribe.site?action=create
 repo:app.scribe.site?action=update
 repo:app.scribe.site?action=delete
 ```
-
-Note: `site.standard.document` scopes are pending (CMS-02) — users will need to re-authenticate once added.
 
 The scope list has **a single source of truth**: `OAUTH_SCOPE` exported from `app/services/auth.server.ts`. It is _consumed_ in three places — `clientMetadata.scope` (same file), `app/routes/client-metadata.ts`, and `app/routes/login/login.tsx` — but **only needs to be edited in one place**. Adding a new scope: update `OAUTH_SCOPE` only.
 
@@ -580,9 +578,9 @@ Use semantic tokens exclusively in CSS modules. Do not use raw palette names or 
 
 | Export               | Value                                           | Used in                                                      |
 | -------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
-| `ARTICLE_COLLECTION` | `"site.standard.document"`                      | published article fetch; will replace app.scribe.article as primary |
-| `DRAFT_COLLECTION`   | `"app.scribe.article"`                          | draft CRUD, orphan detection, nuke tool                      |
-| `SITE_COLLECTION`    | `"app.scribe.site"`                             | sites, site-list, list, configure, create, edit, home        |
+| `ARTICLE_COLLECTION`  | `"app.scribe.article"`                          | draft articles — create, edit, orphan detection, nuke tool   |
+| `DOCUMENT_COLLECTION` | `"site.standard.document"`                      | published articles — edit, list, nuke tool                   |
+| `SITE_COLLECTION`     | `"app.scribe.site"`                             | sites, site-list, list, configure, create, edit, home        |
 | `SLUG_RE`            | `/^[a-z0-9]+(?:-[a-z0-9]+)*$/`                  | article create, edit, site-list group create                 |
 | `DOMAIN_RE`          | `/^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/` | sites, configure                                             |
 | `IMAGE_URL_RE`       | `/^https:\/\//i`                                | article create, edit, configure — validates image URL fields |
