@@ -35,6 +35,10 @@ export default [
         "./routes/site/configure/configure.tsx",
       ),
       route("images", "./routes/images/images.tsx"),
+      route(
+        "devtools/migrate",
+        "./routes/devtools/migrate/migrate.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
