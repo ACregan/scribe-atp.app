@@ -48,21 +48,23 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
       "title": "Engineering",
       "articles": [
         {
-          "uri": "at://did:plc:ownerId/app.scribe.article/my-first-post",
+          "uri": "at://did:plc:ownerId/site.standard.document/my-first-post",
           "title": "My First Post",
-          "url": "my-first-post",
+          "slug": "my-first-post",
           "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
-          "synopsis": "An introduction to the blog.",
+          "description": "An introduction to the blog.",
           "createdAt": "2025-01-01T00:00:00.000Z",
+          "publishedAt": "2025-01-01T00:00:00.000Z",
           "updatedAt": "2025-06-01T10:00:00.000Z"
         },
         {
-          "uri": "at://did:plc:contributorOneId/app.scribe.article/their-article",
+          "uri": "at://did:plc:contributorOneId/site.standard.document/their-article",
           "title": "Their Article",
-          "url": "their-article",
+          "slug": "their-article",
           "splashImageUrl": null,
-          "synopsis": null,
+          "description": null,
           "createdAt": "2025-02-01T00:00:00.000Z",
+          "publishedAt": "2025-02-01T00:00:00.000Z",
           "updatedAt": "2025-02-01T00:00:00.000Z"
         }
       ]
@@ -72,11 +74,11 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
       "title": "Design",
       "articles": [
         {
-          "uri": "at://did:plc:ownerId/app.scribe.article/design-principles",
+          "uri": "at://did:plc:ownerId/site.standard.document/design-principles",
           "title": "Design Principles",
-          "url": "design-principles",
+          "slug": "design-principles",
           "splashImageUrl": "https://norobots.blog/images/design-principles.jpg",
-          "synopsis": "Core principles we follow.",
+          "description": "Core principles we follow.",
           "createdAt": "2025-03-01T00:00:00.000Z",
           "updatedAt": "2025-06-04T09:00:00.000Z"
         }
@@ -85,11 +87,11 @@ AT Protocol collection: `app.scribe.site`, rkey = URL-derived slug (e.g. `norobo
   ],
   "ungroupedArticles": [
     {
-      "uri": "at://did:plc:ownerId/app.scribe.article/ungrouped-post",
+      "uri": "at://did:plc:ownerId/site.standard.document/ungrouped-post",
       "title": "Ungrouped Post",
-      "url": "ungrouped-post",
+      "slug": "ungrouped-post",
       "splashImageUrl": null,
-      "synopsis": null,
+      "description": null,
       "createdAt": "2025-04-01T00:00:00.000Z",
       "updatedAt": "2025-04-01T00:00:00.000Z"
     }
@@ -103,44 +105,70 @@ Notes:
 
 - `ownerId` is omitted — the owner is whoever's PDS holds this record (their DID is the repo DID)
 - `description`, `splashImageUrl`, `logoImageUrl` are optional site-level metadata fields; omitted from the record entirely when blank (not stored as empty strings)
-- Article references (`ArticleRef`) are objects (not bare AT URIs) containing a cached snapshot of article metadata: `uri`, `title`, `url`, `splashImageUrl`, `synopsis`, `createdAt`, `updatedAt`
-- `url` on an `ArticleRef` is the article slug — the same as the rkey; included so consumers don't have to parse the AT URI
-- `synopsis` is nullable — not all articles have one
+- Article references (`ArticleRef`) are objects (not bare AT URIs) containing a cached snapshot of article metadata: `uri`, `title`, `slug`, `splashImageUrl`, `description`, `createdAt`, `publishedAt`, `updatedAt`
+- `slug` on an `ArticleRef` is the article slug — the same as the rkey; included so consumers don't have to parse the AT URI
+- `description` is nullable — not all articles have one
 - `splashImageUrl` is nullable — not all articles have a splash image
 - `uri` encodes everything needed to identify the article: author DID, collection, and rkey (slug)
 - Cached metadata may go stale if the author edits their article — the edit action always refreshes `ArticleRef` entries in every site the article belongs to on save (`sitesToRefresh`), keeping refs current without manual re-ordering
 - `cid` is deliberately excluded from `ArticleRef` — storing it would cause `swapRecord` failures after any edit to the article; fetch it live at the point of deletion
-- Every field from `app.scribe.article` except `content` should be mirrored in `ArticleRef` — `content` is excluded because it can be arbitrarily large
+- Every field from `app.scribe.article` / `site.standard.document` except `content` should be mirrored in `ArticleRef` — `content` is excluded because it can be arbitrarily large
 - `ungroupedArticles` at the top level holds articles assigned to this site but not placed in any named group (same role as the ROOT virtual group in the current list view)
 - `groups` order is significant — it determines display order on the site
 - `updatedAt` is useful for cache invalidation by public readers
 
-### Article
+### Article (Draft)
 
-AT Protocol collection: `app.scribe.article`, rkey = url slug (e.g. `my-first-post`)
+AT Protocol collection: `app.scribe.article`, rkey = slug (e.g. `my-first-post`)
+
+Drafts use the `site.standard.document` field shape but omit `site` and `publishedAt`. `createdAt` is a Scribe extension field.
 
 ```json
 {
   "$type": "app.scribe.article",
   "title": "My First Post",
-  "url": "my-first-post",
-  "content": "<p>Article body as serialised HTML.</p>",
+  "slug": "my-first-post",
+  "content": { "$type": "app.scribe.content.html", "html": "<p>Article body as serialised HTML.</p>" },
+  "textContent": "Article body as serialised HTML.",
   "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
-  "synopsis": "An introduction to the blog.",
+  "description": "An introduction to the blog.",
   "createdAt": "2025-01-01T00:00:00.000Z",
+  "updatedAt": "2025-06-01T10:00:00.000Z"
+}
+```
+
+### Article (Published)
+
+AT Protocol collection: `site.standard.document`, rkey = slug (e.g. `my-first-post`)
+
+```json
+{
+  "$type": "site.standard.document",
+  "title": "My First Post",
+  "slug": "my-first-post",
+  "path": "/engineering/my-first-post",
+  "site": "https://norobots.blog/blog",
+  "content": { "$type": "app.scribe.content.html", "html": "<p>Article body as serialised HTML.</p>" },
+  "textContent": "Article body as serialised HTML.",
+  "splashImageUrl": "https://norobots.blog/images/my-first-post.jpg",
+  "description": "An introduction to the blog.",
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "publishedAt": "2025-06-01T09:00:00.000Z",
   "updatedAt": "2025-06-01T10:00:00.000Z"
 }
 ```
 
 Notes:
 
-- The article record is intentionally site-agnostic — it has no reference to any site or group
-- The relationship between an article and a site is owned entirely by the SITE record (via AT URI in `groups[].articles` or top-level `articles`)
-- The author is implicit from whose PDS holds the record — no `authorId` field is needed; the AT URI (`at://did/app.scribe.article/slug`) carries that information
-- `url` doubles as the rkey — the slug used in the AT URI and in the public-facing URL path
-- `splashImageUrl` is optional
-- `synopsis` is optional — a short human-readable description; mirrored into every `ArticleRef` that references this article
-- `createdAt` is set once on create and never changed; `updatedAt` is set on create and updated on every edit — the edit action preserves the original `createdAt` via a hidden form field
+- The article record is intentionally site-agnostic for drafts — no `site` or `publishedAt`. Published records carry the Canonical Site URL in `site`.
+- The relationship between an article and a site is owned by the SITE record (via AT URI in `groups[].articles` or `ungroupedArticles`)
+- The author is implicit from whose PDS holds the record — no `authorId` field is needed; the AT URI (`at://did/app.scribe.article/slug` or `at://did/site.standard.document/slug`) carries that information
+- `slug` doubles as the rkey — the slug used in the AT URI and in the public-facing URL path
+- `path` is `/{group-slug}/{article-slug}` when in a named group; `/{article-slug}` when ungrouped. Updated when an article is moved between groups.
+- `splashImageUrl` is a Scribe extension field (standard.site uses a blob `coverImage` which Scribe does not adopt — see ADR planned)
+- `description` is optional — a short human-readable description; mirrored into every `ArticleRef` that references this article
+- `createdAt` is a Scribe extension field set once on create and never changed; `updatedAt` is set on create and updated on every edit
+- `publishedAt` is absent on drafts; set to the actual publish instant on `site.standard.document` records (see ADR 0009)
 
 ---
 
@@ -438,7 +466,7 @@ Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to 
 
 ## MIGRATION: standard.site Article Lexicon Adoption
 
-### Status: Planned — not started
+### Status: In Progress — SDK published (v2.0.0); CMS write paths updated; CMS-09 through CMS-14 (publish flow, canonical site modal, path maintenance, migration tool) pending
 
 ### Decision
 
@@ -657,5 +685,502 @@ This is explicitly deferred and not part of this migration. It requires a separa
 Even if `app.scribe.site` is retained now, should there be a long-term plan to migrate it to `site.standard.publication` and express the grouping structure via a published Scribe lexicon? Or is `app.scribe.site` the permanent home for the structured manifest?
 
 This is a strategic question about whether Scribe is positioning itself as a standard.site-compatible platform or as a parallel ecosystem. The article migration is a step toward the former; retaining `app.scribe.site` permanently is a step toward the latter.
+
+---
+
+### Decisions resolved (grill session, 2026-06-24)
+
+All six open questions above were resolved. Key decisions:
+
+| Question | Decision |
+|---|---|
+| Draft schema | **Option 2** — drafts in `app.scribe.article` use `site.standard.document` field shape from creation. `site` and `publishedAt` fields are absent on drafts. See ADR 0008. |
+| `site` field value | `https://` URL of the Canonical Site — `https://{url}` or `https://{url}/{urlPrefix}` if a prefix is set. |
+| Canonical Site | Author nominates via modal when publishing to multiple sites; auto-selected when single site; editable after publish. New term — see `UBIQUITOUS_LANGUAGE.md`. |
+| `path` field | `/{group-slug}/{article-slug}` when in a named group; `/{article-slug}` when ungrouped. Updated on group moves. |
+| `publishedAt` | Set at actual publish instant. Absent on drafts. Migration: set to old `createdAt` as best approximation. See ADR 0009. |
+| `textContent` | CMS strips HTML on every write. SDK reads stored value. |
+| SDK public API | Full rename to standard.site names — no backward-compat shims. Major version bump. |
+| ArticleRef renames | `url`→`slug`, `synopsis`→`description`, add `tags?`, add `publishedAt?`. |
+| CMS collection routing | Edit route tries `site.standard.document` first, falls back to `app.scribe.article`. |
+| OAuth scopes | Both collections needed. User re-authenticates once. |
+| Migration approach | User pre-clears all drafts (moves to a site), then triggers migration from CMS dev tool. Verification gate blocks if any `app.scribe.article` record is not in a site manifest. |
+| Multi-site canonical | Auto-nominate alphabetically by site URL during migration; log for user review. |
+| Tags | Follow-on feature — not in migration scope. |
+| `splashImageUrl` | Retained as Scribe extension field. `coverImage` (blob) not adopted. |
+
+---
+
+### Implementation Tickets
+
+#### `scribe-atp-sdk` — `@scribe-atp/core`
+
+**SDK-01 Update `ArticleRef` type**
+
+File: `packages/core/src/types.ts`
+
+- Rename `url` → `slug` (optional)
+- Rename `synopsis` → `description` (optional)
+- Add `publishedAt?: string`
+- Add `tags?: string[]`
+- Keep `uri`, `title`, `splashImageUrl`, `createdAt`, `updatedAt` unchanged
+
+```ts
+export interface ArticleRef {
+  uri: string;
+  title: string;
+  slug?: string;
+  splashImageUrl: string | null;
+  description?: string | null;
+  tags?: string[];
+  createdAt: string;
+  publishedAt?: string;
+  updatedAt?: string;
+}
+```
+
+**SDK-02 Update `Article` type**
+
+File: `packages/core/src/types.ts`
+
+- Rename `url` → `path`
+- Rename `synopsis` → `description`
+- Add `site: string` (Canonical Site `https://` URL)
+- Add `publishedAt: string`
+- Keep `title`, `content` (HTML string — extracted from union by SDK), `splashImageUrl`, `createdAt`, `updatedAt` unchanged
+
+```ts
+export interface Article {
+  title: string;
+  content: string;        // HTML — extracted from app.scribe.content.html union
+  path: string;
+  site: string;
+  splashImageUrl?: string;
+  description?: string;
+  createdAt: string;
+  publishedAt: string;
+  updatedAt: string;
+}
+```
+
+**SDK-03 Update `fetchArticle`**
+
+File: `packages/core/src/fetch.ts`
+
+- Change collection from `"app.scribe.article"` to `"site.standard.document"`
+- Extract HTML from `app.scribe.content.html` content union:
+  ```ts
+  const html = record.content?.$type === "app.scribe.content.html"
+    ? record.content.html
+    : typeof record.content === "string" ? record.content : "";
+  ```
+- Map all renamed fields
+
+**SDK-04 Update `listArticles`**
+
+File: `packages/core/src/list.ts`
+
+- Change collection to `"site.standard.document"`
+- Records without `publishedAt` are drafts — filter them out if they appear (should not after migration, but defensive)
+
+**SDK-05 Update `generateFeed`**
+
+File: `packages/core/src/feed.ts`
+
+- `synopsis` → `description` for item description
+- `createdAt` → `publishedAt` for item pub date
+- `url` → `slug` for item URL construction (ArticleRef)
+- `article.url` → `article.path` for full article URL
+
+**SDK-06 Update `getSitemapEntries`**
+
+File: `packages/core/src/sitemap.ts`
+
+- `ArticleRef.url` → `ArticleRef.slug` for URL construction
+- `article.url` → `article.path` if fetching full articles
+
+**SDK-07 Update all package tests**
+
+- `packages/core/src/*.test.ts` — new collection name in mock responses, new field names
+- `packages/react/src/*.test.ts` — field name references
+- `packages/angular/src/*.test.ts` — field name references
+- `packages/vue/src/*.test.ts` — field name references
+- `packages/nuxt/src/*.test.ts` — field name references
+
+**SDK-08 Major version bump and changelog**
+
+- `npx changeset` — select all packages, bump type: **major**
+- `npx changeset version` — updates `package.json` versions
+- Verify `CHANGELOG.md` entries are correct
+- Commit: `chore: version packages — major bump for standard.site migration`
+
+---
+
+#### `scribe-atp.app` — CMS
+
+**CMS-01 Update collection constants**
+
+File: `app/constants.ts`
+
+- Add `DOCUMENT_COLLECTION = "site.standard.document"` (published articles)
+- Rename `ARTICLE_COLLECTION` → keep `ARTICLE_COLLECTION` but change value to `"site.standard.document"` for all external consumers, OR rename to `DRAFT_COLLECTION = "app.scribe.article"` for draft usage
+- Recommended approach: keep `ARTICLE_COLLECTION = "site.standard.document"` as the primary constant (what consumers mean by "article collection"), and add `DRAFT_COLLECTION = "app.scribe.article"` for draft-specific code
+
+Update all importers of `ARTICLE_COLLECTION`. After this change:
+- `ARTICLE_COLLECTION` = `"site.standard.document"` — published records
+- `DRAFT_COLLECTION` = `"app.scribe.article"` — draft records
+- `SITE_COLLECTION` = `"app.scribe.site"` — unchanged
+
+**CMS-02 Update OAuth scopes**
+
+File: `app/services/auth.server.ts`
+
+Add to `OAUTH_SCOPE`:
+```
+repo:site.standard.document?action=create
+repo:site.standard.document?action=update
+repo:site.standard.document?action=delete
+```
+
+Keep all `app.scribe.article` scopes — still needed for draft CRUD.
+
+Note: users must revoke at https://bsky.social/account and re-authenticate to get the new scopes. This is a one-time action; plan it alongside the CMS deployment.
+
+**CMS-03 Update `app/hooks/types.ts`**
+
+- `ArticleRef`: rename `url`→`slug`, `synopsis`→`description`, add `publishedAt?: string`, add `tags?: string[]`
+- `Article`: rename `url`→`path`, `synopsis`→`description`, add `site: string`, add `publishedAt: string`
+
+This is the CMS's canonical type definition file. All downstream TypeScript errors will surface from this change — follow the compiler.
+
+**CMS-04 Update draft write path (create.tsx)**
+
+When creating a new draft, write to `DRAFT_COLLECTION` (`app.scribe.article`) using `site.standard.document` field shape:
+
+- Field `path` (not `url`) = article slug
+- Field `description` (not `synopsis`) = synopsis text
+- Field `content` = `{ $type: "app.scribe.content.html", html: "<p>...</p>" }`
+- Field `textContent` = HTML stripped to plaintext (strip tags, decode entities, collapse whitespace)
+- Field `createdAt` = `new Date().toISOString()` — extension field, set once
+- **No** `site` or `publishedAt` fields on drafts
+
+HTML stripping for `textContent`:
+```ts
+import { isomorphicDomPurify } from "isomorphic-dompurify";
+function toPlainText(html: string): string {
+  // Strip tags, decode entities, collapse whitespace
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+```
+
+**CMS-05 Update `buildArticleRef` in `article.server.ts`**
+
+- Rename `url`→`slug` in the output
+- Rename `synopsis`→`description` in the output
+- Add `publishedAt?: string` parameter and field
+- Field names must match `ArticleRef` from `app/hooks/types.ts`
+
+**CMS-06 Update `nodeFromRef`/`articleRefFromNode` in `siteTree.ts`**
+
+- `ref.url` → `ref.slug`
+- `ref.synopsis` → `ref.description`
+- `node.url` → `node.slug`
+- `node.synopsis` → `node.description`
+- Add `publishedAt` to both sides of the mapping
+
+This is the single field-mapping seam between `ArticleRef` and `TreeArticleNode`. The round-trip test in `siteTree.test.ts` will catch any missed fields.
+
+**CMS-07 Update `ArticleForm` component**
+
+File: `app/components/ArticleForm/ArticleForm.tsx`
+
+- Prop `defaultSynopsis`→`defaultDescription` (or whatever the current prop name is — check the component)
+- Internal field name `synopsis`→`description` in the form inputs
+- The URL slug field stays as-is in the UI — the label and behaviour are unchanged; the record field just changes from `url` to `path`
+
+**CMS-08 Update edit route to try `site.standard.document` first**
+
+File: `app/routes/article/edit/edit.tsx`
+
+The loader currently fetches by `articleUrl` param from `ARTICLE_COLLECTION`. Update to:
+
+1. Try `getRecord` from `ARTICLE_COLLECTION` (`site.standard.document`) using the slug as rkey
+2. On 404, try `getRecord` from `DRAFT_COLLECTION` (`app.scribe.article`)
+3. Map fields from whichever succeeds — both now use the same field names (ADR 0008)
+
+The action (save) should write back to whichever collection the record was found in. If the record is in `DRAFT_COLLECTION` and the user clicks Publish, that triggers the publish flow (CMS-09).
+
+**CMS-09 Implement publish flow**
+
+This is the core lifecycle transition: Draft → Published.
+
+Publishing an article:
+1. Build the `site.standard.document` record:
+   - All fields from the draft (`app.scribe.article` record)
+   - Add `site`: `https://${canonicalSite.url}${canonicalSite.urlPrefix ? `/${canonicalSite.urlPrefix}` : ""}`
+   - Add `publishedAt`: `new Date().toISOString()`
+2. `createRecord` on `site.standard.document` with the **same rkey** (slug)
+3. `deleteRecord` on `app.scribe.article` (the draft)
+4. Update `app.scribe.site` manifest: the article ref URI changes from `at://did/.../app.scribe.article/slug` to `at://did/.../site.standard.document/slug`
+
+**Entry points that trigger publish:**
+- Create route: "Assign to site + publish" action (currently unclear — check current flow)
+- `site-list.tsx`: `_intent=publishArticle` (moves from `ungroupedArticles` to a named group)
+
+Wait — re-examine: under the new model, "Unpublished" means the article is in `site.standard.document` but in `ungroupedArticles`. "Draft" means it's in `app.scribe.article` with no site. The transition Draft→Unpublished = publish (adds `site` + `publishedAt`). The transition Unpublished→Published = assign to a named group (pure site manifest change, no record move).
+
+So `_intent=publishArticle` in `site-list.tsx` triggers the Draft→Unpublished transition (record move + manifest update). `_intent=moveToDraft` triggers Unpublished→Draft (create `app.scribe.article` from the `site.standard.document` record, delete the `site.standard.document` record, remove from manifest).
+
+**CMS-10 Add Canonical Site nomination modal**
+
+When an article is published to exactly one site: canonical site is auto-selected — no modal needed.
+
+When published to more than one site: show a modal prompting the author to select which site is the Canonical Site. The modal fires as part of the publish action.
+
+UI: a simple single-select list of the assigned sites with a "Set as Canonical Site" heading. Default highlight: first alphabetically by domain. The result sets the `site` field on the `site.standard.document` record.
+
+Post-publish: the article's edit page should show the current Canonical Site with an "Edit" button that allows changing it (fires a `putRecord` updating the `site` field).
+
+**CMS-11 Update `path` field on group moves**
+
+File: `app/routes/article/site-list/site-list.tsx`
+
+When `_intent=publishArticle` (Draft→Unpublished) is called with a `targetGroupSlug`:
+- Set `path` = `/${targetGroupSlug}/${articleSlug}` on the `site.standard.document` record
+
+When `saveSite` saves a reordered tree (drag-and-drop move between groups):
+- For any article that has moved to a different group (compare old tree to new tree)
+- Update `path` on the `site.standard.document` record to reflect new group
+
+When `_intent=moveToDraft` (article returns to `app.scribe.article`):
+- `path` on the new draft record = `/${articleSlug}` (ungrouped, no group prefix)
+
+This path maintenance ensures the `path` field on PDS records stays accurate for standard.site aggregators.
+
+**CMS-12 Simplify draft/orphan detection**
+
+The home page and `/article/list` loader currently do:
+- Fetch all `app.scribe.article` records
+- Fetch all `app.scribe.site` records
+- Build a Set of all referenced AT URIs from all site manifests
+- Diff against `app.scribe.article` URIs to find orphans ("Unassigned Articles")
+
+After migration, **all `app.scribe.article` records are drafts by definition**. The diff is unnecessary. Replace with:
+
+```ts
+const { records: drafts } = await agent.com.atproto.repo.listRecords({
+  repo: did,
+  collection: DRAFT_COLLECTION,
+});
+// drafts = all draft articles — no diffing needed
+```
+
+The "Unassigned Articles" section on the home page / list becomes "Draft Articles". The delete action remains — it deletes the `app.scribe.article` record.
+
+**CMS-13 Update Nuke tool**
+
+File: `app/routes/home/home.tsx`
+
+```ts
+const SCRIBE_COLLECTIONS = [
+  "app.scribe.article",
+  "site.standard.document",
+  "app.scribe.site",
+];
+```
+
+**CMS-14 Build migration tool**
+
+New protected route: `/devtools/migrate-articles` (or similar, gated behind `requireAuth` + a dev-only guard).
+
+**Verification gate (pre-flight check):**
+1. Fetch all `app.scribe.article` records
+2. Fetch all `app.scribe.site` records
+3. Build set of all article URIs referenced in any site manifest
+4. If any `app.scribe.article` URI is NOT in the set → block execution, list the unassigned articles
+
+The user must manually move or delete all drafts before the migration can proceed.
+
+**Dry-run display:**
+- Count of articles to migrate
+- Count of site manifests to update
+- List of multi-site articles and their auto-nominated canonical site (alphabetically by domain)
+- Warning: "publishedAt will be set to createdAt for all migrated articles (best approximation)"
+
+**Execution (triggered by "Run Migration" button after dry-run):**
+
+```
+For each app.scribe.article record:
+  1. Build site.standard.document record:
+     - title, description, path, textContent, splashImageUrl (extension), createdAt (extension)
+     - content: { $type: "app.scribe.content.html", html: record.content }
+     - textContent: strip HTML from content
+     - publishedAt: record.createdAt  (best approximation for migrated articles)
+     - site: https:// URL of canonical site
+       - If article is in exactly one site: use that site
+       - If article is in multiple sites: use alphabetically first by domain URL
+     - path: /{group-slug}/{article-slug} or /{article-slug} if ungrouped
+       (derive from the canonical site manifest — find which group the article is in)
+  2. createRecord on site.standard.document (same rkey)
+  3. Log success/failure
+
+For each app.scribe.site record:
+  4. Rewrite all ArticleRef URIs: app.scribe.article → site.standard.document
+  5. Rename ArticleRef fields: url→slug, synopsis→description
+  6. putRecord the updated site manifest
+  7. Log success/failure
+
+For each successfully migrated app.scribe.article record:
+  8. deleteRecord
+
+Display: per-record progress and final summary.
+```
+
+**CMS-15 Update unit tests**
+
+- `siteTree.test.ts` — update ArticleRef fixtures to use `slug`, `description`; update expected outputs
+- `article.server.ts` tests (if any) — update mock data
+- Component tests that reference `synopsis`, `url` on article types
+
+**CMS-16 Update E2E tests**
+
+Review all E2E specs for field name references:
+- `e2e/create-article.spec.ts`
+- `e2e/edit-article.spec.ts`
+- `e2e/article-list.spec.ts`
+- `e2e/site-management.spec.ts`
+
+Also add E2E coverage for the publish flow (Draft→Unpublished, Unpublished→Published via group assign).
+
+**CMS-17 Update `CLAUDE.md`**
+
+- AT Protocol collections section: update `app.scribe.article` schema to new field names; add `site.standard.document` as the published article collection
+- `ARTICLE_COLLECTION` constant table: update value and add `DRAFT_COLLECTION`
+- ArticleRef mirroring principle: update field names
+- OAuth scopes section: add `site.standard.document` scopes
+
+---
+
+#### Consumer sites — `norobots`, `perpetual-summer-ltd`, `anthonycregan.co.uk-2025`
+
+Each site gets one ticket. The work is identical across all three.
+
+**SITE-01 Update `@scribe-atp/core` dependency and fix TypeScript errors**
+
+1. `npm update @scribe-atp/core` (or `pnpm update @scribe-atp/core` for `anthonycregan`)
+2. Run `npm run typecheck` — compiler will surface all field-name usages that have changed
+3. Fix all TS errors — predominantly:
+   - `article.url` → `article.path` in blog route components
+   - `article.synopsis` → `article.description` in meta tags and article cards
+   - `articleRef.url` → `articleRef.slug` in list rendering and URL construction
+   - `articleRef.synopsis` → `articleRef.description` in list rendering
+4. Run `npm run build` — verify no build errors
+5. Deploy
+
+**Common locations to check per consumer site:**
+- `app/config/blog.ts` — no article field references, safe
+- `app/routes/feed.ts` — `generateFeed` call; SDK handles field names internally
+- `app/routes/sitemap.ts` — `getSitemapEntries` call; SDK handles internally
+- `app/routes/blog.tsx` (and `/:groupSlug/:articleSlug`) — article data binding in JSX
+- Any `<meta>` tags using `article.synopsis` or `article.url`
+
+---
+
+#### `scribe-atp-reader` (if exists as a separate repo)
+
+Same as consumer site ticket — `npm update @scribe-atp/core`, fix TypeScript errors.
+
+---
+
+### Execution Order
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 1 — Build (parallel workstreams, separate feature branches)│
+│                                                                   │
+│  SDK branch: SDK-01 → SDK-02 → SDK-03 → SDK-04                  │
+│              SDK-05 → SDK-06 → SDK-07 → SDK-08 (version bump)   │
+│                                                                   │
+│  CMS branch: CMS-01 (constants)                                  │
+│           → CMS-03 (types)                                       │
+│           → CMS-04 (draft write path)                            │
+│           → CMS-05 (buildArticleRef)                             │
+│           → CMS-06 (siteTree field renames)                      │
+│           → CMS-07 (ArticleForm)                                 │
+│           → CMS-08 (edit route dual-collection)                  │
+│           → CMS-09 (publish flow)                                │
+│           → CMS-10 (Canonical Site modal)                        │
+│           → CMS-11 (path maintenance on moves)                   │
+│           → CMS-12 (orphan detection simplification)             │
+│           → CMS-13 (nuke tool)                                   │
+│           → CMS-14 (migration tool)                              │
+│           → CMS-02 (OAuth scopes — can be done any time)         │
+│           → CMS-15 + CMS-16 (tests)                              │
+│           → CMS-17 (CLAUDE.md update)                            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 2 — Deploy CMS (without SDK publish)                       │
+│                                                                   │
+│  • Deploy updated CMS to production                              │
+│  • Re-authenticate (new scopes — revoke at bsky.social/account   │
+│    then log in again)                                            │
+│  • From this point, new articles are written as                  │
+│    site.standard.document (drafts still app.scribe.article)      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 3 — Pre-migration prep                                     │
+│                                                                   │
+│  • Manually review all articles — move any true drafts           │
+│    to at least one site, or delete them                          │
+│  • Run dry-run from CMS migration tool (/devtools/migrate)       │
+│  • Review canonical site auto-nominations for multi-site articles│
+│  • Verify zero articles flagged as "unassigned" by the gate      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 4 — Run migration                                          │
+│                                                                   │
+│  • Click "Run Migration" in CMS devtools                         │
+│  • Wait for completion — verify per-record success               │
+│  • Verify: all articles readable from site.standard.document     │
+│  • Verify: site manifests have updated URIs                      │
+│  • Verify: no app.scribe.article records remain on PDS           │
+│    (aside from any new drafts created post-Phase 2)              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 5 — Publish SDK and update consumer sites                  │
+│                                                                   │
+│  • Merge SDK branch → publish to npm (manual CI job)             │
+│  • SITE-01 × 3 consumer sites (+ reader if separate repo):       │
+│      npm update / pnpm update                                    │
+│      Fix TypeScript errors                                       │
+│      Build + deploy each site                                    │
+│  • Consumer sites should be deployed within the same release     │
+│    window — old SDK cannot read site.standard.document records   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 6 — Verify                                                 │
+│                                                                   │
+│  • Each consumer site: existing articles render correctly        │
+│  • RSS feeds: items have correct titles, descriptions, dates     │
+│  • Sitemaps: article URLs correct                                │
+│  • CMS: create a new article, publish it, verify it appears on   │
+│    consumer site                                                 │
+│  • CMS: edit a published article, verify changes propagate       │
+│  • Bluesky/standard.site: verify article discoverable via        │
+│    site.standard.document collection on PDS                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Critical constraint:** Phase 5 (consumer site updates) must complete in the same release window as the migration (Phase 4). Once `app.scribe.article` records are deleted, any consumer site still on the old SDK will return 404s for articles. Do not leave Phase 5 for another day.
 
 **Not blocked on:** this can be decided after the article migration ships and the standard.site ecosystem has more time to develop a grouping story of its own.
