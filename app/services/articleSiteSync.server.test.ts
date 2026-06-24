@@ -58,7 +58,7 @@ const ARTICLE_URI = `at://${DID}/app.scribe.article/my-post`;
 const OTHER_URI = `at://${DID}/app.scribe.article/other-post`;
 
 function makeRef(uri: string) {
-  return { uri, title: "T", url: "t", splashImageUrl: null, synopsis: null, createdAt: "2024-01-01" };
+  return { uri, title: "T", slug: "t", splashImageUrl: null, description: null, createdAt: "2024-01-01" };
 }
 
 function makeAgent(records: Array<{ uri: string; value: unknown }>) {
