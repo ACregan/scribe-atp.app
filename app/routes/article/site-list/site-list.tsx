@@ -179,12 +179,72 @@ export async function action({ request, params }: Route.ActionArgs) {
           groups: SiteGroup[];
           ungroupedArticles: ArticleRef[];
         };
-        await mutateSiteRecord(agent, did, siteSlug, (val) => ({
-          ...val,
-          groups: groups as SiteRecordValue["groups"],
-          ungroupedArticles,
-          updatedAt: new Date().toISOString(),
-        }));
+
+        // GET current site once — used for CID swap and old group positions
+        const currentSite = await agent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: SITE_COLLECTION,
+          rkey: siteSlug,
+        });
+        const currentVal = currentSite.data.value as SiteRecordValue;
+
+        // Track which group each published article was in before the save
+        const oldGroupByUri = new Map<string, string>();
+        for (const g of currentVal.groups ?? []) {
+          for (const a of g.articles ?? []) {
+            if (a.uri.includes(`/${DOCUMENT_COLLECTION}/`)) {
+              oldGroupByUri.set(a.uri, g.slug);
+            }
+          }
+        }
+
+        // Save the manifest
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: SITE_COLLECTION,
+          rkey: siteSlug,
+          record: {
+            ...currentVal,
+            groups: groups as SiteRecordValue["groups"],
+            ungroupedArticles,
+            updatedAt: new Date().toISOString(),
+          },
+          swapRecord: currentSite.data.cid,
+        });
+
+        // Update path on published articles that moved between groups
+        const pathUpdates = groups.flatMap((g) =>
+          (g.articles ?? [])
+            .filter(
+              (a) =>
+                a.uri.includes(`/${DOCUMENT_COLLECTION}/`) &&
+                oldGroupByUri.get(a.uri) !== g.slug,
+            )
+            .map(async (a) => {
+              const rkey = a.uri.split("/").pop()!;
+              const newPath = `/${g.slug}/${rkey}`;
+              const { data } = await agent.com.atproto.repo.getRecord({
+                repo: did,
+                collection: DOCUMENT_COLLECTION,
+                rkey,
+              });
+              const docVal = data.value as Record<string, unknown>;
+              if (docVal.path === newPath) return;
+              await agent.com.atproto.repo.putRecord({
+                repo: did,
+                collection: DOCUMENT_COLLECTION,
+                rkey,
+                record: {
+                  ...docVal,
+                  path: newPath,
+                  updatedAt: new Date().toISOString(),
+                },
+                swapRecord: data.cid,
+              });
+            }),
+        );
+
+        await Promise.allSettled(pathUpdates);
       } catch (err) {
         console.error("Failed to save site:", err);
         return { error: `Failed to save order: ${String(err)}` };
