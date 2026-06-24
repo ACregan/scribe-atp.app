@@ -30,6 +30,11 @@ export function useSiteListDnD(
   );
   const [activeGroup, setActiveGroup] = useState<TreeGroupNode | null>(null);
   const previousTreeRef = useRef<TreeGroupNode[]>(tree);
+  // Deferred target for dropping an article into an empty group.
+  // Moving the active item between SortableContexts during onDragOver unmounts
+  // and remounts the draggable component, causing dnd-kit to lose its DOM
+  // reference. We track the intended group here and apply the move in onDragEnd.
+  const pendingEmptyGroupRef = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -37,6 +42,7 @@ export function useSiteListDnD(
 
   function onDragStart({ active }: DragStartEvent) {
     previousTreeRef.current = tree;
+    pendingEmptyGroupRef.current = null;
     const id = String(active.id);
     if (id.startsWith("a:")) {
       const loc = findArticleLocation(tree, id);
@@ -82,22 +88,23 @@ export function useSiteListDnD(
 
       if (overId.startsWith("g:")) {
         const targetGroupIdx = prev.findIndex((n) => n.id === overId);
-        if (targetGroupIdx === -1 || targetGroupIdx === srcLoc.groupIdx)
+        if (
+          targetGroupIdx === -1 ||
+          targetGroupIdx === srcLoc.groupIdx ||
+          prev[targetGroupIdx].children.length > 0
+        ) {
+          pendingEmptyGroupRef.current = null;
           return prev;
-        if (prev[targetGroupIdx].children.length > 0) return prev;
-        return prev.map((group, i) => {
-          if (i === srcLoc.groupIdx)
-            return {
-              ...group,
-              children: group.children.filter(
-                (_, ci) => ci !== srcLoc.childIdx,
-              ),
-            };
-          if (i === targetGroupIdx)
-            return { ...group, children: [...group.children, activeNode] };
-          return group;
-        });
+        }
+        // Defer the move to onDragEnd — moving the active item between
+        // SortableContexts during onDragOver unmounts/remounts it while it is
+        // still the active draggable, causing dnd-kit to lose its DOM reference.
+        pendingEmptyGroupRef.current = overId;
+        return prev;
       }
+
+      // Hovering over an article clears any pending empty-group target.
+      pendingEmptyGroupRef.current = null;
 
       if (overId.startsWith("a:")) {
         const dstLoc = findArticleLocation(prev, overId);
@@ -138,8 +145,45 @@ export function useSiteListDnD(
     });
   }
 
-  function onDragEnd({ over }: DragEndEvent) {
-    if (!over) setTree(previousTreeRef.current);
+  function onDragEnd({ over, active }: DragEndEvent) {
+    const pendingGroupId = pendingEmptyGroupRef.current;
+    pendingEmptyGroupRef.current = null;
+
+    if (!over) {
+      setTree(previousTreeRef.current);
+      setActiveArticle(null);
+      setActiveGroup(null);
+      return;
+    }
+
+    if (pendingGroupId) {
+      const activeId = String(active.id);
+      setTree((prev) => {
+        const srcLoc = findArticleLocation(prev, activeId);
+        if (!srcLoc) return prev;
+        const activeNode = prev[srcLoc.groupIdx].children[srcLoc.childIdx];
+        const targetGroupIdx = prev.findIndex((n) => n.id === pendingGroupId);
+        if (
+          targetGroupIdx === -1 ||
+          targetGroupIdx === srcLoc.groupIdx ||
+          prev[targetGroupIdx].children.length > 0
+        )
+          return prev;
+        return prev.map((group, i) => {
+          if (i === srcLoc.groupIdx)
+            return {
+              ...group,
+              children: group.children.filter(
+                (_, ci) => ci !== srcLoc.childIdx,
+              ),
+            };
+          if (i === targetGroupIdx)
+            return { ...group, children: [...group.children, activeNode] };
+          return group;
+        });
+      });
+    }
+
     setActiveArticle(null);
     setActiveGroup(null);
   }
