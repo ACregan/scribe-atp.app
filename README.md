@@ -149,22 +149,46 @@ See `docs/adr/0001-separate-image-service.md` for why the Image Service runs as 
 
 ## AT Protocol collections
 
-### `app.scribe.article` — rkey = URL slug
+### `app.scribe.article` — draft article, rkey = slug
+
+Drafts use the `site.standard.document` field shape but omit `site` and `publishedAt`. `createdAt` is a Scribe extension field.
 
 ```json
 {
   "$type": "app.scribe.article",
   "title": "My First Post",
-  "url": "my-first-post",
-  "content": "<p>Article body as serialised HTML.</p>",
+  "slug": "my-first-post",
+  "content": { "$type": "app.scribe.content.html", "html": "<p>Article body as serialised HTML.</p>" },
+  "textContent": "Article body as serialised HTML.",
   "splashImageUrl": "https://example.com/images/splash.jpg",
-  "synopsis": "A short description.",
+  "description": "A short description.",
   "createdAt": "2025-01-01T00:00:00.000Z",
   "updatedAt": "2025-06-01T10:00:00.000Z"
 }
 ```
 
-`splashImageUrl` and `synopsis` are optional. `content` is HTML produced by the Scribe rich text editor. `url` is the same as the rkey — both are the URL slug.
+`splashImageUrl` and `description` are optional. `content` uses the `app.scribe.content.html` union type.
+
+### `site.standard.document` — published article, rkey = slug
+
+```json
+{
+  "$type": "site.standard.document",
+  "title": "My First Post",
+  "slug": "my-first-post",
+  "path": "/engineering/my-first-post",
+  "site": "https://norobots.blog/blog",
+  "content": { "$type": "app.scribe.content.html", "html": "<p>Article body as serialised HTML.</p>" },
+  "textContent": "Article body as serialised HTML.",
+  "splashImageUrl": "https://example.com/images/splash.jpg",
+  "description": "A short description.",
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "publishedAt": "2025-06-01T09:00:00.000Z",
+  "updatedAt": "2025-06-01T10:00:00.000Z"
+}
+```
+
+`site` is the Canonical Site `https://` URL. `publishedAt` is set at the actual publish instant — absent on drafts. `splashImageUrl` is a Scribe extension field (standard.site uses a blob `coverImage` which Scribe does not adopt).
 
 ### `app.scribe.site` — rkey = URL-derived slug (e.g. `norobots-blog`)
 
@@ -201,13 +225,15 @@ See `docs/adr/0001-separate-image-service.md` for why the Image Service runs as 
 
 ```ts
 {
-  uri: string;            // full AT URI — "at://did/app.scribe.article/slug"
+  uri: string;             // full AT URI — "at://did/site.standard.document/slug"
   title: string;
-  url: string;            // article slug, same as rkey
+  slug?: string;           // article slug, same as rkey
   splashImageUrl: string | null;
-  synopsis: string | null;
-  createdAt: string;      // ISO 8601
-  updatedAt?: string;     // ISO 8601 — absent on older refs
+  description?: string | null;
+  tags?: string[];
+  createdAt: string;       // ISO 8601
+  publishedAt?: string;    // ISO 8601
+  updatedAt?: string;      // ISO 8601 — absent on older refs
 }
 ```
 
@@ -218,8 +244,9 @@ ArticleRefs are automatically refreshed every time the source article is saved, 
 AT Protocol repositories are publicly readable without authentication:
 
 ```
-GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=app.scribe.article
-GET https://{pds}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=app.scribe.article&rkey={slug}
+GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=site.standard.document
+GET https://{pds}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=site.standard.document&rkey={slug}
+GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=app.scribe.article   (drafts)
 ```
 
 ## Public hooks
