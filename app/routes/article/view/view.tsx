@@ -4,7 +4,7 @@ import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { devViewLoader } from "~/services/devFixtures.server";
 import DOMPurify from "isomorphic-dompurify";
 import { Button } from "~/components/Button/Button";
-import { ARTICLE_COLLECTION } from "~/constants";
+import { ARTICLE_COLLECTION, DOCUMENT_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageSection,
@@ -19,11 +19,21 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!useRealOAuth) return devViewLoader(params.articleUrl);
 
   const { agent, did } = await requireAtpAgent(request);
-  const result = await agent.com.atproto.repo.getRecord({
-    repo: did,
-    collection: ARTICLE_COLLECTION,
-    rkey: params.articleUrl,
-  });
+
+  let result: Awaited<ReturnType<typeof agent.com.atproto.repo.getRecord>>;
+  try {
+    result = await agent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      rkey: params.articleUrl,
+    });
+  } catch {
+    result = await agent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: ARTICLE_COLLECTION,
+      rkey: params.articleUrl,
+    });
+  }
 
   const rawContent = result.data.value.content;
   const html =
