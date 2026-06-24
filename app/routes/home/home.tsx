@@ -14,7 +14,7 @@ import { Button } from "~/components/Button/Button";
 import { Pill } from "~/components/Pill/Pill";
 import styles from "./home.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
+import { ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageContainerHeading,
@@ -44,12 +44,12 @@ function formatArticleDate(iso: string): string {
   return `${time} ${date}`;
 }
 
-const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, SITE_COLLECTION];
+const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION];
 
 type RecentArticleItem = {
   uri: string;
   title: string;
-  url: string;
+  slug: string;
   createdAt: string;
   updatedAt?: string;
 };
@@ -143,7 +143,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       return {
         uri: record.uri,
         title: String(value.title ?? "Untitled"),
-        url: String(value.url ?? record.uri.split("/").pop()!),
+        slug: record.uri.split("/").pop()!,
         createdAt: String(value.createdAt ?? ""),
         updatedAt: value.updatedAt ? String(value.updatedAt) : undefined,
       };
@@ -486,12 +486,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                           article.updatedAt ?? article.createdAt,
                         )}
                       </Pill>
-                      <Link to={`/article/view/${article.url}`}>
+                      <Link to={`/article/view/${article.slug}`}>
                         <Button type="button" variant="secondary" tabIndex={-1}>
                           View
                         </Button>
                       </Link>
-                      <Link to={`/article/edit/${article.url}`}>
+                      <Link to={`/article/edit/${article.slug}`}>
                         <Button type="button" variant="primary" tabIndex={-1}>
                           Edit
                         </Button>

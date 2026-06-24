@@ -44,11 +44,13 @@ const { site, loading, error } = useSite(author, siteSlug);
 {
   uri: string;
   title: string;
-  url?: string;            // article slug — same as rkey, convenient for routing
+  slug?: string;           // article slug — same as rkey, convenient for routing
   splashImageUrl: string | null;
-  synopsis: string | null;
+  description?: string | null;
+  tags?: string[];
   createdAt: string;       // ISO 8601
-  updatedAt?: string;      // ISO 8601 — absent on refs created before this field was introduced
+  publishedAt?: string;    // ISO 8601
+  updatedAt?: string;      // ISO 8601 — absent on older refs
 }
 ```
 

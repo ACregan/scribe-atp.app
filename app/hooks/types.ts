@@ -1,10 +1,12 @@
 export interface ArticleRef {
   uri: string;
   title: string;
-  url?: string;
+  slug?: string;
   splashImageUrl: string | null;
-  synopsis?: string | null;
+  description?: string | null;
+  tags?: string[];
   createdAt: string;
+  publishedAt?: string;
   updatedAt?: string;
 }
 
@@ -28,9 +30,9 @@ export interface Site {
 export interface Article {
   title: string;
   content: string;
-  url: string;
+  slug: string;
   splashImageUrl?: string;
-  synopsis?: string;
+  description?: string;
   createdAt: string;
   updatedAt?: string;
 }

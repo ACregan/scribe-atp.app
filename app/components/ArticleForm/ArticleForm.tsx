@@ -15,7 +15,7 @@ type ArticleFormProps = {
   defaultTitle?: string;
   defaultUrl?: string;
   defaultSplashImageUrl?: string;
-  defaultSynopsis?: string;
+  defaultDescription?: string;
   defaultContent?: string;
   // When provided the title/url inputs become controlled — used by the create
   // route to drive slug auto-fill. Edit leaves these undefined (uncontrolled).
@@ -35,7 +35,7 @@ export function ArticleForm({
   defaultTitle,
   defaultUrl,
   defaultSplashImageUrl,
-  defaultSynopsis,
+  defaultDescription,
   defaultContent,
   titleValue,
   urlValue,
@@ -83,12 +83,12 @@ export function ArticleForm({
               defaultValue={defaultSplashImageUrl}
             />
             <Textarea
-              id="synopsis"
-              name="synopsis"
-              label="Synopsis"
+              id="description"
+              name="description"
+              label="Description"
               rows={3}
               placeholder="Brief description of the article..."
-              defaultValue={defaultSynopsis}
+              defaultValue={defaultDescription}
             />
             {siteOptions.length > 0 && (
               <Select
@@ -133,12 +133,12 @@ export function ArticleForm({
           defaultValue={defaultSplashImageUrl}
         />
         <Textarea
-          id="synopsis"
-          name="synopsis"
-          label="Synopsis"
+          id="description"
+          name="description"
+          label="Description"
           rows={3}
           placeholder="Brief description of the article..."
-          defaultValue={defaultSynopsis}
+          defaultValue={defaultDescription}
         />
       </PageSection>
 

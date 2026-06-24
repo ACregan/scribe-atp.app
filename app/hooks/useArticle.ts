@@ -18,12 +18,19 @@ async function fetchArticle(
     throw new Error(`Failed to fetch article: ${res.statusText}`);
   }
   const { value } = await res.json();
+  const rawContent = value.content;
+  const content =
+    typeof rawContent === "object" &&
+    rawContent !== null &&
+    (rawContent as Record<string, unknown>).$type === "app.scribe.content.html"
+      ? String((rawContent as Record<string, unknown>).html ?? "")
+      : String(rawContent ?? "");
   return {
     title: value.title ?? "",
-    content: value.content ?? "",
-    url: value.url ?? articleSlug,
+    content,
+    slug: articleSlug,
     splashImageUrl: value.splashImageUrl,
-    synopsis: value.synopsis,
+    description: value.description ?? value.synopsis,
     createdAt: value.createdAt ?? "",
     updatedAt: value.updatedAt,
   };

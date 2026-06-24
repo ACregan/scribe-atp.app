@@ -1,6 +1,6 @@
 # useArticle
 
-Fetches an `app.scribe.article` record from the AT Protocol and returns the full article, including the HTML body content. No authentication required — AT Protocol repositories are publicly readable.
+Fetches an article from the AT Protocol (tries `site.standard.document` first, falls back to `app.scribe.article` for drafts) and returns the full article, including the HTML body content. No authentication required — AT Protocol repositories are publicly readable.
 
 ```ts
 import { useArticle } from "~/hooks";
@@ -29,10 +29,10 @@ const { article, loading, error } = useArticle(author, articleSlug);
 {
   title: string;
   content: string;        // HTML — render with dangerouslySetInnerHTML
-  url: string;            // the slug, same as articleSlug
+  slug: string;           // the slug, same as articleSlug
   splashImageUrl?: string;
-  synopsis?: string;
-  createdAt: string;      // ISO 8601 — set once on create, never changed
+  description?: string;
+  createdAt: string;      // ISO 8601 — Scribe extension, set once on create
   updatedAt?: string;     // ISO 8601 — set on create and updated on every edit
 }
 ```

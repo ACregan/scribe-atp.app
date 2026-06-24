@@ -24,9 +24,9 @@ const ref = (
 ): ArticleRef => ({
   uri: `at://did:plc:test/app.scribe.article/${slug}`,
   title: `Article: ${slug}`,
-  url: slug,
+  slug,
   splashImageUrl: null,
-  synopsis: null,
+  description: null,
   createdAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });
@@ -110,8 +110,8 @@ describe("toSlug", () => {
 describe("nodeFromRef", () => {
   it("maps all ArticleRef fields onto the node", () => {
     const input = ref("my-post", {
-      url: "my-post",
-      synopsis: "A summary",
+      slug: "my-post",
+      description: "A summary",
       splashImageUrl: "https://example.com/img.jpg",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-06-01T00:00:00.000Z",
@@ -121,8 +121,8 @@ describe("nodeFromRef", () => {
     expect(node.id).toBe("a:my-post");
     expect(node.uri).toBe(input.uri);
     expect(node.title).toBe(input.title);
-    expect(node.url).toBe("my-post");
-    expect(node.synopsis).toBe("A summary");
+    expect(node.slug).toBe("my-post");
+    expect(node.description).toBe("A summary");
     expect(node.splashImageUrl).toBe("https://example.com/img.jpg");
     expect(node.createdAt).toBe("2025-01-01T00:00:00.000Z");
     expect(node.updatedAt).toBe("2025-06-01T00:00:00.000Z");
@@ -137,7 +137,7 @@ describe("nodeFromRef", () => {
   it("preserves undefined optional fields", () => {
     const node = nodeFromRef(ref("p"));
     expect(node.updatedAt).toBeUndefined();
-    expect(node.synopsis).toBeNull();
+    expect(node.description).toBeNull();
   });
 });
 
@@ -146,8 +146,8 @@ describe("nodeFromRef", () => {
 describe("articleRefFromNode", () => {
   it("maps all node fields back onto an ArticleRef", () => {
     const input = ref("my-post", {
-      url: "my-post",
-      synopsis: "A summary",
+      slug: "my-post",
+      description: "A summary",
       splashImageUrl: "https://example.com/img.jpg",
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-06-01T00:00:00.000Z",
@@ -239,22 +239,22 @@ describe("buildTreeFromSite", () => {
     expect(tree[1].children[0].title).toBe("Article: deep-dive");
   });
 
-  it("preserves the url field on article nodes", () => {
+  it("preserves the slug field on article nodes", () => {
     const site: SiteManifest = {
       ...emptySite,
-      ungroupedArticles: [ref("my-post", { url: "my-post" })],
+      ungroupedArticles: [ref("my-post", { slug: "my-post" })],
     };
     const tree = buildTreeFromSite(site);
-    expect(tree[0].children[0].url).toBe("my-post");
+    expect(tree[0].children[0].slug).toBe("my-post");
   });
 
-  it("preserves the synopsis field on article nodes", () => {
+  it("preserves the description field on article nodes", () => {
     const site: SiteManifest = {
       ...emptySite,
-      ungroupedArticles: [ref("my-post", { synopsis: "A short summary" })],
+      ungroupedArticles: [ref("my-post", { description: "A short summary" })],
     };
     const tree = buildTreeFromSite(site);
-    expect(tree[0].children[0].synopsis).toBe("A short summary");
+    expect(tree[0].children[0].description).toBe("A short summary");
   });
 
   it("preserves splashImageUrl on article nodes", () => {
@@ -311,9 +311,9 @@ describe("treeToSiteData", () => {
             id: "a:my-post",
             uri: "at://did/col/my-post",
             title: "My Post",
-            url: "my-post",
+            slug: "my-post",
             splashImageUrl: null,
-            synopsis: null,
+            description: null,
             createdAt: "2024-01-01T00:00:00.000Z",
           },
         ],
@@ -431,9 +431,9 @@ describe("updateArticleRef", () => {
   const newRef: ArticleRef = {
     uri: "at://did:plc:test/app.scribe.article/renamed",
     title: "Renamed",
-    url: "renamed",
+    slug: "renamed",
     splashImageUrl: null,
-    synopsis: null,
+    description: null,
     createdAt: "2024-01-01T00:00:00.000Z",
   };
 
@@ -493,11 +493,11 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
       ...emptySite,
       ungroupedArticles: [
         ref("post-one", {
-          url: "post-one",
-          synopsis: "First summary",
+          slug: "post-one",
+          description: "First summary",
           splashImageUrl: "https://img.example.com/1.jpg",
         }),
-        ref("post-two", { url: "post-two", synopsis: null }),
+        ref("post-two", { slug: "post-two", description: null }),
       ],
     };
     const { ungroupedArticles } = treeToSiteData(buildTreeFromSite(site));
@@ -512,14 +512,14 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
           slug: "engineering",
           title: "Engineering",
           articles: [
-            ref("deep-dive", { url: "deep-dive", synopsis: "A deep dive" }),
-            ref("intro", { url: "intro", synopsis: null }),
+            ref("deep-dive", { slug: "deep-dive", description: "A deep dive" }),
+            ref("intro", { slug: "intro", description: null }),
           ],
         },
         {
           slug: "design",
           title: "Design",
-          articles: [ref("ui-patterns", { url: "ui-patterns" })],
+          articles: [ref("ui-patterns", { slug: "ui-patterns" })],
         },
       ],
     };
@@ -527,67 +527,67 @@ describe("buildTreeFromSite → treeToSiteData round-trip", () => {
     expect(groups).toEqual(site.groups);
   });
 
-  it("preserves url on ungrouped articles through the round-trip", () => {
+  it("preserves slug on ungrouped articles through the round-trip", () => {
     const site: SiteManifest = {
       ...emptySite,
-      ungroupedArticles: [ref("my-post", { url: "my-post" })],
+      ungroupedArticles: [ref("my-post", { slug: "my-post" })],
     };
     const { ungroupedArticles } = treeToSiteData(buildTreeFromSite(site));
-    expect(ungroupedArticles[0].url).toBe("my-post");
+    expect(ungroupedArticles[0].slug).toBe("my-post");
   });
 
-  it("preserves synopsis on ungrouped articles through the round-trip", () => {
+  it("preserves description on ungrouped articles through the round-trip", () => {
     const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [
-        ref("my-post", { synopsis: "A short summary of the post" }),
+        ref("my-post", { description: "A short summary of the post" }),
       ],
     };
     const { ungroupedArticles } = treeToSiteData(buildTreeFromSite(site));
-    expect(ungroupedArticles[0].synopsis).toBe("A short summary of the post");
+    expect(ungroupedArticles[0].description).toBe("A short summary of the post");
   });
 
-  it("preserves url on articles inside named groups through the round-trip", () => {
+  it("preserves slug on articles inside named groups through the round-trip", () => {
     const site: SiteManifest = {
       ...emptySite,
       groups: [
         {
           slug: "eng",
           title: "Engineering",
-          articles: [ref("my-post", { url: "my-post" })],
+          articles: [ref("my-post", { slug: "my-post" })],
         },
       ],
     };
     const { groups } = treeToSiteData(buildTreeFromSite(site));
-    expect(groups[0].articles[0].url).toBe("my-post");
+    expect(groups[0].articles[0].slug).toBe("my-post");
   });
 
-  it("preserves synopsis on articles inside named groups through the round-trip", () => {
+  it("preserves description on articles inside named groups through the round-trip", () => {
     const site: SiteManifest = {
       ...emptySite,
       groups: [
         {
           slug: "eng",
           title: "Engineering",
-          articles: [ref("my-post", { synopsis: "A group article summary" })],
+          articles: [ref("my-post", { description: "A group article summary" })],
         },
       ],
     };
     const { groups } = treeToSiteData(buildTreeFromSite(site));
-    expect(groups[0].articles[0].synopsis).toBe("A group article summary");
+    expect(groups[0].articles[0].description).toBe("A group article summary");
   });
 
   it("handles a full site with both ungrouped articles and named groups", () => {
     const site: SiteManifest = {
       ...emptySite,
       ungroupedArticles: [
-        ref("standalone", { url: "standalone", synopsis: "Solo" }),
+        ref("standalone", { slug: "standalone", description: "Solo" }),
       ],
       groups: [
         {
           slug: "series",
           title: "Series",
-          articles: [ref("part-1", { url: "part-1", synopsis: "Part one" })],
+          articles: [ref("part-1", { slug: "part-1", description: "Part one" })],
         },
       ],
     };

@@ -55,17 +55,17 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
-  const url = formData.get("url") as string;
+  const slug = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
-  const synopsis = formData.get("synopsis") as string;
+  const description = formData.get("description") as string;
   const selectedSiteRkeys = formData.getAll("sites") as string[];
 
-  const validationError = validateArticleFields(title, url, splashImageUrl);
+  const validationError = validateArticleFields(title, slug, splashImageUrl);
   if (validationError) return { error: validationError };
 
   if (!useRealOAuth) {
     return {
-      uri: `at://${did}/${ARTICLE_COLLECTION}/${url}`,
+      uri: `at://${did}/${ARTICLE_COLLECTION}/${slug}`,
       devMode: true,
       title,
     };
@@ -76,7 +76,7 @@ export async function action({ request }: Route.ActionArgs) {
     const { uri } = await createArticle(
       agent,
       did,
-      { title, content, url, splashImageUrl, synopsis },
+      { title, content, slug, splashImageUrl, description },
       selectedSiteRkeys,
     );
     return { uri, devMode: false, title };

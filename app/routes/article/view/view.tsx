@@ -25,19 +25,28 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     rkey: params.articleUrl,
   });
 
-  const rawContent = String(result.data.value.content ?? "");
+  const rawContent = result.data.value.content;
+  const html =
+    typeof rawContent === "object" &&
+    rawContent !== null &&
+    (rawContent as Record<string, unknown>).$type === "app.scribe.content.html"
+      ? String((rawContent as Record<string, unknown>).html ?? "")
+      : String(rawContent ?? "");
+
   return {
     title: String(result.data.value.title ?? "(untitled)"),
-    content: DOMPurify.sanitize(rawContent, { FORCE_BODY: true }),
+    content: DOMPurify.sanitize(html, { FORCE_BODY: true }),
     splashImageUrl: String(result.data.value.splashImageUrl ?? ""),
-    synopsis: String(result.data.value.synopsis ?? ""),
+    description: String(
+      result.data.value.description ?? result.data.value.synopsis ?? "",
+    ),
     createdAt: String(result.data.value.createdAt ?? ""),
-    url: params.articleUrl,
+    slug: params.articleUrl,
   };
 }
 
 export default function ViewArticle({ loaderData }: Route.ComponentProps) {
-  const { title, content, splashImageUrl, synopsis, createdAt, url } =
+  const { title, content, splashImageUrl, description, createdAt, slug } =
     loaderData;
 
   return (
@@ -57,9 +66,9 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
             {new Date(createdAt).toLocaleDateString()}
           </p>
         )}
-        {synopsis && (
+        {description && (
           <p style={{ fontStyle: "italic", marginBottom: "1rem" }}>
-            {synopsis}
+            {description}
           </p>
         )}
       </PageSection>
@@ -73,7 +82,7 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
             Back to articles
           </Button>
         </Link>
-        <Link to={`/article/edit/${url}`}>
+        <Link to={`/article/edit/${slug}`}>
           <Button tabIndex={-1}>Edit</Button>
         </Link>
       </FooterPortal>
