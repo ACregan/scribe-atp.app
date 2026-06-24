@@ -11,12 +11,12 @@ import { logger } from "~/services/logger.server";
 
 export function validateArticleFields(
   title: string,
-  url: string,
+  slug: string,
   splashImageUrl?: string,
 ): string | null {
   if (!title?.trim()) return "Title is required.";
-  if (!url?.trim()) return "URL slug is required.";
-  if (!SLUG_RE.test(url))
+  if (!slug?.trim()) return "URL slug is required.";
+  if (!SLUG_RE.test(slug))
     return "URL slug must be lowercase letters, numbers, and hyphens only (e.g. my-article).";
   if (splashImageUrl?.trim() && !IMAGE_URL_RE.test(splashImageUrl.trim()))
     return "Splash Image URL must start with https://.";
@@ -26,19 +26,19 @@ export function validateArticleFields(
 export function buildArticleRecord(fields: {
   title: string;
   content: string;
-  url: string;
+  slug: string;
   splashImageUrl?: string;
-  synopsis?: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }): Record<string, unknown> {
   return {
     $type: ARTICLE_COLLECTION,
     title: fields.title,
-    content: fields.content,
-    url: fields.url,
+    path: `/${fields.slug}`,
+    content: { $type: "app.scribe.content.html", html: fields.content },
     splashImageUrl: fields.splashImageUrl?.trim() || undefined,
-    synopsis: fields.synopsis?.trim() || undefined,
+    description: fields.description?.trim() || undefined,
     createdAt: fields.createdAt,
     updatedAt: fields.updatedAt,
   };
@@ -47,18 +47,20 @@ export function buildArticleRecord(fields: {
 export function buildArticleRef(fields: {
   uri: string;
   title: string;
-  url: string;
+  slug: string;
   splashImageUrl?: string;
-  synopsis?: string;
+  description?: string;
+  publishedAt?: string;
   createdAt: string;
   updatedAt: string;
 }): ArticleRef {
   return {
     uri: fields.uri,
     title: fields.title,
-    url: fields.url,
+    slug: fields.slug,
     splashImageUrl: fields.splashImageUrl?.trim() || null,
-    synopsis: fields.synopsis?.trim() || null,
+    description: fields.description?.trim() || null,
+    publishedAt: fields.publishedAt,
     createdAt: fields.createdAt,
     updatedAt: fields.updatedAt,
   };
@@ -75,9 +77,9 @@ export async function createArticle(
   fields: {
     title: string;
     content: string;
-    url: string;
+    slug: string;
     splashImageUrl: string;
-    synopsis: string;
+    description: string;
   },
   siteRkeys: string[],
 ): Promise<{ uri: string }> {
@@ -85,13 +87,13 @@ export async function createArticle(
   const result = await agent.com.atproto.repo.createRecord({
     repo: did,
     collection: ARTICLE_COLLECTION,
-    rkey: fields.url,
+    rkey: fields.slug,
     record: buildArticleRecord({
       title: fields.title,
       content: fields.content,
-      url: fields.url,
+      slug: fields.slug,
       splashImageUrl: fields.splashImageUrl,
-      synopsis: fields.synopsis,
+      description: fields.description,
       createdAt: now,
       updatedAt: now,
     }),
@@ -100,15 +102,15 @@ export async function createArticle(
     const ref = buildArticleRef({
       uri: result.data.uri,
       title: fields.title,
-      url: fields.url,
+      slug: fields.slug,
       splashImageUrl: fields.splashImageUrl,
-      synopsis: fields.synopsis,
+      description: fields.description,
       createdAt: now,
       updatedAt: now,
     });
     await addArticleToSites(agent, did, siteRkeys, ref);
   }
-  logger.info({ event: "article.create", user_did: did, rkey: fields.url, site_count: siteRkeys.length }, "article.create");
+  logger.info({ event: "article.create", user_did: did, rkey: fields.slug, site_count: siteRkeys.length }, "article.create");
   return { uri: result.data.uri };
 }
 
@@ -120,9 +122,9 @@ export async function updateArticle(
     fields: {
       title: string;
       content: string;
-      url: string;
+      slug: string;
       splashImageUrl: string;
-      synopsis: string;
+      description: string;
       createdAt: string;
     };
     cid: string | null;
@@ -131,17 +133,17 @@ export async function updateArticle(
   },
 ): Promise<UpdateArticleResult> {
   const { oldRkey, fields, cid, oldSiteRkeys, newSiteRkeys } = params;
-  const slugChanged = fields.url !== oldRkey;
+  const slugChanged = fields.slug !== oldRkey;
   const now = new Date().toISOString();
   const record = buildArticleRecord({ ...fields, updatedAt: now });
   const oldArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${oldRkey}`;
-  const newArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${fields.url}`;
+  const newArticleUri = `at://${did}/${ARTICLE_COLLECTION}/${fields.slug}`;
   const ref = buildArticleRef({
     uri: newArticleUri,
     title: fields.title,
-    url: fields.url,
+    slug: fields.slug,
     splashImageUrl: fields.splashImageUrl,
-    synopsis: fields.synopsis,
+    description: fields.description,
     createdAt: fields.createdAt,
     updatedAt: now,
   });
@@ -151,7 +153,7 @@ export async function updateArticle(
     await agent.com.atproto.repo.createRecord({
       repo: did,
       collection: ARTICLE_COLLECTION,
-      rkey: fields.url,
+      rkey: fields.slug,
       record,
     });
     await agent.com.atproto.repo
@@ -165,8 +167,8 @@ export async function updateArticle(
         console.error("Failed to delete old record after rename:", err);
       });
     await syncSiteArticleRefs(agent, did, siteChanges, oldArticleUri, ref);
-    logger.info({ event: "article.update", user_did: did, rkey: fields.url, old_rkey: oldRkey, slug_renamed: true }, "article.update");
-    return { newSlug: fields.url };
+    logger.info({ event: "article.update", user_did: did, rkey: fields.slug, old_rkey: oldRkey, slug_renamed: true }, "article.update");
+    return { newSlug: fields.slug };
   }
 
   const putResult = await agent.com.atproto.repo.putRecord({
@@ -196,4 +198,3 @@ export async function loadSiteOptions(
     url: String((record.value as Record<string, unknown>).url ?? ""),
   }));
 }
-

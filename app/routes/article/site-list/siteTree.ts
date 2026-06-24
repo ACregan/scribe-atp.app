@@ -21,10 +21,12 @@ export type TreeArticleNode = {
   id: string;
   uri: string;
   title: string;
-  url?: string;
+  slug?: string;
   splashImageUrl: string | null;
-  synopsis?: string | null;
+  description?: string | null;
+  tags?: string[];
   createdAt: string;
+  publishedAt?: string;
   updatedAt?: string;
 };
 
@@ -113,10 +115,12 @@ export function nodeFromRef(ref: ArticleRef): TreeArticleNode {
     id: articleId(slugFromUri(ref.uri)),
     uri: ref.uri,
     title: ref.title,
-    url: ref.url,
+    slug: ref.slug,
     splashImageUrl: ref.splashImageUrl,
-    synopsis: ref.synopsis,
+    description: ref.description,
+    tags: ref.tags,
     createdAt: ref.createdAt,
+    publishedAt: ref.publishedAt,
     updatedAt: ref.updatedAt,
   };
 }
@@ -125,10 +129,12 @@ export function articleRefFromNode(node: TreeArticleNode): ArticleRef {
   return {
     uri: node.uri,
     title: node.title,
-    url: node.url,
+    slug: node.slug,
     splashImageUrl: node.splashImageUrl,
-    synopsis: node.synopsis,
+    description: node.description,
+    tags: node.tags,
     createdAt: node.createdAt,
+    publishedAt: node.publishedAt,
     updatedAt: node.updatedAt,
   };
 }

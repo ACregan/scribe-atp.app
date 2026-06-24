@@ -50,13 +50,25 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     findSitesContaining(agent, did, articleUri),
   ]);
 
+  const rawContent = articleResult.data.value.content;
+  const content =
+    typeof rawContent === "object" &&
+    rawContent !== null &&
+    (rawContent as Record<string, unknown>).$type === "app.scribe.content.html"
+      ? String((rawContent as Record<string, unknown>).html ?? "")
+      : String(rawContent ?? "");
+
   return {
     rkey: params.articleUrl,
     title: String(articleResult.data.value.title ?? ""),
-    content: String(articleResult.data.value.content ?? ""),
-    url: String(articleResult.data.value.url ?? params.articleUrl),
+    content,
+    slug: params.articleUrl,
     splashImageUrl: String(articleResult.data.value.splashImageUrl ?? ""),
-    synopsis: String(articleResult.data.value.synopsis ?? ""),
+    description: String(
+      articleResult.data.value.description ??
+        articleResult.data.value.synopsis ??
+        "",
+    ),
     createdAt: String(
       articleResult.data.value.createdAt ?? new Date().toISOString(),
     ),
@@ -70,9 +82,9 @@ export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
-  const newUrl = formData.get("url") as string;
+  const newSlug = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
-  const synopsis = formData.get("synopsis") as string;
+  const description = formData.get("description") as string;
   const cid = formData.get("cid") as string | null;
   const createdAt =
     (formData.get("createdAt") as string) || new Date().toISOString();
@@ -82,7 +94,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     (formData.get("oldSiteRkeys") as string) || "[]",
   );
 
-  const validationError = validateArticleFields(title, newUrl, splashImageUrl);
+  const validationError = validateArticleFields(title, newSlug, splashImageUrl);
   if (validationError) return { ok: false as const, error: validationError };
 
   if (!useRealOAuth) return { ok: true as const, title };
@@ -94,9 +106,9 @@ export async function action({ request, params }: Route.ActionArgs) {
       fields: {
         title,
         content,
-        url: newUrl,
+        slug: newSlug,
         splashImageUrl,
-        synopsis,
+        description,
         createdAt,
       },
       cid,
@@ -123,9 +135,9 @@ export default function EditArticle({
   const {
     title,
     content,
-    url,
+    slug,
     splashImageUrl,
-    synopsis,
+    description,
     createdAt,
     cid,
     sites,
@@ -137,7 +149,7 @@ export default function EditArticle({
   const [isDirty, setIsDirty] = useState(false);
   // Initialise from loader data so canSave is correct before the user edits.
   const [titleValue, setTitleValue] = useState(title);
-  const [urlValue, setUrlValue] = useState(url);
+  const [urlValue, setUrlValue] = useState(slug);
   const [contentHtml, setContentHtml] = useState(content);
   // Held in state so it updates after a successful non-rename save without
   // re-running the loader (putRecord produces a new CID; stale CID would fail
@@ -212,9 +224,9 @@ export default function EditArticle({
       >
         <ArticleForm
           defaultTitle={title}
-          defaultUrl={url}
+          defaultUrl={slug}
           defaultSplashImageUrl={splashImageUrl}
-          defaultSynopsis={synopsis}
+          defaultDescription={description}
           defaultContent={content}
           sites={sites}
           selectedSites={selectedSites}

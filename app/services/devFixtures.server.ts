@@ -24,14 +24,14 @@ const DEV_UNGROUPED: ArticleRef[] = [
   {
     uri: `at://${DEV_DID}/app.scribe.article/getting-started`,
     title: "Getting Started with AT Protocol",
-    url: "getting-started",
+    slug: "getting-started",
     splashImageUrl: null,
     createdAt: "2025-02-01T00:00:00.000Z",
   },
   {
     uri: `at://${DEV_DID}/app.scribe.article/lexical-editor`,
     title: "Building a Rich Text Editor with Lexical",
-    url: "lexical-editor",
+    slug: "lexical-editor",
     splashImageUrl: null,
     createdAt: "2025-03-20T00:00:00.000Z",
   },
@@ -107,21 +107,21 @@ export function devHomeLoader(handle: string | null | undefined) {
       {
         uri: `at://${DEV_DID}/app.scribe.article/my-first-post`,
         title: "My First Post",
-        url: "my-first-post",
+        slug: "my-first-post",
         createdAt: "2025-06-01T09:00:00.000Z",
         updatedAt: "2025-06-04T10:00:00.000Z",
       },
       {
         uri: `at://${DEV_DID}/app.scribe.article/design-principles`,
         title: "Design Principles",
-        url: "design-principles",
+        slug: "design-principles",
         createdAt: "2025-05-20T08:00:00.000Z",
         updatedAt: "2025-06-01T09:00:00.000Z",
       },
       {
         uri: `at://${DEV_DID}/app.scribe.article/getting-started`,
         title: "Getting Started with AT Protocol",
-        url: "getting-started",
+        slug: "getting-started",
         createdAt: "2025-05-28T14:00:00.000Z",
       },
     ],
@@ -208,9 +208,9 @@ export function devEditLoader(articleUrl: string): {
   rkey: string;
   title: string;
   content: string;
-  url: string;
+  slug: string;
   splashImageUrl: string;
-  synopsis: string;
+  description: string;
   createdAt: string;
   cid: string;
   sites: SiteOption[];
@@ -220,9 +220,9 @@ export function devEditLoader(articleUrl: string): {
     rkey: articleUrl,
     title: "Dev mode article",
     content: "Dev mode content",
-    url: articleUrl,
+    slug: articleUrl,
     splashImageUrl: "",
-    synopsis: "",
+    description: "",
     createdAt: new Date().toISOString(),
     cid: "dev-cid",
     sites: DEV_SITE_OPTIONS,
@@ -252,7 +252,7 @@ export function devSiteListLoader(siteSlug: string): {
             {
               uri: `at://${DEV_DID}/app.scribe.article/hello-world`,
               title: "Hello World",
-              url: "hello-world",
+              slug: "hello-world",
               splashImageUrl: null,
               createdAt: "2025-01-01T00:00:00.000Z",
             },
@@ -271,9 +271,9 @@ export function devViewLoader(articleUrl: string) {
     title: "Dev mode article",
     content: "This is placeholder content for dev mode.",
     splashImageUrl: "",
-    synopsis: "",
+    description: "",
     createdAt: new Date().toISOString(),
-    url: articleUrl,
+    slug: articleUrl,
   };
 }
 

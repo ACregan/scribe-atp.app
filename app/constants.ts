@@ -1,4 +1,5 @@
 export const ARTICLE_COLLECTION = "app.scribe.article";
+export const DOCUMENT_COLLECTION = "site.standard.document";
 export const SITE_COLLECTION = "app.scribe.site";
 
 // Domain must contain at least one dot, no spaces, valid hostname chars
