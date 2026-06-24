@@ -148,39 +148,44 @@ export function devHomeLoader(handle: string | null | undefined) {
 
 export function devArticleListLoader() {
   return {
-    assignedArticles: [
+    publishedArticles: [
       {
         rkey: "my-first-post",
-        uri: `at://${DEV_DID}/app.scribe.article/my-first-post`,
+        uri: `at://${DEV_DID}/site.standard.document/my-first-post`,
         title: "My First Post",
-        cid: "dev-cid-a1",
-        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+        publishedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
         assignments: [
           {
             siteTitle: "NoRobots.blog",
             siteRkey: "norobots-blog",
             groupTitle: "Getting Started",
-            groupSlug: "getting-started",
           },
         ],
       },
       {
         rkey: "second-post",
-        uri: `at://${DEV_DID}/app.scribe.article/second-post`,
+        uri: `at://${DEV_DID}/site.standard.document/second-post`,
         title: "Second Post",
-        cid: "dev-cid-a2",
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        publishedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
         assignments: [
-          { siteTitle: "NoRobots.blog", siteRkey: "norobots-blog" },
-          { siteTitle: "Perpetual Summer LTD", siteRkey: "perpetualsummer-ltd" },
+          {
+            siteTitle: "NoRobots.blog",
+            siteRkey: "norobots-blog",
+            groupTitle: undefined,
+          },
+          {
+            siteTitle: "Perpetual Summer LTD",
+            siteRkey: "perpetualsummer-ltd",
+            groupTitle: undefined,
+          },
         ],
       },
     ],
-    orphanedArticles: [
+    orphanedDrafts: [
       {
         rkey: "dev-orphan",
         uri: `at://${DEV_DID}/app.scribe.article/dev-orphan`,
-        title: "Dev Orphan Article",
+        title: "Dev Orphan Draft",
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
       },

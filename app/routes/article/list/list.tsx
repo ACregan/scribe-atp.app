@@ -6,33 +6,42 @@ import { devArticleListLoader } from "~/services/devFixtures.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
+import { Pill } from "~/components/Pill/Pill";
 import {
   PageContainer,
   PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
-import { ARTICLE_COLLECTION, SITE_COLLECTION } from "~/constants";
+import {
+  ARTICLE_COLLECTION,
+  DOCUMENT_COLLECTION,
+  SITE_COLLECTION,
+} from "~/constants";
 import { logger } from "~/services/logger.server";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-type ArticleListItem = {
+type Assignment = {
+  siteTitle: string;
+  siteRkey: string;
+  groupTitle?: string;
+};
+
+type PublishedArticle = {
+  rkey: string;
+  uri: string;
+  title: string;
+  publishedAt?: string;
+  assignments: Assignment[];
+};
+
+type OrphanedDraft = {
   rkey: string;
   uri: string;
   title: string;
   cid: string;
   createdAt: string;
 };
-
-type Assignment = {
-  siteTitle: string;
-  siteRkey: string;
-  groupTitle?: string;
-  groupSlug?: string;
-};
-
-type AssignedArticle = ArticleListItem & { assignments: Assignment[] };
-type OrphanedArticle = ArticleListItem;
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP - Article List" }];
@@ -43,10 +52,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const { agent, did } = await requireAtpAgent(request);
 
-  const [articlesResult, sitesResult] = await Promise.all([
+  const [draftsResult, publishedResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
       repo: did,
       collection: ARTICLE_COLLECTION,
+      limit: 100,
+    }),
+    agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
       limit: 100,
     }),
     agent.com.atproto.repo.listRecords({
@@ -56,8 +70,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     }),
   ]);
 
-  const referencedUris = new Set<string>();
   const assignmentMap = new Map<string, Assignment[]>();
+  const draftUrisInSites = new Set<string>();
 
   for (const record of sitesResult.data.records) {
     const value = record.value as Record<string, unknown>;
@@ -65,10 +79,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     const siteTitle = String(value.title ?? "");
 
     for (const a of (value.ungroupedArticles as Array<{ uri: string }>) ?? []) {
-      referencedUris.add(a.uri);
       const list = assignmentMap.get(a.uri) ?? [];
       list.push({ siteTitle, siteRkey });
       assignmentMap.set(a.uri, list);
+      if (a.uri.includes(`/${ARTICLE_COLLECTION}/`)) draftUrisInSites.add(a.uri);
     }
 
     for (const g of (value.groups as Array<{
@@ -77,43 +91,44 @@ export async function loader({ request }: Route.LoaderArgs) {
       articles: Array<{ uri: string }>;
     }>) ?? []) {
       for (const a of g.articles ?? []) {
-        referencedUris.add(a.uri);
         const list = assignmentMap.get(a.uri) ?? [];
-        list.push({
-          siteTitle,
-          siteRkey,
-          groupTitle: g.title,
-          groupSlug: g.slug,
-        });
+        list.push({ siteTitle, siteRkey, groupTitle: g.title });
         assignmentMap.set(a.uri, list);
+        if (a.uri.includes(`/${ARTICLE_COLLECTION}/`))
+          draftUrisInSites.add(a.uri);
       }
     }
   }
 
-  const assignedArticles: AssignedArticle[] = [];
-  const orphanedArticles: OrphanedArticle[] = [];
-
-  for (const record of articlesResult.data.records) {
-    const value = record.value as Record<string, unknown>;
-    const article: ArticleListItem = {
-      rkey: record.uri.split("/").pop()!,
-      uri: record.uri,
-      title: String(value.title ?? ""),
-      cid: record.cid ?? "",
-      createdAt: String(value.createdAt ?? ""),
-    };
-
-    if (referencedUris.has(record.uri)) {
-      assignedArticles.push({
-        ...article,
+  const publishedArticles: PublishedArticle[] = publishedResult.data.records
+    .map((record) => {
+      const value = record.value as Record<string, unknown>;
+      return {
+        rkey: record.uri.split("/").pop()!,
+        uri: record.uri,
+        title: String(value.title ?? "Untitled"),
+        publishedAt: value.publishedAt ? String(value.publishedAt) : undefined,
         assignments: assignmentMap.get(record.uri) ?? [],
-      });
-    } else {
-      orphanedArticles.push(article);
-    }
-  }
+      };
+    })
+    .sort((a, b) =>
+      (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""),
+    );
 
-  return { assignedArticles, orphanedArticles };
+  const orphanedDrafts: OrphanedDraft[] = draftsResult.data.records
+    .filter((record) => !draftUrisInSites.has(record.uri))
+    .map((record) => {
+      const value = record.value as Record<string, unknown>;
+      return {
+        rkey: record.uri.split("/").pop()!,
+        uri: record.uri,
+        title: String(value.title ?? "Untitled"),
+        cid: record.cid ?? "",
+        createdAt: String(value.createdAt ?? ""),
+      };
+    });
+
+  return { publishedArticles, orphanedDrafts };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -137,14 +152,12 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
-  const { assignedArticles, orphanedArticles } = loaderData;
+  const { publishedArticles, orphanedDrafts } = loaderData;
   const deleteModal = useModal();
-  const [deleteTarget, setDeleteTarget] = useState<OrphanedArticle | null>(
-    null,
-  );
+  const [deleteTarget, setDeleteTarget] = useState<OrphanedDraft | null>(null);
   const deleteFormRef = useRef<HTMLFormElement>(null);
 
-  const handleDeleteClick = (article: OrphanedArticle) => {
+  const handleDeleteClick = (article: OrphanedDraft) => {
     setDeleteTarget(article);
     deleteModal.open();
   };
@@ -163,42 +176,51 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       }
     >
       <PageSection>
-        <h6 className={styles.sectionHeading}>Assigned Articles</h6>{" "}
+        <h6 className={styles.sectionHeading}>Published Articles</h6>
         <p className={styles.sectionNote}>
-          These articles are assigned to at least one site.
+          Manage groups and publish status from each site page.
         </p>
-        {assignedArticles.length === 0 ? (
+        {publishedArticles.length === 0 ? (
           <div className={styles.emptyState}>
-            <p>No articles have been assigned to a site yet.</p>
+            <p>
+              No published articles yet. Assign a draft to a site and publish
+              it.
+            </p>
           </div>
         ) : (
           <ul className={styles.articleList}>
-            {assignedArticles.map((article) => (
+            {publishedArticles.map((article) => (
               <li key={article.rkey} className={styles.articleItem}>
                 <div className={styles.articleTitle}>
                   <strong>{article.title}</strong>
-                  {article.createdAt && (
+                  {article.publishedAt && (
                     <span>
-                      {new Date(article.createdAt).toLocaleDateString()}
+                      {new Date(article.publishedAt).toLocaleDateString()}
                     </span>
                   )}
                 </div>
                 <div className={styles.articleInfo}>
-                  <small style={{ fontFamily: "monospace" }}>
-                    {article.uri}
-                  </small>
+                  {article.assignments.length > 0 ? (
+                    article.assignments.map((a, i) => (
+                      <Pill key={i}>
+                        {a.siteTitle}
+                        {a.groupTitle ? ` / ${a.groupTitle}` : ""}
+                      </Pill>
+                    ))
+                  ) : (
+                    <Pill variant="danger">Not in any site manifest</Pill>
+                  )}
                 </div>
                 <div className={styles.articleButtons}>
-                  <Link to={`/article/view/${article.rkey}`}>
-                    <Button type="button" variant="secondary" tabIndex={-1}>
-                      View
-                    </Button>
-                  </Link>
-                  <Link to={`/article/edit/${article.rkey}`}>
-                    <Button type="button" variant="primary" tabIndex={-1}>
-                      Edit
-                    </Button>
-                  </Link>
+                  {article.assignments[0] && (
+                    <Link
+                      to={`/article/list/${article.assignments[0].siteRkey}`}
+                    >
+                      <Button type="button" variant="primary" tabIndex={-1}>
+                        Manage
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </li>
             ))}
@@ -206,15 +228,15 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         )}
       </PageSection>
 
-      {orphanedArticles.length > 0 && (
+      {orphanedDrafts.length > 0 && (
         <PageSection>
-          <h6 className={styles.sectionHeading}>Unassigned Articles</h6>
+          <h6 className={styles.sectionHeading}>Unassigned Drafts</h6>
           <p className={styles.sectionNote}>
-            These articles exist in your PDS but haven't been assigned to any
+            These drafts exist in your PDS but haven't been assigned to any
             site. Edit an article to assign it.
           </p>
           <ul className={styles.articleList}>
-            {orphanedArticles.map((article) => (
+            {orphanedDrafts.map((article) => (
               <li key={article.rkey} className={styles.articleItem}>
                 <div className={styles.articleTitle}>
                   <strong>{article.title}</strong>
@@ -230,11 +252,6 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                   </small>
                 </div>
                 <div className={styles.articleButtons}>
-                  <Link to={`/article/view/${article.rkey}`}>
-                    <Button type="button" variant="secondary" tabIndex={-1}>
-                      View
-                    </Button>
-                  </Link>
                   <Link to={`/article/edit/${article.rkey}`}>
                     <Button type="button" variant="primary" tabIndex={-1}>
                       Edit
@@ -262,7 +279,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       <Modal
         isOpen={deleteModal.isOpen}
         onClose={deleteModal.close}
-        title="Delete Article"
+        title="Delete Draft"
         footer={
           <div
             style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
