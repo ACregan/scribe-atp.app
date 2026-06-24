@@ -66,6 +66,13 @@ import {
 import { devSiteListLoader } from "~/services/devFixtures.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
+type SiteAssignment = {
+  rkey: string;
+  title: string;
+  url: string;
+  urlPrefix: string;
+};
+
 export function meta({ data }: Route.MetaArgs) {
   const title = data?.site?.title ?? "Site";
   return [{ title: `Scribe ATP – ${title}` }];
@@ -78,13 +85,39 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   try {
     const { agent, did } = await requireAtpAgent(request);
-    const record = await agent.com.atproto.repo.getRecord({
-      repo: did,
-      collection: SITE_COLLECTION,
-      rkey: siteSlug,
-    });
+    const [record, allSitesResult] = await Promise.all([
+      agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteSlug,
+      }),
+      agent.com.atproto.repo.listRecords({
+        repo: did,
+        collection: SITE_COLLECTION,
+        limit: 100,
+      }),
+    ]);
 
     const value = record.data.value as Record<string, unknown>;
+
+    // Map each ungrouped article URI to the list of sites it appears in
+    const articleSiteMap = new Map<string, SiteAssignment[]>();
+    for (const sr of allSitesResult.data.records) {
+      const sv = sr.value as Record<string, unknown>;
+      const srkey = sr.uri.split("/").pop()!;
+      const entry: SiteAssignment = {
+        rkey: srkey,
+        title: String(sv.title ?? ""),
+        url: String(sv.url ?? ""),
+        urlPrefix: String(sv.urlPrefix ?? ""),
+      };
+      for (const a of (sv.ungroupedArticles as Array<{ uri: string }>) ?? []) {
+        const list = articleSiteMap.get(a.uri) ?? [];
+        list.push(entry);
+        articleSiteMap.set(a.uri, list);
+      }
+    }
+
     return {
       devMode: false,
       site: {
@@ -96,6 +129,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         groups: (value.groups as SiteGroup[]) ?? [],
         ungroupedArticles: (value.ungroupedArticles as ArticleRef[]) ?? [],
       } as SiteManifest,
+      articleSiteAssignments: Object.fromEntries(
+        articleSiteMap,
+      ) as Record<string, SiteAssignment[]>,
     };
   } catch {
     throw redirect("/sites");
@@ -367,6 +403,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "publishArticle") {
     const uri = formData.get("uri") as string;
     const groupSlug = formData.get("groupSlug") as string;
+    const canonicalSiteUrl = (formData.get("canonicalSiteUrl") as string) || null;
     if (!uri || !groupSlug) return { ok: false };
 
     if (useRealOAuth) {
@@ -391,9 +428,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 
         const draft = draftResult.data.value as Record<string, unknown>;
         const siteVal = siteResult.data.value as SiteRecordValue;
-        const siteUrl = siteVal.urlPrefix
+        const currentSiteUrl = siteVal.urlPrefix
           ? `https://${siteVal.url}/${siteVal.urlPrefix}`
           : `https://${siteVal.url}`;
+        const siteUrl = canonicalSiteUrl || currentSiteUrl;
 
         // Create site.standard.document record
         await agent.com.atproto.repo.createRecord({
@@ -578,11 +616,17 @@ function CreateGroupModal({
   );
 }
 
+function canonicalUrlFor(site: SiteAssignment): string {
+  return site.urlPrefix
+    ? `https://${site.url}/${site.urlPrefix}`
+    : `https://${site.url}`;
+}
+
 function PublishArticleModal({
   article,
   groups,
 }: {
-  article: { uri: string; title: string } | null;
+  article: { uri: string; title: string; assignedSites: SiteAssignment[] } | null;
   groups: { slug: string; title: string }[];
 }) {
   if (!article) return null;
@@ -594,6 +638,11 @@ function PublishArticleModal({
       </p>
     );
   }
+
+  const sortedSites = [...article.assignedSites].sort((a, b) =>
+    a.url.localeCompare(b.url),
+  );
+  const showCanonicalPicker = sortedSites.length > 1;
 
   return (
     <Form id="publish-article-form" method="post">
@@ -607,6 +656,26 @@ function PublishArticleModal({
           name="groupSlug"
           options={groups.map((g) => ({ value: g.slug, label: g.title }))}
         />
+        {showCanonicalPicker ? (
+          <>
+            <p style={{ margin: "0.4rem 0 0", fontSize: "1.3rem" }}>
+              Set as canonical site:
+            </p>
+            <Select
+              name="canonicalSiteUrl"
+              options={sortedSites.map((s) => ({
+                value: canonicalUrlFor(s),
+                label: s.title,
+              }))}
+            />
+          </>
+        ) : (
+          <input
+            type="hidden"
+            name="canonicalSiteUrl"
+            value={sortedSites[0] ? canonicalUrlFor(sortedSites[0]) : ""}
+          />
+        )}
       </div>
     </Form>
   );
@@ -617,7 +686,7 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode } = loaderData;
+  const { site, devMode, articleSiteAssignments } = loaderData;
   const { isOpen, open, close } = useModal();
 
   const navigate = useNavigate();
@@ -641,6 +710,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   const [publishingArticle, setPublishingArticle] = useState<{
     uri: string;
     title: string;
+    assignedSites: SiteAssignment[];
   } | null>(null);
   const publishModal = useModal();
 
@@ -734,7 +804,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     const rootGroup = tree.find((g) => g.id === "g:root");
     const article = rootGroup?.children.find((c) => c.uri === uri);
     if (!article) return;
-    setPublishingArticle({ uri, title: article.title });
+    const assignedSites = articleSiteAssignments[uri] ?? [
+      { rkey: site.rkey, title: site.title, url: site.url, urlPrefix: site.urlPrefix },
+    ];
+    setPublishingArticle({ uri, title: article.title, assignedSites });
     publishModal.open();
   }
 

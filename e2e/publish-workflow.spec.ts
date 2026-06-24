@@ -70,6 +70,46 @@ test("publishing an article shows a success toast and closes the modal", async (
   ).not.toBeVisible();
 });
 
+// ── Canonical site picker ─────────────────────────────────────────────────────
+
+test("Publish modal shows canonical site picker when article is on multiple sites", async ({
+  page,
+}) => {
+  await page.goto(SITE_LIST_URL);
+  // "Getting Started" is on two sites in the fixture — picker should appear
+  await page
+    .getByText("Getting Started with AT Protocol", { exact: true })
+    .locator("..")
+    .locator("..")
+    .getByRole("button", { name: "Publish" })
+    .click();
+  await expect(
+    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+  ).toContainText("NoRobots.blog");
+  await expect(
+    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+  ).toContainText("Perpetual Summer LTD");
+});
+
+test("Publish modal does not show canonical site picker for single-site article", async ({
+  page,
+}) => {
+  await page.goto(SITE_LIST_URL);
+  // "Building a Rich Text Editor" is on one site — no picker
+  await page
+    .getByText("Building a Rich Text Editor with Lexical", { exact: true })
+    .locator("..")
+    .locator("..")
+    .getByRole("button", { name: "Publish" })
+    .click();
+  await expect(
+    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+  ).not.toBeVisible();
+});
+
 // ── Move to Drafts flow ───────────────────────────────────────────────────────
 
 test("published articles show a Move to Drafts button", async ({ page }) => {

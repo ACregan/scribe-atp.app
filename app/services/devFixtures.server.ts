@@ -240,9 +240,37 @@ export function devEditLoader(articleUrl: string): {
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
   site: SiteManifest;
+  articleSiteAssignments: Record<
+    string,
+    { rkey: string; title: string; url: string; urlPrefix: string }[]
+  >;
 } {
   return {
     devMode: true,
+    articleSiteAssignments: {
+      [`at://${DEV_DID}/app.scribe.article/getting-started`]: [
+        {
+          rkey: "norobots-blog",
+          title: "NoRobots.blog",
+          url: "norobots.blog",
+          urlPrefix: "blog",
+        },
+        {
+          rkey: "perpetualsummer-ltd",
+          title: "Perpetual Summer LTD",
+          url: "perpetualsummer.ltd",
+          urlPrefix: "articles",
+        },
+      ],
+      [`at://${DEV_DID}/app.scribe.article/lexical-editor`]: [
+        {
+          rkey: "norobots-blog",
+          title: "NoRobots.blog",
+          url: "norobots.blog",
+          urlPrefix: "blog",
+        },
+      ],
+    },
     site: {
       rkey: siteSlug,
       cid: "dev-cid-site",
