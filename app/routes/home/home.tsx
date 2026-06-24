@@ -84,10 +84,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const agent = await getAtpAgent(did);
-  const [articlesResult, sitesResult] = await Promise.all([
+  const [articlesResult, documentsResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
       repo: did,
       collection: ARTICLE_COLLECTION,
+      limit: 100,
+    }),
+    agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
       limit: 100,
     }),
     agent.com.atproto.repo.listRecords({
@@ -137,7 +142,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     topArticles?.forEach((a) => referencedUris.add(a.uri));
   }
 
-  const recentArticles: RecentArticleItem[] = articlesResult.data.records
+  const recentArticles: RecentArticleItem[] = [
+    ...articlesResult.data.records,
+    ...documentsResult.data.records,
+  ]
     .map((record) => {
       const value = record.value as Record<string, unknown>;
       return {
