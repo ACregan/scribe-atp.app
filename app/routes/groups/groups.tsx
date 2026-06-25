@@ -58,31 +58,34 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  const sites: SiteWithGroups[] = result.data.records.map((record) => {
-    const value = record.value as Record<string, unknown>;
-    const groups =
-      (
-        value.groups as
-          | Array<{ slug: string; title: string; articles?: unknown[] }>
-          | undefined
-      )?.map(({ slug, title, articles }) => ({
-        slug,
-        title,
-        articleCount: articles?.length ?? 0,
-      })) ?? [];
+  const sites: SiteWithGroups[] = result.data.records
+    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
+    .map((record) => {
+      const value = record.value as Record<string, unknown>;
+      const scribe = value.scribe as Record<string, unknown>;
+      const groups =
+        (
+          scribe.groups as
+            | Array<{ slug: string; title: string; articles?: unknown[] }>
+            | undefined
+        )?.map(({ slug, title, articles }) => ({
+          slug,
+          title,
+          articleCount: articles?.length ?? 0,
+        })) ?? [];
 
-    return {
-      rkey: record.uri.split("/").pop()!,
-      title: String(value.title ?? ""),
-      url: String(value.url ?? ""),
-      urlPrefix: String(value.urlPrefix ?? ""),
-      splashImageUrl: value.splashImageUrl
-        ? String(value.splashImageUrl)
-        : undefined,
-      logoImageUrl: value.logoImageUrl ? String(value.logoImageUrl) : undefined,
-      groups,
-    };
-  });
+      return {
+        rkey: record.uri.split("/").pop()!,
+        title: String(scribe.title ?? ""),
+        url: String(scribe.domain ?? ""),
+        urlPrefix: String(scribe.basePath ?? ""),
+        splashImageUrl: scribe.splashImageUrl
+          ? String(scribe.splashImageUrl)
+          : undefined,
+        logoImageUrl: scribe.logoImageUrl ? String(scribe.logoImageUrl) : undefined,
+        groups,
+      };
+    });
 
   return { sites };
 }
@@ -113,10 +116,11 @@ export async function action({ request }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteRkey,
       });
-      const val = rec.data.value as Record<string, unknown> & {
+      const val = rec.data.value as Record<string, unknown>;
+      const scribe = val.scribe as Record<string, unknown> & {
         groups?: Array<{ slug: string }>;
       };
-      if ((val.groups ?? []).some((g) => g.slug === slug)) {
+      if ((scribe.groups ?? []).some((g) => g.slug === slug)) {
         return {
           error: "A group with this URL path already exists on this site.",
         };
@@ -127,8 +131,11 @@ export async function action({ request }: Route.ActionArgs) {
         rkey: siteRkey,
         record: {
           ...val,
-          groups: [...(val.groups ?? []), { slug, title, articles: [] }],
-          updatedAt: new Date().toISOString(),
+          scribe: {
+            ...scribe,
+            groups: [...(scribe.groups ?? []), { slug, title, articles: [] }],
+            updatedAt: new Date().toISOString(),
+          },
         },
         swapRecord: rec.data.cid,
       });

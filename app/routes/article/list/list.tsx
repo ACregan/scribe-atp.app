@@ -74,16 +74,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   for (const record of sitesResult.data.records) {
     const value = record.value as Record<string, unknown>;
+    if (value.scribe == null) continue;
+    const scribe = value.scribe as Record<string, unknown>;
     const siteRkey = record.uri.split("/").pop()!;
-    const siteTitle = String(value.title ?? "");
+    const siteTitle = String(scribe.title ?? "");
 
-    for (const a of (value.ungroupedArticles as Array<{ uri: string }>) ?? []) {
+    for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ?? []) {
       const list = assignmentMap.get(a.uri) ?? [];
       list.push({ siteTitle, siteRkey });
       assignmentMap.set(a.uri, list);
     }
 
-    for (const g of (value.groups as Array<{
+    for (const g of (scribe.groups as Array<{
       slug: string;
       title: string;
       articles: Array<{ uri: string }>;
