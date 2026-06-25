@@ -45,6 +45,9 @@ export const OAUTH_SCOPE = [
   "repo:app.scribe.site?action=create",
   "repo:app.scribe.site?action=update",
   "repo:app.scribe.site?action=delete",
+  "repo:site.standard.publication?action=create",
+  "repo:site.standard.publication?action=update",
+  "repo:site.standard.publication?action=delete",
 ].join(" ");
 
 const redirectUri = useRealOAuth

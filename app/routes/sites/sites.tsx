@@ -46,17 +46,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const sites: SiteCard[] = result.data.records.map((record) => {
     const v = record.value as Record<string, unknown>;
-    const groups = (v.groups as Array<{ articles: unknown[] }>) ?? [];
-    const topArticles = (v.ungroupedArticles as unknown[]) ?? [];
+    const scribe = (v.scribe as Record<string, unknown>) ?? {};
+    const groups = (scribe.groups as Array<{ articles: unknown[] }>) ?? [];
+    const topArticles = (scribe.ungroupedArticles as unknown[]) ?? [];
     return {
       rkey: record.uri.split("/").pop()!,
       cid: record.cid,
-      title: String(v.title ?? ""),
-      url: String(v.url ?? ""),
-      urlPrefix: String(v.urlPrefix ?? ""),
-      description: v.description ? String(v.description) : undefined,
-      splashImageUrl: v.splashImageUrl ? String(v.splashImageUrl) : undefined,
-      logoImageUrl: v.logoImageUrl ? String(v.logoImageUrl) : undefined,
+      title: String(scribe.title ?? ""),
+      url: String(scribe.domain ?? ""),
+      urlPrefix: String(scribe.basePath ?? ""),
+      description: scribe.description ? String(scribe.description) : undefined,
+      splashImageUrl: scribe.splashImageUrl ? String(scribe.splashImageUrl) : undefined,
+      logoImageUrl: scribe.logoImageUrl ? String(scribe.logoImageUrl) : undefined,
       groupCount: groups.length,
       articleCount:
         groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0) +
@@ -85,6 +86,7 @@ export async function action({ request }: Route.ActionArgs) {
     const logoImageUrl = (
       (formData.get("logoImageUrl") as string) ?? ""
     ).trim();
+    const showInDiscover = formData.get("showInDiscover") === "on";
 
     if (!title) return { ok: false, error: "Title is required." };
     if (!url) return { ok: false, error: "Domain is required." };
@@ -104,23 +106,30 @@ export async function action({ request }: Route.ActionArgs) {
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
+        const now = new Date().toISOString();
         await agent.com.atproto.repo.createRecord({
           repo: did,
           collection: SITE_COLLECTION,
           rkey,
           record: {
             $type: SITE_COLLECTION,
-            title,
-            url,
-            urlPrefix,
-            ...(description && { description }),
-            ...(splashImageUrl && { splashImageUrl }),
-            ...(logoImageUrl && { logoImageUrl }),
-            contributors: [],
-            groups: [],
-            ungroupedArticles: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            url: `https://${url}`,
+            name: title,
+            preferences: { showInDiscover },
+            scribe: {
+              $type: SITE_COLLECTION,
+              domain: url,
+              basePath: urlPrefix,
+              title,
+              ...(description && { description }),
+              ...(splashImageUrl && { splashImageUrl }),
+              ...(logoImageUrl && { logoImageUrl }),
+              contributors: [],
+              groups: [],
+              ungroupedArticles: [],
+              createdAt: now,
+              updatedAt: now,
+            },
           },
         });
       } catch (err) {
@@ -387,6 +396,10 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             label="Logo Image URL"
             placeholder="https://…"
           />
+          <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.4rem" }}>
+            <input type="checkbox" name="showInDiscover" defaultChecked />
+            Show in Discover
+          </label>
           {createFetcher.data?.error && (
             <p className={styles.errorMessage}>{createFetcher.data.error}</p>
           )}

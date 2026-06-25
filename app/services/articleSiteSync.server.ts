@@ -44,12 +44,13 @@ export async function mutateSiteRecord(
     collection: SITE_COLLECTION,
     rkey: siteRkey,
   });
-  const updated = mutate(rec.data.value as SiteRecordValue);
+  const pubRecord = rec.data.value as Record<string, unknown>;
+  const mutatedScribe = mutate(pubRecord.scribe as SiteRecordValue);
   await agent.com.atproto.repo.putRecord({
     repo: did,
     collection: SITE_COLLECTION,
     rkey: siteRkey,
-    record: updated,
+    record: { ...pubRecord, scribe: mutatedScribe },
     swapRecord: rec.data.cid,
   });
 }
@@ -83,11 +84,11 @@ export async function findSitesContaining(
   });
   return result.data.records
     .filter((record) => {
-      const value = record.value as SiteRecordValue;
-      const inTopLevel = (value.ungroupedArticles ?? []).some(
+      const scribe = ((record.value as Record<string, unknown>).scribe ?? {}) as SiteRecordValue;
+      const inTopLevel = (scribe.ungroupedArticles ?? []).some(
         (a) => a.uri === articleUri,
       );
-      const inGroups = (value.groups ?? []).some((g) =>
+      const inGroups = (scribe.groups ?? []).some((g) =>
         (g.articles ?? []).some((a) => a.uri === articleUri),
       );
       return inTopLevel || inGroups;

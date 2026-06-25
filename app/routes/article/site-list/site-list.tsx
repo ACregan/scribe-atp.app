@@ -99,19 +99,21 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     ]);
 
     const value = record.data.value as Record<string, unknown>;
+    const scribeVal = (value.scribe as Record<string, unknown>) ?? {};
 
     // Map each ungrouped article URI to the list of sites it appears in
     const articleSiteMap = new Map<string, SiteAssignment[]>();
     for (const sr of allSitesResult.data.records) {
       const sv = sr.value as Record<string, unknown>;
+      const scribe = (sv.scribe as Record<string, unknown>) ?? {};
       const srkey = sr.uri.split("/").pop()!;
       const entry: SiteAssignment = {
         rkey: srkey,
-        title: String(sv.title ?? ""),
-        url: String(sv.url ?? ""),
-        urlPrefix: String(sv.urlPrefix ?? ""),
+        title: String(scribe.title ?? ""),
+        url: String(scribe.domain ?? ""),
+        urlPrefix: String(scribe.basePath ?? ""),
       };
-      for (const a of (sv.ungroupedArticles as Array<{ uri: string }>) ?? []) {
+      for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ?? []) {
         const list = articleSiteMap.get(a.uri) ?? [];
         list.push(entry);
         articleSiteMap.set(a.uri, list);
@@ -123,11 +125,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       site: {
         rkey: siteSlug,
         cid: record.data.cid,
-        url: String(value.url ?? ""),
-        title: String(value.title ?? ""),
-        urlPrefix: String(value.urlPrefix ?? ""),
-        groups: (value.groups as SiteGroup[]) ?? [],
-        ungroupedArticles: (value.ungroupedArticles as ArticleRef[]) ?? [],
+        url: String(scribeVal.domain ?? ""),
+        title: String(scribeVal.title ?? ""),
+        urlPrefix: String(scribeVal.basePath ?? ""),
+        groups: (scribeVal.groups as SiteGroup[]) ?? [],
+        ungroupedArticles: (scribeVal.ungroupedArticles as ArticleRef[]) ?? [],
       } as SiteManifest,
       articleSiteAssignments: Object.fromEntries(
         articleSiteMap,
@@ -163,8 +165,9 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteSlug,
       });
-      const val = rec.data.value as SiteManifest;
-      if ((val.groups ?? []).some((g) => g.slug === slug)) {
+      const pubRecord = rec.data.value as Record<string, unknown>;
+      const scribe = pubRecord.scribe as SiteManifest;
+      if ((scribe.groups ?? []).some((g) => g.slug === slug)) {
         return { error: "A group with this name already exists." };
       }
       await agent.com.atproto.repo.putRecord({
@@ -172,9 +175,12 @@ export async function action({ request, params }: Route.ActionArgs) {
         collection: SITE_COLLECTION,
         rkey: siteSlug,
         record: {
-          ...val,
-          groups: [...(val.groups ?? []), { slug, title, articles: [] }],
-          updatedAt: new Date().toISOString(),
+          ...pubRecord,
+          scribe: {
+            ...scribe,
+            groups: [...(scribe.groups ?? []), { slug, title, articles: [] }],
+            updatedAt: new Date().toISOString(),
+          },
         },
         swapRecord: rec.data.cid,
       });
@@ -222,11 +228,15 @@ export async function action({ request, params }: Route.ActionArgs) {
           collection: SITE_COLLECTION,
           rkey: siteSlug,
         });
-        const currentVal = currentSite.data.value as SiteRecordValue;
+        const currentPubRecord = currentSite.data.value as Record<string, unknown>;
+        const currentScribeExt = (currentPubRecord.scribe as Record<string, unknown>) ?? {};
+        const domain = String(currentScribeExt.domain ?? "");
+        const basePath = String(currentScribeExt.basePath ?? "");
+        const currentScribe = currentScribeExt as SiteRecordValue;
 
         // Track which group each published article was in before the save
         const oldGroupByUri = new Map<string, string>();
-        for (const g of currentVal.groups ?? []) {
+        for (const g of currentScribe.groups ?? []) {
           for (const a of g.articles ?? []) {
             if (a.uri.includes(`/${DOCUMENT_COLLECTION}/`)) {
               oldGroupByUri.set(a.uri, g.slug);
@@ -240,15 +250,18 @@ export async function action({ request, params }: Route.ActionArgs) {
           collection: SITE_COLLECTION,
           rkey: siteSlug,
           record: {
-            ...currentVal,
-            groups: groups as SiteRecordValue["groups"],
-            ungroupedArticles,
-            updatedAt: new Date().toISOString(),
+            ...currentPubRecord,
+            scribe: {
+              ...currentScribe,
+              groups: groups as SiteRecordValue["groups"],
+              ungroupedArticles,
+              updatedAt: new Date().toISOString(),
+            },
           },
           swapRecord: currentSite.data.cid,
         });
 
-        // Update path on published articles that moved between groups
+        // Update path and canonicalUrl on published articles that moved between groups
         const pathUpdates = groups.flatMap((g) =>
           (g.articles ?? [])
             .filter(
@@ -266,6 +279,9 @@ export async function action({ request, params }: Route.ActionArgs) {
               });
               const docVal = data.value as Record<string, unknown>;
               if (docVal.path === newPath) return;
+              const newCanonicalUrl = basePath
+                ? `https://${domain}/${basePath}${newPath}`
+                : `https://${domain}${newPath}`;
               await agent.com.atproto.repo.putRecord({
                 repo: did,
                 collection: DOCUMENT_COLLECTION,
@@ -273,6 +289,7 @@ export async function action({ request, params }: Route.ActionArgs) {
                 record: {
                   ...docVal,
                   path: newPath,
+                  canonicalUrl: newCanonicalUrl,
                   updatedAt: new Date().toISOString(),
                 },
                 swapRecord: data.cid,
@@ -280,7 +297,41 @@ export async function action({ request, params }: Route.ActionArgs) {
             }),
         );
 
-        await Promise.allSettled(pathUpdates);
+        // Update path and canonicalUrl on documents moved to ungroupedArticles from a named group
+        const ungroupedUpdates = ungroupedArticles
+          .filter(
+            (a) =>
+              a.uri.includes(`/${DOCUMENT_COLLECTION}/`) &&
+              oldGroupByUri.has(a.uri),
+          )
+          .map(async (a) => {
+            const arkey = a.uri.split("/").pop()!;
+            const newPath = `/${arkey}`;
+            const { data } = await agent.com.atproto.repo.getRecord({
+              repo: did,
+              collection: DOCUMENT_COLLECTION,
+              rkey: arkey,
+            });
+            const docVal = data.value as Record<string, unknown>;
+            if (docVal.path === newPath) return;
+            const newCanonicalUrl = basePath
+              ? `https://${domain}/${basePath}${newPath}`
+              : `https://${domain}${newPath}`;
+            await agent.com.atproto.repo.putRecord({
+              repo: did,
+              collection: DOCUMENT_COLLECTION,
+              rkey: arkey,
+              record: {
+                ...docVal,
+                path: newPath,
+                canonicalUrl: newCanonicalUrl,
+                updatedAt: new Date().toISOString(),
+              },
+              swapRecord: data.cid,
+            });
+          });
+
+        await Promise.allSettled([...pathUpdates, ...ungroupedUpdates]);
       } catch (err) {
         console.error("Failed to save site:", err);
         return { error: `Failed to save order: ${String(err)}` };
@@ -325,10 +376,11 @@ export async function action({ request, params }: Route.ActionArgs) {
         });
         const published = publishedResult.data.value as Record<string, unknown>;
 
-        // Create app.scribe.article draft — preserve all fields, drop site/publishedAt, reset path
+        // Create app.scribe.article draft — preserve all fields, drop site/publishedAt/canonicalUrl, reset path
         const draftRecord: Record<string, unknown> = { ...published };
         delete draftRecord.site;
         delete draftRecord.publishedAt;
+        delete draftRecord.canonicalUrl;
         draftRecord.$type = ARTICLE_COLLECTION;
         draftRecord.path = `/${rkey}`;
         draftRecord.updatedAt = now;
@@ -403,7 +455,13 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "publishArticle") {
     const uri = formData.get("uri") as string;
     const groupSlug = formData.get("groupSlug") as string;
-    const canonicalSiteUrl = (formData.get("canonicalSiteUrl") as string) || null;
+    const canonicalSiteRkey = (formData.get("canonicalSiteRkey") as string) || siteSlug;
+    const siteAssignmentsRaw = (formData.get("siteAssignments") as string) || "[]";
+    const siteAssignments = JSON.parse(siteAssignmentsRaw) as Array<{
+      rkey: string;
+      domain: string;
+      basePath: string;
+    }>;
     if (!uri || !groupSlug) return { ok: false };
 
     if (useRealOAuth) {
@@ -427,11 +485,21 @@ export async function action({ request, params }: Route.ActionArgs) {
         ]);
 
         const draft = draftResult.data.value as Record<string, unknown>;
-        const siteVal = siteResult.data.value as SiteRecordValue;
-        const currentSiteUrl = siteVal.urlPrefix
-          ? `https://${siteVal.url}/${siteVal.urlPrefix}`
-          : `https://${siteVal.url}`;
-        const siteUrl = canonicalSiteUrl || currentSiteUrl;
+        const pubRecord = siteResult.data.value as Record<string, unknown>;
+        const scribeExt = (pubRecord.scribe as Record<string, unknown>) ?? {};
+
+        const siteAtUri = `at://${did}/${SITE_COLLECTION}/${canonicalSiteRkey}`;
+        const canonicalAssignment = siteAssignments.find(
+          (s) => s.rkey === canonicalSiteRkey,
+        ) ?? {
+          rkey: canonicalSiteRkey,
+          domain: String(scribeExt.domain ?? ""),
+          basePath: String(scribeExt.basePath ?? ""),
+        };
+        const docPath = `/${groupSlug}/${rkey}`;
+        const canonicalUrl = canonicalAssignment.basePath
+          ? `https://${canonicalAssignment.domain}/${canonicalAssignment.basePath}${docPath}`
+          : `https://${canonicalAssignment.domain}${docPath}`;
 
         // Create site.standard.document record
         await agent.com.atproto.repo.createRecord({
@@ -441,8 +509,9 @@ export async function action({ request, params }: Route.ActionArgs) {
           record: {
             ...draft,
             $type: DOCUMENT_COLLECTION,
-            path: `/${groupSlug}/${rkey}`,
-            site: siteUrl,
+            path: docPath,
+            site: siteAtUri,
+            canonicalUrl,
             publishedAt,
             updatedAt: publishedAt,
           },
@@ -616,12 +685,6 @@ function CreateGroupModal({
   );
 }
 
-function canonicalUrlFor(site: SiteAssignment): string {
-  return site.urlPrefix
-    ? `https://${site.url}/${site.urlPrefix}`
-    : `https://${site.url}`;
-}
-
 function PublishArticleModal({
   article,
   groups,
@@ -656,15 +719,26 @@ function PublishArticleModal({
           name="groupSlug"
           options={groups.map((g) => ({ value: g.slug, label: g.title }))}
         />
+        <input
+          type="hidden"
+          name="siteAssignments"
+          value={JSON.stringify(
+            sortedSites.map((s) => ({
+              rkey: s.rkey,
+              domain: s.url,
+              basePath: s.urlPrefix,
+            })),
+          )}
+        />
         {showCanonicalPicker ? (
           <>
             <p style={{ margin: "0.4rem 0 0", fontSize: "1.3rem" }}>
               Set as canonical site:
             </p>
             <Select
-              name="canonicalSiteUrl"
+              name="canonicalSiteRkey"
               options={sortedSites.map((s) => ({
-                value: canonicalUrlFor(s),
+                value: s.rkey,
                 label: s.title,
               }))}
             />
@@ -672,8 +746,8 @@ function PublishArticleModal({
         ) : (
           <input
             type="hidden"
-            name="canonicalSiteUrl"
-            value={sortedSites[0] ? canonicalUrlFor(sortedSites[0]) : ""}
+            name="canonicalSiteRkey"
+            value={sortedSites[0]?.rkey ?? ""}
           />
         )}
       </div>

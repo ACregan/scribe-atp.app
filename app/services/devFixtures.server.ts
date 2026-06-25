@@ -332,6 +332,7 @@ export function devConfigureLoader(siteSlug: string) {
         "A personal blog about technology, the open web, and avoiding robots.",
       splashImageUrl: "",
       logoImageUrl: "",
+      showInDiscover: true,
     },
   };
 }

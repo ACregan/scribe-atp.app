@@ -33,15 +33,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   });
 
   const v = record.data.value as Record<string, unknown>;
+  const scribe = (v.scribe as Record<string, unknown>) ?? {};
+  const prefs = (v.preferences as Record<string, unknown>) ?? {};
   return {
     site: {
       rkey: siteSlug,
-      title: String(v.title ?? ""),
-      url: String(v.url ?? ""),
-      urlPrefix: String(v.urlPrefix ?? ""),
-      description: String(v.description ?? ""),
-      splashImageUrl: String(v.splashImageUrl ?? ""),
-      logoImageUrl: String(v.logoImageUrl ?? ""),
+      title: String(scribe.title ?? ""),
+      url: String(scribe.domain ?? ""),
+      urlPrefix: String(scribe.basePath ?? ""),
+      description: String(scribe.description ?? ""),
+      splashImageUrl: String(scribe.splashImageUrl ?? ""),
+      logoImageUrl: String(scribe.logoImageUrl ?? ""),
+      showInDiscover: prefs.showInDiscover !== false,
     },
   };
 }
@@ -63,6 +66,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     (formData.get("splashImageUrl") as string) ?? ""
   ).trim();
   const logoImageUrl = ((formData.get("logoImageUrl") as string) ?? "").trim();
+  const showInDiscover = formData.get("showInDiscover") === "on";
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!url) return { ok: false, error: "Domain is required." };
@@ -88,6 +92,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         rkey: siteSlug,
       });
       const existingValue = existing.data.value as Record<string, unknown>;
+      const existingScribe = (existingValue.scribe as Record<string, unknown>) ?? {};
 
       await agent.com.atproto.repo.putRecord({
         repo: did,
@@ -95,17 +100,20 @@ export async function action({ request, params }: Route.ActionArgs) {
         rkey: siteSlug,
         record: {
           ...existingValue,
-          $type: SITE_COLLECTION,
-          title,
-          url,
-          urlPrefix,
-          // Store optional fields only when non-empty; clear by omitting
-          ...(description ? { description } : { description: undefined }),
-          ...(splashImageUrl
-            ? { splashImageUrl }
-            : { splashImageUrl: undefined }),
-          ...(logoImageUrl ? { logoImageUrl } : { logoImageUrl: undefined }),
-          updatedAt: new Date().toISOString(),
+          url: `https://${url}`,
+          name: title,
+          preferences: { showInDiscover },
+          scribe: {
+            ...existingScribe,
+            $type: SITE_COLLECTION,
+            domain: url,
+            basePath: urlPrefix,
+            title,
+            ...(description ? { description } : { description: undefined }),
+            ...(splashImageUrl ? { splashImageUrl } : { splashImageUrl: undefined }),
+            ...(logoImageUrl ? { logoImageUrl } : { logoImageUrl: undefined }),
+            updatedAt: new Date().toISOString(),
+          },
         },
       });
     } catch (err) {
@@ -143,6 +151,7 @@ export default function ConfigureSite({
       description: site.description,
       splashImageUrl: site.splashImageUrl,
       logoImageUrl: site.logoImageUrl,
+      showInDiscover: site.showInDiscover,
     }),
     [],
   );
@@ -265,6 +274,21 @@ export default function ConfigureSite({
                 alt="Logo preview"
               />
             )}
+          </fieldset>
+
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.legend}>Discovery</legend>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.4rem" }}>
+              <input
+                type="checkbox"
+                name="showInDiscover"
+                checked={formValues.showInDiscover}
+                onChange={(e) =>
+                  setFormValues((prev) => ({ ...prev, showInDiscover: e.target.checked }))
+                }
+              />
+              Show in Discover
+            </label>
           </fieldset>
 
           {actionData?.error && (

@@ -84,13 +84,13 @@ test("Publish modal shows canonical site picker when article is on multiple site
     .getByRole("button", { name: "Publish" })
     .click();
   await expect(
-    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
   ).toBeVisible();
   await expect(
-    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
   ).toContainText("NoRobots.blog");
   await expect(
-    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
   ).toContainText("Perpetual Summer LTD");
 });
 
@@ -106,7 +106,7 @@ test("Publish modal does not show canonical site picker for single-site article"
     .getByRole("button", { name: "Publish" })
     .click();
   await expect(
-    page.locator('dialog[open] select[name="canonicalSiteUrl"]'),
+    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
   ).not.toBeVisible();
 });
 

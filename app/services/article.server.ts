@@ -192,9 +192,12 @@ export async function loadSiteOptions(
     collection: SITE_COLLECTION,
     limit: 100,
   });
-  return result.data.records.map((record) => ({
-    rkey: record.uri.split("/").pop()!,
-    title: String((record.value as Record<string, unknown>).title ?? ""),
-    url: String((record.value as Record<string, unknown>).url ?? ""),
-  }));
+  return result.data.records.map((record) => {
+    const scribe = ((record.value as Record<string, unknown>).scribe as Record<string, unknown>) ?? {};
+    return {
+      rkey: record.uri.split("/").pop()!,
+      title: String(scribe.title ?? ""),
+      url: String(scribe.domain ?? ""),
+    };
+  });
 }

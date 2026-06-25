@@ -9,7 +9,7 @@ describe("ARTICLE_COLLECTION", () => {
 
 describe("SITE_COLLECTION", () => {
   it("is the correct AT Protocol collection identifier", () => {
-    expect(SITE_COLLECTION).toBe("app.scribe.site");
+    expect(SITE_COLLECTION).toBe("site.standard.publication");
   });
 });
 

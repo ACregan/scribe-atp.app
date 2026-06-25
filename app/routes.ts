@@ -39,6 +39,10 @@ export default [
         "devtools/migrate",
         "./routes/devtools/migrate/migrate.tsx",
       ),
+      route(
+        "devtools/migrate-publication",
+        "./routes/devtools/migrate-publication/migrate-publication.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
