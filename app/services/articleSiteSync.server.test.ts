@@ -78,7 +78,7 @@ describe("findSitesContaining", () => {
     const agent = makeAgent([
       {
         uri: `at://${DID}/app.scribe.site/site-a`,
-        value: { ungroupedArticles: [makeRef(ARTICLE_URI)], groups: [] },
+        value: { scribe: { ungroupedArticles: [makeRef(ARTICLE_URI)], groups: [] } },
       },
     ]);
     expect(await findSitesContaining(agent, DID, ARTICLE_URI)).toEqual(["site-a"]);
@@ -89,8 +89,10 @@ describe("findSitesContaining", () => {
       {
         uri: `at://${DID}/app.scribe.site/site-b`,
         value: {
-          ungroupedArticles: [],
-          groups: [{ slug: "g1", title: "G", articles: [makeRef(ARTICLE_URI)] }],
+          scribe: {
+            ungroupedArticles: [],
+            groups: [{ slug: "g1", title: "G", articles: [makeRef(ARTICLE_URI)] }],
+          },
         },
       },
     ]);
@@ -102,8 +104,10 @@ describe("findSitesContaining", () => {
       {
         uri: `at://${DID}/app.scribe.site/site-a`,
         value: {
-          ungroupedArticles: [makeRef(OTHER_URI)],
-          groups: [{ slug: "g1", title: "G", articles: [makeRef(OTHER_URI)] }],
+          scribe: {
+            ungroupedArticles: [makeRef(OTHER_URI)],
+            groups: [{ slug: "g1", title: "G", articles: [makeRef(OTHER_URI)] }],
+          },
         },
       },
     ]);
@@ -114,13 +118,15 @@ describe("findSitesContaining", () => {
     const agent = makeAgent([
       {
         uri: `at://${DID}/app.scribe.site/site-a`,
-        value: { ungroupedArticles: [makeRef(ARTICLE_URI)], groups: [] },
+        value: { scribe: { ungroupedArticles: [makeRef(ARTICLE_URI)], groups: [] } },
       },
       {
         uri: `at://${DID}/app.scribe.site/site-b`,
         value: {
-          ungroupedArticles: [],
-          groups: [{ slug: "g1", title: "G", articles: [makeRef(ARTICLE_URI)] }],
+          scribe: {
+            ungroupedArticles: [],
+            groups: [{ slug: "g1", title: "G", articles: [makeRef(ARTICLE_URI)] }],
+          },
         },
       },
     ]);
