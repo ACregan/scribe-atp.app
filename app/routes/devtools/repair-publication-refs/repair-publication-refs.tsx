@@ -75,10 +75,14 @@ function buildSlugToTidMap(
   const map = new Map<string, string>();
   for (const doc of documents) {
     const v = doc.value as Record<string, unknown>;
-    const slug = v.slug as string | undefined;
+    const path = v.path as string | undefined;
+    if (!path) continue;
+    const slug = path.split("/").pop();
     if (!slug) continue;
     const oldSlugUri = `at://${did}/${DOCUMENT_COLLECTION}/${slug}`;
-    map.set(oldSlugUri, doc.uri);
+    if (oldSlugUri !== doc.uri) {
+      map.set(oldSlugUri, doc.uri);
+    }
   }
   return map;
 }
