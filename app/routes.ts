@@ -51,6 +51,14 @@ export default [
         "devtools/repair-publication-refs",
         "./routes/devtools/repair-publication-refs/repair-publication-refs.tsx",
       ),
+      route(
+        "devtools/migrate-publication-rkeys",
+        "./routes/devtools/migrate-publication-rkeys/migrate-publication-rkeys.tsx",
+      ),
+      route(
+        "devtools/repair-document-site-uris",
+        "./routes/devtools/repair-document-site-uris/repair-document-site-uris.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
