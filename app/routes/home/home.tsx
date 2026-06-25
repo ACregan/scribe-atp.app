@@ -44,7 +44,7 @@ function formatArticleDate(iso: string): string {
   return `${time} ${date}`;
 }
 
-const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION];
+const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION, "app.scribe.site"];
 
 type RecentArticleItem = {
   uri: string;
@@ -104,8 +104,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const sites: SiteWithGroups[] = sitesResult.data.records.map((record) => {
     const value = record.value as Record<string, unknown>;
+    const scribe = (value.scribe as Record<string, unknown>) ?? {};
     const rawGroups =
-      (value.groups as
+      (scribe.groups as
         | Array<{
             slug: string;
             title: string;
@@ -114,11 +115,11 @@ export async function loader({ request }: Route.LoaderArgs) {
         | undefined) ?? [];
     return {
       rkey: record.uri.split("/").pop()!,
-      title: String(value.title ?? ""),
-      splashImageUrl: value.splashImageUrl
-        ? String(value.splashImageUrl)
+      title: String(scribe.title ?? ""),
+      splashImageUrl: scribe.splashImageUrl
+        ? String(scribe.splashImageUrl)
         : undefined,
-      logoImageUrl: value.logoImageUrl ? String(value.logoImageUrl) : undefined,
+      logoImageUrl: scribe.logoImageUrl ? String(scribe.logoImageUrl) : undefined,
       groups: rawGroups.map(({ slug, title, articles }) => ({
         slug,
         title,
