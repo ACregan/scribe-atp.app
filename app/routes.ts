@@ -43,6 +43,10 @@ export default [
         "devtools/migrate-publication",
         "./routes/devtools/migrate-publication/migrate-publication.tsx",
       ),
+      route(
+        "devtools/migrate-document-rkeys",
+        "./routes/devtools/migrate-document-rkeys/migrate-document-rkeys.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
