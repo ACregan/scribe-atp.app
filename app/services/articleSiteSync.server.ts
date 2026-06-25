@@ -83,6 +83,7 @@ export async function findSitesContaining(
     limit: 100,
   });
   return result.data.records
+    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
     .filter((record) => {
       const scribe = ((record.value as Record<string, unknown>).scribe ?? {}) as SiteRecordValue;
       const inTopLevel = (scribe.ungroupedArticles ?? []).some(

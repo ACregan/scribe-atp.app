@@ -44,7 +44,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  const sites: SiteCard[] = result.data.records.map((record) => {
+  const sites: SiteCard[] = result.data.records
+    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
+    .map((record) => {
     const v = record.value as Record<string, unknown>;
     const scribe = (v.scribe as Record<string, unknown>) ?? {};
     const groups = (scribe.groups as Array<{ articles: unknown[] }>) ?? [];
