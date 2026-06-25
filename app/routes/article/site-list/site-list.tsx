@@ -375,47 +375,70 @@ export async function action({ request, params }: Route.ActionArgs) {
         const rkey = uri.split("/").pop()!;
         const now = new Date().toISOString();
 
-        const publishedResult = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          rkey,
-        });
-        const published = publishedResult.data.value as Record<string, unknown>;
+        // The publication ref may already point to app.scribe.article (a draft URI) if
+        // the article was added to the site manifest without ever being published to
+        // site.standard.document. In that case there is no document to fetch or delete —
+        // we only need to move the ref from its group into ungroupedArticles.
+        const isAlreadyDraft = uri.includes(`/${ARTICLE_COLLECTION}/`);
 
-        // Create app.scribe.article draft — preserve all fields, drop site/publishedAt/canonicalUrl, reset path
-        const draftRecord: Record<string, unknown> = { ...published };
-        delete draftRecord.site;
-        delete draftRecord.publishedAt;
-        delete draftRecord.canonicalUrl;
-        draftRecord.$type = ARTICLE_COLLECTION;
-        draftRecord.path = `/${rkey}`;
-        draftRecord.updatedAt = now;
+        let draftRef: ArticleRef;
+        let publishedCid: string | undefined;
 
-        await agent.com.atproto.repo.createRecord({
-          repo: did,
-          collection: ARTICLE_COLLECTION,
-          rkey,
-          record: draftRecord,
-        });
+        if (isAlreadyDraft) {
+          // Ref is already a draft URI — build a stub; mutateSiteRecord merges existingRef on top.
+          draftRef = {
+            uri,
+            slug: rkey,
+            title: "",
+            splashImageUrl: null,
+            description: null,
+            createdAt: now,
+            updatedAt: now,
+          };
+        } else {
+          const publishedResult = await agent.com.atproto.repo.getRecord({
+            repo: did,
+            collection: DOCUMENT_COLLECTION,
+            rkey,
+          });
+          publishedCid = publishedResult.data.cid;
+          const published = publishedResult.data.value as Record<string, unknown>;
 
-        const newUri = `at://${did}/${ARTICLE_COLLECTION}/${rkey}`;
-        const draftRef: ArticleRef = {
-          uri: newUri,
-          title: String(published.title ?? ""),
-          slug: rkey,
-          splashImageUrl: published.splashImageUrl
-            ? String(published.splashImageUrl)
-            : null,
-          description: published.description
-            ? String(published.description)
-            : null,
-          createdAt: String(published.createdAt ?? now),
-          updatedAt: now,
-        };
+          // Create app.scribe.article draft — preserve all fields, drop site/publishedAt/canonicalUrl, reset path
+          const draftRecord: Record<string, unknown> = { ...published };
+          delete draftRecord.site;
+          delete draftRecord.publishedAt;
+          delete draftRecord.canonicalUrl;
+          draftRecord.$type = ARTICLE_COLLECTION;
+          draftRecord.path = `/${rkey}`;
+          draftRecord.updatedAt = now;
 
-        // Find all sites containing the published URI before mutating
-        const allSiteRkeys = await findSitesContaining(agent, did, uri);
-        const otherSiteRkeys = allSiteRkeys.filter((r) => r !== siteSlug);
+          await agent.com.atproto.repo.createRecord({
+            repo: did,
+            collection: ARTICLE_COLLECTION,
+            rkey,
+            record: draftRecord,
+          });
+
+          draftRef = {
+            uri: `at://${did}/${ARTICLE_COLLECTION}/${rkey}`,
+            title: String(published.title ?? ""),
+            slug: rkey,
+            splashImageUrl: published.splashImageUrl
+              ? String(published.splashImageUrl)
+              : null,
+            description: published.description
+              ? String(published.description)
+              : null,
+            createdAt: String(published.createdAt ?? now),
+            updatedAt: now,
+          };
+        }
+
+        // Find all sites containing the URI (skip for already-draft — other sites need no rewrite)
+        const otherSiteRkeys = isAlreadyDraft
+          ? []
+          : (await findSitesContaining(agent, did, uri)).filter((r) => r !== siteSlug);
 
         // Current site: move from named group → ungroupedArticles, rewrite URI
         await mutateSiteRecord(agent, did, siteSlug, (val) => {
@@ -444,13 +467,15 @@ export async function action({ request, params }: Route.ActionArgs) {
         );
         draftManifestFailures = draftResults.filter(r => r.status === "rejected").length;
 
-        // Delete the published record
-        await agent.com.atproto.repo.deleteRecord({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          rkey,
-          swapRecord: publishedResult.data.cid,
-        });
+        // Delete the published record only if one existed
+        if (!isAlreadyDraft && publishedCid) {
+          await agent.com.atproto.repo.deleteRecord({
+            repo: did,
+            collection: DOCUMENT_COLLECTION,
+            rkey,
+            swapRecord: publishedCid,
+          });
+        }
       } catch (err) {
         console.error("Failed to move article to draft:", err);
       }
