@@ -192,7 +192,9 @@ export async function loadSiteOptions(
     collection: SITE_COLLECTION,
     limit: 100,
   });
-  return result.data.records.map((record) => {
+  return result.data.records
+    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
+    .map((record) => {
     const scribe = ((record.value as Record<string, unknown>).scribe as Record<string, unknown>) ?? {};
     return {
       rkey: record.uri.split("/").pop()!,

@@ -102,7 +102,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     }),
   ]);
 
-  const sites: SiteWithGroups[] = sitesResult.data.records.map((record) => {
+  const sites: SiteWithGroups[] = sitesResult.data.records
+    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
+    .map((record) => {
     const value = record.value as Record<string, unknown>;
     const scribe = (value.scribe as Record<string, unknown>) ?? {};
     const rawGroups =

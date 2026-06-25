@@ -103,7 +103,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
     // Map each ungrouped article URI to the list of sites it appears in
     const articleSiteMap = new Map<string, SiteAssignment[]>();
-    for (const sr of allSitesResult.data.records) {
+    for (const sr of allSitesResult.data.records.filter((r) => (r.value as Record<string, unknown>).scribe != null)) {
       const sv = sr.value as Record<string, unknown>;
       const scribe = (sv.scribe as Record<string, unknown>) ?? {};
       const srkey = sr.uri.split("/").pop()!;
