@@ -513,11 +513,10 @@ export async function action({ request, params }: Route.ActionArgs) {
           ? `https://${canonicalAssignment.domain}/${canonicalAssignment.basePath}${docPath}`
           : `https://${canonicalAssignment.domain}${docPath}`;
 
-        // Create site.standard.document record
-        await agent.com.atproto.repo.createRecord({
+        // Create site.standard.document record — no explicit rkey so PDS generates a TID
+        const createResult = await agent.com.atproto.repo.createRecord({
           repo: did,
           collection: DOCUMENT_COLLECTION,
-          rkey,
           record: {
             ...draft,
             $type: DOCUMENT_COLLECTION,
@@ -529,7 +528,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           },
         });
 
-        const newUri = `at://${did}/${DOCUMENT_COLLECTION}/${rkey}`;
+        const newUri = createResult.data.uri;
         const updatedRef: ArticleRef = {
           uri: newUri,
           title: String(draft.title ?? ""),
