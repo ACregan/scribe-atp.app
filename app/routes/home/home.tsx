@@ -44,7 +44,7 @@ function formatArticleDate(iso: string): string {
   return `${time} ${date}`;
 }
 
-const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION, "app.scribe.site"];
+const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION];
 
 type RecentArticleItem = {
   uri: string;
