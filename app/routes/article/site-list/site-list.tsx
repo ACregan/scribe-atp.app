@@ -331,7 +331,11 @@ export async function action({ request, params }: Route.ActionArgs) {
             });
           });
 
-        await Promise.allSettled([...pathUpdates, ...ungroupedUpdates]);
+        const saveResults = await Promise.allSettled([...pathUpdates, ...ungroupedUpdates]);
+        const saveFailures = saveResults.filter(r => r.status === "rejected").length;
+        if (saveFailures > 0) {
+          return { error: `${saveFailures} article path(s) failed to update.` };
+        }
       } catch (err) {
         console.error("Failed to save site:", err);
         return { error: `Failed to save order: ${String(err)}` };
@@ -362,6 +366,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "moveToDraft") {
     const uri = formData.get("uri") as string;
     if (!uri) return redirect(`/article/list/${siteSlug}`);
+
+    let draftManifestFailures = 0;
 
     if (useRealOAuth) {
       try {
@@ -429,13 +435,14 @@ export async function action({ request, params }: Route.ActionArgs) {
         });
 
         // Other sites: rewrite URI in-place, keeping current group position
-        await Promise.allSettled(
+        const draftResults = await Promise.allSettled(
           otherSiteRkeys.map((rk) =>
             mutateSiteRecord(agent, did, rk, (val) =>
               updateArticleRef(val, uri, draftRef),
             ),
           ),
         );
+        draftManifestFailures = draftResults.filter(r => r.status === "rejected").length;
 
         // Delete the published record
         await agent.com.atproto.repo.deleteRecord({
@@ -449,6 +456,9 @@ export async function action({ request, params }: Route.ActionArgs) {
       }
     }
 
+    if (draftManifestFailures > 0) {
+      return { error: `${draftManifestFailures} site manifest(s) failed to update. The article has been moved to draft.` };
+    }
     return redirect(`/article/list/${siteSlug}`);
   }
 
@@ -463,6 +473,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       basePath: string;
     }>;
     if (!uri || !groupSlug) return { ok: false };
+
+    let publishManifestFailures = 0;
 
     if (useRealOAuth) {
       try {
@@ -556,13 +568,14 @@ export async function action({ request, params }: Route.ActionArgs) {
         });
 
         // Other sites: rewrite URI in-place, keeping current group position
-        await Promise.allSettled(
+        const publishResults = await Promise.allSettled(
           otherSiteRkeys.map((rk) =>
             mutateSiteRecord(agent, did, rk, (val) =>
               updateArticleRef(val, uri, updatedRef),
             ),
           ),
         );
+        publishManifestFailures = publishResults.filter(r => r.status === "rejected").length;
 
         // Delete the draft
         await agent.com.atproto.repo.deleteRecord({
@@ -577,6 +590,9 @@ export async function action({ request, params }: Route.ActionArgs) {
       }
     }
 
+    if (publishManifestFailures > 0) {
+      return { ok: false, error: `${publishManifestFailures} site manifest(s) failed to update. The article was published.` };
+    }
     return { ok: true, uri, groupSlug };
   }
 
@@ -811,6 +827,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     ok?: boolean;
     uri?: string;
     groupSlug?: string;
+    error?: string;
   }>();
   const isPublishing = publishFetcher.state !== "idle";
   const isDeleting = deleteFetcher.state !== "idle";
@@ -841,12 +858,21 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   }, [saveFetcher.state, saveFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (publishFetcher.state !== "idle" || !publishFetcher.data?.ok) return;
-    const { uri, groupSlug } = publishFetcher.data;
-    if (uri && groupSlug) moveArticleToGroup(uri, groupSlug);
-    publishModal.close();
-    setPublishingArticle(null);
-    addToast({ heading: "Article published", variant: "success" });
+    if (publishFetcher.state !== "idle" || !publishFetcher.data) return;
+    if (publishFetcher.data.ok) {
+      const { uri, groupSlug } = publishFetcher.data;
+      if (uri && groupSlug) moveArticleToGroup(uri, groupSlug);
+      publishModal.close();
+      setPublishingArticle(null);
+      addToast({ heading: "Article published", variant: "success" });
+    } else if (publishFetcher.data.error) {
+      addToast({
+        heading: "Publish error",
+        content: publishFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
   }, [publishFetcher.state, publishFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
