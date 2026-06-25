@@ -14,7 +14,7 @@ import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
 
-import { SITE_COLLECTION, DOMAIN_RE, IMAGE_URL_RE } from "~/constants";
+import { SITE_COLLECTION, DOCUMENT_COLLECTION, DOMAIN_RE, IMAGE_URL_RE } from "~/constants";
 import { logger } from "~/services/logger.server";
 
 // ── Loader ────────────────────────────────────────────────────────────────────
@@ -116,6 +116,40 @@ export async function action({ request, params }: Route.ActionArgs) {
           },
         },
       });
+
+      const domainChanged = String(existingScribe.domain ?? "") !== url;
+      const basePathChanged = String(existingScribe.basePath ?? "") !== urlPrefix;
+
+      if (domainChanged || basePathChanged) {
+        const docsResult = await agent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          limit: 100,
+        });
+        const siteAtUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
+        const docUpdates = docsResult.data.records
+          .filter((record) => (record.value as Record<string, unknown>).site === siteAtUri)
+          .map((record) => {
+            const val = record.value as Record<string, unknown>;
+            const docPath = String(val.path ?? "");
+            const newCanonicalUrl = urlPrefix
+              ? `https://${url}/${urlPrefix}${docPath}`
+              : `https://${url}${docPath}`;
+            const drkey = record.uri.split("/").pop()!;
+            return agent.com.atproto.repo.putRecord({
+              repo: did,
+              collection: DOCUMENT_COLLECTION,
+              rkey: drkey,
+              record: {
+                ...val,
+                canonicalUrl: newCanonicalUrl,
+                updatedAt: new Date().toISOString(),
+              },
+              swapRecord: record.cid,
+            });
+          });
+        await Promise.allSettled(docUpdates);
+      }
     } catch (err) {
       return { ok: false, error: `Failed to save: ${String(err)}` };
     }
