@@ -23,12 +23,17 @@ export function validateArticleFields(
   return null;
 }
 
+export function resolveThumbUrl(imageUrl: string): string {
+  return imageUrl.replace(/\/(600|1200|1800|max)\.webp$/, "/thumb.webp");
+}
+
 export function buildArticleRecord(fields: {
   title: string;
   content: string;
   slug: string;
   splashImageUrl?: string;
   description?: string;
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
 }): Record<string, unknown> {
@@ -39,6 +44,7 @@ export function buildArticleRecord(fields: {
     content: { $type: "app.scribe.content.html", html: fields.content },
     splashImageUrl: fields.splashImageUrl?.trim() || undefined,
     description: fields.description?.trim() || undefined,
+    tags: fields.tags?.length ? fields.tags : undefined,
     createdAt: fields.createdAt,
     updatedAt: fields.updatedAt,
   };
@@ -50,6 +56,7 @@ export function buildArticleRef(fields: {
   slug: string;
   splashImageUrl?: string;
   description?: string;
+  tags?: string[];
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -60,6 +67,7 @@ export function buildArticleRef(fields: {
     slug: fields.slug,
     splashImageUrl: fields.splashImageUrl?.trim() || null,
     description: fields.description?.trim() || null,
+    tags: fields.tags?.length ? fields.tags : undefined,
     publishedAt: fields.publishedAt,
     createdAt: fields.createdAt,
     updatedAt: fields.updatedAt,
@@ -80,6 +88,7 @@ export async function createArticle(
     slug: string;
     splashImageUrl: string;
     description: string;
+    tags?: string[];
   },
   siteRkeys: string[],
 ): Promise<{ uri: string }> {
@@ -94,6 +103,7 @@ export async function createArticle(
       slug: fields.slug,
       splashImageUrl: fields.splashImageUrl,
       description: fields.description,
+      tags: fields.tags,
       createdAt: now,
       updatedAt: now,
     }),
@@ -105,6 +115,7 @@ export async function createArticle(
       slug: fields.slug,
       splashImageUrl: fields.splashImageUrl,
       description: fields.description,
+      tags: fields.tags,
       createdAt: now,
       updatedAt: now,
     });
@@ -125,6 +136,7 @@ export async function updateArticle(
       slug: string;
       splashImageUrl: string;
       description: string;
+      tags?: string[];
       createdAt: string;
     };
     cid: string | null;
@@ -144,6 +156,7 @@ export async function updateArticle(
     slug: fields.slug,
     splashImageUrl: fields.splashImageUrl,
     description: fields.description,
+    tags: fields.tags,
     createdAt: fields.createdAt,
     updatedAt: now,
   });

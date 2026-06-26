@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Input } from "~/components/Input/Input";
 import { Textarea } from "~/components/Textarea/Textarea";
 import { Select } from "~/components/Select/Select";
 import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
+import TextArrayInput from "~/components/TextArrayInput/TextArrayInput";
 import {
   PageSection,
   PageSectionColumns,
@@ -16,6 +18,7 @@ type ArticleFormProps = {
   defaultUrl?: string;
   defaultSplashImageUrl?: string;
   defaultDescription?: string;
+  defaultTags?: string[];
   defaultContent?: string;
   // When provided the title/url inputs become controlled — used by the create
   // route to drive slug auto-fill. Edit leaves these undefined (uncontrolled).
@@ -23,6 +26,7 @@ type ArticleFormProps = {
   urlValue?: string;
   onTitleChange?: (value: string) => void;
   onUrlChange?: (value: string) => void;
+  onTagsChange?: (tags: string[]) => void;
   sites: SiteOption[];
   selectedSites: string[];
   onSitesChange: (rkeys: string[]) => void;
@@ -36,11 +40,13 @@ export function ArticleForm({
   defaultUrl,
   defaultSplashImageUrl,
   defaultDescription,
+  defaultTags,
   defaultContent,
   titleValue,
   urlValue,
   onTitleChange,
   onUrlChange,
+  onTagsChange,
   sites,
   selectedSites,
   onSitesChange,
@@ -48,6 +54,31 @@ export function ArticleForm({
   error,
   columnar = false,
 }: ArticleFormProps) {
+  const [tags, setTags] = useState<string[]>(defaultTags ?? []);
+
+  function handleSetTags(value: string[] | ((prev: string[]) => string[])) {
+    setTags((prev) => {
+      const newTags = typeof value === "function" ? value(prev) : value;
+      onTagsChange?.(newTags);
+      return newTags;
+    });
+  }
+
+  const tagsInput = (
+    <>
+      {tags.map((tag) => (
+        <input key={tag} type="hidden" name="tags" value={tag} />
+      ))}
+      <TextArrayInput
+        id="tags"
+        label="Tags"
+        placeholder="Add a tag..."
+        textArrayItems={tags}
+        setTextArrayItems={handleSetTags}
+      />
+    </>
+  );
+
   const siteOptions = sites.map((s) => ({
     value: s.rkey,
     label: `${s.title} (${s.url})`,
@@ -90,6 +121,7 @@ export function ArticleForm({
               placeholder="Brief description of the article..."
               defaultValue={defaultDescription}
             />
+            {tagsInput}
             {siteOptions.length > 0 && (
               <Select
                 name="sites"
@@ -140,6 +172,7 @@ export function ArticleForm({
           placeholder="Brief description of the article..."
           defaultValue={defaultDescription}
         />
+        {tagsInput}
       </PageSection>
 
       {siteOptions.length > 0 && (

@@ -1,0 +1,124 @@
+.container {
+  position: relative;
+  padding: 1.8rem 0 2rem 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+.container label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2rem;
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: #344054;
+  display: block;
+  margin: 0 0 0.4rem 0;
+}
+
+.inputContainer {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-content: stretch;
+  align-items: stretch;
+
+  border-width: 0.2rem;
+  border-style: solid;
+  border-color: var(--silver);
+  border-radius: 0.75rem;
+
+  overflow: hidden;
+}
+
+.inputWrapper {
+  position: relative;
+
+  order: 0;
+  flex: 0 1 auto;
+  align-self: auto;
+
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-content: stretch;
+  align-items: stretch;
+}
+.inputWrapper input {
+  order: 0;
+  flex: 1 1 auto;
+  align-self: auto;
+  outline: none;
+  border: none;
+  border-bottom: 0.1rem solid var(--silver);
+
+  box-sizing: border-box;
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: #344054;
+  background-color: var(--platinum_light);
+  padding: 1rem 1rem;
+}
+.inputWrapper button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  color: white;
+  background-color: var(--blue);
+  border: 0.2rem solid black;
+  cursor: pointer;
+  /* order: 0;
+  flex: 0 1 auto;
+  align-self: auto; */
+}
+
+.textArrayItemContainer {
+  order: 0;
+  flex: 1 1 auto;
+  align-self: auto;
+}
+
+.textArrayItemContainer {
+  padding: 0.1rem;
+  min-height: 2.75rem;
+}
+
+.textArrayItem {
+  position: relative;
+  display: inline-block;
+  font-size: 1.3rem;
+  font-weight: 700;
+  background-color: var(--blue);
+  color: white;
+  margin: 0.2rem;
+  padding: 0.2rem 2.5rem 0.2rem 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.textArrayItem button {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  border: none;
+  background: white;
+  color: var(--blue);
+  border-radius: 50%;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  cursor: pointer;
+}
+.textArrayItem button svg {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  bottom: 0.3rem;
+  left: 0.3rem;
+  /* width: 0.7rem;
+  height: 0.7rem; */
+}
