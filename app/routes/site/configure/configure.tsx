@@ -88,6 +88,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (logoImageUrl && !IMAGE_URL_RE.test(logoImageUrl))
     return { ok: false, error: "Logo Image URL must start with https://." };
 
+  let iconUploadFailed = false;
+
   if (useRealOAuth) {
     try {
       const agent = await getAtpAgent(did);
@@ -124,12 +126,15 @@ export async function action({ request, params }: Route.ActionArgs) {
                 encoding: mimeType,
               });
               iconBlobRef = uploadRes.data.blob;
+            } else {
+              iconUploadFailed = true;
             }
           } catch (blobErr) {
             logger.warn(
               { event: "site.configure.icon_blob_error", error: String(blobErr) },
               "icon blob upload error — save will proceed without icon",
             );
+            iconUploadFailed = true;
           }
         } else {
           iconBlobRef = existingLogoBlob;
@@ -203,7 +208,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     { event: "site.configure", user_did: did, rkey: siteSlug },
     "site.configure",
   );
-  return { ok: true };
+  return {
+    ok: true,
+    ...(iconUploadFailed ? { iconWarning: "Icon could not be uploaded — it will be retried on next save." } : {}),
+  };
 }
 
 export function meta({ data }: Route.MetaArgs) {
@@ -256,6 +264,14 @@ export default function ConfigureSite({
       content: formValues.title,
       variant: "success",
     });
+    if ("iconWarning" in actionData && actionData.iconWarning) {
+      addToast({
+        heading: "Icon not uploaded",
+        content: actionData.iconWarning,
+        variant: "primary",
+        autoExpire: false,
+      });
+    }
     navigate("/sites");
   }, [actionData]);
 
