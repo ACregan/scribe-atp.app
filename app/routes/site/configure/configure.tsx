@@ -125,8 +125,11 @@ export async function action({ request, params }: Route.ActionArgs) {
               });
               iconBlobRef = uploadRes.data.blob;
             }
-          } catch {
-            // Non-fatal: blob upload failure doesn't block the save
+          } catch (blobErr) {
+            logger.warn(
+              { event: "site.configure.icon_blob_error", error: String(blobErr) },
+              "icon blob upload error — save will proceed without icon",
+            );
           }
         } else {
           iconBlobRef = existingLogoBlob;
