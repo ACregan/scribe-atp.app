@@ -45,6 +45,7 @@ function formatArticleDate(iso: string): string {
 }
 
 const SCRIBE_COLLECTIONS = [DOCUMENT_COLLECTION, SITE_COLLECTION];
+const RECOMMEND_COLLECTION = "site.standard.graph.recommend";
 
 type RecentArticleItem = {
   uri: string;
@@ -167,19 +168,53 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  if (!IS_DEV) return { error: "Not available." };
+  const formData = await request.formData();
+  const intent = String(formData.get("_intent") ?? "nuke");
 
   const { did } = await getAuthSession(request);
-  if (!did) return { error: "Not authenticated." };
+  if (!did) return { ok: false, error: "Not authenticated." };
 
-  if (!useRealOAuth) {
-    return { ok: true, deleted: 0, devMode: true };
+  if (intent === "clearLikes") {
+    if (!useRealOAuth) return { ok: true, deleted: 0, devMode: true };
+    try {
+      const agent = await getAtpAgent(did);
+      let deleted = 0;
+      let cursor: string | undefined;
+      do {
+        const result = await agent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: RECOMMEND_COLLECTION,
+          limit: 100,
+          cursor,
+        });
+        await Promise.all(
+          result.data.records.map((record) =>
+            agent.com.atproto.repo.deleteRecord({
+              repo: did,
+              collection: RECOMMEND_COLLECTION,
+              rkey: record.uri.split("/").pop()!,
+            }),
+          ),
+        );
+        deleted += result.data.records.length;
+        cursor = result.data.cursor;
+      } while (cursor);
+      logger.info(
+        { event: "likes.clear", user_did: did, deleted_count: deleted },
+        "likes.clear",
+      );
+      return { ok: true, deleted, devMode: false };
+    } catch (err) {
+      return { ok: false, error: `Clear likes failed: ${String(err)}` };
+    }
   }
 
+  // nuke
+  if (!IS_DEV) return { ok: false, error: "Not available." };
+  if (!useRealOAuth) return { ok: true, deleted: 0, devMode: true };
   try {
     const agent = await getAtpAgent(did);
     let deleted = 0;
-
     for (const collection of SCRIBE_COLLECTIONS) {
       let cursor: string | undefined;
       do {
@@ -202,14 +237,13 @@ export async function action({ request }: Route.ActionArgs) {
         cursor = result.data.cursor;
       } while (cursor);
     }
-
     logger.warn(
       { event: "article.nuke", user_did: did, deleted_count: deleted },
       "article.nuke",
     );
     return { ok: true, deleted, devMode: false };
   } catch (err) {
-    return { error: `Nuke failed: ${String(err)}` };
+    return { ok: false, error: `Nuke failed: ${String(err)}` };
   }
 }
 
@@ -341,7 +375,14 @@ function GroupSiteItem({
 export default function Home({ loaderData }: Route.ComponentProps) {
   const nukeModal = useModal();
   const devToolsModal = useModal();
-  const fetcher = useFetcher<{
+  const clearLikesModal = useModal();
+  const nukeFetcher = useFetcher<{
+    ok?: boolean;
+    deleted?: number;
+    devMode?: boolean;
+    error?: string;
+  }>();
+  const clearLikesFetcher = useFetcher<{
     ok?: boolean;
     deleted?: number;
     devMode?: boolean;
@@ -349,27 +390,48 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   }>();
   const { addToast } = useToast();
 
-  const isPending = fetcher.state !== "idle";
+  const isNukePending = nukeFetcher.state !== "idle";
+  const isClearLikesPending = clearLikesFetcher.state !== "idle";
 
   useEffect(() => {
-    if (!fetcher.data) return;
-    if (fetcher.data.ok) {
+    if (!nukeFetcher.data) return;
+    if (nukeFetcher.data.ok) {
       addToast({
         heading: "Nuke complete",
-        content: fetcher.data.devMode
+        content: nukeFetcher.data.devMode
           ? "Dev mode — no real data deleted."
-          : `${fetcher.data.deleted} record${fetcher.data.deleted !== 1 ? "s" : ""} deleted.`,
+          : `${nukeFetcher.data.deleted} record${nukeFetcher.data.deleted !== 1 ? "s" : ""} deleted.`,
         variant: "primary",
       });
-    } else if (fetcher.data.error) {
+    } else if (nukeFetcher.data.error) {
       addToast({
         heading: "Nuke failed",
-        content: fetcher.data.error,
+        content: nukeFetcher.data.error,
         variant: "danger",
         autoExpire: false,
       });
     }
-  }, [fetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [nukeFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!clearLikesFetcher.data) return;
+    if (clearLikesFetcher.data.ok) {
+      addToast({
+        heading: "Likes cleared",
+        content: clearLikesFetcher.data.devMode
+          ? "Dev mode — no real data deleted."
+          : `${clearLikesFetcher.data.deleted} like${clearLikesFetcher.data.deleted !== 1 ? "s" : ""} deleted.`,
+        variant: "primary",
+      });
+    } else if (clearLikesFetcher.data.error) {
+      addToast({
+        heading: "Clear likes failed",
+        content: clearLikesFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }, [clearLikesFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!loaderData.isAuthenticated) {
     return <Landing />;
@@ -379,7 +441,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   function handleNukeConfirm() {
     nukeModal.close();
-    fetcher.submit({}, { method: "post" });
+    nukeFetcher.submit({ _intent: "nuke" }, { method: "post" });
+  }
+
+  function handleClearLikesConfirm() {
+    clearLikesModal.close();
+    clearLikesFetcher.submit({ _intent: "clearLikes" }, { method: "post" });
   }
 
   return (
@@ -510,140 +577,182 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       </PageContainer>
 
       {isDev && (
-        <>
-          <Modal
-            isOpen={devToolsModal.isOpen}
-            onClose={devToolsModal.close}
-            title="Dev Tools"
-            footer={null}
-          >
-            <div className={styles.devTools}>
-              <h3 className={styles.devToolsTitle}>Toast Testing</h3>
+      <>
+        <Modal
+          isOpen={devToolsModal.isOpen}
+          onClose={devToolsModal.close}
+          title="Dev Tools"
+          footer={null}
+        >
+          <div className={styles.devTools}>
+            {isDev && (
+              <>
+                <h3 className={styles.devToolsTitle}>Toast Testing</h3>
+                <div className={styles.devToastButtons}>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading: "This toast will self destruct in 5 seconds.",
+                        content: "This is a test toast.",
+                        variant: "primary",
+                        expireTimeSeconds: 5,
+                      })
+                    }
+                    variant="primary"
+                  >
+                    Add Toast
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading: "This toast will self destruct in 15 seconds.",
+                        content: "This is another test toast.",
+                        variant: "secondary",
+                        expireTimeSeconds: 15,
+                      })
+                    }
+                    variant="secondary"
+                  >
+                    Add Secondary Toast
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading:
+                          "Warning! This toast will self destruct in 5 seconds.",
+                        content: "Hot toast!",
+                        variant: "danger",
+                        expireTimeSeconds: 5,
+                      })
+                    }
+                    variant="danger"
+                  >
+                    Add Danger Toast
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading: "Success! This toast expires in 10 seconds.",
+                        content: "This is a success toast.",
+                        variant: "success",
+                        expireTimeSeconds: 10,
+                      })
+                    }
+                    variant="success"
+                  >
+                    Add Success Toast
+                  </Button>
+                </div>
+                <div className={styles.devToastButtons}>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading: "Primary Persisting Toast Message",
+                        content: "This is a test toast.",
+                        variant: "primary",
+                        autoExpire: false,
+                      })
+                    }
+                    variant="primary"
+                  >
+                    Primary Persisting Toast
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading: "Secondary Persisting Toast Message",
+                        content: "This is another test toast.",
+                        variant: "secondary",
+                        autoExpire: false,
+                      })
+                    }
+                    variant="secondary"
+                  >
+                    Secondary Persisting Toast
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading: "Danger Persisting Toast Message",
+                        content: "Hot toast!",
+                        variant: "danger",
+                        autoExpire: false,
+                      })
+                    }
+                    variant="danger"
+                  >
+                    Danger Persisting Toast
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      addToast({
+                        heading: "Success Persisting Toast Message",
+                        content: "This success toast will not expire.",
+                        variant: "success",
+                        autoExpire: false,
+                      })
+                    }
+                    variant="success"
+                  >
+                    Success Persisting Toast
+                  </Button>
+                </div>
+              </>
+            )}
 
-              <div className={styles.devToastButtons}>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading: "This toast will self destruct in 5 seconds.",
-                      content: "This is a test toast.",
-                      variant: "primary",
-                      expireTimeSeconds: 5,
-                    })
-                  }
-                  variant="primary"
-                >
-                  Add Toast
-                </Button>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading: "This toast will self destruct in 15 seconds.",
-                      content: "This is another test toast.",
-                      variant: "secondary",
-                      expireTimeSeconds: 15,
-                    })
-                  }
-                  variant="secondary"
-                >
-                  Add Secondary Toast
-                </Button>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading:
-                        "Warning! This toast will self destruct in 5 seconds.",
-                      content: "Hot toast!",
-                      variant: "danger",
-                      expireTimeSeconds: 5,
-                    })
-                  }
-                  variant="danger"
-                >
-                  Add Danger Toast
-                </Button>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading: "Success! This toast expires in 10 seconds.",
-                      content: "This is a success toast.",
-                      variant: "success",
-                      expireTimeSeconds: 10,
-                    })
-                  }
-                  variant="success"
-                >
-                  Add Success Toast
-                </Button>
-              </div>
-              <div className={styles.devToastButtons}>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading: "Primary Persisting Toast Message",
-                      content: "This is a test toast.",
-                      variant: "primary",
-                      autoExpire: false,
-                    })
-                  }
-                  variant="primary"
-                >
-                  Primary Persisting Toast
-                </Button>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading: "Secondary Persisting Toast Message",
-                      content: "This is another test toast.",
-                      variant: "secondary",
-                      autoExpire: false,
-                    })
-                  }
-                  variant="secondary"
-                >
-                  Secondary Persisting Toast
-                </Button>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading: "Danger Persisting Toast Message",
-                      content: "Hot toast!",
-                      variant: "danger",
-                      autoExpire: false,
-                    })
-                  }
-                  variant="danger"
-                >
-                  Danger Persisting Toast
-                </Button>
-                <Button
-                  onClick={() =>
-                    addToast({
-                      heading: "Success Persisting Toast Message",
-                      content: "This success toast will not expire.",
-                      variant: "success",
-                      autoExpire: false,
-                    })
-                  }
-                  variant="success"
-                >
-                  Success Persisting Toast
-                </Button>
-              </div>
+            <h3 className={styles.devToolsTitle}>Social</h3>
+            <Button
+              variant="danger"
+              onClick={() => {
+                devToolsModal.close();
+                clearLikesModal.open();
+              }}
+              disabled={isClearLikesPending}
+            >
+              {isClearLikesPending ? "Clearing…" : "Clear All Likes"}
+            </Button>
 
-              <h3 className={styles.devToolsTitle}>Data</h3>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  devToolsModal.close();
-                  nukeModal.open();
-                }}
-                disabled={isPending}
-              >
-                {isPending ? "Nuking…" : "Nuke PDS Data"}
+            {isDev && (
+              <>
+                <h3 className={styles.devToolsTitle}>Data</h3>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    devToolsModal.close();
+                    nukeModal.open();
+                  }}
+                  disabled={isNukePending}
+                >
+                  {isNukePending ? "Nuking…" : "Nuke PDS Data"}
+                </Button>
+              </>
+            )}
+          </div>
+        </Modal>
+
+        <Modal
+          isOpen={clearLikesModal.isOpen}
+          onClose={clearLikesModal.close}
+          title="Clear All Likes"
+          footer={
+            <div className={styles.modalFooter}>
+              <Button variant="secondary" onClick={clearLikesModal.close}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleClearLikesConfirm}>
+                Delete All Likes
               </Button>
             </div>
-          </Modal>
+          }
+        >
+          <p>
+            This will permanently delete all{" "}
+            <code>{RECOMMEND_COLLECTION}</code> records from your PDS.
+          </p>
+          <p>This cannot be undone.</p>
+        </Modal>
 
+        {isDev && (
           <Modal
             isOpen={nukeModal.isOpen}
             onClose={nukeModal.close}
@@ -670,7 +779,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </ul>
             <p>This cannot be undone.</p>
           </Modal>
-        </>
+        )}
+      </>
       )}
     </>
   );
