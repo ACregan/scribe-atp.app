@@ -66,6 +66,17 @@ vi.mock("~/components/PageContainer/PageContainer", () => ({
   ),
 }));
 
+vi.mock("~/components/TextArrayInput/TextArrayInput", () => ({
+  default: ({ id, label, textArrayItems, setTextArrayItems }: any) => (
+    <div data-testid={`text-array-input-${id}`}>
+      <label>{label}</label>
+      {textArrayItems.map((item: string) => (
+        <span key={item} data-testid={`tag-${item}`}>{item}</span>
+      ))}
+    </div>
+  ),
+}));
+
 describe("ArticleForm", () => {
   const mockSites: SiteOption[] = [
     { rkey: "site1", title: "Site One", url: "site1.com" },
