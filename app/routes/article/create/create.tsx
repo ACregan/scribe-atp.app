@@ -59,6 +59,7 @@ export async function action({ request }: Route.ActionArgs) {
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const description = formData.get("description") as string;
   const selectedSiteRkeys = formData.getAll("sites") as string[];
+  const tags = formData.getAll("tags") as string[];
 
   const validationError = validateArticleFields(title, slug, splashImageUrl);
   if (validationError) return { error: validationError };
@@ -76,7 +77,7 @@ export async function action({ request }: Route.ActionArgs) {
     const { uri } = await createArticle(
       agent,
       did,
-      { title, content, slug, splashImageUrl, description },
+      { title, content, slug, splashImageUrl, description, tags },
       selectedSiteRkeys,
     );
     return { uri, devMode: false, title };
@@ -146,6 +147,10 @@ export default function Create({
     setIsDirty(true);
   }
 
+  function handleTagsChange(_tags: string[]) {
+    setIsDirty(true);
+  }
+
   useEffect(() => {
     if (!actionData?.uri) return;
     addToast({
@@ -174,6 +179,7 @@ export default function Create({
           urlValue={urlValue}
           onTitleChange={handleTitleChange}
           onUrlChange={handleUrlChange}
+          onTagsChange={handleTagsChange}
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}

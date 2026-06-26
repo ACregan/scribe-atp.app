@@ -63,7 +63,9 @@ import {
   findSitesContaining,
   mutateSiteRecord,
 } from "~/services/articleSiteSync.server";
+import { resolveThumbUrl } from "~/services/article.server";
 import { devSiteListLoader } from "~/services/devFixtures.server";
+import { logger } from "~/services/logger.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 type SiteAssignment = {
@@ -538,6 +540,35 @@ export async function action({ request, params }: Route.ActionArgs) {
           ? `https://${canonicalAssignment.domain}/${canonicalAssignment.basePath}${docPath}`
           : `https://${canonicalAssignment.domain}${docPath}`;
 
+        // Upload cover image blob (non-fatal)
+        let coverImageBlobRef: unknown;
+        if (draft.splashImageUrl) {
+          try {
+            const thumbSrc = resolveThumbUrl(String(draft.splashImageUrl));
+            let imgRes = await fetch(thumbSrc);
+            if (!imgRes.ok && thumbSrc !== String(draft.splashImageUrl)) {
+              imgRes = await fetch(String(draft.splashImageUrl));
+            }
+            if (imgRes.ok) {
+              const imgBuffer = await imgRes.arrayBuffer();
+              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
+                encoding: mimeType,
+              });
+              coverImageBlobRef = uploadRes.data.blob;
+            }
+          } catch (blobErr) {
+            logger.warn(
+              { event: "article.publish.cover_image_blob_error", error: String(blobErr) },
+              "cover image blob upload error — publish will proceed without coverImage",
+            );
+          }
+        }
+
+        const draftTags = Array.isArray(draft.tags)
+          ? (draft.tags as string[])
+          : undefined;
+
         // Create site.standard.document record — no explicit rkey so PDS generates a TID
         const createResult = await agent.com.atproto.repo.createRecord({
           repo: did,
@@ -545,11 +576,16 @@ export async function action({ request, params }: Route.ActionArgs) {
           record: {
             ...draft,
             $type: DOCUMENT_COLLECTION,
+            ...(coverImageBlobRef !== undefined ? { coverImage: coverImageBlobRef } : {}),
+            contributors: [],
             path: docPath,
             site: siteAtUri,
             canonicalUrl,
             publishedAt,
             updatedAt: publishedAt,
+            ...(coverImageBlobRef !== undefined
+              ? { scribe: { splashImageBlob: coverImageBlobRef } }
+              : {}),
           },
         });
 
@@ -562,6 +598,7 @@ export async function action({ request, params }: Route.ActionArgs) {
             ? String(draft.splashImageUrl)
             : null,
           description: draft.description ? String(draft.description) : null,
+          tags: draftTags,
           createdAt: String(draft.createdAt ?? publishedAt),
           publishedAt,
           updatedAt: publishedAt,

@@ -11,6 +11,7 @@ import {
   updateArticle,
   buildArticleRef,
   loadSiteOptions,
+  resolveThumbUrl,
 } from "~/services/article.server";
 import {
   findSitesContaining,
@@ -90,6 +91,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     slug: params.articleUrl,
     splashImageUrl: String(value.splashImageUrl ?? ""),
     description: String(value.description ?? value.synopsis ?? ""),
+    tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
     createdAt: String(value.createdAt ?? new Date().toISOString()),
     cid: articleResult.data.cid ?? null,
     sites,
@@ -112,6 +114,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const newSlug = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const description = formData.get("description") as string;
+  const tags = formData.getAll("tags") as string[];
   const cid = formData.get("cid") as string | null;
   const createdAt =
     (formData.get("createdAt") as string) || new Date().toISOString();
@@ -140,17 +143,82 @@ export async function action({ request, params }: Route.ActionArgs) {
         oldSiteRkeys,
         oldSiteRkeys,
       );
+
+      // Fetch existing record for blob caching and contributors preservation
+      let existingDoc: Record<string, unknown> = {};
+      try {
+        const existingResult = await agent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey: oldRkey,
+        });
+        existingDoc = existingResult.data.value as Record<string, unknown>;
+      } catch {
+        // Non-fatal: proceed without existing data
+      }
+
+      const existingScribe = (existingDoc.scribe as Record<string, unknown>) ?? {};
+      const contributors = Array.isArray(existingDoc.contributors)
+        ? existingDoc.contributors
+        : [];
+
+      // Upload cover image blob — only if URL changed or no cached blob exists
+      let coverImageBlobRef: unknown;
+      let coverImageUploadFailed = false;
+      if (splashImageUrl?.trim()) {
+        const existingCoverImageBlob = existingScribe.splashImageBlob;
+        const existingSplashImageUrl = String(existingDoc.splashImageUrl ?? "");
+        if (existingSplashImageUrl !== splashImageUrl || !existingCoverImageBlob) {
+          try {
+            const thumbSrc = resolveThumbUrl(splashImageUrl);
+            let imgRes = await fetch(thumbSrc);
+            if (!imgRes.ok && thumbSrc !== splashImageUrl) {
+              imgRes = await fetch(splashImageUrl);
+            }
+            if (imgRes.ok) {
+              const imgBuffer = await imgRes.arrayBuffer();
+              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
+                encoding: mimeType,
+              });
+              coverImageBlobRef = uploadRes.data.blob;
+            } else {
+              coverImageUploadFailed = true;
+            }
+          } catch (blobErr) {
+            logger.warn(
+              { event: "article.update.cover_image_blob_error", error: String(blobErr) },
+              "cover image blob upload error — save will proceed without coverImage",
+            );
+            coverImageUploadFailed = true;
+          }
+        } else {
+          coverImageBlobRef = existingCoverImageBlob;
+        }
+      }
+
       const updatedRecord = {
         $type: DOCUMENT_COLLECTION,
         title,
         content: { $type: "app.scribe.content.html", html: content },
         splashImageUrl: splashImageUrl?.trim() || undefined,
+        ...(coverImageBlobRef !== undefined ? { coverImage: coverImageBlobRef } : {}),
         description: description?.trim() || undefined,
+        tags: tags.length ? tags : undefined,
+        contributors,
         site: publishedSite,
         publishedAt,
         createdAt,
         updatedAt: now,
+        scribe: {
+          ...existingScribe,
+          ...(coverImageBlobRef !== undefined ? { splashImageBlob: coverImageBlobRef } : {}),
+        },
       };
+
+      const coverImageWarning = coverImageUploadFailed
+        ? "Cover image could not be uploaded."
+        : undefined;
 
       if (slugChanged) {
         const newPath = publishedPath.replace(/\/[^/]+$/, `/${newSlug}`);
@@ -178,6 +246,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           slug: newSlug,
           splashImageUrl,
           description,
+          tags: tags.length ? tags : undefined,
           publishedAt,
           createdAt,
           updatedAt: now,
@@ -193,7 +262,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           },
           "article.update",
         );
-        return { ok: true as const, title, newSlug };
+        return { ok: true as const, title, newSlug, coverImageWarning };
       }
 
       const putResult = await agent.com.atproto.repo.putRecord({
@@ -210,6 +279,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         slug: oldRkey,
         splashImageUrl,
         description,
+        tags: tags.length ? tags : undefined,
         publishedAt,
         createdAt,
         updatedAt: now,
@@ -219,7 +289,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         { event: "article.update", user_did: did, rkey: oldRkey, slug_renamed: false },
         "article.update",
       );
-      return { ok: true as const, title, newCid: putResult.data.cid };
+      return { ok: true as const, title, newCid: putResult.data.cid, coverImageWarning };
     } catch (err) {
       console.error("Failed to update published article:", err);
       return {
@@ -244,6 +314,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         slug: newSlug,
         splashImageUrl,
         description,
+        tags,
         createdAt,
       },
       cid,
@@ -273,6 +344,7 @@ export default function EditArticle({
     slug,
     splashImageUrl,
     description,
+    tags,
     createdAt,
     cid,
     sites,
@@ -329,6 +401,10 @@ export default function EditArticle({
     setIsDirty(true);
   }
 
+  function handleTagsChange(_tags: string[]) {
+    setIsDirty(true);
+  }
+
   useEffect(() => {
     if (!actionData?.ok) return;
     addToast({
@@ -336,6 +412,14 @@ export default function EditArticle({
       content: actionData.title,
       variant: "success",
     });
+    if ("coverImageWarning" in actionData && actionData.coverImageWarning) {
+      addToast({
+        heading: "Cover image upload failed",
+        content: actionData.coverImageWarning,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
     if (actionData.newSlug) {
       navigate(`/article/edit/${actionData.newSlug}`, { replace: true });
     } else {
@@ -376,7 +460,9 @@ export default function EditArticle({
           defaultUrl={slug}
           defaultSplashImageUrl={splashImageUrl}
           defaultDescription={description}
+          defaultTags={tags}
           defaultContent={content}
+          onTagsChange={handleTagsChange}
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}
