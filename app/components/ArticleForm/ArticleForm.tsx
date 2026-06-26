@@ -32,6 +32,7 @@ type ArticleFormProps = {
   onSitesChange: (rkeys: string[]) => void;
   onContentChange?: (html: string) => void;
   error?: string;
+  urlWarning?: string;
   columnar?: boolean;
 };
 
@@ -52,6 +53,7 @@ export function ArticleForm({
   onSitesChange,
   onContentChange,
   error,
+  urlWarning,
   columnar = false,
 }: ArticleFormProps) {
   const [tags, setTags] = useState<string[]>(defaultTags ?? []);
@@ -107,6 +109,11 @@ export function ArticleForm({
               placeholder="my-article-title"
               {...urlProps}
             />
+            {urlWarning && (
+              <p style={{ color: "var(--action-danger)", fontSize: "0.85em", marginTop: "-0.5rem" }}>
+                {urlWarning}
+              </p>
+            )}
             <Input
               id="splashImageUrl"
               name="splashImageUrl"
@@ -158,6 +165,11 @@ export function ArticleForm({
           placeholder="my-article-title"
           {...urlProps}
         />
+        {urlWarning && (
+          <p style={{ color: "var(--action-danger)", fontSize: "0.85em", marginTop: "-0.5rem" }}>
+            {urlWarning}
+          </p>
+        )}
         <Input
           id="splashImageUrl"
           name="splashImageUrl"

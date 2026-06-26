@@ -13,7 +13,6 @@ import {
   PageSection,
 } from "~/components/PageContainer/PageContainer";
 import {
-  ARTICLE_COLLECTION,
   DOCUMENT_COLLECTION,
   SITE_COLLECTION,
 } from "~/constants";
@@ -39,6 +38,7 @@ type OrphanedDraft = {
   rkey: string;
   uri: string;
   title: string;
+  slug: string;
   cid: string;
   createdAt: string;
 };
@@ -52,12 +52,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const { agent, did } = await requireAtpAgent(request);
 
-  const [draftsResult, publishedResult, sitesResult] = await Promise.all([
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: ARTICLE_COLLECTION,
-      limit: 100,
-    }),
+  const [publishedResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
       repo: did,
       collection: DOCUMENT_COLLECTION,
@@ -113,13 +108,17 @@ export async function loader({ request }: Route.LoaderArgs) {
       (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""),
     );
 
-  const orphanedDrafts: OrphanedDraft[] = draftsResult.data.records
+  // Orphaned = DOCUMENT_COLLECTION records not referenced in any site manifest
+  const orphanedDrafts: OrphanedDraft[] = publishedResult.data.records
+    .filter((r) => !assignmentMap.has(r.uri))
     .map((record) => {
       const value = record.value as Record<string, unknown>;
+      const path = String(value.path ?? "");
       return {
         rkey: record.uri.split("/").pop()!,
         uri: record.uri,
         title: String(value.title ?? "Untitled"),
+        slug: path.split("/").pop() || record.uri.split("/").pop()!,
         cid: record.cid ?? "",
         createdAt: String(value.createdAt ?? ""),
       };
@@ -137,7 +136,7 @@ export async function action({ request }: Route.ActionArgs) {
   const cid = formData.get("cid") as string | null;
   await agent.com.atproto.repo.deleteRecord({
     repo: did,
-    collection: ARTICLE_COLLECTION,
+    collection: DOCUMENT_COLLECTION,
     rkey,
     swapRecord: cid ?? undefined,
   });
@@ -249,7 +248,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                   </small>
                 </div>
                 <div className={styles.articleButtons}>
-                  <Link to={`/article/edit/${article.rkey}`}>
+                  <Link to={`/article/edit/${article.slug}`}>
                     <Button type="button" variant="primary" tabIndex={-1}>
                       Edit
                     </Button>

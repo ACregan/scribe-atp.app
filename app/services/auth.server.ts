@@ -36,9 +36,6 @@ const clientId = useRealOAuth
 
 export const OAUTH_SCOPE = [
   "atproto",
-  "repo:app.scribe.article?action=create",
-  "repo:app.scribe.article?action=update",
-  "repo:app.scribe.article?action=delete",
   "repo:site.standard.document?action=create",
   "repo:site.standard.document?action=update",
   "repo:site.standard.document?action=delete",

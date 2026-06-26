@@ -14,7 +14,7 @@ import { Button } from "~/components/Button/Button";
 import { Pill } from "~/components/Pill/Pill";
 import styles from "./home.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageContainerHeading,
@@ -44,7 +44,7 @@ function formatArticleDate(iso: string): string {
   return `${time} ${date}`;
 }
 
-const SCRIBE_COLLECTIONS = [ARTICLE_COLLECTION, DOCUMENT_COLLECTION, SITE_COLLECTION];
+const SCRIBE_COLLECTIONS = [DOCUMENT_COLLECTION, SITE_COLLECTION];
 
 type RecentArticleItem = {
   uri: string;
@@ -84,12 +84,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const agent = await getAtpAgent(did);
-  const [articlesResult, documentsResult, sitesResult] = await Promise.all([
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: ARTICLE_COLLECTION,
-      limit: 100,
-    }),
+  const [documentsResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
       repo: did,
       collection: DOCUMENT_COLLECTION,
@@ -130,16 +125,24 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   });
 
-  const recentArticles: RecentArticleItem[] = [
-    ...articlesResult.data.records,
-    ...documentsResult.data.records,
-  ]
+  // Build set of all document URIs referenced in any site manifest
+  const assignedUris = new Set<string>();
+  for (const record of sitesResult.data.records) {
+    const scribe = ((record.value as Record<string, unknown>).scribe as Record<string, unknown>) ?? {};
+    for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ?? []) assignedUris.add(a.uri);
+    for (const g of (scribe.groups as Array<{ articles: Array<{ uri: string }> }>) ?? []) {
+      for (const a of g.articles ?? []) assignedUris.add(a.uri);
+    }
+  }
+
+  const recentArticles: RecentArticleItem[] = documentsResult.data.records
     .map((record) => {
       const value = record.value as Record<string, unknown>;
+      const path = String(value.path ?? "");
       return {
         uri: record.uri,
         title: String(value.title ?? "Untitled"),
-        slug: record.uri.split("/").pop()!,
+        slug: path.split("/").pop() || record.uri.split("/").pop()!,
         createdAt: String(value.createdAt ?? ""),
         updatedAt: value.updatedAt ? String(value.updatedAt) : undefined,
       };
@@ -149,7 +152,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     )
     .slice(0, 10);
 
-  const orphanedArticleCount = articlesResult.data.records.length;
+  const orphanedArticleCount = documentsResult.data.records.filter(
+    (r) => !assignedUris.has(r.uri),
+  ).length;
 
   return {
     isAuthenticated: true as const,

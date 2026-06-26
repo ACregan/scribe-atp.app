@@ -13,6 +13,7 @@ import OverflowMenu from "../OverflowMenu/OverflowMenu";
 interface ArticleItemProps {
   id: string;
   uri: string;
+  slug?: string;
   title: string;
   createdAt: string;
   cid?: string;
@@ -25,6 +26,7 @@ interface ArticleItemProps {
 const ArticleItem: React.FC<ArticleItemProps> = ({
   id,
   uri,
+  slug,
   title,
   createdAt,
   cid,
@@ -33,6 +35,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   siteName,
   onPublishClick,
 }) => {
+  const urlKey = slug ?? uri.split("/").pop();
   const deleteModal = useModal();
   const deleteFormRef = useRef<HTMLFormElement>(null);
   const moveToDraftsModal = useModal();
@@ -98,12 +101,12 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
           {createdAt && <span>{new Date(createdAt).toLocaleDateString()}</span>}
         </div>
         <div className={styles.buttonContainer}>
-          <Link to={`/article/view/${uri.split("/").pop()}`}>
+          <Link to={`/article/view/${urlKey}`}>
             <Button type="button" variant="secondary" tabIndex={-1}>
               View
             </Button>
           </Link>
-          <Link to={`/article/edit/${uri.split("/").pop()}`}>
+          <Link to={`/article/edit/${urlKey}`}>
             <Button type="button" variant="primary" tabIndex={-1}>
               Edit
             </Button>

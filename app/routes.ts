@@ -59,6 +59,10 @@ export default [
         "devtools/repair-document-site-uris",
         "./routes/devtools/repair-document-site-uris/repair-document-site-uris.tsx",
       ),
+      route(
+        "devtools/repair-document-paths",
+        "./routes/devtools/repair-document-paths/repair-document-paths.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
