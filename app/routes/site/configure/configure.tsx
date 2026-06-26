@@ -114,12 +114,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           try {
             const thumbSrc = resolveLogoThumbUrl(logoImageUrl);
             let imgRes = await fetch(thumbSrc);
-            // Fall back to the original URL if the thumb variant isn't available
             if (!imgRes.ok && thumbSrc !== logoImageUrl) {
-              logger.warn(
-                { event: "site.configure.icon_thumb_fetch_failed", status: imgRes.status, url: thumbSrc },
-                "icon thumb fetch failed — trying original URL",
-              );
               imgRes = await fetch(logoImageUrl);
             }
             if (imgRes.ok) {
@@ -129,17 +124,9 @@ export async function action({ request, params }: Route.ActionArgs) {
                 encoding: mimeType,
               });
               iconBlobRef = uploadRes.data.blob;
-            } else {
-              logger.warn(
-                { event: "site.configure.icon_fetch_failed", status: imgRes.status, url: logoImageUrl },
-                "icon image fetch failed — save will proceed without icon",
-              );
             }
-          } catch (blobErr) {
-            logger.warn(
-              { event: "site.configure.icon_blob_error", error: String(blobErr) },
-              "icon blob upload error — save will proceed without icon",
-            );
+          } catch {
+            // Non-fatal: blob upload failure doesn't block the save
           }
         } else {
           iconBlobRef = existingLogoBlob;
