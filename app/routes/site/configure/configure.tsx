@@ -41,12 +41,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       title: String(scribe.title ?? ""),
       url: String(scribe.domain ?? ""),
       urlPrefix: String(scribe.basePath ?? ""),
-      description: String(scribe.description ?? ""),
+      description: String(v.description ?? scribe.description ?? ""),
       splashImageUrl: String(scribe.splashImageUrl ?? ""),
       logoImageUrl: String(scribe.logoImageUrl ?? ""),
       showInDiscover: prefs.showInDiscover !== false,
     },
   };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Replace any Scribe image variant in a URL with the thumb (300px) variant.
+// Non-Scribe URLs are returned unchanged.
+function resolveLogoThumbUrl(logoImageUrl: string): string {
+  return logoImageUrl.replace(/\/(600|1200|1800|max)\.webp$/, "/thumb.webp");
 }
 
 // ── Action ────────────────────────────────────────────────────────────────────
@@ -92,7 +100,35 @@ export async function action({ request, params }: Route.ActionArgs) {
         rkey: siteSlug,
       });
       const existingValue = existing.data.value as Record<string, unknown>;
-      const existingScribe = (existingValue.scribe as Record<string, unknown>) ?? {};
+      const {
+        description: _scribeDescription,
+        logoImageBlob: existingLogoBlob,
+        ...existingScribeBase
+      } = (existingValue.scribe as Record<string, unknown>) ?? {};
+
+      // Resolve icon blob ref — only re-upload when the logo URL changes or no cached blob exists
+      let iconBlobRef: unknown;
+      if (logoImageUrl) {
+        const existingLogoUrl = String(existingScribeBase.logoImageUrl ?? "");
+        if (existingLogoUrl !== logoImageUrl || !existingLogoBlob) {
+          try {
+            const thumbSrc = resolveLogoThumbUrl(logoImageUrl);
+            const imgRes = await fetch(thumbSrc);
+            if (imgRes.ok) {
+              const imgBuffer = await imgRes.arrayBuffer();
+              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
+                encoding: mimeType,
+              });
+              iconBlobRef = uploadRes.data.blob;
+            }
+          } catch {
+            // Non-fatal: blob upload failure doesn't block the save
+          }
+        } else {
+          iconBlobRef = existingLogoBlob;
+        }
+      }
 
       await agent.com.atproto.repo.putRecord({
         repo: did,
@@ -102,23 +138,25 @@ export async function action({ request, params }: Route.ActionArgs) {
           ...existingValue,
           url: `https://${url}`,
           name: title,
+          ...(description ? { description } : { description: undefined }),
+          ...(iconBlobRef !== undefined ? { icon: iconBlobRef } : { icon: undefined }),
           preferences: { showInDiscover },
           scribe: {
-            ...existingScribe,
+            ...existingScribeBase,
             $type: SITE_COLLECTION,
             domain: url,
             basePath: urlPrefix,
             title,
-            ...(description ? { description } : { description: undefined }),
             ...(splashImageUrl ? { splashImageUrl } : { splashImageUrl: undefined }),
             ...(logoImageUrl ? { logoImageUrl } : { logoImageUrl: undefined }),
+            ...(iconBlobRef !== undefined ? { logoImageBlob: iconBlobRef } : { logoImageBlob: undefined }),
             updatedAt: new Date().toISOString(),
           },
         },
       });
 
-      const domainChanged = String(existingScribe.domain ?? "") !== url;
-      const basePathChanged = String(existingScribe.basePath ?? "") !== urlPrefix;
+      const domainChanged = String(existingScribeBase.domain ?? "") !== url;
+      const basePathChanged = String(existingScribeBase.basePath ?? "") !== urlPrefix;
 
       if (domainChanged || basePathChanged) {
         const docsResult = await agent.com.atproto.repo.listRecords({
