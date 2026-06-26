@@ -8,7 +8,6 @@ import {
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
-  updateArticle,
   buildArticleRef,
   loadSiteOptions,
   resolveThumbUrl,
@@ -20,9 +19,9 @@ import {
 } from "~/services/articleSiteSync.server";
 import { hasTextContent } from "~/components/utils";
 import { devEditLoader } from "~/services/devFixtures.server";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION, DOCUMENT_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import {
   PageContainer,
@@ -45,36 +44,34 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!useRealOAuth) return devEditLoader(params.articleUrl);
 
   const { agent, did } = await requireAtpAgent(request);
-
   const siteOptionsPromise = loadSiteOptions(agent, did);
 
-  let articleResult: Awaited<
-    ReturnType<typeof agent.com.atproto.repo.getRecord>
-  >;
-  let collection: string;
-  try {
-    articleResult = await agent.com.atproto.repo.getRecord({
+  // Resolve human-readable slug → TID via listRecords scan.
+  // slug = path.split('/').pop() for each site.standard.document record.
+  const slug = params.articleUrl;
+  const allRecords: Array<{ uri: string; cid: string; value: unknown }> = [];
+  let cursor: string | undefined;
+  do {
+    const result = await agent.com.atproto.repo.listRecords({
       repo: did,
       collection: DOCUMENT_COLLECTION,
-      rkey: params.articleUrl,
+      limit: 100,
+      cursor,
     });
-    collection = DOCUMENT_COLLECTION;
-  } catch {
-    articleResult = await agent.com.atproto.repo.getRecord({
-      repo: did,
-      collection: ARTICLE_COLLECTION,
-      rkey: params.articleUrl,
-    });
-    collection = ARTICLE_COLLECTION;
-  }
+    allRecords.push(...(result.data.records as typeof allRecords));
+    cursor = result.data.cursor;
+  } while (cursor);
 
-  const articleUri = `at://${did}/${collection}/${params.articleUrl}`;
-  const [sites, currentSiteRkeys] = await Promise.all([
-    siteOptionsPromise,
-    findSitesContaining(agent, did, articleUri),
-  ]);
+  const found = allRecords.find((r) => {
+    const path = String((r.value as Record<string, unknown>).path ?? "");
+    return path.split("/").pop() === slug;
+  });
 
-  const value = articleResult.data.value as Record<string, unknown>;
+  if (!found) throw new Response("Article not found", { status: 404 });
+
+  const rkey = found.uri.split("/").pop()!;
+  const value = found.value as Record<string, unknown>;
+
   const rawContent = value.content;
   const content =
     typeof rawContent === "object" &&
@@ -83,31 +80,31 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       ? String((rawContent as Record<string, unknown>).html ?? "")
       : String(rawContent ?? "");
 
+  const articleUri = `at://${did}/${DOCUMENT_COLLECTION}/${rkey}`;
+  const [sites, currentSiteRkeys] = await Promise.all([
+    siteOptionsPromise,
+    findSitesContaining(agent, did, articleUri),
+  ]);
+
   return {
-    collection,
-    rkey: params.articleUrl,
+    rkey,
     title: String(value.title ?? ""),
     content,
-    slug: params.articleUrl,
+    slug,
     splashImageUrl: String(value.splashImageUrl ?? ""),
-    description: String(value.description ?? value.synopsis ?? ""),
+    description: String(value.description ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
     createdAt: String(value.createdAt ?? new Date().toISOString()),
-    cid: articleResult.data.cid ?? null,
+    cid: found.cid ?? null,
     sites,
     currentSiteRkeys,
-    publishedSite:
-      collection === DOCUMENT_COLLECTION ? String(value.site ?? "") : null,
-    publishedAt:
-      collection === DOCUMENT_COLLECTION
-        ? String(value.publishedAt ?? "")
-        : null,
-    publishedPath:
-      collection === DOCUMENT_COLLECTION ? String(value.path ?? "") : null,
+    publishedSite: String(value.site ?? ""),
+    publishedAt: String(value.publishedAt ?? ""),
+    publishedPath: String(value.path ?? ""),
   };
 }
 
-export async function action({ request, params }: Route.ActionArgs) {
+export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
@@ -118,9 +115,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   const cid = formData.get("cid") as string | null;
   const createdAt =
     (formData.get("createdAt") as string) || new Date().toISOString();
-  const oldRkey = params.articleUrl;
-  const collection =
-    (formData.get("collection") as string) || ARTICLE_COLLECTION;
+  const oldRkey = formData.get("rkey") as string; // TID — immutable
+  const publishedSite = (formData.get("publishedSite") as string) || "";
+  const publishedAt = (formData.get("publishedAt") as string) || "";
+  const publishedPath = (formData.get("publishedPath") as string) || "";
   const oldSiteRkeys: string[] = JSON.parse(
     (formData.get("oldSiteRkeys") as string) || "[]",
   );
@@ -130,198 +128,157 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (!useRealOAuth) return { ok: true as const, title };
 
-  if (collection === DOCUMENT_COLLECTION) {
-    const publishedSite = (formData.get("publishedSite") as string) || "";
-    const publishedAt = (formData.get("publishedAt") as string) || "";
-    const publishedPath = (formData.get("publishedPath") as string) || "";
+  const currentSlug = publishedPath.split("/").pop()!;
+  const slugChanged = newSlug !== currentSlug;
 
+  try {
+    const { agent, did } = await requireAtpAgent(request);
+    const siteChanges = computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys);
+    const now = new Date().toISOString();
+
+    // Fetch existing record for blob caching and contributors preservation
+    let existingDoc: Record<string, unknown> = {};
     try {
-      const { agent, did } = await requireAtpAgent(request);
-      const slugChanged = newSlug !== oldRkey;
-      const now = new Date().toISOString();
-      const siteChanges = computeSiteAssignmentChanges(
-        oldSiteRkeys,
-        oldSiteRkeys,
-      );
-
-      // Fetch existing record for blob caching and contributors preservation
-      let existingDoc: Record<string, unknown> = {};
-      try {
-        const existingResult = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          rkey: oldRkey,
-        });
-        existingDoc = existingResult.data.value as Record<string, unknown>;
-      } catch {
-        // Non-fatal: proceed without existing data
-      }
-
-      const existingScribe = (existingDoc.scribe as Record<string, unknown>) ?? {};
-      const contributors = Array.isArray(existingDoc.contributors)
-        ? existingDoc.contributors
-        : [];
-
-      // Upload cover image blob — only if URL changed or no cached blob exists
-      let coverImageBlobRef: unknown;
-      let coverImageUploadFailed = false;
-      if (splashImageUrl?.trim()) {
-        const existingCoverImageBlob = existingScribe.splashImageBlob;
-        const existingSplashImageUrl = String(existingDoc.splashImageUrl ?? "");
-        if (existingSplashImageUrl !== splashImageUrl || !existingCoverImageBlob) {
-          try {
-            const thumbSrc = resolveThumbUrl(splashImageUrl);
-            let imgRes = await fetch(thumbSrc);
-            if (!imgRes.ok && thumbSrc !== splashImageUrl) {
-              imgRes = await fetch(splashImageUrl);
-            }
-            if (imgRes.ok) {
-              const imgBuffer = await imgRes.arrayBuffer();
-              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
-              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
-                encoding: mimeType,
-              });
-              coverImageBlobRef = uploadRes.data.blob;
-            } else {
-              coverImageUploadFailed = true;
-            }
-          } catch (blobErr) {
-            logger.warn(
-              { event: "article.update.cover_image_blob_error", error: String(blobErr) },
-              "cover image blob upload error — save will proceed without coverImage",
-            );
-            coverImageUploadFailed = true;
-          }
-        } else {
-          coverImageBlobRef = existingCoverImageBlob;
-        }
-      }
-
-      const updatedRecord = {
-        $type: DOCUMENT_COLLECTION,
-        title,
-        content: { $type: "app.scribe.content.html", html: content },
-        splashImageUrl: splashImageUrl?.trim() || undefined,
-        ...(coverImageBlobRef !== undefined ? { coverImage: coverImageBlobRef } : {}),
-        description: description?.trim() || undefined,
-        tags: tags.length ? tags : undefined,
-        contributors,
-        site: publishedSite,
-        publishedAt,
-        createdAt,
-        updatedAt: now,
-        scribe: {
-          ...existingScribe,
-          ...(coverImageBlobRef !== undefined ? { splashImageBlob: coverImageBlobRef } : {}),
-        },
-      };
-
-      const coverImageWarning = coverImageUploadFailed
-        ? "Cover image could not be uploaded."
-        : undefined;
-
-      if (slugChanged) {
-        const newPath = publishedPath.replace(/\/[^/]+$/, `/${newSlug}`);
-        await agent.com.atproto.repo.createRecord({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          rkey: newSlug,
-          record: { ...updatedRecord, path: newPath },
-        });
-        await agent.com.atproto.repo
-          .deleteRecord({
-            repo: did,
-            collection: DOCUMENT_COLLECTION,
-            rkey: oldRkey,
-            swapRecord: cid ?? undefined,
-          })
-          .catch((err) =>
-            console.error("Failed to delete old published record:", err),
-          );
-        const oldUri = `at://${did}/${DOCUMENT_COLLECTION}/${oldRkey}`;
-        const newUri = `at://${did}/${DOCUMENT_COLLECTION}/${newSlug}`;
-        const ref = buildArticleRef({
-          uri: newUri,
-          title,
-          slug: newSlug,
-          splashImageUrl,
-          description,
-          tags: tags.length ? tags : undefined,
-          publishedAt,
-          createdAt,
-          updatedAt: now,
-        });
-        await syncSiteArticleRefs(agent, did, siteChanges, oldUri, ref);
-        logger.info(
-          {
-            event: "article.update",
-            user_did: did,
-            rkey: newSlug,
-            old_rkey: oldRkey,
-            slug_renamed: true,
-          },
-          "article.update",
-        );
-        return { ok: true as const, title, newSlug, coverImageWarning };
-      }
-
-      const putResult = await agent.com.atproto.repo.putRecord({
+      const existingResult = await agent.com.atproto.repo.getRecord({
         repo: did,
         collection: DOCUMENT_COLLECTION,
         rkey: oldRkey,
-        record: { ...updatedRecord, path: publishedPath },
-        swapRecord: cid ?? undefined,
       });
-      const uri = `at://${did}/${DOCUMENT_COLLECTION}/${oldRkey}`;
-      const ref = buildArticleRef({
-        uri,
-        title,
-        slug: oldRkey,
-        splashImageUrl,
-        description,
-        tags: tags.length ? tags : undefined,
-        publishedAt,
-        createdAt,
-        updatedAt: now,
-      });
-      await syncSiteArticleRefs(agent, did, siteChanges, uri, ref);
-      logger.info(
-        { event: "article.update", user_did: did, rkey: oldRkey, slug_renamed: false },
-        "article.update",
-      );
-      return { ok: true as const, title, newCid: putResult.data.cid, coverImageWarning };
-    } catch (err) {
-      console.error("Failed to update published article:", err);
-      return {
-        ok: false as const,
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to save. Please try again.",
-      };
+      existingDoc = existingResult.data.value as Record<string, unknown>;
+    } catch {
+      // Non-fatal: proceed without existing data
     }
-  }
 
-  // Draft (ARTICLE_COLLECTION) path
-  const newSiteRkeys = formData.getAll("sites") as string[];
-  try {
-    const { agent, did } = await requireAtpAgent(request);
-    const result = await updateArticle(agent, did, {
-      oldRkey,
-      fields: {
-        title,
-        content,
-        slug: newSlug,
-        splashImageUrl,
-        description,
-        tags,
-        createdAt,
+    const existingScribe =
+      (existingDoc.scribe as Record<string, unknown>) ?? {};
+    const contributors = Array.isArray(existingDoc.contributors)
+      ? existingDoc.contributors
+      : [];
+    const existingCanonicalUrl = String(existingDoc.canonicalUrl ?? "");
+
+    // Upload cover image blob — only if URL changed or no cached blob exists
+    let coverImageBlobRef: unknown;
+    let coverImageUploadFailed = false;
+    if (splashImageUrl?.trim()) {
+      const existingCoverImageBlob = existingScribe.splashImageBlob;
+      const existingSplashImageUrl = String(existingDoc.splashImageUrl ?? "");
+      if (
+        existingSplashImageUrl !== splashImageUrl ||
+        !existingCoverImageBlob
+      ) {
+        try {
+          const thumbSrc = resolveThumbUrl(splashImageUrl);
+          let imgRes = await fetch(thumbSrc);
+          if (!imgRes.ok && thumbSrc !== splashImageUrl) {
+            imgRes = await fetch(splashImageUrl);
+          }
+          if (imgRes.ok) {
+            const imgBuffer = await imgRes.arrayBuffer();
+            const mimeType =
+              imgRes.headers.get("content-type") ?? "image/webp";
+            const uploadRes = await agent.uploadBlob(
+              new Uint8Array(imgBuffer),
+              { encoding: mimeType },
+            );
+            coverImageBlobRef = uploadRes.data.blob;
+          } else {
+            coverImageUploadFailed = true;
+          }
+        } catch (blobErr) {
+          logger.warn(
+            {
+              event: "article.update.cover_image_blob_error",
+              error: String(blobErr),
+            },
+            "cover image blob upload error — save will proceed without coverImage",
+          );
+          coverImageUploadFailed = true;
+        }
+      } else {
+        coverImageBlobRef = existingCoverImageBlob;
+      }
+    }
+
+    const coverImageWarning = coverImageUploadFailed
+      ? "Cover image could not be uploaded."
+      : undefined;
+
+    // Update path and canonicalUrl when slug changes; rkey (TID) stays constant
+    const newPath = slugChanged
+      ? publishedPath.replace(/\/[^/]+$/, `/${newSlug}`)
+      : publishedPath;
+    const newCanonicalUrl =
+      slugChanged && existingCanonicalUrl
+        ? existingCanonicalUrl.replace(/\/[^/]+$/, `/${newSlug}`)
+        : existingCanonicalUrl;
+
+    const updatedRecord: Record<string, unknown> = {
+      $type: DOCUMENT_COLLECTION,
+      title,
+      content: { $type: "app.scribe.content.html", html: content },
+      splashImageUrl: splashImageUrl?.trim() || undefined,
+      ...(coverImageBlobRef !== undefined
+        ? { coverImage: coverImageBlobRef }
+        : {}),
+      description: description?.trim() || undefined,
+      tags: tags.length ? tags : undefined,
+      contributors,
+      site: publishedSite,
+      publishedAt,
+      createdAt,
+      updatedAt: now,
+      path: newPath,
+      ...(newCanonicalUrl ? { canonicalUrl: newCanonicalUrl } : {}),
+      scribe: {
+        ...existingScribe,
+        ...(coverImageBlobRef !== undefined
+          ? { splashImageBlob: coverImageBlobRef }
+          : {}),
       },
-      cid,
-      oldSiteRkeys,
-      newSiteRkeys,
+    };
+
+    // Always putRecord — rkey is the immutable TID, never recreated
+    const putResult = await agent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      rkey: oldRkey,
+      record: updatedRecord,
+      swapRecord: cid ?? undefined,
     });
-    return { ok: true as const, title, ...result };
+
+    const uri = `at://${did}/${DOCUMENT_COLLECTION}/${oldRkey}`;
+    const ref = buildArticleRef({
+      uri,
+      title,
+      slug: newSlug,
+      splashImageUrl,
+      description,
+      tags: tags.length ? tags : undefined,
+      publishedAt,
+      createdAt,
+      updatedAt: now,
+    });
+    await syncSiteArticleRefs(agent, did, siteChanges, uri, ref);
+
+    logger.info(
+      {
+        event: "article.update",
+        user_did: did,
+        rkey: oldRkey,
+        slug_renamed: slugChanged,
+      },
+      "article.update",
+    );
+
+    if (slugChanged) {
+      return { ok: true as const, title, newSlug, coverImageWarning };
+    }
+    return {
+      ok: true as const,
+      title,
+      newCid: putResult.data.cid,
+      coverImageWarning,
+    };
   } catch (err) {
     console.error("Failed to update article:", err);
     return {
@@ -339,6 +296,7 @@ export default function EditArticle({
   actionData,
 }: Route.ComponentProps) {
   const {
+    rkey,
     title,
     content,
     slug,
@@ -349,7 +307,6 @@ export default function EditArticle({
     cid,
     sites,
     currentSiteRkeys,
-    collection,
     publishedSite,
     publishedAt,
     publishedPath,
@@ -368,6 +325,8 @@ export default function EditArticle({
   const [cidValue, setCidValue] = useState(cid);
   const navigate = useNavigate();
   const { addToast } = useToast();
+
+  const slugChanged = urlValue !== slug;
 
   const canSave =
     titleValue.trim() !== "" &&
@@ -420,16 +379,18 @@ export default function EditArticle({
         autoExpire: false,
       });
     }
-    if (actionData.newSlug) {
+    if ("newSlug" in actionData && actionData.newSlug) {
       navigate(`/article/edit/${actionData.newSlug}`, { replace: true });
     } else {
       setIsDirty(false);
-      if (actionData.newCid) setCidValue(actionData.newCid);
+      if ("newCid" in actionData && actionData.newCid)
+        setCidValue(actionData.newCid);
     }
   }, [actionData]);
 
   return (
     <Form method="post" id="edit-article-form" onInput={handleFormInput}>
+      <input type="hidden" name="rkey" value={rkey} />
       <input type="hidden" name="cid" value={cidValue ?? ""} />
       <input type="hidden" name="createdAt" value={createdAt} />
       <input
@@ -437,20 +398,13 @@ export default function EditArticle({
         name="oldSiteRkeys"
         value={JSON.stringify(currentSiteRkeys)}
       />
-      <input type="hidden" name="collection" value={collection} />
-      {collection === DOCUMENT_COLLECTION && (
-        <>
-          <input type="hidden" name="publishedSite" value={publishedSite ?? ""} />
-          <input type="hidden" name="publishedAt" value={publishedAt ?? ""} />
-          <input type="hidden" name="publishedPath" value={publishedPath ?? ""} />
-        </>
-      )}
+      <input type="hidden" name="publishedSite" value={publishedSite} />
+      <input type="hidden" name="publishedAt" value={publishedAt} />
+      <input type="hidden" name="publishedPath" value={publishedPath} />
       <PageContainer
         title={
           <PageContainerHeading icon={SvgImageList.Document}>
-            {collection === DOCUMENT_COLLECTION
-              ? "Edit Published Article"
-              : "Edit Article"}
+            Edit Article
           </PageContainerHeading>
         }
         fixed
@@ -468,6 +422,11 @@ export default function EditArticle({
           onSitesChange={handleSitesChange}
           onContentChange={handleContentChange}
           error={actionData?.error}
+          urlWarning={
+            slugChanged
+              ? "Changing this slug will break existing links to this article."
+              : undefined
+          }
           columnar
         />
       </PageContainer>

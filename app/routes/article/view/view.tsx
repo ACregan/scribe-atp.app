@@ -4,7 +4,7 @@ import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { devViewLoader } from "~/services/devFixtures.server";
 import DOMPurify from "isomorphic-dompurify";
 import { Button } from "~/components/Button/Button";
-import { ARTICLE_COLLECTION, DOCUMENT_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageSection,
@@ -20,22 +20,30 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const { agent, did } = await requireAtpAgent(request);
 
-  let result: Awaited<ReturnType<typeof agent.com.atproto.repo.getRecord>>;
-  try {
-    result = await agent.com.atproto.repo.getRecord({
+  // Resolve slug → TID via listRecords scan (same pattern as edit loader)
+  const slug = params.articleUrl;
+  const allRecords: Array<{ uri: string; cid: string; value: unknown }> = [];
+  let cursor: string | undefined;
+  do {
+    const listResult = await agent.com.atproto.repo.listRecords({
       repo: did,
       collection: DOCUMENT_COLLECTION,
-      rkey: params.articleUrl,
+      limit: 100,
+      cursor,
     });
-  } catch {
-    result = await agent.com.atproto.repo.getRecord({
-      repo: did,
-      collection: ARTICLE_COLLECTION,
-      rkey: params.articleUrl,
-    });
-  }
+    allRecords.push(...(listResult.data.records as typeof allRecords));
+    cursor = listResult.data.cursor;
+  } while (cursor);
 
-  const rawContent = result.data.value.content;
+  const found = allRecords.find((r) => {
+    const path = String((r.value as Record<string, unknown>).path ?? "");
+    return path.split("/").pop() === slug;
+  });
+
+  if (!found) throw new Response("Article not found", { status: 404 });
+
+  const value = found.value as Record<string, unknown>;
+  const rawContent = value.content;
   const html =
     typeof rawContent === "object" &&
     rawContent !== null &&
@@ -44,14 +52,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       : String(rawContent ?? "");
 
   return {
-    title: String(result.data.value.title ?? "(untitled)"),
+    title: String(value.title ?? "(untitled)"),
     content: DOMPurify.sanitize(html, { FORCE_BODY: true }),
-    splashImageUrl: String(result.data.value.splashImageUrl ?? ""),
-    description: String(
-      result.data.value.description ?? result.data.value.synopsis ?? "",
-    ),
-    createdAt: String(result.data.value.createdAt ?? ""),
-    slug: params.articleUrl,
+    splashImageUrl: String(value.splashImageUrl ?? ""),
+    description: String(value.description ?? value.synopsis ?? ""),
+    createdAt: String(value.createdAt ?? ""),
+    slug,
   };
 }
 

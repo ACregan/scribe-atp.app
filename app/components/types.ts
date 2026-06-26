@@ -19,4 +19,5 @@ export interface TreeArticle {
   cid?: string;
   title: string;
   createdAt: string;
+  slug?: string;
 }

@@ -3,7 +3,6 @@
 // typed to match the corresponding loader's return shape so TypeScript will
 // catch shape mismatches at call sites when the real loader changes.
 
-import { ARTICLE_COLLECTION } from "~/constants";
 import type { SiteCard, SiteOption } from "~/components/types";
 import type { SiteManifest } from "~/routes/article/site-list/siteTree";
 import type { ArticleRef } from "~/hooks/types";
@@ -23,14 +22,14 @@ const DEV_SITE_OPTIONS: SiteOption[] = [
 
 const DEV_UNGROUPED: ArticleRef[] = [
   {
-    uri: `at://${DEV_DID}/app.scribe.article/getting-started`,
+    uri: `at://${DEV_DID}/site.standard.document/getting-started`,
     title: "Getting Started with AT Protocol",
     slug: "getting-started",
     splashImageUrl: null,
     createdAt: "2025-02-01T00:00:00.000Z",
   },
   {
-    uri: `at://${DEV_DID}/app.scribe.article/lexical-editor`,
+    uri: `at://${DEV_DID}/site.standard.document/lexical-editor`,
     title: "Building a Rich Text Editor with Lexical",
     slug: "lexical-editor",
     splashImageUrl: null,
@@ -106,21 +105,21 @@ export function devHomeLoader(handle: string | null | undefined) {
     isDev: true as const,
     recentArticles: [
       {
-        uri: `at://${DEV_DID}/app.scribe.article/my-first-post`,
+        uri: `at://${DEV_DID}/site.standard.document/my-first-post`,
         title: "My First Post",
         slug: "my-first-post",
         createdAt: "2025-06-01T09:00:00.000Z",
         updatedAt: "2025-06-04T10:00:00.000Z",
       },
       {
-        uri: `at://${DEV_DID}/app.scribe.article/design-principles`,
+        uri: `at://${DEV_DID}/site.standard.document/design-principles`,
         title: "Design Principles",
         slug: "design-principles",
         createdAt: "2025-05-20T08:00:00.000Z",
         updatedAt: "2025-06-01T09:00:00.000Z",
       },
       {
-        uri: `at://${DEV_DID}/app.scribe.article/getting-started`,
+        uri: `at://${DEV_DID}/site.standard.document/getting-started`,
         title: "Getting Started with AT Protocol",
         slug: "getting-started",
         createdAt: "2025-05-28T14:00:00.000Z",
@@ -185,8 +184,9 @@ export function devArticleListLoader() {
     orphanedDrafts: [
       {
         rkey: "dev-orphan",
-        uri: `at://${DEV_DID}/app.scribe.article/dev-orphan`,
+        uri: `at://${DEV_DID}/site.standard.document/dev-orphan`,
         title: "Dev Orphan Draft",
+        slug: "dev-orphan",
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
       },
@@ -222,13 +222,12 @@ export function devEditLoader(articleUrl: string): {
   cid: string;
   sites: SiteOption[];
   currentSiteRkeys: string[];
-  collection: string;
-  publishedSite: string | null;
-  publishedAt: string | null;
-  publishedPath: string | null;
+  publishedSite: string;
+  publishedAt: string;
+  publishedPath: string;
 } {
   return {
-    rkey: articleUrl,
+    rkey: "dev-tid-placeholder",
     title: "Dev mode article",
     content: "Dev mode content",
     slug: articleUrl,
@@ -239,10 +238,9 @@ export function devEditLoader(articleUrl: string): {
     cid: "dev-cid",
     sites: DEV_SITE_OPTIONS,
     currentSiteRkeys: [],
-    collection: ARTICLE_COLLECTION,
-    publishedSite: null,
-    publishedAt: null,
-    publishedPath: null,
+    publishedSite: "",
+    publishedAt: "",
+    publishedPath: `/${articleUrl}`,
   };
 }
 
@@ -259,7 +257,7 @@ export function devSiteListLoader(siteSlug: string): {
   return {
     devMode: true,
     articleSiteAssignments: {
-      [`at://${DEV_DID}/app.scribe.article/getting-started`]: [
+      [`at://${DEV_DID}/site.standard.document/getting-started`]: [
         {
           rkey: "norobots-blog",
           title: "NoRobots.blog",
@@ -273,7 +271,7 @@ export function devSiteListLoader(siteSlug: string): {
           urlPrefix: "articles",
         },
       ],
-      [`at://${DEV_DID}/app.scribe.article/lexical-editor`]: [
+      [`at://${DEV_DID}/site.standard.document/lexical-editor`]: [
         {
           rkey: "norobots-blog",
           title: "NoRobots.blog",
@@ -294,7 +292,7 @@ export function devSiteListLoader(siteSlug: string): {
           title: "Engineering",
           articles: [
             {
-              uri: `at://${DEV_DID}/app.scribe.article/hello-world`,
+              uri: `at://${DEV_DID}/site.standard.document/hello-world`,
               title: "Hello World",
               slug: "hello-world",
               splashImageUrl: null,

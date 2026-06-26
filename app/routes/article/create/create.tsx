@@ -10,22 +10,21 @@ import {
   PageContainerHeading,
 } from "~/components/PageContainer/PageContainer";
 import {
-  getAtpAgent,
   requireAtpAgent,
-  requireAuth,
   useRealOAuth,
 } from "~/services/auth.server";
 import {
   validateArticleFields,
-  createArticle,
+  buildArticleRef,
   loadSiteOptions,
 } from "~/services/article.server";
+import { addArticleToSites } from "~/services/articleSiteSync.server";
 import { toSlug } from "~/hooks/utils";
 import { hasTextContent } from "~/components/utils";
 import { devCreateLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { ARTICLE_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
@@ -50,8 +49,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const { did } = await requireAuth(request);
-
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
@@ -65,22 +62,49 @@ export async function action({ request }: Route.ActionArgs) {
   if (validationError) return { error: validationError };
 
   if (!useRealOAuth) {
-    return {
-      uri: `at://${did}/${ARTICLE_COLLECTION}/${slug}`,
-      devMode: true,
-      title,
-    };
+    return { slug, devMode: true as const, title };
   }
 
   try {
-    const agent = await getAtpAgent(did);
-    const { uri } = await createArticle(
-      agent,
-      did,
-      { title, content, slug, splashImageUrl, description, tags },
-      selectedSiteRkeys,
-    );
-    return { uri, devMode: false, title };
+    const { agent, did } = await requireAtpAgent(request);
+    const now = new Date().toISOString();
+
+    // Create site.standard.document — PDS generates TID rkey; no manifest entry = draft
+    const createResult = await agent.com.atproto.repo.createRecord({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      record: {
+        $type: DOCUMENT_COLLECTION,
+        title,
+        content: { $type: "app.scribe.content.html", html: content },
+        splashImageUrl: splashImageUrl?.trim() || undefined,
+        description: description?.trim() || undefined,
+        tags: tags.length ? tags : undefined,
+        path: `/${slug}`,
+        site: selectedSiteRkeys[0]
+          ? `at://${did}/${SITE_COLLECTION}/${selectedSiteRkeys[0]}`
+          : "",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    // Add to selected sites' ungroupedArticles so user can publish from site-list
+    if (selectedSiteRkeys.length > 0) {
+      const ref = buildArticleRef({
+        uri: createResult.data.uri,
+        title,
+        slug,
+        splashImageUrl,
+        description,
+        tags: tags.length ? tags : undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await addArticleToSites(agent, did, selectedSiteRkeys, ref);
+    }
+
+    return { slug, devMode: false as const, title };
   } catch (err) {
     console.error("Failed to write article to PDS:", err);
     return {
@@ -117,7 +141,7 @@ export default function Create({
   // same route. Suppressed once a save succeeds so navigate() passes through.
   const shouldBlock: BlockerFunction = ({ currentLocation, nextLocation }) =>
     isDirty &&
-    !actionData?.uri &&
+    !actionData?.slug &&
     currentLocation.pathname !== nextLocation.pathname;
   const blocker = useBlocker(shouldBlock);
 
@@ -152,15 +176,14 @@ export default function Create({
   }
 
   useEffect(() => {
-    if (!actionData?.uri) return;
+    if (!actionData?.slug) return;
     addToast({
       heading: actionData.devMode ? "Dev — article not saved" : "Article saved",
       content: actionData.title,
       variant: actionData.devMode ? "primary" : "success",
     });
     if (!actionData.devMode) {
-      const slug = actionData.uri.split("/").pop()!;
-      navigate(`/article/edit/${slug}`);
+      navigate(`/article/edit/${actionData.slug}`);
     }
   }, [actionData]);
 
