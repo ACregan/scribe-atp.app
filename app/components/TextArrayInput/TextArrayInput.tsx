@@ -59,7 +59,6 @@ const TextArrayInput = ({
             value={textInput}
             placeholder={placeholder}
             onChange={(e) => {
-              e.preventDefault();
               enterTextIntoTextInput(e);
             }}
             onKeyDown={handleKeyDown}

@@ -159,7 +159,9 @@ describe("GroupItem", () => {
   describe("root mode (isRoot=true)", () => {
     it("renders Ungrouped Articles heading", () => {
       render(<GroupItem {...defaultProps} isRoot />);
-      expect(screen.getByText("Unpublished Articles")).toBeInTheDocument();
+      expect(
+        screen.getByText("Unpublished Draft Articles"),
+      ).toBeInTheDocument();
     });
 
     it("renders Groups heading", () => {

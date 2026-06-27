@@ -93,7 +93,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
       <>
         <li ref={setSortableRef} className={styles.groupItem_root}>
           <div className={styles.titleContainer_root}>
-            <strong className={styles.title}>Unpublished Articles</strong>
+            <strong className={styles.title}>Unpublished Draft Articles</strong>
           </div>
           <div className={styles.groupArticlesContainer}>
             <SortableContext
