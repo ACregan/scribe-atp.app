@@ -252,7 +252,7 @@
   display: flex;
   align-items: center;
   height: 8rem;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .splashContainer {
@@ -296,10 +296,34 @@
   z-index: 100;
 }
 
-.siteTitle {
-  font-size: 1.8rem;
+.siteTitleLink {
+  text-decoration: none;
+  color: var(--text-primary);
+  flex: 1 0 auto;
+}
+
+.siteTitleContainer {
   padding-left: 3rem;
   flex: 1;
+  display: flex;
+  align-items: center;
+}
+.siteTitle {
+  font-size: 1.8rem;
+}
+.siteTitleIcon {
+  margin-left: 0.5rem;
+  height: 2rem;
+  fill: var(--text-primary);
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.siteTitleLink:hover .siteTitle {
+  text-decoration: underline;
+}
+.siteTitleLink:hover .siteTitleIcon {
+  opacity: 1;
 }
 
 .siteActions {
