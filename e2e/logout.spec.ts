@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-test("clicking logout redirects to the login page", async ({ page }) => {
+test("clicking logout redirects to the home page", async ({ page }) => {
   await page.goto("/");
   const logoutButton = page.getByRole("button", { name: "Logout" });
   await expect(logoutButton).toBeVisible();
   await logoutButton.click();
-  await expect(page).toHaveURL("/login");
+  await expect(page).toHaveURL("/");
 });
 
 test("visiting a protected route after logout redirects to login", async ({
@@ -13,7 +13,7 @@ test("visiting a protected route after logout redirects to login", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Logout" }).click();
-  await expect(page).toHaveURL("/login");
+  await expect(page).toHaveURL("/");
 
   await page.goto("/article/create");
   await expect(page).toHaveURL(/\/login/);
