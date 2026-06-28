@@ -1,0 +1,44 @@
+.siteContainer {
+  border-radius: 0.6rem;
+  border: 0.2rem solid black;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  background: var(--site-list-item-background);
+}
+
+.siteSummary {
+  position: relative;
+  height: 6rem;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.siteSplash {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 10rem;
+}
+.siteLogo {
+  flex: 0 0 auto;
+  height: 5rem;
+  border: 0.2rem solid black;
+  border-radius: 50%;
+  margin-left: -2.5rem;
+  margin-right: 1rem;
+}
+.siteNameContainer > strong {
+  color: var(--text-primary);
+  font-size: 2.5rem;
+  letter-spacing: -0.1rem;
+}
+
+.link {
+  color: var(--text-secondary);
+}
+.link:hover {
+  color: var(--action-primary);
+}
+
+.buttonsContainer {
+  margin-top: 1rem;
+}

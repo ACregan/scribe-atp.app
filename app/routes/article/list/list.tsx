@@ -16,19 +16,17 @@ import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-
-type Assignment = {
-  siteTitle: string;
-  siteRkey: string;
-  groupTitle?: string;
-};
+import AllArticleSitesIcons from "~/components/ArticleSiteIcon/ArticleSiteIcon";
+import type { ArticleAssignment } from "~/components/types";
+import ArticleSiteDetailsModalItem from "~/components/ArticleSiteDetailsModalItem/ArticleSiteDetailsModalItem";
 
 type PublishedArticle = {
   rkey: string;
   uri: string;
   title: string;
+  slug: string;
   publishedAt?: string;
-  assignments: Assignment[];
+  assignments: ArticleAssignment[];
 };
 
 type OrphanedDraft = {
@@ -47,7 +45,7 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   if (!useRealOAuth) return devArticleListLoader();
 
-  const { agent, did } = await requireAtpAgent(request);
+  const { agent, did, handle } = await requireAtpAgent(request);
 
   const [publishedResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
@@ -62,19 +60,31 @@ export async function loader({ request }: Route.LoaderArgs) {
     }),
   ]);
 
-  const assignmentMap = new Map<string, Assignment[]>();
+  const assignmentMap = new Map<string, ArticleAssignment[]>();
 
   for (const record of sitesResult.data.records) {
     const value = record.value as Record<string, unknown>;
     if (value.scribe == null) continue;
     const scribe = value.scribe as Record<string, unknown>;
     const siteRkey = record.uri.split("/").pop()!;
-    const siteTitle = String(scribe.title ?? "");
+    const siteBase = {
+      siteTitle: String(scribe.title ?? ""),
+      siteRkey,
+      siteAtUri: record.uri,
+      siteUrl: String(scribe.domain ?? ""),
+      siteUrlPrefix: String(scribe.basePath ?? ""),
+      logoImageUrl: scribe.logoImageUrl
+        ? String(scribe.logoImageUrl)
+        : undefined,
+      splashImageUrl: scribe.splashImageUrl
+        ? String(scribe.splashImageUrl)
+        : undefined,
+    };
 
     for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ??
       []) {
       const list = assignmentMap.get(a.uri) ?? [];
-      list.push({ siteTitle, siteRkey });
+      list.push({ ...siteBase });
       assignmentMap.set(a.uri, list);
     }
 
@@ -85,19 +95,25 @@ export async function loader({ request }: Route.LoaderArgs) {
     }>) ?? []) {
       for (const a of g.articles ?? []) {
         const list = assignmentMap.get(a.uri) ?? [];
-        list.push({ siteTitle, siteRkey, groupTitle: g.title });
+        list.push({ ...siteBase, groupTitle: g.title, groupSlug: g.slug });
         assignmentMap.set(a.uri, list);
       }
     }
   }
 
   const publishedArticles: PublishedArticle[] = publishedResult.data.records
+    .filter((record) => assignmentMap.has(record.uri))
     .map((record) => {
       const value = record.value as Record<string, unknown>;
       return {
         rkey: record.uri.split("/").pop()!,
         uri: record.uri,
         title: String(value.title ?? "Untitled"),
+        slug:
+          String(value.path ?? "")
+            .split("/")
+            .filter(Boolean)
+            .pop() ?? "",
         publishedAt: value.publishedAt ? String(value.publishedAt) : undefined,
         assignments: assignmentMap.get(record.uri) ?? [],
       };
@@ -120,7 +136,12 @@ export async function loader({ request }: Route.LoaderArgs) {
       };
     });
 
-  return { publishedArticles, orphanedDrafts };
+  return {
+    publishedArticles,
+    orphanedDrafts,
+    authorDid: did,
+    authorHandle: handle,
+  };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -144,19 +165,38 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
-  const { publishedArticles, orphanedDrafts } = loaderData;
+  const { publishedArticles, orphanedDrafts, authorDid, authorHandle } =
+    loaderData;
   const deleteModal = useModal();
   const [deleteTarget, setDeleteTarget] = useState<OrphanedDraft | null>(null);
   const deleteFormRef = useRef<HTMLFormElement>(null);
-
   const handleDeleteClick = (article: OrphanedDraft) => {
     setDeleteTarget(article);
     deleteModal.open();
   };
-
   const handleConfirmDelete = () => {
     deleteModal.close();
     deleteFormRef.current?.submit();
+  };
+
+  const detailsModal = useModal();
+  const [detailsData, setDetailsData] = useState<ArticleAssignment[]>([]);
+  const [detailsTitle, setDetailsTitle] = useState("");
+  const [detailsSlug, setDetailsSlug] = useState("");
+  const openDetailsModal = (
+    data: ArticleAssignment[],
+    title: string,
+    slug: string,
+  ) => {
+    setDetailsData(data);
+    setDetailsTitle(title);
+    setDetailsSlug(slug);
+    detailsModal.open();
+  };
+  const closeDetailsModal = () => {
+    setDetailsData([]);
+    setDetailsTitle("");
+    detailsModal.close();
   };
 
   return (
@@ -193,7 +233,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                     )}
                   </div>
                   <div className={styles.articleInfo}>
-                    {article.assignments.length > 0 ? (
+                    {/* {article.assignments.length > 0 ? (
                       article.assignments.map((a, i) => (
                         <Pill key={i}>
                           {a.siteTitle}
@@ -202,18 +242,26 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                       ))
                     ) : (
                       <Pill variant="danger">Not in any site manifest</Pill>
-                    )}
+                    )} */}
                   </div>
                   <div className={styles.articleButtons}>
-                    {article.assignments[0] && (
-                      <Link
-                        to={`/article/list/${article.assignments[0].siteRkey}`}
-                      >
-                        <Button type="button" variant="primary" tabIndex={-1}>
-                          Manage
-                        </Button>
-                      </Link>
-                    )}
+                    <AllArticleSitesIcons
+                      openDetailsModal={openDetailsModal}
+                      assignments={article.assignments}
+                      articleTitle={article.title}
+                      articleSlug={article.slug}
+                    />
+
+                    <Link to={`/article/view/${article.rkey}`}>
+                      <Button type="button" variant="secondary" tabIndex={-1}>
+                        View
+                      </Button>
+                    </Link>
+                    <Link to={`/article/edit/${article.rkey}`}>
+                      <Button type="button" variant="primary" tabIndex={-1}>
+                        Edit
+                      </Button>
+                    </Link>
                   </div>
                 </li>
               );
@@ -246,6 +294,11 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                   </small>
                 </div>
                 <div className={styles.articleButtons}>
+                  <Link to={`/article/view/${article.slug}`}>
+                    <Button type="button" variant="secondary" tabIndex={-1}>
+                      View
+                    </Button>
+                  </Link>
                   <Link to={`/article/edit/${article.slug}`}>
                     <Button type="button" variant="primary" tabIndex={-1}>
                       Edit
@@ -268,6 +321,39 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
             <input type="hidden" name="cid" value={deleteTarget?.cid ?? ""} />
           </Form>
         </PageSection>
+      )}
+
+      {detailsData.length > 0 && (
+        <Modal
+          isOpen={detailsModal.isOpen}
+          onClose={closeDetailsModal}
+          title={`Site Assignment for "${detailsTitle}"`}
+          footer={
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Button onClick={detailsModal.close} variant="secondary">
+                Done
+              </Button>
+            </div>
+          }
+        >
+          <div>
+            {detailsData.map((site) => {
+              return (
+                <ArticleSiteDetailsModalItem
+                  key={site.siteRkey}
+                  site={site}
+                  articleSlug={detailsSlug}
+                />
+              );
+            })}
+          </div>
+        </Modal>
       )}
 
       <Modal

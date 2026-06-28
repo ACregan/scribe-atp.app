@@ -24,7 +24,7 @@
 .articleItem {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: 3rem 2rem;
+  grid-template-rows: auto 2rem;
   grid-template-areas:
     "Title Buttons"
     "Info  Buttons";

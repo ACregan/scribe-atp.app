@@ -58,6 +58,12 @@
   color: var(--text-secondary);
   padding: 0 0.4rem;
   transition: color 0.15s ease;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.close:focus {
+  color: var(--text-primary);
 }
 
 .close:hover {
