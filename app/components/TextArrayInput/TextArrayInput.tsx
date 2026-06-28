@@ -33,6 +33,7 @@ const TextArrayInput = ({
 
   const handleKeyDown = (event: any) => {
     if (event.key === "Enter") {
+      event.preventDefault();
       addTextToTextArray(textInput);
       setTextInput("");
     }
