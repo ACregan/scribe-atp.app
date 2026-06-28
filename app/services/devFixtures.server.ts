@@ -130,6 +130,7 @@ export function devHomeLoader(handle: string | null | undefined) {
       {
         rkey: "norobots-blog",
         title: "NoRobots.blog",
+        siteUrl: "https://norobots.blog",
         groups: [
           { slug: "engineering", title: "Engineering", articleCount: 4 },
           { slug: "getting-started", title: "Getting Started", articleCount: 2 },
@@ -138,6 +139,7 @@ export function devHomeLoader(handle: string | null | undefined) {
       {
         rkey: "perpetualsummer-ltd",
         title: "Perpetual Summer LTD",
+        siteUrl: "https://perpetualsummer.ltd",
         groups: [] as { slug: string; title: string; articleCount: number }[],
       },
     ],
