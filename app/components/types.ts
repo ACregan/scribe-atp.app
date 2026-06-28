@@ -13,6 +13,18 @@ export interface SiteCard {
 
 export type SiteOption = { rkey: string; title: string; url: string };
 
+export type ArticleAssignment = {
+  siteTitle: string;
+  siteRkey: string;
+  siteAtUri: string;
+  siteUrl: string;
+  siteUrlPrefix: string;
+  logoImageUrl?: string;
+  splashImageUrl?: string;
+  groupTitle?: string;
+  groupSlug?: string;
+};
+
 export interface TreeArticle {
   id: string;
   uri: string;
