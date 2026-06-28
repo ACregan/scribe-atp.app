@@ -58,6 +58,7 @@ type RecentArticleItem = {
 type SiteWithGroups = {
   rkey: string;
   title: string;
+  siteUrl: string;
   splashImageUrl?: string;
   logoImageUrl?: string;
   groups: Array<{ slug: string; title: string; articleCount: number }>;
@@ -99,39 +100,51 @@ export async function loader({ request }: Route.LoaderArgs) {
   ]);
 
   const sites: SiteWithGroups[] = sitesResult.data.records
-    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
+    .filter(
+      (record) => (record.value as Record<string, unknown>).scribe != null,
+    )
     .map((record) => {
-    const value = record.value as Record<string, unknown>;
-    const scribe = (value.scribe as Record<string, unknown>) ?? {};
-    const rawGroups =
-      (scribe.groups as
-        | Array<{
-            slug: string;
-            title: string;
-            articles?: Array<{ uri: string }>;
-          }>
-        | undefined) ?? [];
-    return {
-      rkey: record.uri.split("/").pop()!,
-      title: String(scribe.title ?? ""),
-      splashImageUrl: scribe.splashImageUrl
-        ? String(scribe.splashImageUrl)
-        : undefined,
-      logoImageUrl: scribe.logoImageUrl ? String(scribe.logoImageUrl) : undefined,
-      groups: rawGroups.map(({ slug, title, articles }) => ({
-        slug,
-        title,
-        articleCount: articles?.length ?? 0,
-      })),
-    };
-  });
+      const value = record.value as Record<string, unknown>;
+      const scribe = (value.scribe as Record<string, unknown>) ?? {};
+      const rawGroups =
+        (scribe.groups as
+          | Array<{
+              slug: string;
+              title: string;
+              articles?: Array<{ uri: string }>;
+            }>
+          | undefined) ?? [];
+      return {
+        rkey: record.uri.split("/").pop()!,
+        title: String(scribe.title ?? ""),
+        siteUrl: String(value.url ?? ""),
+        splashImageUrl: scribe.splashImageUrl
+          ? String(scribe.splashImageUrl)
+          : undefined,
+        logoImageUrl: scribe.logoImageUrl
+          ? String(scribe.logoImageUrl)
+          : undefined,
+        groups: rawGroups.map(({ slug, title, articles }) => ({
+          slug,
+          title,
+          articleCount: articles?.length ?? 0,
+        })),
+      };
+    });
 
   // Build set of all document URIs referenced in any site manifest
   const assignedUris = new Set<string>();
   for (const record of sitesResult.data.records) {
-    const scribe = ((record.value as Record<string, unknown>).scribe as Record<string, unknown>) ?? {};
-    for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ?? []) assignedUris.add(a.uri);
-    for (const g of (scribe.groups as Array<{ articles: Array<{ uri: string }> }>) ?? []) {
+    const scribe =
+      ((record.value as Record<string, unknown>).scribe as Record<
+        string,
+        unknown
+      >) ?? {};
+    for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ?? [])
+      assignedUris.add(a.uri);
+    for (const g of (scribe.groups as Array<{
+      articles: Array<{ uri: string }>;
+    }>) ?? []) {
       for (const a of g.articles ?? []) assignedUris.add(a.uri);
     }
   }
@@ -345,7 +358,15 @@ function GroupSiteItem({
             }
           />
         </div>
-        <strong className={styles.siteTitle}>{site.title}</strong>
+        <Link className={styles.siteTitleLink} to={site.siteUrl}>
+          <div className={styles.siteTitleContainer}>
+            <strong className={styles.siteTitle}>{site.title}</strong>
+            <SvgIcon
+              className={styles.siteTitleIcon}
+              name={SvgImageList.OpenInNewTab}
+            />
+          </div>
+        </Link>
         <div className={styles.siteActions}>
           <Link to={`/article/list/${site.rkey}`}>
             <Button type="button" variant="primary" tabIndex={-1}>
@@ -577,210 +598,212 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       </PageContainer>
 
       {isDev && (
-      <>
-        <Modal
-          isOpen={devToolsModal.isOpen}
-          onClose={devToolsModal.close}
-          title="Dev Tools"
-          footer={null}
-        >
-          <div className={styles.devTools}>
-            {isDev && (
-              <>
-                <h3 className={styles.devToolsTitle}>Toast Testing</h3>
-                <div className={styles.devToastButtons}>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading: "This toast will self destruct in 5 seconds.",
-                        content: "This is a test toast.",
-                        variant: "primary",
-                        expireTimeSeconds: 5,
-                      })
-                    }
-                    variant="primary"
-                  >
-                    Add Toast
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading: "This toast will self destruct in 15 seconds.",
-                        content: "This is another test toast.",
-                        variant: "secondary",
-                        expireTimeSeconds: 15,
-                      })
-                    }
-                    variant="secondary"
-                  >
-                    Add Secondary Toast
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading:
-                          "Warning! This toast will self destruct in 5 seconds.",
-                        content: "Hot toast!",
-                        variant: "danger",
-                        expireTimeSeconds: 5,
-                      })
-                    }
-                    variant="danger"
-                  >
-                    Add Danger Toast
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading: "Success! This toast expires in 10 seconds.",
-                        content: "This is a success toast.",
-                        variant: "success",
-                        expireTimeSeconds: 10,
-                      })
-                    }
-                    variant="success"
-                  >
-                    Add Success Toast
-                  </Button>
-                </div>
-                <div className={styles.devToastButtons}>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading: "Primary Persisting Toast Message",
-                        content: "This is a test toast.",
-                        variant: "primary",
-                        autoExpire: false,
-                      })
-                    }
-                    variant="primary"
-                  >
-                    Primary Persisting Toast
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading: "Secondary Persisting Toast Message",
-                        content: "This is another test toast.",
-                        variant: "secondary",
-                        autoExpire: false,
-                      })
-                    }
-                    variant="secondary"
-                  >
-                    Secondary Persisting Toast
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading: "Danger Persisting Toast Message",
-                        content: "Hot toast!",
-                        variant: "danger",
-                        autoExpire: false,
-                      })
-                    }
-                    variant="danger"
-                  >
-                    Danger Persisting Toast
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      addToast({
-                        heading: "Success Persisting Toast Message",
-                        content: "This success toast will not expire.",
-                        variant: "success",
-                        autoExpire: false,
-                      })
-                    }
-                    variant="success"
-                  >
-                    Success Persisting Toast
-                  </Button>
-                </div>
-              </>
-            )}
-
-            <h3 className={styles.devToolsTitle}>Social</h3>
-            <Button
-              variant="danger"
-              onClick={() => {
-                devToolsModal.close();
-                clearLikesModal.open();
-              }}
-              disabled={isClearLikesPending}
-            >
-              {isClearLikesPending ? "Clearing…" : "Clear All Likes"}
-            </Button>
-
-            {isDev && (
-              <>
-                <h3 className={styles.devToolsTitle}>Data</h3>
-                <Button
-                  variant="danger"
-                  onClick={() => {
-                    devToolsModal.close();
-                    nukeModal.open();
-                  }}
-                  disabled={isNukePending}
-                >
-                  {isNukePending ? "Nuking…" : "Nuke PDS Data"}
-                </Button>
-              </>
-            )}
-          </div>
-        </Modal>
-
-        <Modal
-          isOpen={clearLikesModal.isOpen}
-          onClose={clearLikesModal.close}
-          title="Clear All Likes"
-          footer={
-            <div className={styles.modalFooter}>
-              <Button variant="secondary" onClick={clearLikesModal.close}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleClearLikesConfirm}>
-                Delete All Likes
-              </Button>
-            </div>
-          }
-        >
-          <p>
-            This will permanently delete all{" "}
-            <code>{RECOMMEND_COLLECTION}</code> records from your PDS.
-          </p>
-          <p>This cannot be undone.</p>
-        </Modal>
-
-        {isDev && (
+        <>
           <Modal
-            isOpen={nukeModal.isOpen}
-            onClose={nukeModal.close}
-            title="Nuke PDS Data"
+            isOpen={devToolsModal.isOpen}
+            onClose={devToolsModal.close}
+            title="Dev Tools"
+            footer={null}
+          >
+            <div className={styles.devTools}>
+              {isDev && (
+                <>
+                  <h3 className={styles.devToolsTitle}>Toast Testing</h3>
+                  <div className={styles.devToastButtons}>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading:
+                            "This toast will self destruct in 5 seconds.",
+                          content: "This is a test toast.",
+                          variant: "primary",
+                          expireTimeSeconds: 5,
+                        })
+                      }
+                      variant="primary"
+                    >
+                      Add Toast
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading:
+                            "This toast will self destruct in 15 seconds.",
+                          content: "This is another test toast.",
+                          variant: "secondary",
+                          expireTimeSeconds: 15,
+                        })
+                      }
+                      variant="secondary"
+                    >
+                      Add Secondary Toast
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading:
+                            "Warning! This toast will self destruct in 5 seconds.",
+                          content: "Hot toast!",
+                          variant: "danger",
+                          expireTimeSeconds: 5,
+                        })
+                      }
+                      variant="danger"
+                    >
+                      Add Danger Toast
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading: "Success! This toast expires in 10 seconds.",
+                          content: "This is a success toast.",
+                          variant: "success",
+                          expireTimeSeconds: 10,
+                        })
+                      }
+                      variant="success"
+                    >
+                      Add Success Toast
+                    </Button>
+                  </div>
+                  <div className={styles.devToastButtons}>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading: "Primary Persisting Toast Message",
+                          content: "This is a test toast.",
+                          variant: "primary",
+                          autoExpire: false,
+                        })
+                      }
+                      variant="primary"
+                    >
+                      Primary Persisting Toast
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading: "Secondary Persisting Toast Message",
+                          content: "This is another test toast.",
+                          variant: "secondary",
+                          autoExpire: false,
+                        })
+                      }
+                      variant="secondary"
+                    >
+                      Secondary Persisting Toast
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading: "Danger Persisting Toast Message",
+                          content: "Hot toast!",
+                          variant: "danger",
+                          autoExpire: false,
+                        })
+                      }
+                      variant="danger"
+                    >
+                      Danger Persisting Toast
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        addToast({
+                          heading: "Success Persisting Toast Message",
+                          content: "This success toast will not expire.",
+                          variant: "success",
+                          autoExpire: false,
+                        })
+                      }
+                      variant="success"
+                    >
+                      Success Persisting Toast
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              <h3 className={styles.devToolsTitle}>Social</h3>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  devToolsModal.close();
+                  clearLikesModal.open();
+                }}
+                disabled={isClearLikesPending}
+              >
+                {isClearLikesPending ? "Clearing…" : "Clear All Likes"}
+              </Button>
+
+              {isDev && (
+                <>
+                  <h3 className={styles.devToolsTitle}>Data</h3>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      devToolsModal.close();
+                      nukeModal.open();
+                    }}
+                    disabled={isNukePending}
+                  >
+                    {isNukePending ? "Nuking…" : "Nuke PDS Data"}
+                  </Button>
+                </>
+              )}
+            </div>
+          </Modal>
+
+          <Modal
+            isOpen={clearLikesModal.isOpen}
+            onClose={clearLikesModal.close}
+            title="Clear All Likes"
             footer={
               <div className={styles.modalFooter}>
-                <Button variant="secondary" onClick={nukeModal.close}>
+                <Button variant="secondary" onClick={clearLikesModal.close}>
                   Cancel
                 </Button>
-                <Button variant="danger" onClick={handleNukeConfirm}>
-                  Delete Everything
+                <Button variant="danger" onClick={handleClearLikesConfirm}>
+                  Delete All Likes
                 </Button>
               </div>
             }
           >
             <p>
-              This will permanently delete <strong>all</strong> Scribe records
-              from your PDS:
+              This will permanently delete all{" "}
+              <code>{RECOMMEND_COLLECTION}</code> records from your PDS.
             </p>
-            <ul className={styles.nukeList}>
-              {SCRIBE_COLLECTIONS.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
             <p>This cannot be undone.</p>
           </Modal>
-        )}
-      </>
+
+          {isDev && (
+            <Modal
+              isOpen={nukeModal.isOpen}
+              onClose={nukeModal.close}
+              title="Nuke PDS Data"
+              footer={
+                <div className={styles.modalFooter}>
+                  <Button variant="secondary" onClick={nukeModal.close}>
+                    Cancel
+                  </Button>
+                  <Button variant="danger" onClick={handleNukeConfirm}>
+                    Delete Everything
+                  </Button>
+                </div>
+              }
+            >
+              <p>
+                This will permanently delete <strong>all</strong> Scribe records
+                from your PDS:
+              </p>
+              <ul className={styles.nukeList}>
+                {SCRIBE_COLLECTIONS.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+              <p>This cannot be undone.</p>
+            </Modal>
+          )}
+        </>
       )}
     </>
   );

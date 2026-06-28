@@ -34,6 +34,7 @@
 .groupHeading {
   font-size: 2.4rem;
   color: var(--text-primary);
+  letter-spacing: 0rem;
   /* display: inline-block;
   transform: translateY(-2rem);
   padding: 0 0.5rem;

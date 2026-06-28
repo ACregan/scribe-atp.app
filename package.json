@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "react-router build",
-    "dev": "react-router dev",
+    "dev": "concurrently -n app,image-service -c blue,green \"npm run dev:app\" \"npm run dev:image-service\"",
+    "dev:app": "react-router dev",
     "dev:image-service": "tsx watch --env-file=.env image-service/src/index.ts",
     "start": "PORT=3008 react-router-serve ./build/server/index.js",
     "start:image-service": "tsx image-service/src/index.ts",
@@ -62,6 +63,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.8",
+    "concurrently": "^10.0.3",
     "jsdom": "^29.1.1",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",

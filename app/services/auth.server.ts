@@ -42,6 +42,7 @@ export const OAUTH_SCOPE = [
   "repo:site.standard.publication?action=create",
   "repo:site.standard.publication?action=update",
   "repo:site.standard.publication?action=delete",
+  "repo:site.standard.graph.recommend?action=delete",
   "blob:image/webp",
 ].join(" ");
 

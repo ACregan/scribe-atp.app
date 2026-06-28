@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ImagePickerModal } from "./ImagePickerModal";
 import type { BrowseResponse } from "./imageBrowserTypes";
@@ -200,7 +200,9 @@ describe("ImagePickerModal", () => {
       await waitFor(() =>
         expect(screen.getByText("Retry")).toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByText("Retry"));
+      await act(async () => {
+        fireEvent.click(screen.getByText("Retry"));
+      });
       expect(mockBrowseFolders).toHaveBeenCalledTimes(2);
     });
   });
@@ -211,7 +213,9 @@ describe("ImagePickerModal", () => {
       await waitFor(() =>
         expect(screen.getByText("My Subfolder")).toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByText("My Subfolder"));
+      await act(async () => {
+        fireEvent.click(screen.getByText("My Subfolder"));
+      });
       expect(mockBrowseFolders).toHaveBeenCalledWith(10);
     });
 
@@ -230,7 +234,9 @@ describe("ImagePickerModal", () => {
       await waitFor(() =>
         expect(screen.getByText("My Subfolder")).toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByText("Image Library"));
+      await act(async () => {
+        fireEvent.click(screen.getByText("Image Library"));
+      });
       expect(mockBrowseFolders).toHaveBeenLastCalledWith(undefined);
     });
 

@@ -160,7 +160,7 @@ export async function action({ request }: Route.ActionArgs) {
     let coverImageBlobRef: unknown;
     let coverImageUploadFailed = false;
     if (splashImageUrl?.trim()) {
-      const existingCoverImageBlob = existingScribe.splashImageBlob;
+      const existingCoverImageBlob = existingDoc.coverImage;
       const existingSplashImageUrl = String(existingDoc.splashImageUrl ?? "");
       if (
         existingSplashImageUrl !== splashImageUrl ||
@@ -231,9 +231,6 @@ export async function action({ request }: Route.ActionArgs) {
       ...(newCanonicalUrl ? { canonicalUrl: newCanonicalUrl } : {}),
       scribe: {
         ...existingScribe,
-        ...(coverImageBlobRef !== undefined
-          ? { splashImageBlob: coverImageBlobRef }
-          : {}),
       },
     };
 

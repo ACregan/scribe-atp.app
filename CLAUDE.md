@@ -1111,7 +1111,8 @@ When the fetch fails for any reason (timeout, connection refused, non-OK respons
 ## Key commands
 
 ```bash
-npm run dev          # start dev server (port 5173)
+npm run dev          # start app + Image Service together (ports 5173 and 3009)
+npm run dev:app      # start app only (port 5173)
 npm run build        # production build
 npm run start        # serve production build (port 3008)
 npm run typecheck    # react-router typegen + tsc

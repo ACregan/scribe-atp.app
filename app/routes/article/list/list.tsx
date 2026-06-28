@@ -12,10 +12,7 @@ import {
   PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
-import {
-  DOCUMENT_COLLECTION,
-  SITE_COLLECTION,
-} from "~/constants";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
@@ -74,7 +71,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     const siteRkey = record.uri.split("/").pop()!;
     const siteTitle = String(scribe.title ?? "");
 
-    for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ?? []) {
+    for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ??
+      []) {
       const list = assignmentMap.get(a.uri) ?? [];
       list.push({ siteTitle, siteRkey });
       assignmentMap.set(a.uri, list);
@@ -104,9 +102,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         assignments: assignmentMap.get(record.uri) ?? [],
       };
     })
-    .sort((a, b) =>
-      (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""),
-    );
+    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
 
   // Orphaned = DOCUMENT_COLLECTION records not referenced in any site manifest
   const orphanedDrafts: OrphanedDraft[] = publishedResult.data.records
@@ -185,41 +181,43 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
           </div>
         ) : (
           <ul className={styles.articleList}>
-            {publishedArticles.map((article) => (
-              <li key={article.rkey} className={styles.articleItem}>
-                <div className={styles.articleTitle}>
-                  <strong>{article.title}</strong>
-                  {article.publishedAt && (
-                    <span>
-                      {new Date(article.publishedAt).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                <div className={styles.articleInfo}>
-                  {article.assignments.length > 0 ? (
-                    article.assignments.map((a, i) => (
-                      <Pill key={i}>
-                        {a.siteTitle}
-                        {a.groupTitle ? ` / ${a.groupTitle}` : ""}
-                      </Pill>
-                    ))
-                  ) : (
-                    <Pill variant="danger">Not in any site manifest</Pill>
-                  )}
-                </div>
-                <div className={styles.articleButtons}>
-                  {article.assignments[0] && (
-                    <Link
-                      to={`/article/list/${article.assignments[0].siteRkey}`}
-                    >
-                      <Button type="button" variant="primary" tabIndex={-1}>
-                        Manage
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              </li>
-            ))}
+            {publishedArticles.map((article) => {
+              return (
+                <li key={article.rkey} className={styles.articleItem}>
+                  <div className={styles.articleTitle}>
+                    <strong>{article.title}</strong>
+                    {article.publishedAt && (
+                      <span>
+                        {new Date(article.publishedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.articleInfo}>
+                    {article.assignments.length > 0 ? (
+                      article.assignments.map((a, i) => (
+                        <Pill key={i}>
+                          {a.siteTitle}
+                          {a.groupTitle ? ` / ${a.groupTitle}` : ""}
+                        </Pill>
+                      ))
+                    ) : (
+                      <Pill variant="danger">Not in any site manifest</Pill>
+                    )}
+                  </div>
+                  <div className={styles.articleButtons}>
+                    {article.assignments[0] && (
+                      <Link
+                        to={`/article/list/${article.assignments[0].siteRkey}`}
+                      >
+                        <Button type="button" variant="primary" tabIndex={-1}>
+                          Manage
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </PageSection>

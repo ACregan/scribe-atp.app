@@ -33,6 +33,7 @@ const TextArrayInput = ({
 
   const handleKeyDown = (event: any) => {
     if (event.key === "Enter") {
+      event.preventDefault();
       addTextToTextArray(textInput);
       setTextInput("");
     }
@@ -58,15 +59,18 @@ const TextArrayInput = ({
             id={id}
             value={textInput}
             placeholder={placeholder}
-            onChange={(e) => enterTextIntoTextInput(e)}
+            onChange={(e) => {
+              enterTextIntoTextInput(e);
+            }}
             onKeyDown={handleKeyDown}
           />
           <button
+            className={styles.addButton}
             data-testid="add-button"
             type="button"
             onClick={() => addTextToTextArray(textInput)}
           >
-            <SvgIcon name={SvgImageList.Plus} fill="white" />
+            <SvgIcon name={SvgImageList.Plus} />
           </button>
         </div>
         <div className={styles.textArrayItemContainer}>
@@ -75,6 +79,7 @@ const TextArrayInput = ({
               <p className={styles.textArrayItem} key={textItem}>
                 {textItem}{" "}
                 <button
+                  className={styles.removeButton}
                   data-testid="remove-button"
                   type="button"
                   onClick={() => removeItemFromTextArray(textItem)}
