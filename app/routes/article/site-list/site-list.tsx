@@ -517,7 +517,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           record: {
             ...doc,
             $type: DOCUMENT_COLLECTION,
-            ...(coverImageBlobRef !== undefined ? { coverImage: coverImageBlobRef, scribe: { splashImageBlob: coverImageBlobRef } } : {}),
+            ...(coverImageBlobRef !== undefined ? { coverImage: coverImageBlobRef } : {}),
             path: docPath,
             site: siteAtUri,
             canonicalUrl,
