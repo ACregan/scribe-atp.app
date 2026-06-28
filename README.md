@@ -82,7 +82,7 @@ SESSION_SECRET=your-32-plus-character-random-secret
 npm run dev
 ```
 
-The app runs at `http://localhost:5173`. By default, development uses a **login bypass** — submitting any handle on the login page sets a session immediately without touching Bluesky's OAuth servers. This lets you work on the UI without a tunnel or a real account.
+This starts both the app and the Image Service together. The app runs at `http://localhost:5173`. By default, development uses a **login bypass** — submitting any handle on the login page sets a session immediately without touching Bluesky's OAuth servers. This lets you work on the UI without a tunnel or a real account.
 
 ## Development with real OAuth
 
@@ -101,7 +101,7 @@ PUBLIC_URL="https://your-tunnel-id.trycloudflare.com"
 
 Access the app through the tunnel URL. The tunnel URL changes on every restart.
 
-Dont forget to start the image-service `npm run dev:image-service` to be able to run a local instance of the image service. This has a path in the .env file too:
+The image service is included automatically when you run `npm run dev`. This has a path in the .env file too:
 
 ```env
 # Proxy image-service in local dev
@@ -111,7 +111,9 @@ IMAGE_STORAGE_ROOT='/home/c0un7z3r0/DEV/image-service-local-scribe'
 ## Commands
 
 ```bash
-npm run dev                   # dev server on port 5173
+npm run dev                   # start app + Image Service together (ports 5173 and 3009)
+npm run dev:app               # start app only (port 5173)
+npm run dev:image-service     # start Image Service only (port 3009)
 npm run build                 # production build
 npm run start                 # serve production build on port 3008
 npm run start:image-service   # start Image Service on port 3009
