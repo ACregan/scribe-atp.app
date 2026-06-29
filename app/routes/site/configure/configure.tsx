@@ -89,6 +89,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     return { ok: false, error: "Logo Image URL must start with https://." };
 
   let iconUploadFailed = false;
+  let canonicalFailures = 0;
 
   if (useRealOAuth) {
     try {
@@ -197,7 +198,14 @@ export async function action({ request, params }: Route.ActionArgs) {
               swapRecord: record.cid,
             });
           });
-        await Promise.allSettled(docUpdates);
+        const canonicalResults = await Promise.allSettled(docUpdates);
+        canonicalFailures = canonicalResults.filter((r) => r.status === "rejected").length;
+        if (canonicalFailures > 0) {
+          logger.warn(
+            { event: "site.configure.canonical_update_error", user_did: did, rkey: siteSlug, failed: canonicalFailures },
+            "canonical URL updates partially failed",
+          );
+        }
       }
     } catch (err) {
       return { ok: false, error: `Failed to save: ${String(err)}` };
@@ -211,6 +219,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   return {
     ok: true,
     ...(iconUploadFailed ? { iconWarning: "Icon could not be uploaded — it will be retried on next save." } : {}),
+    ...(canonicalFailures > 0 ? { canonicalWarning: `${canonicalFailures} article canonical URL(s) could not be updated — try saving again.` } : {}),
   };
 }
 
@@ -269,6 +278,14 @@ export default function ConfigureSite({
         heading: "Icon not uploaded",
         content: actionData.iconWarning,
         variant: "primary",
+        autoExpire: false,
+      });
+    }
+    if ("canonicalWarning" in actionData && actionData.canonicalWarning) {
+      addToast({
+        heading: "Canonical URLs incomplete",
+        content: actionData.canonicalWarning,
+        variant: "danger",
         autoExpire: false,
       });
     }

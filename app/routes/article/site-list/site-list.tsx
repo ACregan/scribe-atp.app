@@ -442,6 +442,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     }>;
     if (!uri || !groupSlug) return { ok: false };
 
+    let secondaryFailures = 0;
+
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
@@ -558,13 +560,20 @@ export async function action({ request, params }: Route.ActionArgs) {
           (r) => r !== siteSlug,
         );
         if (otherSiteRkeys.length > 0) {
-          await Promise.allSettled(
+          const refResults = await Promise.allSettled(
             otherSiteRkeys.map((rk) =>
               mutateSiteRecord(agent, did, rk, (val) =>
                 updateArticleRef(val, uri, updatedRef),
               ),
             ),
           );
+          secondaryFailures = refResults.filter((r) => r.status === "rejected").length;
+          if (secondaryFailures > 0) {
+            logger.warn(
+              { event: "article.publish.ref_update_error", user_did: did, uri, failed: secondaryFailures },
+              "secondary site ref updates failed",
+            );
+          }
         }
       } catch (err) {
         console.error("Failed to publish article:", err);
@@ -572,7 +581,14 @@ export async function action({ request, params }: Route.ActionArgs) {
       }
     }
 
-    return { ok: true, uri, groupSlug };
+    return {
+      ok: true,
+      uri,
+      groupSlug,
+      ...(secondaryFailures > 0
+        ? { warning: `Article published, but ${secondaryFailures} linked site(s) could not be updated.` }
+        : {}),
+    };
   }
 
   return redirect(`/article/list/${siteSlug}`);
@@ -807,6 +823,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     uri?: string;
     groupSlug?: string;
     error?: string;
+    warning?: string;
   }>();
   const isPublishing = publishFetcher.state !== "idle";
   const isDeleting = deleteFetcher.state !== "idle";
@@ -844,6 +861,14 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       publishModal.close();
       setPublishingArticle(null);
       addToast({ heading: "Article published", variant: "success" });
+      if (publishFetcher.data.warning) {
+        addToast({
+          heading: "Linked site update failed",
+          content: publishFetcher.data.warning,
+          variant: "primary",
+          autoExpire: false,
+        });
+      }
     } else if (publishFetcher.data.error) {
       addToast({
         heading: "Publish error",
