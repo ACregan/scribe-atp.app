@@ -3,10 +3,10 @@ import { useFetcher } from "react-router";
 import { type Agent } from "@atproto/api";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
-  ARTICLE_COLLECTION,
   DOCUMENT_COLLECTION,
   SITE_COLLECTION,
 } from "~/constants";
+const ARTICLE_COLLECTION = "app.scribe.article"; // legacy collection — no new records; used only by this historical migration tool
 import {
   PageContainer,
   PageContainerHeading,

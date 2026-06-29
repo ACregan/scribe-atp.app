@@ -1,4 +1,3 @@
-export const ARTICLE_COLLECTION = "app.scribe.article";
 export const DOCUMENT_COLLECTION = "site.standard.document";
 export const SITE_COLLECTION = "site.standard.publication";
 

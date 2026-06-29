@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { SLUG_RE, DOMAIN_RE, IMAGE_URL_RE, ARTICLE_COLLECTION, SITE_COLLECTION } from "./constants";
+import { SLUG_RE, DOMAIN_RE, IMAGE_URL_RE, DOCUMENT_COLLECTION, SITE_COLLECTION } from "./constants";
 
-describe("ARTICLE_COLLECTION", () => {
+describe("DOCUMENT_COLLECTION", () => {
   it("is the correct AT Protocol collection identifier", () => {
-    expect(ARTICLE_COLLECTION).toBe("app.scribe.article");
+    expect(DOCUMENT_COLLECTION).toBe("site.standard.document");
   });
 });
 
