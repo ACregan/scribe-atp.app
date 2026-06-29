@@ -21,6 +21,11 @@ interface ArticleItemProps {
   groupTitle?: string;
   siteName?: string;
   onPublishClick?: (uri: string) => void;
+  onShareClick?: (
+    uri: string,
+    bskyPostRef: { uri: string; cid: string } | null | undefined,
+  ) => void;
+  bskyPostRef?: { uri: string; cid: string } | null;
 }
 
 const ArticleItem: React.FC<ArticleItemProps> = ({
@@ -34,6 +39,8 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   groupTitle,
   siteName,
   onPublishClick,
+  onShareClick,
+  bskyPostRef,
 }) => {
   const urlKey = slug ?? uri.split("/").pop();
   const deleteModal = useModal();
@@ -161,18 +168,27 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
           )}
 
           {isPublishedMode && (
-            <Form
-              ref={moveToDraftsFormRef}
-              method="post"
-              style={{ display: "inline" }}
-              onSubmit={handleMoveToDraftsClick}
-            >
-              <input type="hidden" name="_intent" value="moveToDraft" />
-              <input type="hidden" name="uri" value={uri} />
-              <Button type="submit" variant="danger">
-                Move to Drafts
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => onShareClick?.(uri, bskyPostRef)}
+              >
+                {bskyPostRef ? "Re-share" : "Share"}
               </Button>
-            </Form>
+              <Form
+                ref={moveToDraftsFormRef}
+                method="post"
+                style={{ display: "inline" }}
+                onSubmit={handleMoveToDraftsClick}
+              >
+                <input type="hidden" name="_intent" value="moveToDraft" />
+                <input type="hidden" name="uri" value={uri} />
+                <Button type="submit" variant="danger">
+                  Move to Drafts
+                </Button>
+              </Form>
+            </>
           )}
         </div>
       </li>

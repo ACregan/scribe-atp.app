@@ -591,6 +591,108 @@ export async function action({ request, params }: Route.ActionArgs) {
     };
   }
 
+  if (intent === "shareToBluesky") {
+    const uri = formData.get("uri") as string;
+    const text = formData.get("text") as string;
+    if (!uri || !text) return { ok: false, error: "Missing required fields." };
+
+    if (useRealOAuth) {
+      try {
+        const agent = await getAtpAgent(did);
+        const rkey = uri.split("/").pop()!;
+
+        const [docResult, siteResult] = await Promise.all([
+          agent.com.atproto.repo.getRecord({ repo: did, collection: DOCUMENT_COLLECTION, rkey }),
+          agent.com.atproto.repo.getRecord({ repo: did, collection: SITE_COLLECTION, rkey: siteSlug }),
+        ]);
+
+        const doc = docResult.data.value as Record<string, unknown>;
+        const canonicalUrl = String(doc.canonicalUrl ?? "");
+        const title = String(doc.title ?? "");
+        const description = doc.description ? String(doc.description) : undefined;
+        const publicationUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
+        const publicationCid = siteResult.data.cid;
+
+        let coverImageBlobRef: unknown;
+        if (doc.splashImageUrl) {
+          try {
+            const thumbSrc = resolveThumbUrl(String(doc.splashImageUrl));
+            let imgRes = await fetch(thumbSrc);
+            if (!imgRes.ok && thumbSrc !== String(doc.splashImageUrl)) {
+              imgRes = await fetch(String(doc.splashImageUrl));
+            }
+            if (imgRes.ok) {
+              const imgBuffer = await imgRes.arrayBuffer();
+              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
+                encoding: mimeType,
+              });
+              coverImageBlobRef = uploadRes.data.blob;
+            }
+          } catch (blobErr) {
+            logger.warn(
+              { event: "article.share.cover_image_blob_error", error: String(blobErr) },
+              "cover image blob upload failed — sharing without thumb",
+            );
+          }
+        }
+
+        const external: Record<string, unknown> = {
+          uri: canonicalUrl,
+          title,
+          description: description ?? "",
+          associatedRefs: [
+            { $type: "com.atproto.repo.strongRef", uri, cid: docResult.data.cid },
+            { $type: "com.atproto.repo.strongRef", uri: publicationUri, cid: publicationCid },
+          ],
+        };
+        if (coverImageBlobRef !== undefined) external.thumb = coverImageBlobRef;
+
+        const postResult = await agent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: "app.bsky.feed.post",
+          record: {
+            $type: "app.bsky.feed.post",
+            text,
+            embed: { $type: "app.bsky.embed.external", external },
+            createdAt: new Date().toISOString(),
+          },
+        });
+
+        const bskyPostRef = { uri: postResult.data.uri, cid: postResult.data.cid };
+
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey,
+          record: { ...doc, bskyPostRef, updatedAt: new Date().toISOString() },
+          swapRecord: docResult.data.cid,
+        });
+
+        await mutateSiteRecord(agent, did, siteSlug, (val) => ({
+          ...val,
+          ungroupedArticles: (val.ungroupedArticles ?? []).map((a) =>
+            a.uri === uri ? { ...a, bskyPostRef } : a,
+          ),
+          groups: (val.groups ?? []).map((g) => ({
+            ...g,
+            articles: (g.articles ?? []).map((a) =>
+              a.uri === uri ? { ...a, bskyPostRef } : a,
+            ),
+          })),
+          updatedAt: new Date().toISOString(),
+        }));
+
+        return { ok: true, uri, bskyPostRef };
+      } catch (err) {
+        console.error("Failed to share article to Bluesky:", err);
+        return { ok: false, error: "Failed to share article to Bluesky." };
+      }
+    }
+
+    return { ok: true, uri, bskyPostRef: null };
+  }
+
   return redirect(`/article/list/${siteSlug}`);
 }
 
@@ -766,6 +868,47 @@ function PublishArticleModal({
   );
 }
 
+function ShareModal({
+  article,
+}: {
+  article: {
+    uri: string;
+    title: string;
+    bskyPostRef: { uri: string; cid: string } | null | undefined;
+  } | null;
+}) {
+  const [text, setText] = useState(article?.title ?? "");
+
+  useEffect(() => {
+    setText(article?.title ?? "");
+  }, [article?.uri]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!article) return null;
+
+  return (
+    <form id="share-article-form" method="post">
+      <input type="hidden" name="_intent" value="shareToBluesky" />
+      <input type="hidden" name="uri" value={article.uri} />
+      {article.bskyPostRef && (
+        <p style={{ marginBottom: "1rem", color: "var(--color-warning, #d97706)" }}>
+          This article has already been shared to Bluesky. Sharing again will create a new post.
+        </p>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <label htmlFor="share-text">Post text</label>
+        <textarea
+          id="share-text"
+          name="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={4}
+          style={{ resize: "vertical", width: "100%", padding: "0.5rem" }}
+        />
+      </div>
+    </form>
+  );
+}
+
 export function HydrateFallback() {
   return <Spinner size="large" />;
 }
@@ -799,7 +942,14 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   } | null>(null);
   const publishModal = useModal();
 
-  const { tree, setTree, isDirty, markSaved, removeGroup, moveArticleToGroup } =
+  const [sharingArticle, setSharingArticle] = useState<{
+    uri: string;
+    title: string;
+    bskyPostRef: { uri: string; cid: string } | null | undefined;
+  } | null>(null);
+  const shareModal = useModal();
+
+  const { tree, setTree, isDirty, markSaved, removeGroup, moveArticleToGroup, setBskyPostRef } =
     useDirtyTree(site);
   const {
     sensors,
@@ -825,7 +975,14 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     error?: string;
     warning?: string;
   }>();
+  const shareFetcher = useFetcher<{
+    ok?: boolean;
+    uri?: string;
+    bskyPostRef?: { uri: string; cid: string } | null;
+    error?: string;
+  }>();
   const isPublishing = publishFetcher.state !== "idle";
+  const isSharing = shareFetcher.state !== "idle";
   const isDeleting = deleteFetcher.state !== "idle";
   const deletingSlugRef = useRef<string | null>(null);
 
@@ -894,6 +1051,24 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     }
   }, [deleteFetcher.state, deleteFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (shareFetcher.state !== "idle" || !shareFetcher.data) return;
+    if (shareFetcher.data.ok) {
+      const { uri, bskyPostRef } = shareFetcher.data;
+      if (uri !== undefined) setBskyPostRef(uri, bskyPostRef ?? null);
+      shareModal.close();
+      setSharingArticle(null);
+      addToast({ heading: "Shared to Bluesky", variant: "success" });
+    } else if (shareFetcher.data.error) {
+      addToast({
+        heading: "Share failed",
+        content: shareFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }, [shareFetcher.state, shareFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const rootIds = tree.map((n) => n.id);
 
   function handleDeleteGroup(slug: string) {
@@ -913,6 +1088,16 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     ];
     setPublishingArticle({ uri, title: article.title, assignedSites });
     publishModal.open();
+  }
+
+  function handleShareClick(
+    uri: string,
+    bskyPostRef: { uri: string; cid: string } | null | undefined,
+  ) {
+    const article = tree.flatMap((g) => g.children).find((c) => c.uri === uri);
+    if (!article) return;
+    setSharingArticle({ uri, title: article.title, bskyPostRef });
+    shareModal.open();
   }
 
   function handleSave() {
@@ -973,6 +1158,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                       slug: c.slug,
                       title: c.title,
                       createdAt: c.createdAt,
+                      bskyPostRef: c.bskyPostRef,
                     })) as TreeArticle[]
                   }
                   isRoot={group.id === "g:root"}
@@ -985,6 +1171,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                   siteName={site.title}
                   onDeleteConfirm={handleDeleteGroup}
                   onPublishClick={handlePublishClick}
+                  onShareClick={handleShareClick}
                   isDeleting={
                     isDeleting && deletingSlugRef.current === group.slug
                   }
@@ -1078,6 +1265,50 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
             .filter((g) => g.id !== "g:root")
             .map((g) => ({ slug: g.slug, title: g.title }))}
         />
+      </Modal>
+
+      <Modal
+        isOpen={shareModal.isOpen}
+        onClose={() => {
+          shareModal.close();
+          setSharingArticle(null);
+        }}
+        title={sharingArticle?.bskyPostRef ? "Re-share to Bluesky" : "Share to Bluesky"}
+        footer={
+          <div
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              justifyContent: "flex-end",
+            }}
+          >
+            <Button
+              variant="secondary"
+              onClick={() => {
+                shareModal.close();
+                setSharingArticle(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isSharing}
+              onClick={() => {
+                const form = document.getElementById(
+                  "share-article-form",
+                ) as HTMLFormElement | null;
+                if (!form) return;
+                shareFetcher.submit(new FormData(form), { method: "post" });
+              }}
+            >
+              {isSharing ? "Sharing…" : sharingArticle?.bskyPostRef ? "Re-share" : "Share"}
+            </Button>
+          </div>
+        }
+      >
+        <ShareModal article={sharingArticle} />
       </Modal>
 
       <Modal

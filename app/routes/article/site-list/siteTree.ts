@@ -28,6 +28,7 @@ export type TreeArticleNode = {
   createdAt: string;
   publishedAt?: string;
   updatedAt?: string;
+  bskyPostRef?: { uri: string; cid: string } | null;
 };
 
 export type TreeGroupNode = {
@@ -122,6 +123,7 @@ export function nodeFromRef(ref: ArticleRef): TreeArticleNode {
     createdAt: ref.createdAt,
     publishedAt: ref.publishedAt,
     updatedAt: ref.updatedAt,
+    bskyPostRef: ref.bskyPostRef,
   };
 }
 
@@ -136,6 +138,7 @@ export function articleRefFromNode(node: TreeArticleNode): ArticleRef {
     createdAt: node.createdAt,
     publishedAt: node.publishedAt,
     updatedAt: node.updatedAt,
+    bskyPostRef: node.bskyPostRef,
   };
 }
 

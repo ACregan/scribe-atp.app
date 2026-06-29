@@ -8,6 +8,7 @@ export interface ArticleRef {
   createdAt: string;
   publishedAt?: string;
   updatedAt?: string;
+  bskyPostRef?: { uri: string; cid: string } | null;
 }
 
 export interface SiteGroup {

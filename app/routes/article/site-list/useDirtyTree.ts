@@ -105,6 +105,21 @@ export function useDirtyTree(site: SiteManifest) {
     });
   }
 
+  function setBskyPostRef(
+    uri: string,
+    ref: { uri: string; cid: string } | null,
+  ) {
+    const update = (prev: TreeGroupNode[]): TreeGroupNode[] =>
+      prev.map((g) => ({
+        ...g,
+        children: g.children.map((c) =>
+          c.uri === uri ? { ...c, bskyPostRef: ref } : c,
+        ),
+      }));
+    setTree(update);
+    setSavedTree(update);
+  }
+
   return {
     tree,
     setTree,
@@ -113,5 +128,6 @@ export function useDirtyTree(site: SiteManifest) {
     markSaved,
     removeGroup,
     moveArticleToGroup,
+    setBskyPostRef,
   };
 }
