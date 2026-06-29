@@ -37,7 +37,7 @@ import {
   $isHeadingNode,
   type HeadingTagType,
 } from "@lexical/rich-text";
-import { $createCodeNode, $isCodeNode } from "@lexical/code";
+import { $createCodeNode, $isCodeNode, CodeNode } from "@lexical/code";
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import {
   $findMatchingParent,
@@ -157,6 +157,21 @@ const BLOCK_LABELS: Record<BlockType, string> = {
   quote: "Quote",
   code: "Code Block",
 };
+
+const CODE_LANGUAGES: { value: string; label: string }[] = [
+  { value: "javascript", label: "JavaScript" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "jsx", label: "JSX" },
+  { value: "tsx", label: "TSX" },
+  { value: "html", label: "HTML" },
+  { value: "css", label: "CSS" },
+  { value: "json", label: "JSON" },
+  { value: "bash", label: "Bash" },
+  { value: "php", label: "PHP" },
+  { value: "python", label: "Python" },
+  { value: "sql", label: "SQL" },
+  { value: "markdown", label: "Markdown" },
+];
 
 const FONT_FAMILIES = [
   "Arial",
@@ -283,6 +298,7 @@ export function EditorToolbar({
 
   // Block type
   const [blockType, setBlockType] = useState<BlockType>("paragraph");
+  const [codeLanguage, setCodeLanguage] = useState("javascript");
 
   // Text formats
   const [isBold, setIsBold] = useState(false);
@@ -387,6 +403,7 @@ export function EditorToolbar({
       setBlockType(el.getTag() as BlockType);
     } else if ($isCodeNode(el)) {
       setBlockType("code");
+      setCodeLanguage((el as CodeNode).getLanguage() ?? "javascript");
     } else {
       const t = el.getType() as BlockType;
       setBlockType(BLOCK_LABELS[t] ? t : "paragraph");
@@ -462,6 +479,22 @@ export function EditorToolbar({
         }
       });
     }
+  }
+
+  function handleLanguageChange(lang: string) {
+    editor.update(() => {
+      const sel = $getSelection();
+      if (!$isRangeSelection(sel)) return;
+      const anchor = sel.anchor.getNode();
+      const el =
+        $findMatchingParent(anchor, (e) => {
+          const p = e.getParent();
+          return p !== null && $isRootOrShadowRoot(p);
+        }) ?? anchor.getTopLevelElement();
+      if (el && $isCodeNode(el)) {
+        (el as CodeNode).setLanguage(lang);
+      }
+    });
   }
 
   function changeFontSize(delta: number) {
@@ -768,6 +801,22 @@ export function EditorToolbar({
             onClick={() => setBlockTypeTo("code")}
           />
         </Dropdown>
+
+        {/* Language picker (code blocks only) */}
+        {blockType === "code" && (
+          <select
+            className={styles.toolbarSelect}
+            value={codeLanguage}
+            title="Code language"
+            onChange={(e) => handleLanguageChange(e.target.value)}
+          >
+            {CODE_LANGUAGES.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        )}
 
         <span className={styles.divider} />
 
