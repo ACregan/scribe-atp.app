@@ -32,4 +32,5 @@ export interface TreeArticle {
   title: string;
   createdAt: string;
   slug?: string;
+  bskyPostRef?: { uri: string; cid: string } | null;
 }

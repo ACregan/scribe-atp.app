@@ -43,6 +43,7 @@ export const OAUTH_SCOPE = [
   "repo:site.standard.publication?action=update",
   "repo:site.standard.publication?action=delete",
   "repo:site.standard.graph.recommend?action=delete",
+  "repo:app.bsky.feed.post?action=create",
   "blob:image/webp",
 ].join(" ");
 

@@ -33,6 +33,10 @@ interface GroupItemProps {
   siteName?: string;
   onDeleteConfirm?: (slug: string) => void;
   onPublishClick?: (uri: string) => void;
+  onShareClick?: (
+    uri: string,
+    bskyPostRef: { uri: string; cid: string } | null | undefined,
+  ) => void;
   isDeleting?: boolean;
 }
 
@@ -49,6 +53,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
   siteName,
   onDeleteConfirm,
   onPublishClick,
+  onShareClick,
   isDeleting = false,
 }) => {
   const {
@@ -115,6 +120,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
                     mode={articleMode}
                     siteName={siteName}
                     onPublishClick={onPublishClick}
+                    onShareClick={onShareClick}
+                    bskyPostRef={article.bskyPostRef}
                   />
                 ))}
                 {articleChildren.length === 0 && (
@@ -221,6 +228,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   mode={articleMode}
                   groupTitle={title}
                   siteName={siteName}
+                  onShareClick={onShareClick}
+                  bskyPostRef={article.bskyPostRef}
                 />
               ))}
               {articleChildren.length === 0 && (
