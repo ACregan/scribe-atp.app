@@ -161,7 +161,7 @@ export function devArticleListLoader() {
           {
             siteTitle: "NoRobots.blog",
             siteRkey: "norobots-blog",
-            siteAtUri: `at://${DEV_DID}/app.scribe.site/norobots-blog`,
+            siteAtUri: `at://${DEV_DID}/site.standard.publication/norobots-blog`,
             siteUrl: "norobots.blog",
             siteUrlPrefix: "",
             logoImageUrl: undefined,
@@ -181,7 +181,7 @@ export function devArticleListLoader() {
           {
             siteTitle: "NoRobots.blog",
             siteRkey: "norobots-blog",
-            siteAtUri: `at://${DEV_DID}/app.scribe.site/norobots-blog`,
+            siteAtUri: `at://${DEV_DID}/site.standard.publication/norobots-blog`,
             siteUrl: "norobots.blog",
             siteUrlPrefix: "",
             logoImageUrl: undefined,
@@ -192,7 +192,7 @@ export function devArticleListLoader() {
           {
             siteTitle: "Perpetual Summer LTD",
             siteRkey: "perpetualsummer-ltd",
-            siteAtUri: `at://${DEV_DID}/app.scribe.site/perpetualsummer-ltd`,
+            siteAtUri: `at://${DEV_DID}/site.standard.publication/perpetualsummer-ltd`,
             siteUrl: "perpetualsummer.ltd",
             siteUrlPrefix: "",
             logoImageUrl: undefined,

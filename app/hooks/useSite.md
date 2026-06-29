@@ -1,6 +1,6 @@
 # useSite
 
-Fetches an `app.scribe.site` record from the AT Protocol and returns the full site manifest: groups, ungrouped articles, and metadata. No authentication required — AT Protocol repositories are publicly readable.
+**DEPRECATED** — `app.scribe.site` is a dead collection. Use `listSites` / `fetchSite` from `@scribe-atp/core` instead, which read from `site.standard.publication`. This hook and file are kept as historical reference only and are no longer exported from `hooks/index.ts`.
 
 ```ts
 import { useSite } from "~/hooks";

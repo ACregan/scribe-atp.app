@@ -50,13 +50,13 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /auth/callback                 callback        — OAuth redirect handler, sets session cookie
 /article/create                create          — write a new article to the PDS; multi-select assigns to sites; accepts ?site=<rkey> to pre-check a site
 /article/list                  list            — site picker + unassigned articles; links into site-list
-/article/list/:siteSlug        site-list       — site-scoped article/group management; reads/writes app.scribe.site
+/article/list/:siteSlug        site-list       — site-scoped article/group management; reads/writes site.standard.publication
 /article/list/:siteSlug/new    site-list-new   — same component as site-list; auto-opens Add New Group modal on mount
 /article/view/:articleUrl      view            — read-only display of a single article
 /article/edit/:articleUrl      edit            — edit an existing article; multi-select manages site assignment
 /groups                        groups          — all sites with their groups; splash/logo imagery, folder icons, article count pills; Add New Group modal
 /groups/new                    groups-new      — same component as groups; auto-opens Add New Group modal on mount
-/sites                         sites           — list, create and delete app.scribe.site records
+/sites                         sites           — list, create and delete site.standard.publication records
 /sites/new                     sites-new       — same component as sites; auto-opens Add New Site modal on mount
 /site/:siteName/configure      configure       — edit site metadata (title, description, images, url, urlPrefix)
 /images                        image-library   — Image Library: browse, upload, organise, and copy URLs for images; shared across all users
@@ -173,16 +173,15 @@ For production with multiple instances, replace the SQLite store with a shared s
 
 ### Collections overview
 
-Drafts are stored in `app.scribe.article`. Published articles live in `site.standard.document`. Both collections use the same field shape (see below); the only difference is that `site` and `publishedAt` are absent on drafts.
+All articles live in `site.standard.document`. Unpublished (in-progress) articles are referenced in a publication's `ungroupedArticles`. Published articles are referenced in a publication's `groups[].articles`. There is no separate draft collection — the distinction is purely about which list inside the publication record an article ref appears in.
 
-### rkey = slug
+### rkey = TID
 
-The article's `slug` field (a lowercase dash-separated slug e.g. `my-article-title`) is used directly as the AT Protocol record key (`rkey`). This means:
+Article rkeys are AT Protocol TIDs (timestamp-based IDs), e.g. `3mp4hfovqib2h`. The `slug` field is stored as a human-readable string inside the record (e.g. `my-article-title`) but is **not** the rkey.
 
-- Draft AT URI: `at://did/app.scribe.article/my-article-title`
-- Published AT URI: `at://did/site.standard.document/my-article-title`
-- The edit route `/article/edit/my-article-title` maps directly to the rkey
-- No secondary lookup is needed
+- Article AT URI: `at://did/site.standard.document/3mp4hfovqib2h`
+- Publication AT URI: `at://did/site.standard.publication/3mp4hfovqib2s`
+- The edit route `/article/edit/:articleUrl` resolves the article by scanning records for a matching `path.split('/').pop()` (the slug segment), not by direct rkey lookup
 
 **Slug format:** `/^[a-z0-9]+(?:-[a-z0-9]+)*$/` — validated server-side on create and edit.
 
@@ -197,29 +196,15 @@ This breaks any existing AT URIs pointing to the old rkey.
 
 ### Collections
 
-**`app.scribe.article`** — draft article, rkey = slug. Uses `site.standard.document` field shape; `site` and `publishedAt` absent:
+**`app.scribe.article`** — legacy collection, no longer used. All articles are `site.standard.document`.
 
-```ts
-{
-  $type: "app.scribe.article",
-  title: string,
-  slug: string,                              // same as rkey
-  content: { $type: "app.scribe.content.html", html: string }, // HTML from RichTextEditor
-  textContent: string,                       // HTML stripped to plaintext
-  splashImageUrl?: string,                   // Scribe extension — hosted URL (not a blob)
-  description?: string,
-  createdAt: string,     // ISO 8601 — Scribe extension, set on create, never changed
-  updatedAt: string,     // ISO 8601 — set on create and updated on every edit
-}
-```
-
-**`site.standard.document`** — published article, rkey = slug:
+**`site.standard.document`** — all articles (both in-progress and published), rkey = TID:
 
 ```ts
 {
   $type: "site.standard.document",
   title: string,
-  slug: string,                              // same as rkey
+  slug: string,                              // human-readable slug stored in the record; NOT the rkey
   path: string,                              // e.g. "/engineering/my-article" or "/my-article"
   site: string,                              // Canonical Site https:// URL
   content: { $type: "app.scribe.content.html", html: string },
@@ -232,33 +217,37 @@ This breaks any existing AT URIs pointing to the old rkey.
 }
 ```
 
-**`app.scribe.site`** — a managed website, rkey = URL-derived slug (e.g. `norobots-blog`):
+**`app.scribe.site`** — legacy collection, no longer used. All publications are `site.standard.publication`.
+
+**`site.standard.publication`** — a managed website, rkey = TID:
 
 ```ts
 {
-  $type: "app.scribe.site",
-  url: string,            // e.g. "norobots.blog" — domain name
-  title: string,
-  urlPrefix: string,      // e.g. "blog" — path prefix; composed URL = url + "/" + urlPrefix
-  description?: string,   // human-readable description of the site
-  splashImageUrl?: string, // hero/banner image
-  logoImageUrl?: string,  // site logo
-  contributors: string[], // DIDs of contributors
-  groups: Array<{         // named groups (order is significant)
-    slug: string,
+  $type: "site.standard.publication",
+  scribe: {
+    url: string,            // e.g. "norobots.blog" — domain name
     title: string,
-    articles: ArticleRef[],
-  }>,
-  ungroupedArticles: ArticleRef[], // top-level ungrouped articles
-  createdAt: string,
-  updatedAt: string,
+    urlPrefix: string,      // e.g. "blog" — path prefix; composed URL = url + "/" + urlPrefix
+    description?: string,   // human-readable description of the site
+    splashImageUrl?: string, // hero/banner image
+    logoImageUrl?: string,  // site logo
+    contributors: string[], // DIDs of contributors
+    groups: Array<{         // named groups (order is significant)
+      slug: string,
+      title: string,
+      articles: ArticleRef[],
+    }>,
+    ungroupedArticles: ArticleRef[], // top-level ungrouped (in-progress) articles
+    createdAt: string,
+    updatedAt: string,
+  }
 }
 
-// ArticleRef — cached snapshot stored inside the site record:
+// ArticleRef — cached snapshot stored inside the publication record:
 {
-  uri: string,            // full AT URI e.g. at://did/site.standard.document/slug
+  uri: string,            // full AT URI e.g. at://did/site.standard.document/3mp4hfovqib2h
   title: string,
-  slug?: string,          // article slug — same as rkey
+  slug?: string,          // human-readable article slug (stored field, not rkey)
   splashImageUrl: string | null,
   description?: string | null,
   tags?: string[],
@@ -268,20 +257,21 @@ This breaks any existing AT URIs pointing to the old rkey.
 }
 ```
 
-Key design decisions for `app.scribe.site`:
+Key design decisions for `site.standard.publication`:
 
 - `ownerId` is omitted — the owner is whoever's PDS holds the record (their DID is the repo DID)
 - Article refs are objects (not bare AT URIs) with cached metadata to avoid N+1 fetches
 - `cid` is deliberately excluded from article refs — fetch live at deletion to avoid stale `swapRecord` failures
-- Groups and article order within groups are authoritative — the site record is the manifest
+- Groups and article order within groups are authoritative — the publication record is the manifest
+- `ungroupedArticles` holds in-progress articles not yet assigned to a named group; articles in `groups[].articles` are considered published
 - `updatedAt` is useful for cache invalidation by public readers
-- Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing site records; defer until decided
+- Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing publication records; defer until decided
 - **ArticleRef mirroring principle:** every field from the article record except `content` and `textContent` should be mirrored in `ArticleRef`. Large fields are excluded because they defeat the purpose of a cached snapshot. Current mirrored fields: `title`, `slug`, `splashImageUrl`, `description`, `tags`, `createdAt`, `publishedAt`, `updatedAt`. When adding a new article field, also add it to `ArticleRef` in `app/hooks/types.ts` in the same PR, then update the construction/propagation sites: `buildArticleRef` in `app/services/article.server.ts` (called by `create.tsx` and `edit.tsx`), and `nodeFromRef` + `articleRefFromNode` in `siteTree.ts` (the single field-mapping seam between `ArticleRef` and `TreeArticleNode` — `buildTreeFromSite` and `treeToSiteData` delegate all field work to them).
-- **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every site the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member sites without any manual re-ordering.
+- **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every publication the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member publications without any manual re-ordering.
 
-The `/site/:siteName/configure` route edits site metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is derived from the original URL and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
+The `/site/:siteName/configure` route edits publication metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is a TID assigned at creation and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
 
-The `/article/list` route shows three sections: a site picker (links to `/article/list/:siteSlug` for each site), a **Published Articles** section listing all `site.standard.document` records with their site and group assignments, and an **Orphaned Drafts** section listing any `app.scribe.article` records not referenced in any site's `ungroupedArticles` or `groups[x].articles`. The loader fetches published, draft, and site records in parallel, builds a `Set` of referenced draft URIs, and returns `{ publishedArticles, orphanedDrafts }`. The route has a `deleteArticle` action for removing orphaned drafts directly. The orphaned section is hidden when there are none.
+The `/article/list` route shows three sections: a site picker (links to `/article/list/:siteSlug` for each site), a **Published Articles** section listing all `site.standard.document` records with their publication and group assignments, and an **Orphaned** section listing any `site.standard.document` records not referenced in any publication's `ungroupedArticles` or `groups[x].articles`. The loader fetches document and publication records in parallel, builds a `Set` of referenced article URIs, and returns `{ publishedArticles, orphanedArticles }`. The route has a `deleteArticle` action for removing orphaned articles directly. The orphaned section is hidden when there are none.
 
 The site picker renders each site as a `SiteListItem` (from `app/components/SiteListItem/`) — a horizontal card showing a splash image thumbnail with a gradient right-edge fade, an overlapping circular logo, the site title, composed URL, and group/article count badges. The loader maps all `SiteCard` fields from the site record. Both image fields fall back to a CSS gradient when absent. `onDelete` is not passed here — deletion is only available on `/sites`.
 
@@ -310,7 +300,7 @@ Key behaviours:
 The home page (`/`) contains a developer "Nuke all records" tool. The collections it deletes are defined in `SCRIBE_COLLECTIONS` inside `app/routes/home/home.tsx`:
 
 ```ts
-const SCRIBE_COLLECTIONS = ["app.scribe.article", "site.standard.document", "app.scribe.site"];
+const SCRIBE_COLLECTIONS = ["site.standard.document", "site.standard.publication"];
 ```
 
 When adding a new collection, add it here too so nuke keeps working.
@@ -319,15 +309,12 @@ When adding a new collection, add it here too so nuke keeps working.
 
 ```
 atproto
-repo:app.scribe.article?action=create
-repo:app.scribe.article?action=update
-repo:app.scribe.article?action=delete
 repo:site.standard.document?action=create
 repo:site.standard.document?action=update
 repo:site.standard.document?action=delete
-repo:app.scribe.site?action=create
-repo:app.scribe.site?action=update
-repo:app.scribe.site?action=delete
+repo:site.standard.publication?action=create
+repo:site.standard.publication?action=update
+repo:site.standard.publication?action=delete
 ```
 
 The scope list has **a single source of truth**: `OAUTH_SCOPE` exported from `app/services/auth.server.ts`. It is _consumed_ in three places — `clientMetadata.scope` (same file), `app/routes/client-metadata.ts`, and `app/routes/login/login.tsx` — but **only needs to be edited in one place**. Adding a new scope: update `OAUTH_SCOPE` only.
@@ -340,8 +327,8 @@ AT Protocol repositories are **publicly readable without authentication**. Any c
 
 ```
 GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=site.standard.document
-GET https://{pds}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=site.standard.document&rkey={slug}
-GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=app.scribe.article   (drafts)
+GET https://{pds}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=site.standard.document&rkey={tid}
+GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=site.standard.publication
 ```
 
 This means a separate read-only frontend (public blog, etc.) can fetch and display articles with no OAuth token.
@@ -576,14 +563,13 @@ Use semantic tokens exclusively in CSS modules. Do not use raw palette names or 
 
 `app/constants.ts` is the single source of truth for string literals and regexes that appear in multiple route files. Import from here rather than redeclaring locally:
 
-| Export               | Value                                           | Used in                                                      |
-| -------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
-| `ARTICLE_COLLECTION`  | `"app.scribe.article"`                          | draft articles — create, edit, orphan detection, nuke tool   |
-| `DOCUMENT_COLLECTION` | `"site.standard.document"`                      | published articles — edit, list, nuke tool                   |
-| `SITE_COLLECTION`     | `"app.scribe.site"`                             | sites, site-list, list, configure, create, edit, home        |
-| `SLUG_RE`            | `/^[a-z0-9]+(?:-[a-z0-9]+)*$/`                  | article create, edit, site-list group create                 |
-| `DOMAIN_RE`          | `/^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/` | sites, configure                                             |
-| `IMAGE_URL_RE`       | `/^https:\/\//i`                                | article create, edit, configure — validates image URL fields |
+| Export                  | Value                                           | Used in                                                         |
+| ----------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
+| `DOCUMENT_COLLECTION`   | `"site.standard.document"`                      | all articles — create, edit, list, orphan detection, nuke tool  |
+| `PUBLICATION_COLLECTION`| `"site.standard.publication"`                   | publications — sites, site-list, list, configure, create, edit, home |
+| `SLUG_RE`               | `/^[a-z0-9]+(?:-[a-z0-9]+)*$/`                 | article create, edit, site-list group create                    |
+| `DOMAIN_RE`             | `/^[a-zA-Z0-9][a-zA-Z0-9\-._]*\.[a-zA-Z]{2,}$/`| sites, configure                                                |
+| `IMAGE_URL_RE`          | `/^https:\/\//i`                                | article create, edit, configure — validates image URL fields    |
 
 `app/services/auth.server.ts` also exports two server-only constants consumed by `client-metadata.ts`:
 
@@ -730,9 +716,9 @@ Shared server logic for article create and edit operations. Server-only — neve
 | Export                                          | Purpose                                                                                                                             |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `validateArticleFields(title, url)`             | Validates title and URL slug — returns an error string or `null`                                                                    |
-| `buildArticleRecord(fields)`                    | Constructs the `app.scribe.article` PDS record object from article fields                                                           |
+| `buildArticleRecord(fields)`                    | Constructs the `site.standard.document` PDS record object from article fields                                                       |
 | `buildArticleRef(fields)`                       | Constructs an `ArticleRef` (cached snapshot) from article fields — return type is `ArticleRef` from `~/hooks/types`                 |
-| `loadSiteOptions(agent, did)`                   | Fetches all `app.scribe.site` records and returns `SiteOption[]` for the multi-select                                               |
+| `loadSiteOptions(agent, did)`                   | Fetches all `site.standard.publication` records and returns `SiteOption[]` for the multi-select                                     |
 | `addArticleToSites(agent, did, siteRkeys, ref)` | Appends an `ArticleRef` to the `articles` array of each named site record — used when creating an article and assigning it to sites |
 
 `buildArticleRef` is the single construction point for `ArticleRef` values. Always use it when creating or refreshing article refs to ensure all fields are correctly populated.

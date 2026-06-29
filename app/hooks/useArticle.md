@@ -1,6 +1,6 @@
 # useArticle
 
-Fetches an article from the AT Protocol (tries `site.standard.document` first, falls back to `app.scribe.article` for drafts) and returns the full article, including the HTML body content. No authentication required — AT Protocol repositories are publicly readable.
+Fetches an article from the AT Protocol (`site.standard.document` collection) and returns the full article, including the HTML body content. No authentication required — AT Protocol repositories are publicly readable.
 
 ```ts
 import { useArticle } from "~/hooks";
