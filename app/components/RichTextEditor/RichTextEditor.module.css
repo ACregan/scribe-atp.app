@@ -533,95 +533,70 @@
   cursor: pointer;
 }
 
-/* ── Code highlight (Prism-light palette) ──────────────────────────────────── */
+/* ── Code highlight (stable Prism-compatible token classes) ────────────────── */
 
-.codeComment {
+:global(.token.comment),
+:global(.token.prolog),
+:global(.token.doctype),
+:global(.token.cdata) {
   color: #708090;
 }
-.codeProlog {
-  color: #708090;
-}
-.codeDoctype {
-  color: #708090;
-}
-.codeCdata {
-  color: #708090;
-}
-.codePunctuation {
+
+:global(.token.punctuation) {
   color: #555;
 }
-.codeNamespace {
+
+:global(.token.namespace) {
   opacity: 0.7;
 }
-.codeProperty {
+
+:global(.token.property),
+:global(.token.tag),
+:global(.token.boolean),
+:global(.token.number),
+:global(.token.constant),
+:global(.token.symbol),
+:global(.token.deleted) {
   color: #905;
 }
-.codeTag {
-  color: #905;
-}
-.codeBoolean {
-  color: #905;
-}
-.codeNumber {
-  color: #905;
-}
-.codeConstant {
-  color: #905;
-}
-.codeSymbol {
-  color: #905;
-}
-.codeDeleted {
-  color: #905;
-}
-.codeSelector {
+
+:global(.token.selector),
+:global(.token.attr),
+:global(.token.string),
+:global(.token.char),
+:global(.token.builtin),
+:global(.token.inserted) {
   color: #690;
 }
-.codeAttr {
-  color: #690;
-}
-.codeString {
-  color: #690;
-}
-.codeChar {
-  color: #690;
-}
-.codeBuiltin {
-  color: #690;
-}
-.codeInserted {
-  color: #690;
-}
-.codeOperator {
+
+:global(.token.operator),
+:global(.token.entity),
+:global(.token.url) {
   color: #9a6e3a;
 }
-.codeEntity {
-  color: #9a6e3a;
+
+:global(.token.entity) {
   cursor: help;
 }
-.codeUrl {
-  color: #9a6e3a;
-}
-.codeAtrule {
+
+:global(.token.atrule),
+:global(.token.keyword) {
   color: #07a;
 }
-.codeKeyword {
-  color: #07a;
-}
-.codeFunction {
+
+:global(.token.function),
+:global(.token.class-name),
+:global(.token.class) {
   color: #dd4a68;
 }
-.codeClassName {
-  color: #dd4a68;
-}
-.codeVariable {
+
+:global(.token.variable),
+:global(.token.regex),
+:global(.token.important) {
   color: #e90;
 }
-.codeRegex {
-  color: #e90;
-}
-.codeImportant {
-  color: #e90;
+
+:global(.token.important) {
   font-weight: bold;
 }
 

@@ -252,12 +252,12 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                       articleSlug={article.slug}
                     />
 
-                    <Link to={`/article/view/${article.rkey}`}>
+                    <Link to={`/article/view/${article.slug}`}>
                       <Button type="button" variant="secondary" tabIndex={-1}>
                         View
                       </Button>
                     </Link>
-                    <Link to={`/article/edit/${article.rkey}`}>
+                    <Link to={`/article/edit/${article.slug}`}>
                       <Button type="button" variant="primary" tabIndex={-1}>
                         Edit
                       </Button>
