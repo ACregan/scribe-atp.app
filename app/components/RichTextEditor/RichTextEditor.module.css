@@ -13,6 +13,11 @@
   font-weight: 500;
 }
 
+.requiredMark {
+  color: var(--action-danger);
+  margin-left: 0.1rem;
+}
+
 /* ── Editor chrome ─────────────────────────────────────────────────────────── */
 
 .editorWrapper {

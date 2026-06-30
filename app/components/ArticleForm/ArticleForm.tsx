@@ -104,12 +104,14 @@ export function ArticleForm({
       <PageSection fill>
         <PageSectionColumns breakpoint="lg">
           <PageSectionColumn span={4} overflow>
-            <Input id="title" name="title" label="Title" {...titleProps} />
+            <p style={{ fontSize: "1.2rem", color: "var(--text-secondary)", margin: "0 0 0.4rem", textAlign: "right" }}>* Required</p>
+            <Input id="title" name="title" label="Title" required {...titleProps} />
             <Input
               id="url"
               name="url"
               label="URL slug"
               placeholder="my-article-title"
+              required
               {...urlProps}
             />
             {urlWarning && (
@@ -148,6 +150,7 @@ export function ArticleForm({
             <RichTextEditor
               name="content"
               label="Content"
+              required
               defaultValue={defaultContent}
               onChange={onContentChange}
             />
@@ -160,12 +163,14 @@ export function ArticleForm({
   return (
     <>
       <PageSection>
-        <Input id="title" name="title" label="Title" {...titleProps} />
+        <p style={{ fontSize: "1.2rem", color: "var(--text-secondary)", margin: "0 0 0.4rem", textAlign: "right" }}>* Required</p>
+        <Input id="title" name="title" label="Title" required {...titleProps} />
         <Input
           id="url"
           name="url"
           label="URL slug"
           placeholder="my-article-title"
+          required
           {...urlProps}
         />
         {urlWarning && (
@@ -207,6 +212,7 @@ export function ArticleForm({
         <RichTextEditor
           name="content"
           label="Content"
+          required
           defaultValue={defaultContent}
         />
       </PageSection>
