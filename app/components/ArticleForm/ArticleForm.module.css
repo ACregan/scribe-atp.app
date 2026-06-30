@@ -1,0 +1,9 @@
+.urlWarning {
+  color: var(--action-danger);
+  font-size: 0.85em;
+  margin-top: -0.5rem;
+}
+
+.error {
+  color: var(--action-danger);
+}
