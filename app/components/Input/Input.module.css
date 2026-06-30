@@ -30,6 +30,11 @@
   border-color: var(--action-danger);
 }
 
+.requiredMark {
+  color: var(--action-danger);
+  margin-left: 0.1rem;
+}
+
 .errorContainer {
   display: flex;
   align-items: center;

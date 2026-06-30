@@ -13,6 +13,7 @@ export default defineConfig({
     setupFiles: "./test.setup.ts",
     include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     exclude: ["node_modules/**", ".claude/**", "e2e/**"],
+    maxWorkers: 4,
     coverage: {
       reporter: ["text", "json", "html"],
       exclude: ["node_modules/", "test.setup.ts", "**/*.module.css"],

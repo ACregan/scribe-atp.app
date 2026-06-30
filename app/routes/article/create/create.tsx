@@ -26,6 +26,7 @@ import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
 import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
+import { SaveChecklist } from "~/components/SaveChecklist/SaveChecklist";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import {
@@ -218,6 +219,13 @@ export default function Create({
       </PageContainer>
 
       <FooterPortal>
+        {!canSave && (
+          <SaveChecklist
+            title={titleValue.trim() !== ""}
+            urlSlug={urlValue.trim() !== ""}
+            content={hasTextContent(contentHtml)}
+          />
+        )}
         <Button
           form="create-article-form"
           type="submit"

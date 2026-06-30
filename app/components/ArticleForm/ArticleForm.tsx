@@ -13,6 +13,7 @@ import {
 
 import { type SiteOption } from "~/components/types";
 export type { SiteOption };
+import styles from "./ArticleForm.module.css";
 
 type ArticleFormProps = {
   defaultTitle?: string;
@@ -104,16 +105,25 @@ export function ArticleForm({
       <PageSection fill>
         <PageSectionColumns breakpoint="lg">
           <PageSectionColumn span={4} overflow>
-            <Input id="title" name="title" label="Title" {...titleProps} />
+            <Input
+              id="title"
+              name="title"
+              label="Title"
+              required
+              {...titleProps}
+            />
             <Input
               id="url"
               name="url"
               label="URL slug"
               placeholder="my-article-title"
+              required
               {...urlProps}
             />
             {urlWarning && (
-              <p style={{ color: "var(--action-danger)", fontSize: "0.85em", marginTop: "-0.5rem" }}>
+              <p
+                className={styles.urlWarning}
+              >
                 {urlWarning}
               </p>
             )}
@@ -142,12 +152,13 @@ export function ArticleForm({
                 onChange={onSitesChange}
               />
             )}
-            {error && <p style={{ color: "var(--action-danger)" }}>{error}</p>}
+            {error && <p className={styles.error}>{error}</p>}
           </PageSectionColumn>
           <PageSectionColumn span={8} overflow>
             <RichTextEditor
               name="content"
               label="Content"
+              required
               defaultValue={defaultContent}
               onChange={onContentChange}
             />
@@ -160,16 +171,17 @@ export function ArticleForm({
   return (
     <>
       <PageSection>
-        <Input id="title" name="title" label="Title" {...titleProps} />
+        <Input id="title" name="title" label="Title" required {...titleProps} />
         <Input
           id="url"
           name="url"
           label="URL slug"
           placeholder="my-article-title"
+          required
           {...urlProps}
         />
         {urlWarning && (
-          <p style={{ color: "var(--action-danger)", fontSize: "0.85em", marginTop: "-0.5rem" }}>
+          <p className={styles.urlWarning}>
             {urlWarning}
           </p>
         )}
@@ -207,13 +219,14 @@ export function ArticleForm({
         <RichTextEditor
           name="content"
           label="Content"
+          required
           defaultValue={defaultContent}
         />
       </PageSection>
 
       {error && (
         <PageSection>
-          <p style={{ color: "var(--action-danger)" }}>{error}</p>
+          <p className={styles.error}>{error}</p>
         </PageSection>
       )}
     </>

@@ -11,6 +11,9 @@ export function Input({ label, error, id, ...props }: InputProps) {
       {label && (
         <label htmlFor={id} className={styles.label}>
           {label}
+          {props.required && (
+            <span className={styles.requiredMark} aria-hidden="true"> *</span>
+          )}
         </label>
       )}
       <input

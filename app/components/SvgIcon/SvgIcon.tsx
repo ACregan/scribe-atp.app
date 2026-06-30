@@ -32,6 +32,7 @@ export const SvgImageList = {
   ScribeATPLogo: "ScribeATPLogo",
   ScribeReaderLogo: "ScribeReaderLogo",
   OpenInNewTab: "OpenInNewTab",
+  Tick: "Tick",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -650,6 +651,19 @@ const SvgIcon: React.FC<SVGiconProp> = ({
             fillRule="evenodd"
             d="M213.333 128v42.666H128V384h213.333v-85.334H384l.001 128H85.333V128zM448 64v170.667h-42.667v-97.832L228.418 313.752l-30.17-30.17 176.915-176.916h-97.83V64z"
           ></path>
+        </svg>
+      );
+
+    case SvgImageList.Tick:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill={fill}
+          className={className}
+        >
+          <path fill="none" d="M0 0h24v24H0z"></path>
+          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
         </svg>
       );
 

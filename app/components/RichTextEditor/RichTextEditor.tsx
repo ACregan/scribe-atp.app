@@ -197,6 +197,7 @@ function HiddenFieldPlugin({
 type RichTextEditorProps = {
   name: string;
   label?: string;
+  required?: boolean;
   defaultValue?: string;
   onChange?: (html: string) => void;
 };
@@ -204,6 +205,7 @@ type RichTextEditorProps = {
 export function RichTextEditor({
   name,
   label,
+  required,
   defaultValue = "",
   onChange,
 }: RichTextEditorProps) {
@@ -272,7 +274,14 @@ export function RichTextEditor({
   if (!mounted) {
     return (
       <div className={styles.field}>
-        {label && <label className={styles.label}>{label}</label>}
+        {label && (
+          <label className={styles.label}>
+            {label}
+            {required && (
+              <span className={styles.requiredMark} aria-hidden="true"> *</span>
+            )}
+          </label>
+        )}
         <textarea
           name={name}
           defaultValue={defaultValue}
@@ -285,7 +294,12 @@ export function RichTextEditor({
 
   return (
     <div className={styles.field}>
-      {label && <label className={styles.label}>{label}</label>}
+      {label && (
+        <label className={styles.label}>
+          {label}
+          {required && <span className={styles.requiredMark} aria-hidden="true"> *</span>}
+        </label>
+      )}
       <LexicalComposer
         initialConfig={{
           namespace: name,

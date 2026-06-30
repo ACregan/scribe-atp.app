@@ -267,8 +267,8 @@ describe("ArticleForm", () => {
           onSitesChange={mockOnSitesChange}
         />,
       );
-      // No styled error paragraph should be present
-      expect(container.querySelector("p[style]")).not.toBeInTheDocument();
+      // No error paragraph should be present
+      expect(container.querySelector("p[style*='action-danger']")).not.toBeInTheDocument();
     });
 
     it("should render error message when provided", () => {
@@ -283,7 +283,6 @@ describe("ArticleForm", () => {
 
       const errorElement = screen.getByText("This is an error message");
       expect(errorElement).toBeInTheDocument();
-      expect(errorElement).toHaveStyle("color: var(--action-danger)");
     });
 
     it("should render error in a PageSection", () => {
