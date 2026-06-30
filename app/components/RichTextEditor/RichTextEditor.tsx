@@ -294,7 +294,12 @@ export function RichTextEditor({
 
   return (
     <div className={styles.field}>
-      {label && <label className={styles.label}>{label}</label>}
+      {label && (
+        <label className={styles.label}>
+          {label}
+          {required && <span className={styles.requiredMark} aria-hidden="true"> *</span>}
+        </label>
+      )}
       <LexicalComposer
         initialConfig={{
           namespace: name,
