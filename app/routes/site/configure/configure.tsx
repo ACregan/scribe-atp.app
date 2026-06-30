@@ -355,36 +355,23 @@ export default function ConfigureSite({
 
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Images</legend>
-            <Input
-              id="splashImageUrl"
+            <ImagePicker
               name="splashImageUrl"
-              label="Splash Image URL"
-              value={formValues.splashImageUrl}
-              onChange={handleChange("splashImageUrl")}
-              placeholder="https://…"
+              label="Splash Image"
+              defaultValue={site.splashImageUrl}
+              onChange={(url) =>
+                setFormValues((prev) => ({ ...prev, splashImageUrl: url }))
+              }
             />
-            {formValues.splashImageUrl && (
-              <img
-                className={styles.preview}
-                src={formValues.splashImageUrl}
-                alt="Splash preview"
-              />
-            )}
-            <Input
-              id="logoImageUrl"
+            <ImagePicker
               name="logoImageUrl"
-              label="Logo Image URL"
-              value={formValues.logoImageUrl}
-              onChange={handleChange("logoImageUrl")}
-              placeholder="https://…"
+              label="Logo Image"
+              defaultValue={site.logoImageUrl}
+              onChange={(url) =>
+                setFormValues((prev) => ({ ...prev, logoImageUrl: url }))
+              }
+              variant="square"
             />
-            {formValues.logoImageUrl && (
-              <img
-                className={styles.logoPreview}
-                src={formValues.logoImageUrl}
-                alt="Logo preview"
-              />
-            )}
           </fieldset>
 
           <fieldset className={styles.fieldset}>
@@ -451,3 +438,4 @@ export default function ConfigureSite({
 import { Form, Link } from "react-router";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
+import { ImagePicker } from "~/components/ImagePicker/ImagePicker";
