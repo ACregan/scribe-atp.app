@@ -66,6 +66,21 @@ vi.mock("~/components/PageContainer/PageContainer", () => ({
   ),
 }));
 
+vi.mock("~/components/ImagePicker/ImagePicker", () => ({
+  ImagePicker: ({ name, label, defaultValue }: any) => (
+    <div data-testid={`image-picker-${name}`}>
+      <span>{label}</span>
+      <input
+        type="hidden"
+        name={name}
+        value={defaultValue ?? ""}
+        data-testid={`image-picker-input-${name}`}
+        readOnly
+      />
+    </div>
+  ),
+}));
+
 vi.mock("~/components/TextArrayInput/TextArrayInput", () => ({
   default: ({ id, label, textArrayItems, setTextArrayItems }: any) => (
     <div data-testid={`text-array-input-${id}`}>
@@ -101,7 +116,7 @@ describe("ArticleForm", () => {
 
       expect(screen.getByTestId("input-title")).toBeInTheDocument();
       expect(screen.getByTestId("input-url")).toBeInTheDocument();
-      expect(screen.getByTestId("input-splashImageUrl")).toBeInTheDocument();
+      expect(screen.getByTestId("image-picker-splashImageUrl")).toBeInTheDocument();
       expect(screen.getByTestId("select-sites")).toBeInTheDocument();
       expect(screen.getByTestId("editor-content")).toBeInTheDocument();
     });
@@ -121,7 +136,7 @@ describe("ArticleForm", () => {
 
       expect(screen.getByTestId("input-title")).toHaveValue("Test Title");
       expect(screen.getByTestId("input-url")).toHaveValue("test-url");
-      expect(screen.getByTestId("input-splashImageUrl")).toHaveValue(
+      expect(screen.getByTestId("image-picker-input-splashImageUrl")).toHaveValue(
         "https://example.com/image.jpg",
       );
       expect(screen.getByTestId("editor-content-textarea")).toHaveValue(
@@ -140,7 +155,7 @@ describe("ArticleForm", () => {
 
       expect(screen.getByTestId("input-title")).toHaveValue("");
       expect(screen.getByTestId("input-url")).toHaveValue("");
-      expect(screen.getByTestId("input-splashImageUrl")).toHaveValue("");
+      expect(screen.getByTestId("image-picker-input-splashImageUrl")).toHaveValue("");
     });
 
     it("should render with placeholder for URL slug", () => {
@@ -316,7 +331,7 @@ describe("ArticleForm", () => {
         .closest("[data-testid='page-section']");
       expect(titleSection).toContainElement(screen.getByTestId("input-url"));
       expect(titleSection).toContainElement(
-        screen.getByTestId("input-splashImageUrl"),
+        screen.getByTestId("image-picker-splashImageUrl"),
       );
 
       // The editor and select each live in their own distinct sections
@@ -345,7 +360,7 @@ describe("ArticleForm", () => {
 
       expect(screen.getByLabelText("Title")).toBeInTheDocument();
       expect(screen.getByLabelText("URL slug")).toBeInTheDocument();
-      expect(screen.getByLabelText("Splash image URL")).toBeInTheDocument();
+      expect(screen.getByText("Splash image")).toBeInTheDocument();
       expect(screen.getByText("Assign to sites")).toBeInTheDocument();
       expect(screen.getByLabelText("Content")).toBeInTheDocument();
     });

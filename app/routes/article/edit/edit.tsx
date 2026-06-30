@@ -361,6 +361,10 @@ export default function EditArticle({
     setIsDirty(true);
   }
 
+  function handleSplashImageChange(_url: string) {
+    setIsDirty(true);
+  }
+
   useEffect(() => {
     if (!actionData?.ok) return;
     addToast({
@@ -414,6 +418,7 @@ export default function EditArticle({
           defaultTags={tags}
           defaultContent={content}
           onTagsChange={handleTagsChange}
+          onSplashImageUrlChange={handleSplashImageChange}
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}

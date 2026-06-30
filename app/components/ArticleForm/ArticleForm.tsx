@@ -4,6 +4,7 @@ import { Textarea } from "~/components/Textarea/Textarea";
 import { Select } from "~/components/Select/Select";
 import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import TextArrayInput from "~/components/TextArrayInput/TextArrayInput";
+import { ImagePicker } from "~/components/ImagePicker/ImagePicker";
 import {
   PageSection,
   PageSectionColumns,
@@ -27,6 +28,7 @@ type ArticleFormProps = {
   onTitleChange?: (value: string) => void;
   onUrlChange?: (value: string) => void;
   onTagsChange?: (tags: string[]) => void;
+  onSplashImageUrlChange?: (url: string) => void;
   sites: SiteOption[];
   selectedSites: string[];
   onSitesChange: (rkeys: string[]) => void;
@@ -48,6 +50,7 @@ export function ArticleForm({
   onTitleChange,
   onUrlChange,
   onTagsChange,
+  onSplashImageUrlChange,
   sites,
   selectedSites,
   onSitesChange,
@@ -114,11 +117,11 @@ export function ArticleForm({
                 {urlWarning}
               </p>
             )}
-            <Input
-              id="splashImageUrl"
+            <ImagePicker
               name="splashImageUrl"
-              label="Splash image URL"
+              label="Splash image"
               defaultValue={defaultSplashImageUrl}
+              onChange={onSplashImageUrlChange}
             />
             <Textarea
               id="description"
@@ -170,11 +173,11 @@ export function ArticleForm({
             {urlWarning}
           </p>
         )}
-        <Input
-          id="splashImageUrl"
+        <ImagePicker
           name="splashImageUrl"
-          label="Splash image URL"
+          label="Splash image"
           defaultValue={defaultSplashImageUrl}
+          onChange={onSplashImageUrlChange}
         />
         <Textarea
           id="description"

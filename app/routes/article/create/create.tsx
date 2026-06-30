@@ -175,6 +175,10 @@ export default function Create({
     setIsDirty(true);
   }
 
+  function handleSplashImageChange(_url: string) {
+    setIsDirty(true);
+  }
+
   useEffect(() => {
     if (!actionData?.slug) return;
     addToast({
@@ -203,6 +207,7 @@ export default function Create({
           onTitleChange={handleTitleChange}
           onUrlChange={handleUrlChange}
           onTagsChange={handleTagsChange}
+          onSplashImageUrlChange={handleSplashImageChange}
           sites={sites}
           selectedSites={selectedSites}
           onSitesChange={handleSitesChange}
