@@ -30,6 +30,7 @@ import {
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
+import { SaveChecklist } from "~/components/SaveChecklist/SaveChecklist";
 import {
   ArticleForm,
   type SiteOption,
@@ -435,17 +436,11 @@ export default function EditArticle({
 
       <FooterPortal>
         {!canSave && (
-          <span style={{ fontSize: "1.3rem", display: "flex", gap: "1.4rem", alignItems: "center" }}>
-            <span style={{ color: titleValue.trim() ? "var(--text-secondary)" : "var(--action-danger)" }}>
-              {titleValue.trim() ? "✓" : "✗"} Title
-            </span>
-            <span style={{ color: urlValue.trim() ? "var(--text-secondary)" : "var(--action-danger)" }}>
-              {urlValue.trim() ? "✓" : "✗"} URL slug
-            </span>
-            <span style={{ color: hasTextContent(contentHtml) ? "var(--text-secondary)" : "var(--action-danger)" }}>
-              {hasTextContent(contentHtml) ? "✓" : "✗"} Content
-            </span>
-          </span>
+          <SaveChecklist
+            title={titleValue.trim() !== ""}
+            urlSlug={urlValue.trim() !== ""}
+            content={hasTextContent(contentHtml)}
+          />
         )}
         <Button
           form="edit-article-form"
