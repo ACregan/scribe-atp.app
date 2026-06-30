@@ -5,6 +5,34 @@
   font-size: 1.3rem;
 }
 
+.tickContainer,
+.crossContainer {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  padding: 0.2rem;
+}
+.tickContainer {
+  background: green;
+}
+.crossContainer {
+  background: red;
+}
+
+.tickContainer .icon {
+  fill: white;
+}
+.crossContainer .icon {
+  fill: black;
+}
+
+.missing,
+.satisfied {
+  display: flex;
+  align-items: center;
+}
+
 .satisfied {
   color: var(--text-secondary);
 }

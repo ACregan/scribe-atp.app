@@ -1,4 +1,5 @@
 import styles from "./SaveChecklist.module.css";
+import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 
 type Props = {
   title: boolean;
@@ -16,10 +17,31 @@ export function SaveChecklist({ title, urlSlug, content }: Props) {
   );
 }
 
-function CheckItem({ label, satisfied }: { label: string; satisfied: boolean }) {
+const Tick = () => {
+  return (
+    <div className={styles.tickContainer}>
+      <SvgIcon name={SvgImageList.Tick} className={styles.icon} />
+    </div>
+  );
+};
+const Cross = () => {
+  return (
+    <div className={styles.crossContainer}>
+      <SvgIcon name={SvgImageList.Cross} className={styles.icon} />
+    </div>
+  );
+};
+
+function CheckItem({
+  label,
+  satisfied,
+}: {
+  label: string;
+  satisfied: boolean;
+}) {
   return (
     <span className={satisfied ? styles.satisfied : styles.missing}>
-      {satisfied ? "✓" : "✗"} {label}
+      {satisfied ? <Tick /> : <Cross />} <span>{label}</span>
     </span>
   );
 }
