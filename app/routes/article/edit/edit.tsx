@@ -434,6 +434,19 @@ export default function EditArticle({
       </PageContainer>
 
       <FooterPortal>
+        {!canSave && (
+          <span style={{ fontSize: "1.3rem", display: "flex", gap: "1.4rem", alignItems: "center" }}>
+            <span style={{ color: titleValue.trim() ? "var(--text-secondary)" : "var(--action-danger)" }}>
+              {titleValue.trim() ? "✓" : "✗"} Title
+            </span>
+            <span style={{ color: urlValue.trim() ? "var(--text-secondary)" : "var(--action-danger)" }}>
+              {urlValue.trim() ? "✓" : "✗"} URL slug
+            </span>
+            <span style={{ color: hasTextContent(contentHtml) ? "var(--text-secondary)" : "var(--action-danger)" }}>
+              {hasTextContent(contentHtml) ? "✓" : "✗"} Content
+            </span>
+          </span>
+        )}
         <Button
           form="edit-article-form"
           type="submit"
