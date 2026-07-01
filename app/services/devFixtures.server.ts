@@ -272,6 +272,8 @@ export function devEditLoader(articleUrl: string): {
 
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
+  publicationUri: string;
+  notifySubscribersEnabled: boolean;
   site: SiteManifest;
   articleSiteAssignments: Record<
     string,
@@ -280,6 +282,8 @@ export function devSiteListLoader(siteSlug: string): {
 } {
   return {
     devMode: true,
+    publicationUri: `at://${DEV_DID}/site.standard.publication/${siteSlug}`,
+    notifySubscribersEnabled: true,
     articleSiteAssignments: {
       [`at://${DEV_DID}/site.standard.document/getting-started`]: [
         {
@@ -357,6 +361,7 @@ export function devConfigureLoader(siteSlug: string) {
       splashImageUrl: "",
       logoImageUrl: "",
       showInDiscover: true,
+      notifySubscribersEnabled: true,
     },
   };
 }

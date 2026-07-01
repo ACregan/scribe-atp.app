@@ -45,6 +45,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       splashImageUrl: String(scribe.splashImageUrl ?? ""),
       logoImageUrl: String(scribe.logoImageUrl ?? ""),
       showInDiscover: prefs.showInDiscover !== false,
+      notifySubscribersEnabled: prefs.notifySubscribersEnabled !== false,
     },
   };
 }
@@ -75,6 +76,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   ).trim();
   const logoImageUrl = ((formData.get("logoImageUrl") as string) ?? "").trim();
   const showInDiscover = formData.get("showInDiscover") === "on";
+  const notifySubscribersEnabled = formData.get("notifySubscribersEnabled") !== null;
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!url) return { ok: false, error: "Domain is required." };
@@ -152,7 +154,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           name: title,
           ...(description ? { description } : { description: undefined }),
           ...(iconBlobRef !== undefined ? { icon: iconBlobRef } : { icon: undefined }),
-          preferences: { showInDiscover },
+          preferences: { showInDiscover, notifySubscribersEnabled },
           scribe: {
             ...existingScribeBase,
             $type: SITE_COLLECTION,
@@ -247,6 +249,7 @@ export default function ConfigureSite({
       splashImageUrl: site.splashImageUrl,
       logoImageUrl: site.logoImageUrl,
       showInDiscover: site.showInDiscover,
+      notifySubscribersEnabled: site.notifySubscribersEnabled,
     }),
     [],
   );
@@ -387,6 +390,25 @@ export default function ConfigureSite({
               />
               Show in Discover
             </label>
+          </fieldset>
+
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.legend}>Notifications</legend>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.4rem" }}>
+              <input
+                type="checkbox"
+                name="notifySubscribersEnabled"
+                value="on"
+                checked={formValues.notifySubscribersEnabled}
+                onChange={(e) =>
+                  setFormValues((prev) => ({ ...prev, notifySubscribersEnabled: e.target.checked }))
+                }
+              />
+              Show &ldquo;Notify subscribers?&rdquo; prompt after publishing
+            </label>
+            <p style={{ margin: "0.4rem 0 0", fontSize: "1.2rem", color: "var(--text-secondary)" }}>
+              Uncheck to silence the notification prompt if you prefer to notify manually.
+            </p>
           </fieldset>
 
           {actionData?.error && (
