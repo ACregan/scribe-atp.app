@@ -121,8 +121,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       }
     }
 
+    const prefs = (value.preferences as Record<string, unknown>) ?? {};
     return {
       devMode: false,
+      publicationUri: `at://${did}/${SITE_COLLECTION}/${siteSlug}`,
+      notifySubscribersEnabled: prefs.notifySubscribersEnabled !== false,
       site: {
         rkey: siteSlug,
         cid: record.data.cid,
@@ -443,6 +446,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!uri || !groupSlug) return { ok: false };
 
     let secondaryFailures = 0;
+    let publishNotification: { publicationUri: string; siteTitle: string; articleTitle: string; canonicalUrl: string } | null = null;
 
     if (useRealOAuth) {
       try {
@@ -483,6 +487,13 @@ export async function action({ request, params }: Route.ActionArgs) {
         const canonicalUrl = canonicalAssignment.basePath
           ? `https://${canonicalAssignment.domain}/${canonicalAssignment.basePath}${docPath}`
           : `https://${canonicalAssignment.domain}${docPath}`;
+
+        publishNotification = {
+          publicationUri: `at://${did}/${SITE_COLLECTION}/${siteSlug}`,
+          siteTitle: String(scribeExt.title ?? ""),
+          articleTitle: String(doc.title ?? ""),
+          canonicalUrl,
+        };
 
         // Upload cover image blob (non-fatal)
         let coverImageBlobRef: unknown;
@@ -588,6 +599,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       ...(secondaryFailures > 0
         ? { warning: `Article published, but ${secondaryFailures} linked site(s) could not be updated.` }
         : {}),
+      notification: publishNotification,
     };
   }
 
@@ -691,6 +703,39 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     return { ok: true, uri, bskyPostRef: null };
+  }
+
+  if (intent === "notifySubscribers") {
+    const publicationUri = (formData.get("publicationUri") as string) ?? "";
+    const siteTitle = (formData.get("siteTitle") as string) ?? "";
+    const articleTitle = (formData.get("articleTitle") as string) ?? "";
+    const canonicalUrl = (formData.get("canonicalUrl") as string) ?? "";
+    const origin = (formData.get("origin") as string) ?? "";
+
+    const socialServiceUrl = process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
+    const notifySecret = process.env.NOTIFY_SECRET;
+
+    if (useRealOAuth && notifySecret && publicationUri && articleTitle && canonicalUrl) {
+      try {
+        const res = await fetch(`${socialServiceUrl}/notify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${notifySecret}`,
+          },
+          body: JSON.stringify({ publicationUri, siteTitle, articleTitle, canonicalUrl, origin }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const data = await res.json() as { ok?: boolean; sent?: number; skipped?: number };
+        if (data.ok) {
+          return { ok: true, sent: data.sent ?? 0, skipped: data.skipped ?? 0 };
+        }
+      } catch (err) {
+        logger.warn({ event: "notify.cms_call_failed", error: String(err) }, "notify call failed");
+      }
+    }
+
+    return { ok: true, sent: 0, skipped: 0 };
   }
 
   return redirect(`/article/list/${siteSlug}`);
@@ -914,7 +959,7 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, articleSiteAssignments } = loaderData;
+  const { site, devMode, articleSiteAssignments, publicationUri, notifySubscribersEnabled } = loaderData;
   const { isOpen, open, close } = useModal();
 
   const navigate = useNavigate();
@@ -974,7 +1019,18 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     groupSlug?: string;
     error?: string;
     warning?: string;
+    notification?: { publicationUri: string; siteTitle: string; articleTitle: string; canonicalUrl: string } | null;
   }>();
+  const notifyFetcher = useFetcher<{ ok?: boolean; sent?: number; skipped?: number; error?: string }>();
+  const [pendingNotification, setPendingNotification] = useState<{
+    publicationUri: string;
+    siteTitle: string;
+    articleTitle: string;
+    canonicalUrl: string;
+  } | null>(null);
+  const notifyModal = useModal();
+  const isNotifying = notifyFetcher.state !== "idle";
+
   const shareFetcher = useFetcher<{
     ok?: boolean;
     uri?: string;
@@ -1026,6 +1082,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           autoExpire: false,
         });
       }
+      if (notifySubscribersEnabled && publishFetcher.data.notification) {
+        setPendingNotification(publishFetcher.data.notification);
+        notifyModal.open();
+      }
     } else if (publishFetcher.data.error) {
       addToast({
         heading: "Publish error",
@@ -1035,6 +1095,19 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
       });
     }
   }, [publishFetcher.state, publishFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (notifyFetcher.state !== "idle" || !notifyFetcher.data) return;
+    notifyModal.close();
+    setPendingNotification(null);
+    if (notifyFetcher.data.ok) {
+      const { sent = 0 } = notifyFetcher.data;
+      addToast({
+        heading: sent === 0 ? "No subscribers to notify" : `Notified ${sent} subscriber${sent === 1 ? "" : "s"}`,
+        variant: "success",
+      });
+    }
+  }, [notifyFetcher.state, notifyFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
@@ -1359,6 +1432,56 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           You have unsaved changes to the article order. What would you like to
           do?
         </p>
+      </Modal>
+
+      <Modal
+        isOpen={notifyModal.isOpen}
+        onClose={() => {
+          notifyModal.close();
+          setPendingNotification(null);
+        }}
+        title="Notify subscribers?"
+        footer={
+          <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                notifyModal.close();
+                setPendingNotification(null);
+              }}
+            >
+              Skip
+            </Button>
+            <Button
+              type="button"
+              variant="success"
+              disabled={isNotifying}
+              onClick={() => {
+                if (!pendingNotification) return;
+                const fd = new FormData();
+                fd.set("_intent", "notifySubscribers");
+                fd.set("publicationUri", pendingNotification.publicationUri);
+                fd.set("siteTitle", pendingNotification.siteTitle);
+                fd.set("articleTitle", pendingNotification.articleTitle);
+                fd.set("canonicalUrl", pendingNotification.canonicalUrl);
+                fd.set("origin", typeof window !== "undefined" ? window.location.origin : "");
+                notifyFetcher.submit(fd, { method: "post" });
+              }}
+            >
+              {isNotifying ? "Notifying…" : "Notify subscribers"}
+            </Button>
+          </div>
+        }
+      >
+        <p style={{ margin: 0, fontSize: "1.3rem" }}>
+          Send a Bluesky DM to all subscribers of{" "}
+          <strong>{site.title}</strong> about this new article?
+        </p>
+        {pendingNotification && (
+          <p style={{ margin: "0.8rem 0 0", fontSize: "1.2rem", color: "var(--text-secondary)" }}>
+            &ldquo;{pendingNotification.articleTitle}&rdquo;
+          </p>
+        )}
       </Modal>
     </PageContainer>
   );
