@@ -77,6 +77,7 @@ export const OAUTH_METADATA_STATIC = {
   token_endpoint_auth_method: "none",
   application_type: "web",
   dpop_bound_access_tokens: true,
+  policy_uri: "https://docs.scribe-atp.app/privacy",
 };
 
 export const oauthClient = new NodeOAuthClient({

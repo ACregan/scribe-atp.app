@@ -143,6 +143,9 @@ export default function Login({
             Dont have a Bluesky account ?{" "}
             <Link to="https://bsky.app/">Sign Up Here</Link>
           </p>
+          <p className={styles.privacyNote}>
+            <Link to="https://docs.scribe-atp.app/privacy">Privacy Policy</Link>
+          </p>
         </Form>
       </div>
     </div>
