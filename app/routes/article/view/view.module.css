@@ -45,49 +45,6 @@
   max-width: 72rem;
 }
 
-.content h1,
-.content h2,
-.content h3,
-.content h4,
-.content h5,
-.content h6 {
-  margin-top: 2rem;
-  margin-bottom: 0.8rem;
-  color: var(--text-primary);
-}
-
-.content p {
-  margin-bottom: 1.2rem;
-}
-
-.content img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.3rem;
-}
-
-.content a {
-  color: var(--action-primary);
-}
-
-.content pre,
-.content code {
-  font-family: "Courier New", monospace;
-  background: var(--surface-header);
-  border-radius: 0.3rem;
-}
-
-.content pre {
-  padding: 1rem;
-  overflow-x: auto;
-  margin-bottom: 1.2rem;
-}
-
-.content code {
-  padding: 0.1em 0.3em;
-  font-size: 0.9em;
-}
-
 .statsBar {
   display: flex;
   flex-wrap: wrap;

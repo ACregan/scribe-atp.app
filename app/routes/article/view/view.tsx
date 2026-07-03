@@ -14,6 +14,7 @@ import {
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import styles from "./view.module.css";
+import "@scribe-atp/styles";
 
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.title ? `${data.title} – Scribe ATP` : "Scribe ATP" }];
@@ -205,7 +206,7 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
 
         {/* Content */}
         <div
-          className={styles.content}
+          className={`scribe-content ${styles.content}`}
           dangerouslySetInnerHTML={{ __html: content }}
         />
 
