@@ -40,6 +40,9 @@ vi.mock("react-router", () => ({
       </form>
     ),
   ),
+  Link: ({ children, to, className }: { children: React.ReactNode; to: string; className?: string }) => (
+    <a href={to} className={className}>{children}</a>
+  ),
 }));
 
 const useModalMock = { isOpen: false, open: vi.fn(), close: vi.fn() };
