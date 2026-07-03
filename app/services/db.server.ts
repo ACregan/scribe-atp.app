@@ -59,11 +59,19 @@ function pruneStaleLoginAttempts(db: Database.Database) {
   db.prepare("DELETE FROM login_attempts WHERE created_at < unixepoch() - 900").run();
 }
 
+// Remove OAuth sessions inactive for more than 90 days (GDPR retention policy).
+// updated_at is refreshed on every session write, so this reflects true inactivity.
+const NINETY_DAYS = 90 * 24 * 60 * 60;
+function pruneStaleOAuthSessions(db: Database.Database) {
+  db.prepare("DELETE FROM oauth_session WHERE updated_at < unixepoch() - ?").run(NINETY_DAYS);
+}
+
 export const db = getDb();
 
 // Run TTL pruning once on startup; harmless if it runs on every HMR reload
 pruneStaleState(db);
 pruneStaleLoginAttempts(db);
+pruneStaleOAuthSessions(db);
 
 export const oauthStateStore = {
   get: (key: string) => {

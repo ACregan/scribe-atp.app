@@ -200,20 +200,32 @@ This breaks any existing AT URIs pointing to the old rkey.
 
 **`site.standard.document`** — all articles (both in-progress and published), rkey = TID:
 
+> **Golden rule:** Top-level fields must comply with the site.standard lexicon spec. Anything not in the spec goes inside the `scribe` extension object — never at the top level.
+
 ```ts
 {
+  // SPEC — top-level only, per site.standard.document lexicon
   $type: "site.standard.document",
+  site: string,                              // AT URI of publication, e.g. "at://did:plc:.../site.standard.publication/3abc"
   title: string,
-  slug: string,                              // human-readable slug stored in the record; NOT the rkey
-  path: string,                              // e.g. "/engineering/my-article" or "/my-article"
-  site: string,                              // Canonical Site https:// URL
-  content: { $type: "app.scribe.content.html", html: string },
-  textContent: string,
-  splashImageUrl?: string,                   // Scribe extension
+  publishedAt?: string,                      // ISO 8601 — omitted if blank
+  path?: string,                             // e.g. "/engineering/my-article" or "/my-article"
   description?: string,
-  createdAt: string,     // ISO 8601 — Scribe extension
-  publishedAt: string,   // ISO 8601 — set at actual publish instant
-  updatedAt: string,
+  coverImage?: blob,                         // <1MB thumbnail
+  content?: { $type: "app.scribe.content.html", html: string },
+  textContent?: string,                      // plaintext stripped from content HTML
+  bskyPostRef?: { uri: string, cid: string },
+  tags?: string[],
+  contributors?: { did: string, role?: string, displayName?: string }[],  // omitted if empty
+  updatedAt?: string,                        // ISO 8601
+
+  // SCRIBE EXTENSION — Scribe-specific fields not in the spec
+  scribe: {
+    domain: string,                          // domain name e.g. "norobots.blog"
+    createdAt: string,                       // ISO 8601 — article creation date
+    coverImageUrl?: string,                  // source URL for the cover image
+    canonicalUrl?: string,                   // fully-qualified article URL
+  },
 }
 ```
 
@@ -223,21 +235,23 @@ This breaks any existing AT URIs pointing to the old rkey.
 
 ```ts
 {
+  // SPEC — top-level only
   $type: "site.standard.publication",
+
+  // SCRIBE EXTENSION — all site metadata lives here
   scribe: {
-    url: string,            // e.g. "norobots.blog" — domain name
+    domain: string,          // e.g. "norobots.blog" — domain name (→ Site.url in SDK)
+    basePath: string,        // e.g. "blog" — path prefix (→ Site.urlPrefix in SDK); empty string if none
     title: string,
-    urlPrefix: string,      // e.g. "blog" — path prefix; composed URL = url + "/" + urlPrefix
-    description?: string,   // human-readable description of the site
-    splashImageUrl?: string, // hero/banner image
-    logoImageUrl?: string,  // site logo
-    contributors: string[], // DIDs of contributors
-    groups: Array<{         // named groups (order is significant)
+    description?: string,
+    splashImageUrl?: string,
+    logoImageUrl?: string,
+    groups: Array<{          // named groups (order is significant)
       slug: string,
       title: string,
       articles: ArticleRef[],
     }>,
-    ungroupedArticles: ArticleRef[], // top-level ungrouped (in-progress) articles
+    ungroupedArticles: ArticleRef[], // in-progress articles not yet in a named group
     createdAt: string,
     updatedAt: string,
   }
@@ -265,11 +279,10 @@ Key design decisions for `site.standard.publication`:
 - Groups and article order within groups are authoritative — the publication record is the manifest
 - `ungroupedArticles` holds in-progress articles not yet assigned to a named group; articles in `groups[].articles` are considered published
 - `updatedAt` is useful for cache invalidation by public readers
-- Field naming: `url` and `urlPrefix` are candidates for renaming to `domainName` and `articlesPath` — this is a breaking schema change requiring a nuke + re-add of existing publication records; defer until decided
 - **ArticleRef mirroring principle:** every field from the article record except `content` and `textContent` should be mirrored in `ArticleRef`. Large fields are excluded because they defeat the purpose of a cached snapshot. Current mirrored fields: `title`, `slug`, `splashImageUrl`, `description`, `tags`, `createdAt`, `publishedAt`, `updatedAt`. When adding a new article field, also add it to `ArticleRef` in `app/hooks/types.ts` in the same PR, then update the construction/propagation sites: `buildArticleRef` in `app/services/article.server.ts` (called by `create.tsx` and `edit.tsx`), and `nodeFromRef` + `articleRefFromNode` in `siteTree.ts` (the single field-mapping seam between `ArticleRef` and `TreeArticleNode` — `buildTreeFromSite` and `treeToSiteData` delegate all field work to them).
 - **ArticleRef keep-alive:** the edit action (`/article/edit`) always refreshes the ArticleRef in every publication the article already belongs to on save (`sitesToRefresh`), in addition to handling add/remove/slug-rename. This means saving an article propagates all ref field changes to all member publications without any manual re-ordering.
 
-The `/site/:siteName/configure` route edits publication metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `url`, `urlPrefix`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is a TID assigned at creation and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
+The `/site/:siteName/configure` route edits publication metadata (`title`, `description`, `splashImageUrl`, `logoImageUrl`, `domain`, `basePath`) via a `putRecord` on the existing rkey — no rename complexity since the rkey is a TID assigned at creation and stays fixed. Optional fields are omitted from the record entirely when left blank (not stored as empty strings).
 
 The `/article/list` route shows three sections: a site picker (links to `/article/list/:siteSlug` for each site), a **Published Articles** section listing all `site.standard.document` records with their publication and group assignments, and an **Orphaned** section listing any `site.standard.document` records not referenced in any publication's `ungroupedArticles` or `groups[x].articles`. The loader fetches document and publication records in parallel, builds a `Set` of referenced article URIs, and returns `{ publishedArticles, orphanedArticles }`. The route has a `deleteArticle` action for removing orphaned articles directly. The orphaned section is hidden when there are none.
 
