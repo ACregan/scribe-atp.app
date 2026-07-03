@@ -21,7 +21,7 @@ import { hasTextContent } from "~/components/utils";
 import { devEditLoader } from "~/services/devFixtures.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { DOCUMENT_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import {
   PageContainer,
@@ -155,7 +155,28 @@ export async function action({ request }: Route.ActionArgs) {
     const contributors = Array.isArray(existingDoc.contributors)
       ? existingDoc.contributors
       : [];
-    const existingCanonicalUrl = String(existingDoc.canonicalUrl ?? "");
+    const existingCanonicalUrl =
+      String((existingDoc.scribe as Record<string, unknown>)?.canonicalUrl ?? existingDoc.canonicalUrl ?? "");
+    const existingBskyPostRef = existingDoc.bskyPostRef as
+      | { uri: string; cid: string }
+      | undefined;
+
+    // Resolve site field: convert legacy AT URI to https:// URL
+    let siteHttpsUrl = publishedSite;
+    if (publishedSite.startsWith("at://")) {
+      const siteRkey = publishedSite.split("/").pop()!;
+      try {
+        const siteRecord = await agent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: SITE_COLLECTION,
+          rkey: siteRkey,
+        });
+        const scribe = (siteRecord.data.value as Record<string, unknown>).scribe as Record<string, unknown>;
+        siteHttpsUrl = `https://${String(scribe?.domain ?? "")}`;
+      } catch {
+        siteHttpsUrl = "";
+      }
+    }
 
     // Upload cover image blob — only if URL changed or no cached blob exists
     let coverImageBlobRef: unknown;
@@ -213,25 +234,31 @@ export async function action({ request }: Route.ActionArgs) {
         ? existingCanonicalUrl.replace(/\/[^/]+$/, `/${newSlug}`)
         : existingCanonicalUrl;
 
+    const textContent = content
+      ? content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+      : undefined;
+
     const updatedRecord: Record<string, unknown> = {
       $type: DOCUMENT_COLLECTION,
       title,
       content: { $type: "app.scribe.content.html", html: content },
-      splashImageUrl: splashImageUrl?.trim() || undefined,
+      textContent: textContent || undefined,
       ...(coverImageBlobRef !== undefined
         ? { coverImage: coverImageBlobRef }
         : {}),
       description: description?.trim() || undefined,
       tags: tags.length ? tags : undefined,
       contributors,
-      site: publishedSite,
+      site: siteHttpsUrl,
       publishedAt,
-      createdAt,
       updatedAt: now,
       path: newPath,
-      ...(newCanonicalUrl ? { canonicalUrl: newCanonicalUrl } : {}),
+      ...(existingBskyPostRef ? { bskyPostRef: existingBskyPostRef } : {}),
       scribe: {
         ...existingScribe,
+        splashImageUrl: splashImageUrl?.trim() || undefined,
+        createdAt,
+        ...(newCanonicalUrl ? { canonicalUrl: newCanonicalUrl } : {}),
       },
     };
 

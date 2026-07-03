@@ -119,7 +119,6 @@ export async function action({ request }: Route.ActionArgs) {
             name: title,
             preferences: { showInDiscover },
             scribe: {
-              $type: SITE_COLLECTION,
               domain: url,
               basePath: urlPrefix,
               title,
