@@ -49,3 +49,18 @@
   text-decoration-color: var(--action-primary);
   text-decoration: underline;
 }
+
+.privacyNote {
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+.privacyNote > a {
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+.privacyNote > a:hover {
+  color: var(--text-primary);
+}
