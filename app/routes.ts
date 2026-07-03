@@ -35,6 +35,7 @@ export default [
         "./routes/site/configure/configure.tsx",
       ),
       route("images", "./routes/images/images.tsx"),
+      route("insights", "./routes/insights/insights.tsx"),
       route(
         "devtools/migrate",
         "./routes/devtools/migrate/migrate.tsx",

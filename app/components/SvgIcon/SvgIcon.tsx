@@ -33,6 +33,7 @@ export const SvgImageList = {
   ScribeReaderLogo: "ScribeReaderLogo",
   OpenInNewTab: "OpenInNewTab",
   Tick: "Tick",
+  BarChart: "BarChart",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -664,6 +665,18 @@ const SvgIcon: React.FC<SVGiconProp> = ({
         >
           <path fill="none" d="M0 0h24v24H0z"></path>
           <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
+        </svg>
+      );
+
+    case SvgImageList.BarChart:
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill={fill}
+          className={className}
+        >
+          <path d="M5 3v16h16v2H3V3h2zm14.94 2.94-1.41 1.41L16 4.83l-4 4-3-3-3.54 3.54-1.41-1.42L9 2.59l3 3 4-4 3.94 3.35z"/>
         </svg>
       );
 

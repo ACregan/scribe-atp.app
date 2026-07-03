@@ -1,0 +1,84 @@
+.siteList {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+.siteCard {
+  background: var(--surface-header);
+  border: 1px solid var(--border-color);
+  border-radius: 0.6rem;
+  padding: 1.6rem 2rem 2rem;
+}
+
+.siteTitle {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+  color: var(--text-primary);
+}
+
+.siteUrl {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0 0 1.6rem;
+}
+
+.chartsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.6rem;
+}
+
+@media (max-width: 900px) {
+  .chartsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metricChart {
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.4rem;
+  padding: 1.2rem 1.2rem 0.8rem;
+}
+
+.metricHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.metricLabel {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.metricTotal {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.metricDeltaUp {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.metricDeltaDown {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--action-danger);
+}
+
+.empty {
+  padding: 2rem;
+  color: var(--text-secondary);
+}

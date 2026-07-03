@@ -45,6 +45,12 @@ const MENU_CONFIG: AsideMenuItemConfig[] = [
     label: "Image Library",
     to: "/images",
   },
+  {
+    id: "insights",
+    icon: SvgImageList.BarChart,
+    label: "Insights",
+    to: "/insights",
+  },
 ];
 
 interface AsideMenuProps {
