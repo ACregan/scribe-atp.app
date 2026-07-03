@@ -156,8 +156,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           ...(iconBlobRef !== undefined ? { icon: iconBlobRef } : { icon: undefined }),
           preferences: { showInDiscover, notifySubscribersEnabled },
           scribe: {
-            ...existingScribeBase,
-            $type: SITE_COLLECTION,
+            ...(({ $type: _, ...rest }) => rest)(existingScribeBase as Record<string, unknown>),
             domain: url,
             basePath: urlPrefix,
             title,
@@ -178,15 +177,17 @@ export async function action({ request, params }: Route.ActionArgs) {
           collection: DOCUMENT_COLLECTION,
           limit: 100,
         });
-        const siteAtUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
+        const oldSiteHttpsUrl = `https://${String(existingScribeBase.domain ?? "")}`;
+        const newSiteHttpsUrl = `https://${url}`;
         const docUpdates = docsResult.data.records
-          .filter((record) => (record.value as Record<string, unknown>).site === siteAtUri)
+          .filter((record) => (record.value as Record<string, unknown>).site === oldSiteHttpsUrl)
           .map((record) => {
             const val = record.value as Record<string, unknown>;
             const docPath = String(val.path ?? "");
             const newCanonicalUrl = urlPrefix
-              ? `https://${url}/${urlPrefix}${docPath}`
-              : `https://${url}${docPath}`;
+              ? `${newSiteHttpsUrl}/${urlPrefix}${docPath}`
+              : `${newSiteHttpsUrl}${docPath}`;
+            const existingDocScribe = (val.scribe as Record<string, unknown>) ?? {};
             const drkey = record.uri.split("/").pop()!;
             return agent.com.atproto.repo.putRecord({
               repo: did,
@@ -194,7 +195,8 @@ export async function action({ request, params }: Route.ActionArgs) {
               rkey: drkey,
               record: {
                 ...val,
-                canonicalUrl: newCanonicalUrl,
+                site: newSiteHttpsUrl,
+                scribe: { ...existingDocScribe, canonicalUrl: newCanonicalUrl },
                 updatedAt: new Date().toISOString(),
               },
               swapRecord: record.cid,

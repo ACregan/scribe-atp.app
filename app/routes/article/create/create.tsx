@@ -70,6 +70,26 @@ export async function action({ request }: Route.ActionArgs) {
     const { agent, did } = await requireAtpAgent(request);
     const now = new Date().toISOString();
 
+    // Resolve the primary site's https URL for the spec-compliant `site` field
+    let siteHttpsUrl = "";
+    if (selectedSiteRkeys[0]) {
+      try {
+        const siteRecord = await agent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: SITE_COLLECTION,
+          rkey: selectedSiteRkeys[0],
+        });
+        const scribe = (siteRecord.data.value as Record<string, unknown>).scribe as Record<string, unknown>;
+        siteHttpsUrl = `https://${String(scribe?.domain ?? "")}`;
+      } catch {
+        // non-fatal — site field will be empty
+      }
+    }
+
+    const textContent = content
+      ? content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+      : undefined;
+
     // Create site.standard.document — PDS generates TID rkey; no manifest entry = draft
     const createResult = await agent.com.atproto.repo.createRecord({
       repo: did,
@@ -78,15 +98,16 @@ export async function action({ request }: Route.ActionArgs) {
         $type: DOCUMENT_COLLECTION,
         title,
         content: { $type: "app.scribe.content.html", html: content },
-        splashImageUrl: splashImageUrl?.trim() || undefined,
+        textContent: textContent || undefined,
         description: description?.trim() || undefined,
         tags: tags.length ? tags : undefined,
         path: `/${slug}`,
-        site: selectedSiteRkeys[0]
-          ? `at://${did}/${SITE_COLLECTION}/${selectedSiteRkeys[0]}`
-          : "",
-        createdAt: now,
+        site: siteHttpsUrl,
         updatedAt: now,
+        scribe: {
+          splashImageUrl: splashImageUrl?.trim() || undefined,
+          createdAt: now,
+        },
       },
     });
 
