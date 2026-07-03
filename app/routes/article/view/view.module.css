@@ -42,7 +42,6 @@
   font-size: 1.5rem;
   line-height: 1.7;
   color: var(--text-primary);
-  max-width: 72rem;
 }
 
 .statsBar {
