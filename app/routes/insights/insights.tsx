@@ -8,11 +8,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import {
-  requireAuth,
-  getAtpAgent,
-  useRealOAuth,
-} from "~/services/auth.server";
+import { requireAuth, getAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
@@ -36,7 +32,12 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type DayStat = { day: string; thisWeek: number; prevWeek: number };
 type SiteMetricData = Record<ActionType, DayStat[]>;
-type SiteData = { siteUrl: string; title: string; metrics: SiteMetricData };
+type SiteData = {
+  siteUrl: string;
+  title: string;
+  logoImageUrl?: string;
+  metrics: SiteMetricData;
+};
 
 function buildDaySlots(
   countsByDate: Map<string, number>,
@@ -101,8 +102,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  const sites: { siteUrl: string; title: string }[] = sitesResult.data.records
-    .map((record) => {
+  type SiteInfo = { siteUrl: string; title: string; logoImageUrl?: string };
+
+  const sites: SiteInfo[] = sitesResult.data.records
+    .map((record): SiteInfo | null => {
       const scribe = (record.value as Record<string, unknown>).scribe as
         | Record<string, unknown>
         | undefined;
@@ -112,9 +115,12 @@ export async function loader({ request }: Route.LoaderArgs) {
       return {
         siteUrl: `https://${domain}`,
         title: String(scribe.title ?? domain),
+        logoImageUrl: scribe.logoImageUrl
+          ? String(scribe.logoImageUrl)
+          : undefined,
       };
     })
-    .filter((s): s is { siteUrl: string; title: string } => s !== null);
+    .filter((s): s is SiteInfo => s !== null);
 
   const socialServiceUrl =
     process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
@@ -137,7 +143,11 @@ export async function loader({ request }: Route.LoaderArgs) {
           const data = (await res.json()) as {
             groups?: { key: string; count: number }[];
           };
-          return { siteUrl: site.siteUrl, actionType, groups: data.groups ?? [] };
+          return {
+            siteUrl: site.siteUrl,
+            actionType,
+            groups: data.groups ?? [],
+          };
         } catch {
           return { siteUrl: site.siteUrl, actionType, groups: [] };
         }
@@ -160,15 +170,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const siteMetrics: SiteData[] = sites.map((site) => ({
     ...site,
-    metrics: ACTION_TYPES.reduce(
-      (acc, actionType) => {
-        const byDate =
-          countMap.get(site.siteUrl)?.[actionType] ?? new Map<string, number>();
-        acc[actionType] = buildDaySlots(byDate, thisWeekDays, prevWeekDays);
-        return acc;
-      },
-      {} as SiteMetricData,
-    ),
+    metrics: ACTION_TYPES.reduce((acc, actionType) => {
+      const byDate =
+        countMap.get(site.siteUrl)?.[actionType] ?? new Map<string, number>();
+      acc[actionType] = buildDaySlots(byDate, thisWeekDays, prevWeekDays);
+      return acc;
+    }, {} as SiteMetricData),
   }));
 
   return { sites: siteMetrics };
@@ -182,13 +189,7 @@ export function HydrateFallback() {
   return <Spinner size="large" />;
 }
 
-function MetricChart({
-  data,
-  label,
-}: {
-  data: DayStat[];
-  label: string;
-}) {
+function MetricChart({ data, label }: { data: DayStat[]; label: string }) {
   const total = data.reduce((s, d) => s + d.thisWeek, 0);
   const prevTotal = data.reduce((s, d) => s + d.prevWeek, 0);
   const delta = total - prevTotal;
@@ -210,7 +211,10 @@ function MetricChart({
         )}
       </div>
       <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+        <BarChart
+          data={data}
+          margin={{ top: 4, right: 4, left: -24, bottom: 0 }}
+        >
           <XAxis
             dataKey="day"
             tick={{ fontSize: 11, fill: "var(--text-secondary)" }}
@@ -231,12 +235,19 @@ function MetricChart({
               color: "var(--text-primary)",
             }}
           />
-          <Legend
-            iconSize={10}
-            wrapperStyle={{ fontSize: 11 }}
+          <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+          <Bar
+            dataKey="prevWeek"
+            name="Prev week"
+            fill="#94a3b8"
+            radius={[2, 2, 0, 0]}
           />
-          <Bar dataKey="prevWeek" name="Prev week" fill="#94a3b8" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="thisWeek" name="This week" fill="#2563eb" radius={[2, 2, 0, 0]} />
+          <Bar
+            dataKey="thisWeek"
+            name="This week"
+            fill="#2563eb"
+            radius={[2, 2, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -246,8 +257,17 @@ function MetricChart({
 function SiteCard({ site }: { site: SiteData }) {
   return (
     <div className={styles.siteCard}>
-      <h2 className={styles.siteTitle}>{site.title}</h2>
-      <p className={styles.siteUrl}>{site.siteUrl}</p>
+      <div className={styles.siteCardHeader}>
+        {site.logoImageUrl && (
+          <img
+            className={styles.siteIcon}
+            src={site.logoImageUrl}
+            alt={`${site.title} logo`}
+          />
+        )}
+        <h2 className={styles.siteTitle}>{site.title}</h2>
+        <p className={styles.siteUrl}>{site.siteUrl}</p>
+      </div>
       <div className={styles.chartsRow}>
         {ACTION_TYPES.map((actionType) => (
           <MetricChart

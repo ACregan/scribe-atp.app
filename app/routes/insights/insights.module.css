@@ -9,21 +9,51 @@
   background: var(--surface-header);
   border: 1px solid var(--border-color);
   border-radius: 0.6rem;
-  padding: 1.6rem 2rem 2rem;
+  padding: 1rem 2rem 2rem 2rem;
+}
+
+.siteCardHeader {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  grid-auto-rows: 1fr;
+  grid-template-columns: 6rem 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0em 0em;
+  grid-template-areas:
+    "site_icon site_title"
+    "site_icon site_url";
+}
+
+.siteIcon {
+  grid-area: site_icon;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  margin-right: 1rem;
 }
 
 .siteTitle {
-  font-size: 1.6rem;
+  grid-area: site_title;
+
+  font-size: 2.2rem;
   font-weight: 600;
-  margin: 0 0 0.2rem;
+  margin: 0;
   color: var(--text-primary);
   letter-spacing: normal;
+
+  display: flex;
+  align-items: flex-end;
 }
 
 .siteUrl {
+  grid-area: site_url;
+
   font-size: 1.2rem;
   color: var(--text-secondary);
-  margin: 0 0 1.6rem;
+  margin: 0;
 }
 
 .chartsRow {

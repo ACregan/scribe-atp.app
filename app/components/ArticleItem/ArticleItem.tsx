@@ -19,7 +19,9 @@ interface ArticleItemProps {
   cid?: string;
   mode?: "pds" | "site" | "site-unpublished" | "site-published";
   groupTitle?: string;
+  groupSlug?: string;
   siteName?: string;
+  urlAndPrefix?: string;
   onPublishClick?: (uri: string) => void;
   onShareClick?: (
     uri: string,
@@ -37,7 +39,9 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   cid,
   mode = "pds",
   groupTitle,
+  groupSlug,
   siteName,
+  urlAndPrefix,
   onPublishClick,
   onShareClick,
   bskyPostRef,
@@ -82,6 +86,11 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
     moveToDraftsModal.close();
     moveToDraftsFormRef.current?.submit();
   };
+
+  const liveUrl =
+    urlAndPrefix && groupSlug
+      ? `https://${urlAndPrefix}/${groupSlug}/${urlKey}`
+      : undefined;
 
   const isPdsMode = mode === "pds";
   const isUnpublishedMode = mode === "site" || mode === "site-unpublished";
@@ -174,6 +183,10 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
                 variant="secondary"
                 onClick={() => onShareClick?.(uri, bskyPostRef)}
               >
+                <SvgIcon
+                  className={styles.blueSkyIcon}
+                  name={SvgImageList.SocialBlueSky}
+                />
                 {bskyPostRef ? "Re-share" : "Share"}
               </Button>
               <Form
@@ -188,6 +201,15 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
                   Move to Drafts
                 </Button>
               </Form>
+              {liveUrl && (
+                <OverflowMenu>
+                  <Link to={liveUrl} target="_blank" rel="noreferrer">
+                    <Button type="button" variant="success" tabIndex={-1}>
+                      Visit On Site
+                    </Button>
+                  </Link>
+                </OverflowMenu>
+              )}
             </>
           )}
         </div>

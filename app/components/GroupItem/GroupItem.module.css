@@ -80,6 +80,14 @@
   margin: 0 0 0 1rem;
   font-size: 3rem;
 }
+.slugLink {
+  --slug-text-colour: var(--white);
+  text-decoration: none;
+  color: var(--slug-text-colour);
+}
+.slugLink:hover {
+  text-decoration: underline;
+}
 .slug {
   --slug-background-colour: var(--gray);
   --slug-text-colour: var(--white);

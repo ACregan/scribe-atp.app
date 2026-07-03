@@ -63,3 +63,8 @@
   padding-right: 1rem;
   gap: 0.5rem;
 }
+
+.blueSkyIcon {
+  height: 1.5rem;
+  fill: var(--action-primary);
+}

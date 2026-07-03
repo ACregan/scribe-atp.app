@@ -13,7 +13,7 @@ import ArticleItem from "../ArticleItem/ArticleItem";
 import { Button } from "../Button/Button";
 import { Modal } from "../Modal/Modal";
 import { useModal } from "../Modal/useModal";
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 import Tooltip, { TooltipBubble } from "../Tooltip/Tooltip";
 
 import { type TreeArticle } from "~/components/types";
@@ -156,7 +156,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
             anchorContent={
               <TooltipBubble pointerLocation="top" variant="secondary">
                 <code>
-                  https://{urlAndPrefix}/
+                  {`https://${urlAndPrefix}/`}
                   <strong>
                     <u>{slug}</u>
                   </strong>
@@ -165,7 +165,14 @@ const GroupItem: React.FC<GroupItemProps> = ({
               </TooltipBubble>
             }
           >
-            <span className={styles.slug}>/{slug}</span>
+            <Link
+              className={styles.slugLink}
+              to={`https://${urlAndPrefix}/${slug}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span className={styles.slug}>/{slug}</span>
+            </Link>
           </Tooltip>
         </div>
         {/*<div className={styles.middleContainer}></div> */}
@@ -227,7 +234,9 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   createdAt={article.createdAt}
                   mode={articleMode}
                   groupTitle={title}
+                  groupSlug={slug}
                   siteName={siteName}
+                  urlAndPrefix={urlAndPrefix}
                   onShareClick={onShareClick}
                   bskyPostRef={article.bskyPostRef}
                 />
