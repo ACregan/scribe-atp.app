@@ -87,15 +87,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     findSitesContaining(agent, did, articleUri),
   ]);
 
+  const scribe = (value.scribe as Record<string, unknown>) ?? {};
+
   return {
     rkey,
     title: String(value.title ?? ""),
     content,
     slug,
-    splashImageUrl: String(value.splashImageUrl ?? ""),
+    splashImageUrl: String(scribe.splashImageUrl ?? value.splashImageUrl ?? ""),
     description: String(value.description ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
-    createdAt: String(value.createdAt ?? new Date().toISOString()),
+    createdAt: String(scribe.createdAt ?? value.createdAt ?? new Date().toISOString()),
     cid: found.cid ?? null,
     sites,
     currentSiteRkeys,
@@ -183,7 +185,8 @@ export async function action({ request }: Route.ActionArgs) {
     let coverImageUploadFailed = false;
     if (splashImageUrl?.trim()) {
       const existingCoverImageBlob = existingDoc.coverImage;
-      const existingSplashImageUrl = String(existingDoc.splashImageUrl ?? "");
+      const existingScribeForBlob = (existingDoc.scribe as Record<string, unknown>) ?? {};
+      const existingSplashImageUrl = String(existingScribeForBlob.splashImageUrl ?? existingDoc.splashImageUrl ?? "");
       if (
         existingSplashImageUrl !== splashImageUrl ||
         !existingCoverImageBlob
