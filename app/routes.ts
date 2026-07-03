@@ -63,6 +63,10 @@ export default [
         "devtools/repair-document-paths",
         "./routes/devtools/repair-document-paths/repair-document-paths.tsx",
       ),
+      route(
+        "devtools/migrate-spec-compliance",
+        "./routes/devtools/migrate-spec-compliance/migrate-spec-compliance.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
