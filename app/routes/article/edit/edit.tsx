@@ -94,7 +94,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     title: String(value.title ?? ""),
     content,
     slug,
-    splashImageUrl: String(scribe.splashImageUrl ?? value.splashImageUrl ?? ""),
+    splashImageUrl: String(scribe.coverImageUrl ?? scribe.splashImageUrl ?? value.splashImageUrl ?? ""),
     description: String(value.description ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
     createdAt: String(scribe.createdAt ?? value.createdAt ?? new Date().toISOString()),
@@ -163,30 +163,13 @@ export async function action({ request }: Route.ActionArgs) {
       | { uri: string; cid: string }
       | undefined;
 
-    // Resolve site field: convert legacy AT URI to https:// URL
-    let siteHttpsUrl = publishedSite;
-    if (publishedSite.startsWith("at://")) {
-      const siteRkey = publishedSite.split("/").pop()!;
-      try {
-        const siteRecord = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteRkey,
-        });
-        const scribe = (siteRecord.data.value as Record<string, unknown>).scribe as Record<string, unknown>;
-        siteHttpsUrl = `https://${String(scribe?.domain ?? "")}`;
-      } catch {
-        siteHttpsUrl = "";
-      }
-    }
-
     // Upload cover image blob — only if URL changed or no cached blob exists
     let coverImageBlobRef: unknown;
     let coverImageUploadFailed = false;
     if (splashImageUrl?.trim()) {
       const existingCoverImageBlob = existingDoc.coverImage;
       const existingScribeForBlob = (existingDoc.scribe as Record<string, unknown>) ?? {};
-      const existingSplashImageUrl = String(existingScribeForBlob.splashImageUrl ?? existingDoc.splashImageUrl ?? "");
+      const existingSplashImageUrl = String(existingScribeForBlob.coverImageUrl ?? existingScribeForBlob.splashImageUrl ?? existingDoc.splashImageUrl ?? "");
       if (
         existingSplashImageUrl !== splashImageUrl ||
         !existingCoverImageBlob
@@ -252,14 +235,14 @@ export async function action({ request }: Route.ActionArgs) {
       description: description?.trim() || undefined,
       tags: tags.length ? tags : undefined,
       contributors,
-      site: siteHttpsUrl,
+      site: publishedSite,
       publishedAt,
       updatedAt: now,
       path: newPath,
       ...(existingBskyPostRef ? { bskyPostRef: existingBskyPostRef } : {}),
       scribe: {
         ...existingScribe,
-        splashImageUrl: splashImageUrl?.trim() || undefined,
+        coverImageUrl: splashImageUrl?.trim() || undefined,
         createdAt,
         ...(newCanonicalUrl ? { canonicalUrl: newCanonicalUrl } : {}),
       },

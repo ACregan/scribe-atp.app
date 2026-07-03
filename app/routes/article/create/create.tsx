@@ -70,21 +70,25 @@ export async function action({ request }: Route.ActionArgs) {
     const { agent, did } = await requireAtpAgent(request);
     const now = new Date().toISOString();
 
-    // Resolve the primary site's https URL for the spec-compliant `site` field
-    let siteHttpsUrl = "";
-    if (selectedSiteRkeys[0]) {
+    // Resolve the primary site's domain for scribe.domain
+    let siteDomain = "";
+    const primarySiteRkey = selectedSiteRkeys[0] ?? "";
+    if (primarySiteRkey) {
       try {
         const siteRecord = await agent.com.atproto.repo.getRecord({
           repo: did,
           collection: SITE_COLLECTION,
-          rkey: selectedSiteRkeys[0],
+          rkey: primarySiteRkey,
         });
         const scribe = (siteRecord.data.value as Record<string, unknown>).scribe as Record<string, unknown>;
-        siteHttpsUrl = `https://${String(scribe?.domain ?? "")}`;
+        siteDomain = String(scribe?.domain ?? "");
       } catch {
-        // non-fatal — site field will be empty
+        // non-fatal
       }
     }
+    const siteAtUri = primarySiteRkey
+      ? `at://${did}/${SITE_COLLECTION}/${primarySiteRkey}`
+      : "";
 
     const textContent = content
       ? content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
@@ -102,11 +106,12 @@ export async function action({ request }: Route.ActionArgs) {
         description: description?.trim() || undefined,
         tags: tags.length ? tags : undefined,
         path: `/${slug}`,
-        site: siteHttpsUrl,
+        site: siteAtUri,
         updatedAt: now,
         scribe: {
-          splashImageUrl: splashImageUrl?.trim() || undefined,
+          coverImageUrl: splashImageUrl?.trim() || undefined,
           createdAt: now,
+          domain: siteDomain || undefined,
         },
       },
     });
