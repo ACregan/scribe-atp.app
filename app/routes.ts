@@ -67,6 +67,10 @@ export default [
         "devtools/migrate-spec-compliance",
         "./routes/devtools/migrate-spec-compliance/migrate-spec-compliance.tsx",
       ),
+      route(
+        "devtools/migrate-records-v2",
+        "./routes/devtools/migrate-records-v2/migrate-records-v2.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;

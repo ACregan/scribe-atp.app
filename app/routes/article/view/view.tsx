@@ -51,12 +51,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       ? String((rawContent as Record<string, unknown>).html ?? "")
       : String(rawContent ?? "");
 
+  const scribe = (value.scribe as Record<string, unknown>) ?? {};
+
   return {
     title: String(value.title ?? "(untitled)"),
     content: DOMPurify.sanitize(html, { FORCE_BODY: true }),
-    splashImageUrl: String(value.splashImageUrl ?? ""),
+    splashImageUrl: String(scribe.coverImageUrl ?? scribe.splashImageUrl ?? value.splashImageUrl ?? ""),
     description: String(value.description ?? value.synopsis ?? ""),
-    createdAt: String(value.createdAt ?? ""),
+    createdAt: String(scribe.createdAt ?? value.createdAt ?? ""),
     slug,
   };
 }

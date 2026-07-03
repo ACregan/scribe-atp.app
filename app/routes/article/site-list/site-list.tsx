@@ -294,7 +294,10 @@ export async function action({ request, params }: Route.ActionArgs) {
                 record: {
                   ...docVal,
                   path: newPath,
-                  canonicalUrl: newCanonicalUrl,
+                  scribe: {
+                    ...(docVal.scribe as Record<string, unknown> ?? {}),
+                    canonicalUrl: newCanonicalUrl,
+                  },
                   updatedAt: new Date().toISOString(),
                 },
                 swapRecord: data.cid,
@@ -330,7 +333,10 @@ export async function action({ request, params }: Route.ActionArgs) {
               record: {
                 ...docVal,
                 path: newPath,
-                canonicalUrl: newCanonicalUrl,
+                scribe: {
+                  ...(docVal.scribe as Record<string, unknown> ?? {}),
+                  canonicalUrl: newCanonicalUrl,
+                },
                 updatedAt: new Date().toISOString(),
               },
               swapRecord: data.cid,
@@ -417,7 +423,9 @@ export async function action({ request, params }: Route.ActionArgs) {
         updatedDoc.path = `/${slug}`;
         updatedDoc.updatedAt = now;
         delete updatedDoc.publishedAt;
-        delete updatedDoc.canonicalUrl;
+        const updatedScribe = { ...(updatedDoc.scribe as Record<string, unknown> ?? {}) };
+        delete updatedScribe.canonicalUrl;
+        updatedDoc.scribe = updatedScribe;
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: DOCUMENT_COLLECTION,
@@ -496,13 +504,15 @@ export async function action({ request, params }: Route.ActionArgs) {
         };
 
         // Upload cover image blob (non-fatal)
+        const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
+        const docCoverImageUrl = String(docScribe.coverImageUrl ?? docScribe.splashImageUrl ?? doc.splashImageUrl ?? "");
         let coverImageBlobRef: unknown;
-        if (doc.splashImageUrl) {
+        if (docCoverImageUrl) {
           try {
-            const thumbSrc = resolveThumbUrl(String(doc.splashImageUrl));
+            const thumbSrc = resolveThumbUrl(docCoverImageUrl);
             let imgRes = await fetch(thumbSrc);
-            if (!imgRes.ok && thumbSrc !== String(doc.splashImageUrl)) {
-              imgRes = await fetch(String(doc.splashImageUrl));
+            if (!imgRes.ok && thumbSrc !== docCoverImageUrl) {
+              imgRes = await fetch(docCoverImageUrl);
             }
             if (imgRes.ok) {
               const imgBuffer = await imgRes.arrayBuffer();
@@ -533,9 +543,13 @@ export async function action({ request, params }: Route.ActionArgs) {
             ...(coverImageBlobRef !== undefined ? { coverImage: coverImageBlobRef } : {}),
             path: docPath,
             site: siteAtUri,
-            canonicalUrl,
             publishedAt,
             updatedAt: publishedAt,
+            scribe: {
+              ...(doc.scribe as Record<string, unknown> ?? {}),
+              coverImageUrl: docCoverImageUrl || undefined,
+              canonicalUrl,
+            },
           },
           swapRecord: docResult.data.cid,
         });
