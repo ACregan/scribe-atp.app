@@ -671,12 +671,12 @@ const SvgIcon: React.FC<SVGiconProp> = ({
     case SvgImageList.BarChart:
       return (
         <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
           fill={fill}
           className={className}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
         >
-          <path d="M5 3v16h16v2H3V3h2zm14.94 2.94-1.41 1.41L16 4.83l-4 4-3-3-3.54 3.54-1.41-1.42L9 2.59l3 3 4-4 3.94 3.35z"/>
+          <path d="M128 496H48V304h80Zm224 0h-80V208h80Zm112 0h-80V96h80Zm-224 0h-80V16h80Z"></path>
         </svg>
       );
 

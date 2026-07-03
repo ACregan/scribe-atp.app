@@ -18,11 +18,7 @@ const METRIC_LABELS = {
 
 type MetricKey = keyof typeof METRIC_LABELS;
 
-function SiteLegend({
-  series,
-}: {
-  series: EngagementCharts["series"];
-}) {
+function SiteLegend({ series }: { series: EngagementCharts["series"] }) {
   return (
     <ul className={styles.legend}>
       {series.map((site) => (
@@ -59,7 +55,10 @@ function MiniChart({
     <div className={styles.chartBlock}>
       <h3 className={styles.chartTitle}>{METRIC_LABELS[metricKey]}</h3>
       <ResponsiveContainer width="100%" height={120}>
-        <LineChart data={data} margin={{ top: 4, right: 8, left: -28, bottom: 0 }}>
+        <LineChart
+          data={data}
+          margin={{ top: 4, right: 8, left: -28, bottom: 0 }}
+        >
           <XAxis
             dataKey="label"
             tick={{ fontSize: 10, fill: "var(--text-secondary)" }}
@@ -111,12 +110,11 @@ export function DashboardCharts({ charts }: { charts: EngagementCharts }) {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.heading}>Engagement</h2>
+        <SiteLegend series={series} />
         <Link to="/insights" className={styles.viewAll}>
           View all →
         </Link>
       </div>
-      <SiteLegend series={series} />
       {metrics.map(([key, data]) => (
         <MiniChart key={key} metricKey={key} data={data} series={series} />
       ))}

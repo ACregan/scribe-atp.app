@@ -26,7 +26,10 @@ import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { logger } from "~/services/logger.server";
 import OverflowMenu from "~/components/OverflowMenu/OverflowMenu";
-import { buildEngagementCharts, type EngagementCharts } from "./engagementCharts.server";
+import {
+  buildEngagementCharts,
+  type EngagementCharts,
+} from "./engagementCharts.server";
 import { DashboardCharts } from "./DashboardCharts/DashboardCharts";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
@@ -84,7 +87,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   if (!useRealOAuth) {
-    return { isAuthenticated: true as const, ...devHomeLoader(handle), engagementCharts: null as EngagementCharts | null };
+    return {
+      isAuthenticated: true as const,
+      ...devHomeLoader(handle),
+      engagementCharts: null as EngagementCharts | null,
+    };
   }
 
   const agent = await getAtpAgent(did);
@@ -174,9 +181,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const socialServiceUrl =
     process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
-  const engagementCharts = await buildEngagementCharts(sites, socialServiceUrl).catch(
-    () => null,
-  );
+  const engagementCharts = await buildEngagementCharts(
+    sites,
+    socialServiceUrl,
+  ).catch(() => null);
 
   return {
     isAuthenticated: true as const,
@@ -467,7 +475,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     return <Landing />;
   }
 
-  const { isDev, recentArticles, orphanedArticleCount, sites, engagementCharts } = loaderData;
+  const {
+    isDev,
+    recentArticles,
+    orphanedArticleCount,
+    sites,
+    engagementCharts,
+  } = loaderData;
 
   function handleNukeConfirm() {
     nukeModal.close();
@@ -562,6 +576,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               )}
             </PageSectionColumn>
 
+            {/* Engagement charts */}
+            <PageSectionColumn span={4} overflow>
+              <h2 className={styles.sectionTitle}>ENGAGEMENT</h2>
+              {engagementCharts && (
+                <DashboardCharts charts={engagementCharts} />
+              )}
+            </PageSectionColumn>
+
             {/* Recently Updated */}
             <PageSectionColumn span={4} overflow>
               <h2 className={styles.sectionTitle}>Recently Updated</h2>
@@ -595,13 +617,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                     </li>
                   ))}
                 </ul>
-              )}
-            </PageSectionColumn>
-
-            {/* Engagement charts */}
-            <PageSectionColumn span={4} overflow>
-              {engagementCharts && (
-                <DashboardCharts charts={engagementCharts} />
               )}
             </PageSectionColumn>
           </PageSectionColumns>
