@@ -339,11 +339,20 @@ export function devSiteListLoader(siteSlug: string): {
 export function devViewLoader(articleUrl: string) {
   return {
     title: "Dev mode article",
-    content: "This is placeholder content for dev mode.",
+    content:
+      "<p>This is placeholder content for dev mode. It gives a rough sense of how the article layout will look with real content.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>",
     splashImageUrl: "",
-    description: "",
-    createdAt: new Date().toISOString(),
+    description: "A short description of the article shown as a lead paragraph.",
+    createdAt: new Date(Date.now() - 7 * 86400 * 1000).toISOString(),
+    publishedAt: new Date(Date.now() - 5 * 86400 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    tags: ["dev", "example"],
+    readMinutes: 2,
+    bskyPostRef: null,
+    siteDomain: "norobots.blog",
     slug: articleUrl,
+    likes: 7,
+    shares: 2,
   };
 }
 

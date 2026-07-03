@@ -1,0 +1,141 @@
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.2rem;
+}
+
+.metaSep {
+  color: var(--border-color);
+  user-select: none;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.6rem;
+}
+
+.splashImage {
+  width: 100%;
+  max-height: 36rem;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  margin-bottom: 2rem;
+}
+
+.description {
+  font-size: 1.5rem;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  padding-bottom: 1.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.content {
+  font-size: 1.5rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  max-width: 72rem;
+}
+
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  margin-top: 2rem;
+  margin-bottom: 0.8rem;
+  color: var(--text-primary);
+}
+
+.content p {
+  margin-bottom: 1.2rem;
+}
+
+.content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.3rem;
+}
+
+.content a {
+  color: var(--action-primary);
+}
+
+.content pre,
+.content code {
+  font-family: "Courier New", monospace;
+  background: var(--surface-header);
+  border-radius: 0.3rem;
+}
+
+.content pre {
+  padding: 1rem;
+  overflow-x: auto;
+  margin-bottom: 1.2rem;
+}
+
+.content code {
+  padding: 0.1em 0.3em;
+  font-size: 0.9em;
+}
+
+.statsBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem 1.6rem;
+  padding: 1.2rem 0;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 2rem;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.statCount {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bskyLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--action-primary);
+  text-decoration: none;
+  font-size: 1.2rem;
+}
+
+.bskyLink:hover {
+  text-decoration: underline;
+}
+
+.bskyIcon {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+}
+
+.siteDomain {
+  margin-left: auto;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  background: var(--surface-header);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 0.2rem 0.8rem;
+}
