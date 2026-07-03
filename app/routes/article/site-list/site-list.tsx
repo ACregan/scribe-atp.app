@@ -633,19 +633,21 @@ export async function action({ request, params }: Route.ActionArgs) {
         ]);
 
         const doc = docResult.data.value as Record<string, unknown>;
-        const canonicalUrl = String(doc.canonicalUrl ?? "");
+        const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
+        const canonicalUrl = String(docScribe.canonicalUrl ?? doc.canonicalUrl ?? "");
         const title = String(doc.title ?? "");
         const description = doc.description ? String(doc.description) : undefined;
         const publicationUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
         const publicationCid = siteResult.data.cid;
 
+        const coverImageUrl = String(docScribe.coverImageUrl ?? docScribe.splashImageUrl ?? doc.splashImageUrl ?? "");
         let coverImageBlobRef: unknown;
-        if (doc.splashImageUrl) {
+        if (coverImageUrl) {
           try {
-            const thumbSrc = resolveThumbUrl(String(doc.splashImageUrl));
+            const thumbSrc = resolveThumbUrl(coverImageUrl);
             let imgRes = await fetch(thumbSrc);
-            if (!imgRes.ok && thumbSrc !== String(doc.splashImageUrl)) {
-              imgRes = await fetch(String(doc.splashImageUrl));
+            if (!imgRes.ok && thumbSrc !== coverImageUrl) {
+              imgRes = await fetch(coverImageUrl);
             }
             if (imgRes.ok) {
               const imgBuffer = await imgRes.arrayBuffer();
@@ -711,8 +713,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 
         return { ok: true, uri, bskyPostRef };
       } catch (err) {
-        console.error("Failed to share article to Bluesky:", err);
-        return { ok: false, error: "Failed to share article to Bluesky." };
+        logger.error(
+          { event: "article.share.error", error: String(err) },
+          "article.share.error",
+        );
+        const message =
+          err instanceof Error ? err.message : String(err);
+        return { ok: false, error: `Share failed: ${message}` };
       }
     }
 
