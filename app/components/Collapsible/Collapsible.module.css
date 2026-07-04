@@ -18,34 +18,29 @@
 }
 
 .content {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.contentOpen {
+  grid-template-rows: 1fr;
+}
+
+.contentClosed {
+  display: none;
+}
+
+.inner {
+  min-height: 0;
+  overflow: hidden;
   border-top: 0.2rem solid black;
   padding: 1rem;
-  animation: open 0.15s ease-out;
-  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
-.closing {
-  animation: close 0.15s ease-in forwards;
-}
-
-@keyframes open {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes close {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
+.contentOpen .inner {
+  opacity: 1;
 }

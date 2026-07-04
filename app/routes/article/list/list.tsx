@@ -6,8 +6,8 @@ import { devArticleListLoader } from "~/services/devFixtures.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
-import { Pill } from "~/components/Pill/Pill";
 import {
+  ButtonGroupContainer,
   PageContainer,
   PageContainerHeading,
   PageSection,
@@ -206,11 +206,21 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
           Article List
         </PageContainerHeading>
       }
+      topButtons={
+        <ButtonGroupContainer>
+          <Link to={`/article/create`}>
+            <Button type="button" variant="primary" tabIndex={-1}>
+              Draft New Article
+            </Button>
+          </Link>
+        </ButtonGroupContainer>
+      }
     >
       <PageSection>
-        <h6 className={styles.sectionHeading}>Published Articles</h6>
+        <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
         <p className={styles.sectionNote}>
-          Manage groups and publish status from each site page.
+          These articles have been assigned to a site and may or may not be
+          published.
         </p>
         {publishedArticles.length === 0 ? (
           <div className={styles.emptyState}>
@@ -343,9 +353,10 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
           }
         >
           <div>
-            {detailsData.map((site) => {
+            {detailsData.map((site, i) => {
               return (
                 <ArticleSiteDetailsModalItem
+                  isOpen={i === 0}
                   key={site.siteRkey}
                   site={site}
                   articleSlug={detailsSlug}

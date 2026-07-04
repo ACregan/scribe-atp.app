@@ -7,15 +7,17 @@ import AtUri from "../AtUri/AtUri";
 import { composedArticleUrl, composedArticleDisplayPath } from "../utils";
 import { Link } from "react-router";
 import { Button } from "../Button/Button";
+import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 
 interface ArticleSiteDetailsModalItemProps {
   site: ArticleAssignment;
   articleSlug: string;
+  isOpen?: boolean;
 }
 
 const ArticleSiteDetailsModalItem: React.FC<
   ArticleSiteDetailsModalItemProps
-> = ({ site, articleSlug }) => {
+> = ({ site, articleSlug, isOpen }) => {
   const columns: ColumnDef<ArticleAssignment>[] = [
     {
       header: "Article URL",
@@ -70,12 +72,16 @@ const ArticleSiteDetailsModalItem: React.FC<
   return (
     <div className={styles.siteContainer}>
       <Collapsible
+        open={isOpen}
         summary={
           <div className={styles.siteSummary}>
             <img className={styles.siteSplash} src={site.splashImageUrl} />
             <img className={styles.siteLogo} src={site.logoImageUrl} />
             <div className={styles.siteNameContainer}>
               <strong>{site.siteTitle}</strong>
+            </div>
+            <div className={styles.collapsedIndicator}>
+              <SvgIcon name={SvgImageList.ChevronDown} />
             </div>
           </div>
         }
