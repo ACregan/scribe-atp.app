@@ -205,16 +205,22 @@ export async function moveArticleToDraft(
 // Pure — given the group each published article was in before the save, plus
 // the new tree and domain/basePath, computes which documents need a
 // path/canonicalUrl rewrite. Covers both group->group moves and
-// group->ungrouped moves. Whether a candidate's path has *actually* changed
-// can only be known after fetching the document, so that check stays in the
-// I/O wrapper below.
+// group->ungrouped moves. needsPublishedAt is true when an article is moving
+// from ungroupedArticles into a named group for the first time. Whether a
+// candidate's path has *actually* changed can only be known after fetching the
+// document, so that check stays in the I/O wrapper below.
 export function computeDocumentPathUpdates(
   oldGroupByUri: Map<string, string>,
   groups: SiteGroup[],
   ungroupedArticles: ArticleRef[],
   domain: string,
   basePath: string,
-): Array<{ rkey: string; newPath: string; newCanonicalUrl: string }> {
+): Array<{
+  rkey: string;
+  newPath: string;
+  newCanonicalUrl: string;
+  needsPublishedAt: boolean;
+}> {
   const canonicalUrl = (path: string) =>
     basePath
       ? `https://${domain}/${basePath}${path}`
@@ -230,7 +236,12 @@ export function computeDocumentPathUpdates(
       .map((a) => {
         const rkey = a.uri.split("/").pop()!;
         const newPath = `/${g.slug}/${a.slug ?? rkey}`;
-        return { rkey, newPath, newCanonicalUrl: canonicalUrl(newPath) };
+        return {
+          rkey,
+          newPath,
+          newCanonicalUrl: canonicalUrl(newPath),
+          needsPublishedAt: !oldGroupByUri.has(a.uri),
+        };
       }),
   );
 
@@ -242,7 +253,12 @@ export function computeDocumentPathUpdates(
     .map((a) => {
       const rkey = a.uri.split("/").pop()!;
       const newPath = `/${a.slug ?? rkey}`;
-      return { rkey, newPath, newCanonicalUrl: canonicalUrl(newPath) };
+      return {
+        rkey,
+        newPath,
+        newCanonicalUrl: canonicalUrl(newPath),
+        needsPublishedAt: false,
+      };
     });
 
   return [...groupMoves, ...ungroupedMoves];
@@ -259,9 +275,13 @@ export async function saveSiteOrder(
     let domain = "";
     let basePath = "";
     const oldGroupByUri = new Map<string, string>();
+    const now = new Date().toISOString();
 
     // Overwrite the manifest; capture the pre-save domain/basePath/group
     // membership from the old record as a side effect of the mutate callback.
+    // Articles dragged from ungroupedArticles into a named group are being
+    // published for the first time — stamp publishedAt on their ArticleRefs
+    // here so the manifest stays consistent with the document record update below.
     await mutateSiteRecord(agent, did, siteSlug, (record) => {
       domain = String(record.domain ?? "");
       basePath = String(record.basePath ?? "");
@@ -272,11 +292,19 @@ export async function saveSiteOrder(
           }
         }
       }
+      const fixedGroups = groups.map((g) => ({
+        ...g,
+        articles: (g.articles ?? []).map((a) =>
+          !oldGroupByUri.has(a.uri)
+            ? { ...a, publishedAt: now, updatedAt: now }
+            : a,
+        ),
+      }));
       return {
         ...record,
-        groups: groups as SiteRecordValue["groups"],
+        groups: fixedGroups as SiteRecordValue["groups"],
         ungroupedArticles,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       };
     });
 
@@ -288,14 +316,14 @@ export async function saveSiteOrder(
       basePath,
     );
     const results = await Promise.allSettled(
-      updates.map(async ({ rkey, newPath, newCanonicalUrl }) => {
+      updates.map(async ({ rkey, newPath, newCanonicalUrl, needsPublishedAt }) => {
         const { data: docData } = await agent.com.atproto.repo.getRecord({
           repo: did,
           collection: DOCUMENT_COLLECTION,
           rkey,
         });
         const docVal = docData.value as Record<string, unknown>;
-        if (docVal.path === newPath) return;
+        if (docVal.path === newPath && !needsPublishedAt) return;
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: DOCUMENT_COLLECTION,
@@ -303,11 +331,12 @@ export async function saveSiteOrder(
           record: {
             ...docVal,
             path: newPath,
+            ...(needsPublishedAt ? { publishedAt: now } : {}),
             scribe: {
               ...((docVal.scribe as Record<string, unknown>) ?? {}),
               canonicalUrl: newCanonicalUrl,
             },
-            updatedAt: new Date().toISOString(),
+            updatedAt: now,
           },
           swapRecord: docData.cid,
         });

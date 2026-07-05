@@ -80,6 +80,30 @@ describe("computeDocumentPathUpdates", () => {
         rkey: "a1",
         newPath: "/new-group/a1",
         newCanonicalUrl: "https://example.com/new-group/a1",
+        needsPublishedAt: false,
+      },
+    ]);
+  });
+
+  it("returns needsPublishedAt: true when an article moves from ungrouped into a named group", () => {
+    const uri = `at://${DID}/site.standard.document/a1`;
+    // Article was not in any group before (not in oldGroupByUri)
+    const groups = [
+      {
+        slug: "new-group",
+        title: "New",
+        articles: [{ uri, title: "A", slug: "a1" } as never],
+      },
+    ];
+
+    const updates = computeDocumentPathUpdates(new Map(), groups, [], domain, "");
+
+    expect(updates).toEqual([
+      {
+        rkey: "a1",
+        newPath: "/new-group/a1",
+        newCanonicalUrl: "https://example.com/new-group/a1",
+        needsPublishedAt: true,
       },
     ]);
   });
@@ -114,7 +138,7 @@ describe("computeDocumentPathUpdates", () => {
     );
 
     expect(updates).toEqual([
-      { rkey: "a1", newPath: "/a1", newCanonicalUrl: "https://example.com/a1" },
+      { rkey: "a1", newPath: "/a1", newCanonicalUrl: "https://example.com/a1", needsPublishedAt: false },
     ]);
   });
 
@@ -162,9 +186,8 @@ describe("computeDocumentPathUpdates", () => {
       domain,
       "blog",
     );
-    expect(updates[0].newCanonicalUrl).toBe(
-      "https://example.com/blog/new-group/a1",
-    );
+    expect(updates[0].newCanonicalUrl).toBe("https://example.com/blog/new-group/a1");
+    expect(updates[0].needsPublishedAt).toBe(false);
   });
 
   it("combines group-move and ungrouped-move candidates in one pass", () => {
@@ -197,11 +220,13 @@ describe("computeDocumentPathUpdates", () => {
           rkey: "a1",
           newPath: "/new-group/a1",
           newCanonicalUrl: "https://example.com/new-group/a1",
+          needsPublishedAt: false,
         },
         {
           rkey: "b1",
           newPath: "/b1",
           newCanonicalUrl: "https://example.com/b1",
+          needsPublishedAt: false,
         },
       ]),
     );
