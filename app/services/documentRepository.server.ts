@@ -39,6 +39,22 @@ export async function listDocuments(
   return records;
 }
 
+export async function getDocument(
+  agent: Agent,
+  did: string,
+  rkey: string,
+): Promise<{ cid: string | undefined; value: Record<string, unknown> }> {
+  const result = await agent.com.atproto.repo.getRecord({
+    repo: did,
+    collection: DOCUMENT_COLLECTION,
+    rkey,
+  });
+  return {
+    cid: result.data.cid,
+    value: result.data.value as Record<string, unknown>,
+  };
+}
+
 export async function createDocument(
   agent: Agent,
   did: string,
