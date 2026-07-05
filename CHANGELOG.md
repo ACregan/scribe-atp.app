@@ -10,6 +10,15 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.11.7] — 2026-07-05
+
+### Changed (internal)
+
+- **Fifth and final route migrated onto the repository seam** — `app/routes/article/edit/edit.tsx`'s loader/action no longer hand-roll `agent.com.atproto.repo.*` calls; uses `listDocuments`/`getDocument`/`putDocument` (`documentRepository.server.ts`, now also covering get). The loader's manual slug-scan pagination loop is replaced by the shared `listDocuments`. Added test coverage for `edit.tsx` (previously untested). This completes the "give Site and Document records a repository seam" architecture-review effort across all five article/site routes.
+- Characterized (did not fix) a pre-existing bug: the edit action calls `computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys)` — the same value for both "old" and "new" — because no `sites` field is ever read from the submitted form data, so an article's site assignments can never actually change via the edit page. Fixing this needs a frontend change as well as a backend one; tracked as a separate follow-up, not part of this refactor.
+
+---
+
 ## [5.11.6] — 2026-07-05
 
 ### Fixed
