@@ -1,6 +1,15 @@
 import { Agent } from "@atproto/api";
-import { mutateSiteRecord } from "~/services/articleSiteSync.server";
-import { toSlug, removeArticleRef } from "~/routes/article/site-list/siteTree";
+import {
+  findSitesContaining,
+  mutateSiteRecord,
+} from "~/services/articleSiteSync.server";
+import { resolveThumbUrl } from "~/services/article.server";
+import { logger } from "~/services/logger.server";
+import {
+  toSlug,
+  removeArticleRef,
+  updateArticleRef,
+} from "~/routes/article/site-list/siteTree";
 import type {
   SiteManifest,
   SiteRecordValue,
@@ -313,4 +322,230 @@ export async function saveSiteOrder(
     return { error: `Failed to save order: ${String(err)}` };
   }
   return { ok: true };
+}
+
+// Fetches the thumb Variant (falling back to the original URL) and uploads it
+// as a blob. Non-fatal by design — any failure is logged and swallowed so the
+// caller can proceed without a cover image. Shared by publishArticleToGroup;
+// shareToBluesky (fast-follow) will use this too instead of duplicating it.
+async function uploadCoverImageBlob(
+  agent: Agent,
+  coverImageUrl: string,
+): Promise<unknown | undefined> {
+  try {
+    const thumbSrc = resolveThumbUrl(coverImageUrl);
+    let imgRes = await fetch(thumbSrc);
+    if (!imgRes.ok && thumbSrc !== coverImageUrl) {
+      imgRes = await fetch(coverImageUrl);
+    }
+    if (imgRes.ok) {
+      const imgBuffer = await imgRes.arrayBuffer();
+      const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
+      const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
+        encoding: mimeType,
+      });
+      return uploadRes.data.blob;
+    }
+  } catch (blobErr) {
+    logger.warn(
+      {
+        event: "article.publish.cover_image_blob_error",
+        error: String(blobErr),
+      },
+      "cover image blob upload error — publish will proceed without coverImage",
+    );
+  }
+  return undefined;
+}
+
+export async function publishArticleToGroup(
+  agent: Agent,
+  did: string,
+  siteSlug: string,
+  params: {
+    uri: string;
+    groupSlug: string;
+    canonicalSiteRkey: string;
+    siteAssignments: Array<{ rkey: string; domain: string; basePath: string }>;
+  },
+): Promise<
+  | {
+      ok: true;
+      uri: string;
+      groupSlug: string;
+      warning?: string;
+      notification: {
+        publicationUri: string;
+        siteTitle: string;
+        articleTitle: string;
+        canonicalUrl: string;
+      } | null;
+    }
+  | { ok: false; error: string }
+> {
+  const { uri, groupSlug, canonicalSiteRkey, siteAssignments } = params;
+  let secondaryFailures = 0;
+
+  try {
+    const rkey = uri.split("/").pop()!;
+    const publishedAt = new Date().toISOString();
+
+    // Fetch the existing document and site manifest in parallel
+    const [docResult, siteResult] = await Promise.all([
+      agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: DOCUMENT_COLLECTION,
+        rkey,
+      }),
+      agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteSlug,
+      }),
+    ]);
+
+    const doc = docResult.data.value as Record<string, unknown>;
+    const pubRecord = siteResult.data.value as Record<string, unknown>;
+    const scribeExt = (pubRecord.scribe as Record<string, unknown>) ?? {};
+
+    // Derive slug from current document path
+    const slug =
+      String(doc.path ?? "")
+        .split("/")
+        .pop() || rkey;
+
+    const siteAtUri = `at://${did}/${SITE_COLLECTION}/${canonicalSiteRkey}`;
+    const canonicalAssignment = siteAssignments.find(
+      (s) => s.rkey === canonicalSiteRkey,
+    ) ?? {
+      rkey: canonicalSiteRkey,
+      domain: String(scribeExt.domain ?? ""),
+      basePath: String(scribeExt.basePath ?? ""),
+    };
+    const docPath = `/${groupSlug}/${slug}`;
+    const canonicalUrl = canonicalAssignment.basePath
+      ? `https://${canonicalAssignment.domain}/${canonicalAssignment.basePath}${docPath}`
+      : `https://${canonicalAssignment.domain}${docPath}`;
+
+    const publishNotification = {
+      publicationUri: `at://${did}/${SITE_COLLECTION}/${siteSlug}`,
+      siteTitle: String(scribeExt.title ?? ""),
+      articleTitle: String(doc.title ?? ""),
+      canonicalUrl,
+    };
+
+    // Upload cover image blob (non-fatal)
+    const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
+    const docCoverImageUrl = String(
+      docScribe.coverImageUrl ??
+        docScribe.splashImageUrl ??
+        doc.splashImageUrl ??
+        "",
+    );
+    const coverImageBlobRef = docCoverImageUrl
+      ? await uploadCoverImageBlob(agent, docCoverImageUrl)
+      : undefined;
+
+    const docTags = Array.isArray(doc.tags)
+      ? (doc.tags as string[])
+      : undefined;
+
+    // Update the existing document (same TID rkey) with published fields
+    await agent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      rkey,
+      record: {
+        ...doc,
+        $type: DOCUMENT_COLLECTION,
+        ...(coverImageBlobRef !== undefined
+          ? { coverImage: coverImageBlobRef }
+          : {}),
+        path: docPath,
+        site: siteAtUri,
+        publishedAt,
+        updatedAt: publishedAt,
+        scribe: {
+          ...((doc.scribe as Record<string, unknown>) ?? {}),
+          coverImageUrl: docCoverImageUrl || undefined,
+          canonicalUrl,
+        },
+      },
+      swapRecord: docResult.data.cid,
+    });
+
+    const updatedRef: ArticleRef = {
+      uri,
+      title: String(doc.title ?? ""),
+      slug,
+      splashImageUrl: doc.splashImageUrl ? String(doc.splashImageUrl) : null,
+      description: doc.description ? String(doc.description) : null,
+      tags: docTags,
+      createdAt: String(doc.createdAt ?? publishedAt),
+      publishedAt,
+      updatedAt: publishedAt,
+    };
+
+    // Current site: move from ungroupedArticles -> named group (URI unchanged)
+    await mutateSiteRecord(agent, did, siteSlug, (val) => {
+      const existing = (val.ungroupedArticles ?? []).find((a) => a.uri === uri);
+      const ref = existing ? { ...existing, ...updatedRef } : updatedRef;
+      return {
+        ...val,
+        ungroupedArticles: (val.ungroupedArticles ?? []).filter(
+          (a) => a.uri !== uri,
+        ),
+        groups: (val.groups ?? []).map((g) =>
+          g.slug === groupSlug ? { ...g, articles: [...g.articles, ref] } : g,
+        ),
+        updatedAt: publishedAt,
+      };
+    });
+
+    // Other sites: refresh cached ref fields in-place (URI unchanged)
+    const otherSiteRkeys = (await findSitesContaining(agent, did, uri)).filter(
+      (r) => r !== siteSlug,
+    );
+    if (otherSiteRkeys.length > 0) {
+      const refResults = await Promise.allSettled(
+        otherSiteRkeys.map((rk) =>
+          mutateSiteRecord(agent, did, rk, (val) =>
+            updateArticleRef(val, uri, updatedRef),
+          ),
+        ),
+      );
+      secondaryFailures = refResults.filter(
+        (r) => r.status === "rejected",
+      ).length;
+      if (secondaryFailures > 0) {
+        logger.warn(
+          {
+            event: "article.publish.ref_update_error",
+            user_did: did,
+            uri,
+            failed: secondaryFailures,
+          },
+          "secondary site ref updates failed",
+        );
+      }
+    }
+
+    return {
+      ok: true,
+      uri,
+      groupSlug,
+      ...(secondaryFailures > 0
+        ? {
+            warning: `Article published, but ${secondaryFailures} linked site(s) could not be updated.`,
+          }
+        : {}),
+      notification: publishNotification,
+    };
+  } catch (err) {
+    console.error("Failed to publish article:", err);
+    // Bug fix: include an error message — the frontend's toast effect checks
+    // `else if (data.error)` on failure, which previously could never fire
+    // since this returned bare { ok: false }.
+    return { ok: false, error: `Failed to publish article: ${String(err)}` };
+  }
 }

@@ -48,18 +48,15 @@ import {
   type TreeGroupNode,
   toSlug,
   treeToSiteData,
-  updateArticleRef,
 } from "./siteTree";
 import { useDirtyTree } from "./useDirtyTree";
 import { useSiteListDnD } from "./useSiteListDnD";
-import {
-  findSitesContaining,
-  mutateSiteRecord,
-} from "~/services/articleSiteSync.server";
+import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import {
   createGroup as createGroupManifest,
   deleteGroup as deleteGroupManifest,
   moveArticleToDraft as moveArticleToDraftManifest,
+  publishArticleToGroup,
   removeArticleFromSite as removeArticleFromSiteManifest,
   saveSiteOrder,
   validateGroupFields,
@@ -224,216 +221,33 @@ export async function action({ request, params }: Route.ActionArgs) {
       (formData.get("canonicalSiteRkey") as string) || siteSlug;
     const siteAssignmentsRaw =
       (formData.get("siteAssignments") as string) || "[]";
-    const siteAssignments = JSON.parse(siteAssignmentsRaw) as Array<{
+    if (!uri || !groupSlug) return { ok: false };
+
+    // Bug fix: this JSON.parse previously sat outside any try/catch, so
+    // malformed siteAssignments crashed the whole action instead of
+    // degrading gracefully (unlike saveSite's equivalent parse).
+    let siteAssignments: Array<{
       rkey: string;
       domain: string;
       basePath: string;
     }>;
-    if (!uri || !groupSlug) return { ok: false };
-
-    let secondaryFailures = 0;
-    let publishNotification: {
-      publicationUri: string;
-      siteTitle: string;
-      articleTitle: string;
-      canonicalUrl: string;
-    } | null = null;
-
-    if (useRealOAuth) {
-      try {
-        const agent = await getAtpAgent(did);
-        const rkey = uri.split("/").pop()!;
-        const publishedAt = new Date().toISOString();
-
-        // Fetch the existing document and site manifest in parallel
-        const [docResult, siteResult] = await Promise.all([
-          agent.com.atproto.repo.getRecord({
-            repo: did,
-            collection: DOCUMENT_COLLECTION,
-            rkey,
-          }),
-          agent.com.atproto.repo.getRecord({
-            repo: did,
-            collection: SITE_COLLECTION,
-            rkey: siteSlug,
-          }),
-        ]);
-
-        const doc = docResult.data.value as Record<string, unknown>;
-        const pubRecord = siteResult.data.value as Record<string, unknown>;
-        const scribeExt = (pubRecord.scribe as Record<string, unknown>) ?? {};
-
-        // Derive slug from current document path
-        const slug =
-          String(doc.path ?? "")
-            .split("/")
-            .pop() || rkey;
-
-        const siteAtUri = `at://${did}/${SITE_COLLECTION}/${canonicalSiteRkey}`;
-        const canonicalAssignment = siteAssignments.find(
-          (s) => s.rkey === canonicalSiteRkey,
-        ) ?? {
-          rkey: canonicalSiteRkey,
-          domain: String(scribeExt.domain ?? ""),
-          basePath: String(scribeExt.basePath ?? ""),
-        };
-        const docPath = `/${groupSlug}/${slug}`;
-        const canonicalUrl = canonicalAssignment.basePath
-          ? `https://${canonicalAssignment.domain}/${canonicalAssignment.basePath}${docPath}`
-          : `https://${canonicalAssignment.domain}${docPath}`;
-
-        publishNotification = {
-          publicationUri: `at://${did}/${SITE_COLLECTION}/${siteSlug}`,
-          siteTitle: String(scribeExt.title ?? ""),
-          articleTitle: String(doc.title ?? ""),
-          canonicalUrl,
-        };
-
-        // Upload cover image blob (non-fatal)
-        const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
-        const docCoverImageUrl = String(
-          docScribe.coverImageUrl ??
-            docScribe.splashImageUrl ??
-            doc.splashImageUrl ??
-            "",
-        );
-        let coverImageBlobRef: unknown;
-        if (docCoverImageUrl) {
-          try {
-            const thumbSrc = resolveThumbUrl(docCoverImageUrl);
-            let imgRes = await fetch(thumbSrc);
-            if (!imgRes.ok && thumbSrc !== docCoverImageUrl) {
-              imgRes = await fetch(docCoverImageUrl);
-            }
-            if (imgRes.ok) {
-              const imgBuffer = await imgRes.arrayBuffer();
-              const mimeType =
-                imgRes.headers.get("content-type") ?? "image/webp";
-              const uploadRes = await agent.uploadBlob(
-                new Uint8Array(imgBuffer),
-                {
-                  encoding: mimeType,
-                },
-              );
-              coverImageBlobRef = uploadRes.data.blob;
-            }
-          } catch (blobErr) {
-            logger.warn(
-              {
-                event: "article.publish.cover_image_blob_error",
-                error: String(blobErr),
-              },
-              "cover image blob upload error — publish will proceed without coverImage",
-            );
-          }
-        }
-
-        const docTags = Array.isArray(doc.tags)
-          ? (doc.tags as string[])
-          : undefined;
-
-        // Update the existing document (same TID rkey) with published fields
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          rkey,
-          record: {
-            ...doc,
-            $type: DOCUMENT_COLLECTION,
-            ...(coverImageBlobRef !== undefined
-              ? { coverImage: coverImageBlobRef }
-              : {}),
-            path: docPath,
-            site: siteAtUri,
-            publishedAt,
-            updatedAt: publishedAt,
-            scribe: {
-              ...((doc.scribe as Record<string, unknown>) ?? {}),
-              coverImageUrl: docCoverImageUrl || undefined,
-              canonicalUrl,
-            },
-          },
-          swapRecord: docResult.data.cid,
-        });
-
-        const updatedRef: ArticleRef = {
-          uri,
-          title: String(doc.title ?? ""),
-          slug,
-          splashImageUrl: doc.splashImageUrl
-            ? String(doc.splashImageUrl)
-            : null,
-          description: doc.description ? String(doc.description) : null,
-          tags: docTags,
-          createdAt: String(doc.createdAt ?? publishedAt),
-          publishedAt,
-          updatedAt: publishedAt,
-        };
-
-        // Current site: move from ungroupedArticles → named group (URI unchanged)
-        await mutateSiteRecord(agent, did, siteSlug, (val) => {
-          const existing = (val.ungroupedArticles ?? []).find(
-            (a) => a.uri === uri,
-          );
-          const ref = existing ? { ...existing, ...updatedRef } : updatedRef;
-          return {
-            ...val,
-            ungroupedArticles: (val.ungroupedArticles ?? []).filter(
-              (a) => a.uri !== uri,
-            ),
-            groups: (val.groups ?? []).map((g) =>
-              g.slug === groupSlug
-                ? { ...g, articles: [...g.articles, ref] }
-                : g,
-            ),
-            updatedAt: publishedAt,
-          };
-        });
-
-        // Other sites: refresh cached ref fields in-place (URI unchanged)
-        const otherSiteRkeys = (
-          await findSitesContaining(agent, did, uri)
-        ).filter((r) => r !== siteSlug);
-        if (otherSiteRkeys.length > 0) {
-          const refResults = await Promise.allSettled(
-            otherSiteRkeys.map((rk) =>
-              mutateSiteRecord(agent, did, rk, (val) =>
-                updateArticleRef(val, uri, updatedRef),
-              ),
-            ),
-          );
-          secondaryFailures = refResults.filter(
-            (r) => r.status === "rejected",
-          ).length;
-          if (secondaryFailures > 0) {
-            logger.warn(
-              {
-                event: "article.publish.ref_update_error",
-                user_did: did,
-                uri,
-                failed: secondaryFailures,
-              },
-              "secondary site ref updates failed",
-            );
-          }
-        }
-      } catch (err) {
-        console.error("Failed to publish article:", err);
-        return { ok: false };
-      }
+    try {
+      siteAssignments = JSON.parse(siteAssignmentsRaw);
+    } catch {
+      return { ok: false };
     }
 
-    return {
-      ok: true,
+    if (!useRealOAuth) {
+      return { ok: true, uri, groupSlug, notification: null };
+    }
+
+    const agent = await getAtpAgent(did);
+    return publishArticleToGroup(agent, did, siteSlug, {
       uri,
       groupSlug,
-      ...(secondaryFailures > 0
-        ? {
-            warning: `Article published, but ${secondaryFailures} linked site(s) could not be updated.`,
-          }
-        : {}),
-      notification: publishNotification,
-    };
+      canonicalSiteRkey,
+      siteAssignments,
+    });
   }
 
   if (intent === "shareToBluesky") {
