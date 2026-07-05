@@ -62,6 +62,7 @@ import {
   findSitesContaining,
   mutateSiteRecord,
 } from "~/services/articleSiteSync.server";
+import { deleteGroup as deleteGroupManifest } from "~/services/siteManifest.server";
 import { resolveThumbUrl } from "~/services/article.server";
 import { devSiteListLoader } from "~/services/devFixtures.server";
 import { logger } from "~/services/logger.server";
@@ -196,22 +197,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "deleteGroup") {
     const rkey = formData.get("rkey") as string;
     if (!rkey) return { ok: false, error: "Missing group ID." };
+    if (!useRealOAuth) return { ok: true, deletedSlug: rkey };
 
-    if (useRealOAuth) {
-      try {
-        const agent = await getAtpAgent(did);
-        await mutateSiteRecord(agent, did, siteSlug, (val) => ({
-          ...val,
-          groups: (val.groups ?? []).filter((g) => g.slug !== rkey),
-          updatedAt: new Date().toISOString(),
-        }));
-      } catch (err) {
-        console.error("Failed to delete group:", err);
-        return { ok: false, error: `Failed to delete group: ${String(err)}` };
-      }
-    }
-
-    return { ok: true, deletedSlug: rkey };
+    const agent = await getAtpAgent(did);
+    return deleteGroupManifest(agent, did, siteSlug, rkey);
   }
 
   if (intent === "saveSite") {
