@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review — scribe-atp.app</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .leak { stroke: #dc2626; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .badge-strong { background: #d1fae5; color: #065f46; }
+      .badge-explore { background: #fef3c7; color: #92400e; }
+      .badge-spec { background: #e2e8f0; color: #334155; }
+      .tag { background: #eef2ff; color: #3730a3; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .diagram-shell { min-height: 320px; }
+      .impl-block { background: repeating-linear-gradient(135deg, #1e293b, #1e293b 8px, #0f172a 8px, #0f172a 16px); }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-16">
+      <header class="space-y-4 border-b border-slate-200 pb-8">
+        <div class="flex items-baseline justify-between flex-wrap gap-2">
+          <h1 class="font-serif text-3xl">Architecture review — scribe-atp.app</h1>
+          <span class="text-sm text-slate-500">2026-07-05</span>
+        </div>
+        <p class="text-slate-600 max-w-2xl">
+          Six deepening candidates, ranked by recommendation strength. Vocabulary: module, interface,
+          implementation, depth, seam, adapter, leverage, locality.
+        </p>
+        <div class="flex flex-wrap gap-4 text-xs uppercase tracking-wider text-slate-500 pt-2">
+          <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-3 border-2 border-slate-400"></span> module</span>
+          <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0 border-t-2 border-dashed border-slate-400"></span> seam</span>
+          <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0 border-t-2 border-red-500"></span> leak across seam</span>
+          <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-3 deep"></span> deep module</span>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-16">
+
+        <!-- CANDIDATE 1 -->
+        <article id="c1" class="space-y-5">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="font-serif text-2xl">1. Collapse the Site manifest action</h2>
+            <span class="badge-strong text-xs font-semibold px-2 py-1 rounded-full">Strong</span>
+            <span class="tag text-xs font-semibold px-2 py-1 rounded-full">in-process</span>
+          </div>
+          <p class="mono text-sm text-slate-600">app/routes/article/site-list/site-list.tsx</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Before — the action is the interface</p>
+              <pre class="mermaid">
+flowchart TD
+  A["site-list.tsx action()\n~830 lines, 6 intents"]
+  A -->|createGroup| B["inline putRecord\n+ manifest mutation"]
+  A -->|deleteGroup| C["inline putRecord\n+ manifest mutation"]
+  A -->|saveSite| D["inline putRecord"]
+  A -->|removeArticle| E["inline putRecord"]
+  A -->|publishArticle| F["inline putRecord\n+ ref move"]
+  A -->|moveToDraft| G["inline putRecord\n+ ref move"]
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class B,C,D,E,F,G leak
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell flex flex-col justify-center gap-3">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">After — mass diagram</p>
+              <div class="flex items-end gap-6 justify-center h-56">
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-24 border-2 border-slate-400 flex items-center justify-center text-xs h-40">interface</div>
+                  <div class="impl-block w-24 h-8 rounded-b"></div>
+                  <span class="text-xs text-slate-500 mt-1">before: action</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-24 border-2 border-slate-400 flex items-center justify-center text-xs h-8">interface</div>
+                  <div class="impl-block w-24 h-40 rounded-b"></div>
+                  <span class="text-xs text-slate-500 mt-1">after: SiteManifest module</span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 text-center">6 named methods: createGroup, deleteGroup, saveOrder,<br/>removeArticle, publishArticle, moveToDraft</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem — </span>the action <em>is</em> the interface: 830 lines, 6 intents, each hand-rolling repo orchestration and manifest mutation inline. Interface complexity matches implementation complexity — shallow by definition.</p>
+            <p><span class="font-semibold">Solution — </span>extract a Site manifest module (deep) with one method per intent; the action becomes a thin dispatcher that matches `_intent` to a call.</p>
+          </div>
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li>Leverage: 6 methods testable without a React Router action harness</li>
+            <li>Locality: manifest-mutation bugs concentrate in one module</li>
+            <li>Interface shrinks to 6 names; implementation absorbs the repo calls</li>
+            <li>Unblocks the "next priority" test coverage CLAUDE.md already flags</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 2 -->
+        <article id="c2" class="space-y-5">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="font-serif text-2xl">2. Give Site and Article records a repository seam</h2>
+            <span class="badge-strong text-xs font-semibold px-2 py-1 rounded-full">Strong</span>
+            <span class="tag text-xs font-semibold px-2 py-1 rounded-full">ports & adapters</span>
+          </div>
+          <p class="mono text-sm text-slate-600">list.tsx · sites.tsx · configure.tsx · create.tsx · edit.tsx · site-list.tsx</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Before — five routes, five adapters to the PDS</p>
+              <pre class="mermaid">
+flowchart LR
+  L[list.tsx] -.leak.-> PDS[(PDS)]
+  S[sites.tsx] -.leak.-> PDS
+  CFG[configure.tsx] -.leak.-> PDS
+  CR[create.tsx] -.leak.-> PDS
+  ED[edit.tsx] -.leak.-> PDS
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class L,S,CFG,CR,ED leak
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">After — one seam, real adapters behind it</p>
+              <pre class="mermaid">
+flowchart LR
+  L[list.tsx] --> R["SiteRepository /\nArticleRepository\n(deep module)"]
+  S[sites.tsx] --> R
+  CFG[configure.tsx] --> R
+  CR[create.tsx] --> R
+  ED[edit.tsx] --> R
+  R -.seam.-> A1["Adapter: live agent"]
+  R -.seam.-> A2["Adapter: dev-bypass mock"]
+              </pre>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem — </span>every route hand-rolls `agent.com.atproto.repo.*` and reshapes JSON itself. `article.server.ts` is a real adapter used by 2 of 5 routes; the other 3 (list, sites, configure) never reach for it — the seam exists but isn't the seam everyone uses.</p>
+            <p><span class="font-semibold">Solution — </span>widen `article.server.ts` into a repository module per collection (`site.standard.document`, `site.standard.publication`) covering list/get/create/put/delete; routes call the module, never the agent directly.</p>
+          </div>
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li>Two real adapters justify the seam: live agent, dev-bypass mock</li>
+            <li>Leverage: one interface, 5+ call sites</li>
+            <li>Same module absorbs candidate 5's dev/real branching (see below)</li>
+            <li>Foundational — candidate 1's SiteManifest module sits on top of this repository</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 3 -->
+        <article id="c3" class="space-y-5">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="font-serif text-2xl">3. Deepen the Site tree editing hooks</h2>
+            <span class="badge-explore text-xs font-semibold px-2 py-1 rounded-full">Worth exploring</span>
+            <span class="tag text-xs font-semibold px-2 py-1 rounded-full">in-process</span>
+          </div>
+          <p class="mono text-sm text-slate-600">useDirtyTree.ts · useSiteListDnD.ts · siteTree.ts · site-list.tsx</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell flex flex-col justify-center gap-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Before — cross-section, thin layers</p>
+              <div class="h-12 border-l-4 border-slate-400 bg-slate-50 flex items-center px-3 text-sm">site-list.tsx — threads 13 values</div>
+              <div class="h-12 border-l-4 border-slate-400 bg-slate-50 flex items-center px-3 text-sm">useDirtyTree — tree, isDirty, markSaved</div>
+              <div class="h-12 border-l-4 border-slate-400 bg-slate-50 flex items-center px-3 text-sm">useSiteListDnD — sensors, drag handlers</div>
+              <div class="h-12 border-l-4 border-slate-400 bg-slate-50 flex items-center px-3 text-sm">siteTree.ts — pure tree<->manifest mapping</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell flex items-center justify-center">
+              <div class="deep w-56 h-40 rounded flex items-center justify-center text-white text-sm text-center px-3">
+                useSiteTree()<br/><span class="text-xs text-slate-300">tree, isDirty, save, drag handlers — one hook</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem — </span>one tree edit requires reading all three files; `site-list.tsx` manually wires `useDirtyTree`'s output into `useSiteListDnD`'s input and destructures 13 values. `nodeFromRef`/`articleRefFromNode` are pure and tested, but the caller still carries all the tree-shape complexity — the extraction didn't reduce it.</p>
+            <p><span class="font-semibold">Solution — </span>merge the two hooks behind one `useSiteTree(site)` interface that internally composes drag state and dirty tracking; `siteTree.ts` stays as its internal, privately-used seam.</p>
+          </div>
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li>Locality: tree-edit bugs live in one hook, not three files</li>
+            <li>Interface drops from 13 destructured values to one object</li>
+            <li>Internal seam (siteTree.ts) stays testable in isolation</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 4 -->
+        <article id="c4" class="space-y-5">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="font-serif text-2xl">4. Split EditorToolbar's command surface</h2>
+            <span class="badge-explore text-xs font-semibold px-2 py-1 rounded-full">Worth exploring</span>
+            <span class="tag text-xs font-semibold px-2 py-1 rounded-full">in-process</span>
+          </div>
+          <p class="mono text-sm text-slate-600">app/components/RichTextEditor/EditorToolbar.tsx (1286 lines)</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell flex flex-col justify-center gap-3">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Before — mass diagram</p>
+              <div class="flex items-end gap-6 justify-center h-56">
+                <div class="flex flex-col items-center gap-1">
+                  <div class="w-32 border-2 border-slate-400 flex items-center justify-center text-xs h-36 text-center px-2">14 useState:<br/>history, block type,<br/>link editing, speech,<br/>image picker, shortcuts</div>
+                  <div class="impl-block w-32 h-12 rounded-b"></div>
+                  <span class="text-xs text-slate-500 mt-1">EditorToolbar.tsx</span>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">After — cohesive command modules</p>
+              <pre class="mermaid">
+flowchart TD
+  T["EditorToolbar\n(thin — renders buttons)"]
+  T --> H[useEditorHistory]
+  T --> B[useBlockFormatting]
+  T --> L[useLinkEditor]
+  T --> SP[useSpeechInput]
+              </pre>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem — </span>one component owns history, block-type, link-editing, speech-to-text and shortcut state together. Interface (props + internal state) is nearly as complex as the implementation — testing "insert a link" requires mounting the whole toolbar.</p>
+            <p><span class="font-semibold">Solution — </span>pull each concern into its own hook with a narrow interface (command + current state); `EditorToolbar` composes them and renders buttons.</p>
+          </div>
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li>Each command hook independently testable through its own interface</li>
+            <li>Locality: a link-editing bug can't hide in speech-input state</li>
+            <li>Toolbar shrinks to composition + rendering</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 5 -->
+        <article id="c5" class="space-y-5">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="font-serif text-2xl">5. Centralize the dev-bypass branch</h2>
+            <span class="badge-explore text-xs font-semibold px-2 py-1 rounded-full">Worth exploring</span>
+            <span class="tag text-xs font-semibold px-2 py-1 rounded-full">mock</span>
+          </div>
+          <p class="mono text-sm text-slate-600">useRealOAuth — 76 call sites across 25 files</p>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Before — call-graph, re-litigated everywhere</p>
+              <pre class="mermaid">
+flowchart TD
+  F1[route file 1] -->|"if (!useRealOAuth) return mock"| X1((branch))
+  F2[route file 2] -->|"if (!useRealOAuth) return mock"| X2((branch))
+  F3[route file 3] -->|"if (!useRealOAuth) return mock"| X3((branch))
+  FN["... 22 more files"] -->|"same branch"| XN((branch))
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class X1,X2,X3,XN leak
+              </pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4 diagram-shell">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">After — collapsed behind the repository seam</p>
+              <pre class="mermaid">
+flowchart TD
+  F1[route file 1] --> R["Repository module\n(candidate 2)"]
+  F2[route file 2] --> R
+  F3[route file 3] --> R
+  FN["... 22 more files"] --> R
+  R -.seam.-> Real["Adapter: live agent"]
+  R -.seam.-> Mock["Adapter: dev-bypass"]
+              </pre>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <p><span class="font-semibold">Problem — </span>a one-line boolean interface (`useRealOAuth`) still forces every one of 76 call sites to re-derive the same "mock or call the agent" branch. Interface is trivial; the decision it triggers is duplicated 76 times.</p>
+            <p><span class="font-semibold">Solution — </span>fold the branch into the repository module from candidate 2 (or `requireAtpAgent` where a repository isn't the right seam) so call sites just call the module.</p>
+          </div>
+          <ul class="text-sm space-y-1 list-disc list-inside text-slate-700">
+            <li>Leverage: one branch, not 76</li>
+            <li>Two real adapters (live / mock) justify keeping the seam</li>
+            <li>Distinct from the deferred oauthClient-sealing candidate — this is about the dev/real read branch, not OAuth client construction</li>
+          </ul>
+        </article>
+
+        <!-- CANDIDATE 6 -->
+        <article id="c6" class="space-y-5">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h2 class="font-serif text-2xl">6. Watch components/types.ts and utils.ts</h2>
+            <span class="badge-spec text-xs font-semibold px-2 py-1 rounded-full">Speculative</span>
+            <span class="tag text-xs font-semibold px-2 py-1 rounded-full">in-process</span>
+          </div>
+          <p class="mono text-sm text-slate-600">app/components/types.ts (36 lines) · app/components/utils.ts (37 lines)</p>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+            <span class="font-semibold">Problem — </span><code class="mono">types.ts</code> already mixes Site, Article, and tree concerns (<code class="mono">SiteCard</code>, <code class="mono">ArticleAssignment</code>, <code class="mono">TreeArticle</code>) with no sub-grouping; <code class="mono">utils.ts</code> mixes URL composition with generic ID generation. Neither is painful yet at ~36 lines each, but the shape is the early stage of a misc-bucket module — an interface that grows by accretion rather than by cohesion.
+            <br/><span class="font-semibold">Solution — </span>no action now. If either file crosses ~100 lines or a third unrelated concern lands in it, split by concept (site-shaped exports vs article-shaped exports) rather than growing the bucket further.
+          </div>
+        </article>
+
+      </section>
+
+      <section id="top-recommendation">
+        <div class="rounded-xl border-2 border-emerald-600 bg-emerald-50 p-6 space-y-2">
+          <p class="text-xs uppercase tracking-wider text-emerald-700 font-semibold">Top recommendation</p>
+          <h2 class="font-serif text-2xl">
+            <a href="#c1" class="underline decoration-emerald-600">1 — Collapse the Site manifest action</a>
+          </h2>
+          <p class="text-sm text-slate-700 max-w-2xl">
+            It's the most acute shallow module in the codebase (830 lines, 6 intents, zero test coverage) and it's a
+            concrete instance of the broader pattern in candidate 2. Extracting the Site manifest module first gives
+            candidate 2 (the repository seam) a real second call site to design against, and directly unblocks the
+            loader/action test coverage CLAUDE.md already flags as the next priority.
+          </p>
+        </div>
+      </section>
+
+    </main>
+  </body>
+</html>
