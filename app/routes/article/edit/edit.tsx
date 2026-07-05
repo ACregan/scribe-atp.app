@@ -126,6 +126,7 @@ export async function action({ request }: Route.ActionArgs) {
   const oldSiteRkeys: string[] = JSON.parse(
     (formData.get("oldSiteRkeys") as string) || "[]",
   );
+  const selectedSiteRkeys = formData.getAll("sites") as string[];
 
   const validationError = validateArticleFields(title, newSlug, splashImageUrl);
   if (validationError) return { ok: false as const, error: validationError };
@@ -139,7 +140,7 @@ export async function action({ request }: Route.ActionArgs) {
     const { agent, did } = await requireAtpAgent(request);
     const siteChanges = computeSiteAssignmentChanges(
       oldSiteRkeys,
-      oldSiteRkeys,
+      selectedSiteRkeys,
     );
     const now = new Date().toISOString();
 
