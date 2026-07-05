@@ -10,6 +10,14 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.11.8] — 2026-07-05
+
+### Fixed
+
+- **`/article/edit` site (re)assignment** — the action called `computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys)`, the same value for both "old" and "new", because the submitted `sites` field (posted by the same `ArticleForm` multi-select used on `/article/create`) was never read. This meant the edit page's site picker could never actually add or remove an article's site membership — every save silently kept the article's sites unchanged regardless of what the user selected. Now reads `formData.getAll("sites")` and diffs it against `oldSiteRkeys`, so sites can be both added and removed on save.
+
+---
+
 ## [5.11.7] — 2026-07-05
 
 ### Changed (internal)

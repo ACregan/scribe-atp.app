@@ -4,18 +4,15 @@ import { loader, action } from "./edit";
 import { requireAtpAgent } from "~/services/auth.server";
 
 // Characterization tests for the edit-article route's real-OAuth path
-// (useRealOAuth: true), written before extracting its document reads/writes
-// onto app/services/documentRepository.server.ts. Dev-bypass path is covered
-// in edit.devBypass.test.ts.
+// (useRealOAuth: true). Dev-bypass path is covered in edit.devBypass.test.ts.
 //
-// One test below deliberately characterizes (does NOT fix) a pre-existing
-// bug: the action calls computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys)
-// — the same value for both "old" and "new" — because no `sites` field is ever
-// read from the submitted form data. This means sitesToAdd/sitesToRemove are
-// always empty and the edit page's site multi-select cannot actually change
-// which sites an article belongs to. Fixing this needs a frontend change
-// (submitting the selected sites) as well as a backend one, which is out of
-// scope for this repository-seam extraction — flagged for its own ticket.
+// The "bug fix" tests in the "action — save" describe block assert the FIXED
+// site-reassignment behavior: the action now reads the submitted `sites`
+// field and diffs it against oldSiteRkeys via computeSiteAssignmentChanges,
+// so the edit page's site multi-select can actually add/remove/sync an
+// article's site membership. Previously the action called
+// computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys) — the same value
+// for both "old" and "new" — so sitesToAdd/sitesToRemove were always empty.
 
 vi.mock("~/services/auth.server", () => ({
   requireAtpAgent: vi.fn(),
@@ -85,17 +82,20 @@ function listRecordsByCollection(
   });
 }
 
-function makeRequest(entries?: Record<string, string>): Request {
+function makeRequest(entries?: Record<string, string | string[]>): Request {
   if (!entries) return new Request("http://localhost/article/edit/my-article");
   const formData = new FormData();
-  for (const [key, value] of Object.entries(entries)) formData.set(key, value);
+  for (const [key, value] of Object.entries(entries)) {
+    if (Array.isArray(value)) value.forEach((v) => formData.append(key, v));
+    else formData.set(key, value);
+  }
   return new Request("http://localhost/article/edit/my-article", {
     method: "POST",
     body: formData,
   });
 }
 
-function callAction(entries: Record<string, string>) {
+function callAction(entries: Record<string, string | string[]>) {
   return action({
     request: makeRequest(entries),
   } as unknown as Parameters<typeof action>[0]);
@@ -269,7 +269,7 @@ describe("action — validation", () => {
 });
 
 describe("action — save", () => {
-  function baseFields(overrides: Record<string, string> = {}) {
+  function baseFields(overrides: Record<string, string | string[]> = {}) {
     return {
       title: "Updated Title",
       content: "<p>Updated content</p>",
@@ -537,7 +537,7 @@ describe("action — save", () => {
     );
   });
 
-  it("characterizes (does not fix) the site-reassignment bug: sitesToSync always equals oldSiteRkeys since the same value is passed as both old and new rkeys", async () => {
+  it("bug fix: reads the submitted `sites` field and syncs the ref in a retained site", async () => {
     const articleUri = `at://${DID}/site.standard.document/the-rkey`;
     const sitePutRecord = vi
       .fn()
@@ -573,13 +573,13 @@ describe("action — save", () => {
     });
 
     await callAction(
-      baseFields({ rkey: "the-rkey", oldSiteRkeys: '["site-a"]' }),
+      baseFields({
+        rkey: "the-rkey",
+        oldSiteRkeys: '["site-a"]',
+        sites: ["site-a"],
+      }),
     );
 
-    // The site is neither added nor removed — it's only ever "synced" in
-    // place, because computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys)
-    // can never produce a diff. There is no form field carrying the user's
-    // selected sites for this to compare against.
     expect(sitePutRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         rkey: "site-a",
@@ -592,6 +592,110 @@ describe("action — save", () => {
               }),
             ],
           }),
+        }),
+      }),
+    );
+  });
+
+  it("bug fix: adds the article to a newly selected site", async () => {
+    const sitePutRecord = vi
+      .fn()
+      .mockResolvedValue({ data: { cid: "site-new-cid" } });
+    const putRecord = vi
+      .fn()
+      .mockImplementation((args) =>
+        args.collection === "site.standard.document"
+          ? Promise.resolve({ data: { cid: "new-cid" } })
+          : sitePutRecord(args),
+      );
+    const getRecord = vi.fn().mockImplementation((args) => {
+      if (args.collection === "site.standard.document") {
+        return Promise.resolve({ data: { value: {} } });
+      }
+      return Promise.resolve({
+        data: {
+          cid: "site-b-cid",
+          value: { scribe: { ungroupedArticles: [], groups: [] } },
+        },
+      });
+    });
+    const agent = makeAgent({ getRecord, putRecord });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: DID,
+    });
+
+    await callAction(
+      baseFields({
+        rkey: "the-rkey",
+        oldSiteRkeys: "[]",
+        sites: ["site-b"],
+      }),
+    );
+
+    expect(sitePutRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rkey: "site-b",
+        record: expect.objectContaining({
+          scribe: expect.objectContaining({
+            ungroupedArticles: [
+              expect.objectContaining({ title: "Updated Title" }),
+            ],
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("bug fix: removes the article from a deselected site", async () => {
+    const articleUri = `at://${DID}/site.standard.document/the-rkey`;
+    const sitePutRecord = vi
+      .fn()
+      .mockResolvedValue({ data: { cid: "site-new-cid" } });
+    const putRecord = vi
+      .fn()
+      .mockImplementation((args) =>
+        args.collection === "site.standard.document"
+          ? Promise.resolve({ data: { cid: "new-cid" } })
+          : sitePutRecord(args),
+      );
+    const getRecord = vi.fn().mockImplementation((args) => {
+      if (args.collection === "site.standard.document") {
+        return Promise.resolve({ data: { value: {} } });
+      }
+      return Promise.resolve({
+        data: {
+          cid: "site-a-cid",
+          value: {
+            scribe: {
+              ungroupedArticles: [{ uri: articleUri, title: "Old Title" }],
+              groups: [],
+            },
+          },
+        },
+      });
+    });
+    const agent = makeAgent({ getRecord, putRecord });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: DID,
+    });
+
+    await callAction(
+      baseFields({
+        rkey: "the-rkey",
+        oldSiteRkeys: '["site-a"]',
+        sites: [],
+      }),
+    );
+
+    expect(sitePutRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rkey: "site-a",
+        record: expect.objectContaining({
+          scribe: expect.objectContaining({ ungroupedArticles: [] }),
         }),
       }),
     );
