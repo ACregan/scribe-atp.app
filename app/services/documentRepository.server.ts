@@ -52,6 +52,23 @@ export async function createDocument(
   return { uri: result.data.uri, cid: result.data.cid };
 }
 
+export async function putDocument(
+  agent: Agent,
+  did: string,
+  rkey: string,
+  record: Record<string, unknown>,
+  swapRecord?: string,
+): Promise<{ cid: string }> {
+  const result = await agent.com.atproto.repo.putRecord({
+    repo: did,
+    collection: DOCUMENT_COLLECTION,
+    rkey,
+    record,
+    swapRecord,
+  });
+  return { cid: result.data.cid };
+}
+
 export async function deleteDocument(
   agent: Agent,
   did: string,

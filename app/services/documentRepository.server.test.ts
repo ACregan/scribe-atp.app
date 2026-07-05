@@ -3,6 +3,7 @@ import type { Agent } from "@atproto/api";
 import {
   createDocument,
   listDocuments,
+  putDocument,
   deleteDocument,
 } from "./documentRepository.server";
 
@@ -12,6 +13,7 @@ function makeAgent(
   overrides: {
     listRecords?: ReturnType<typeof vi.fn>;
     createRecord?: ReturnType<typeof vi.fn>;
+    putRecord?: ReturnType<typeof vi.fn>;
     deleteRecord?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
@@ -21,6 +23,7 @@ function makeAgent(
         repo: {
           listRecords: overrides.listRecords ?? vi.fn(),
           createRecord: overrides.createRecord ?? vi.fn(),
+          putRecord: overrides.putRecord ?? vi.fn(),
           deleteRecord: overrides.deleteRecord ?? vi.fn(),
         },
       },
@@ -111,6 +114,34 @@ describe("deleteDocument", () => {
     await deleteDocument(agent, DID, "a");
 
     expect(deleteRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ swapRecord: undefined }),
+    );
+  });
+});
+
+describe("putDocument", () => {
+  it("passes swapRecord through to putRecord", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({ putRecord });
+
+    await putDocument(agent, DID, "a", { title: "A" }, "old-cid");
+
+    expect(putRecord).toHaveBeenCalledWith({
+      repo: DID,
+      collection: "site.standard.document",
+      rkey: "a",
+      record: { title: "A" },
+      swapRecord: "old-cid",
+    });
+  });
+
+  it("omits swapRecord when not provided", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({ putRecord });
+
+    await putDocument(agent, DID, "a", { title: "A" });
+
+    expect(putRecord).toHaveBeenCalledWith(
       expect.objectContaining({ swapRecord: undefined }),
     );
   });
