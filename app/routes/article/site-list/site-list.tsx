@@ -45,7 +45,6 @@ import { DOCUMENT_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
   type SiteManifest,
-  type SiteRecordValue,
   type TreeGroupNode,
   toSlug,
   treeToSiteData,
@@ -62,6 +61,7 @@ import {
   deleteGroup as deleteGroupManifest,
   moveArticleToDraft as moveArticleToDraftManifest,
   removeArticleFromSite as removeArticleFromSiteManifest,
+  saveSiteOrder,
   validateGroupFields,
 } from "~/services/siteManifest.server";
 import { resolveThumbUrl } from "~/services/article.server";
@@ -183,153 +183,14 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "saveSite") {
     const siteDataJson = formData.get("siteData") as string;
     if (!siteDataJson) return { error: "No data." };
+    if (!useRealOAuth) return { ok: true };
 
-    if (useRealOAuth) {
-      try {
-        const agent = await getAtpAgent(did);
-        const { groups, ungroupedArticles } = JSON.parse(siteDataJson) as {
-          groups: SiteGroup[];
-          ungroupedArticles: ArticleRef[];
-        };
-
-        // GET current site once — used for CID swap and old group positions
-        const currentSite = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-        });
-        const currentPubRecord = currentSite.data.value as Record<
-          string,
-          unknown
-        >;
-        const currentScribeExt =
-          (currentPubRecord.scribe as Record<string, unknown>) ?? {};
-        const domain = String(currentScribeExt.domain ?? "");
-        const basePath = String(currentScribeExt.basePath ?? "");
-        const currentScribe = currentScribeExt as SiteRecordValue;
-
-        // Track which group each published article was in before the save
-        const oldGroupByUri = new Map<string, string>();
-        for (const g of currentScribe.groups ?? []) {
-          for (const a of g.articles ?? []) {
-            if (a.uri.includes(`/${DOCUMENT_COLLECTION}/`)) {
-              oldGroupByUri.set(a.uri, g.slug);
-            }
-          }
-        }
-
-        // Save the manifest
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: siteSlug,
-          record: {
-            ...currentPubRecord,
-            scribe: {
-              ...currentScribe,
-              groups: groups as SiteRecordValue["groups"],
-              ungroupedArticles,
-              updatedAt: new Date().toISOString(),
-            },
-          },
-          swapRecord: currentSite.data.cid,
-        });
-
-        // Update path and canonicalUrl on published articles that moved between groups
-        const pathUpdates = groups.flatMap((g) =>
-          (g.articles ?? [])
-            .filter(
-              (a) =>
-                a.uri.includes(`/${DOCUMENT_COLLECTION}/`) &&
-                oldGroupByUri.get(a.uri) !== g.slug,
-            )
-            .map(async (a) => {
-              const rkey = a.uri.split("/").pop()!;
-              const slug = a.slug ?? rkey;
-              const newPath = `/${g.slug}/${slug}`;
-              const { data } = await agent.com.atproto.repo.getRecord({
-                repo: did,
-                collection: DOCUMENT_COLLECTION,
-                rkey,
-              });
-              const docVal = data.value as Record<string, unknown>;
-              if (docVal.path === newPath) return;
-              const newCanonicalUrl = basePath
-                ? `https://${domain}/${basePath}${newPath}`
-                : `https://${domain}${newPath}`;
-              await agent.com.atproto.repo.putRecord({
-                repo: did,
-                collection: DOCUMENT_COLLECTION,
-                rkey,
-                record: {
-                  ...docVal,
-                  path: newPath,
-                  scribe: {
-                    ...((docVal.scribe as Record<string, unknown>) ?? {}),
-                    canonicalUrl: newCanonicalUrl,
-                  },
-                  updatedAt: new Date().toISOString(),
-                },
-                swapRecord: data.cid,
-              });
-            }),
-        );
-
-        // Update path and canonicalUrl on documents moved to ungroupedArticles from a named group
-        const ungroupedUpdates = ungroupedArticles
-          .filter(
-            (a) =>
-              a.uri.includes(`/${DOCUMENT_COLLECTION}/`) &&
-              oldGroupByUri.has(a.uri),
-          )
-          .map(async (a) => {
-            const arkey = a.uri.split("/").pop()!;
-            const aslug = a.slug ?? arkey;
-            const newPath = `/${aslug}`;
-            const { data } = await agent.com.atproto.repo.getRecord({
-              repo: did,
-              collection: DOCUMENT_COLLECTION,
-              rkey: arkey,
-            });
-            const docVal = data.value as Record<string, unknown>;
-            if (docVal.path === newPath) return;
-            const newCanonicalUrl = basePath
-              ? `https://${domain}/${basePath}${newPath}`
-              : `https://${domain}${newPath}`;
-            await agent.com.atproto.repo.putRecord({
-              repo: did,
-              collection: DOCUMENT_COLLECTION,
-              rkey: arkey,
-              record: {
-                ...docVal,
-                path: newPath,
-                scribe: {
-                  ...((docVal.scribe as Record<string, unknown>) ?? {}),
-                  canonicalUrl: newCanonicalUrl,
-                },
-                updatedAt: new Date().toISOString(),
-              },
-              swapRecord: data.cid,
-            });
-          });
-
-        const saveResults = await Promise.allSettled([
-          ...pathUpdates,
-          ...ungroupedUpdates,
-        ]);
-        const saveFailures = saveResults.filter(
-          (r) => r.status === "rejected",
-        ).length;
-        if (saveFailures > 0) {
-          return { error: `${saveFailures} article path(s) failed to update.` };
-        }
-      } catch (err) {
-        console.error("Failed to save site:", err);
-        return { error: `Failed to save order: ${String(err)}` };
-      }
-    }
-
-    return { ok: true };
+    const agent = await getAtpAgent(did);
+    const { groups, ungroupedArticles } = JSON.parse(siteDataJson) as {
+      groups: SiteGroup[];
+      ungroupedArticles: ArticleRef[];
+    };
+    return saveSiteOrder(agent, did, siteSlug, { groups, ungroupedArticles });
   }
 
   if (intent === "removeArticle") {

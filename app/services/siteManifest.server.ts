@@ -1,8 +1,11 @@
 import { Agent } from "@atproto/api";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import { toSlug, removeArticleRef } from "~/routes/article/site-list/siteTree";
-import type { SiteManifest } from "~/routes/article/site-list/siteTree";
-import type { ArticleRef } from "~/hooks/types";
+import type {
+  SiteManifest,
+  SiteRecordValue,
+} from "~/routes/article/site-list/siteTree";
+import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import { DOCUMENT_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 
 // Business logic for site-manifest mutations (groups, article placement,
@@ -186,6 +189,128 @@ export async function moveArticleToDraft(
   } catch (err) {
     console.error("Failed to move article to draft:", err);
     return { ok: false, error: err };
+  }
+  return { ok: true };
+}
+
+// Pure — given the group each published article was in before the save, plus
+// the new tree and domain/basePath, computes which documents need a
+// path/canonicalUrl rewrite. Covers both group->group moves and
+// group->ungrouped moves. Whether a candidate's path has *actually* changed
+// can only be known after fetching the document, so that check stays in the
+// I/O wrapper below.
+export function computeDocumentPathUpdates(
+  oldGroupByUri: Map<string, string>,
+  groups: SiteGroup[],
+  ungroupedArticles: ArticleRef[],
+  domain: string,
+  basePath: string,
+): Array<{ rkey: string; newPath: string; newCanonicalUrl: string }> {
+  const canonicalUrl = (path: string) =>
+    basePath
+      ? `https://${domain}/${basePath}${path}`
+      : `https://${domain}${path}`;
+
+  const groupMoves = groups.flatMap((g) =>
+    (g.articles ?? [])
+      .filter(
+        (a) =>
+          a.uri.includes(`/${DOCUMENT_COLLECTION}/`) &&
+          oldGroupByUri.get(a.uri) !== g.slug,
+      )
+      .map((a) => {
+        const rkey = a.uri.split("/").pop()!;
+        const newPath = `/${g.slug}/${a.slug ?? rkey}`;
+        return { rkey, newPath, newCanonicalUrl: canonicalUrl(newPath) };
+      }),
+  );
+
+  const ungroupedMoves = ungroupedArticles
+    .filter(
+      (a) =>
+        a.uri.includes(`/${DOCUMENT_COLLECTION}/`) && oldGroupByUri.has(a.uri),
+    )
+    .map((a) => {
+      const rkey = a.uri.split("/").pop()!;
+      const newPath = `/${a.slug ?? rkey}`;
+      return { rkey, newPath, newCanonicalUrl: canonicalUrl(newPath) };
+    });
+
+  return [...groupMoves, ...ungroupedMoves];
+}
+
+export async function saveSiteOrder(
+  agent: Agent,
+  did: string,
+  siteSlug: string,
+  data: { groups: SiteGroup[]; ungroupedArticles: ArticleRef[] },
+): Promise<{ ok: true } | { error: string }> {
+  const { groups, ungroupedArticles } = data;
+  try {
+    let domain = "";
+    let basePath = "";
+    const oldGroupByUri = new Map<string, string>();
+
+    // Overwrite the manifest; capture the pre-save domain/basePath/group
+    // membership from the old record as a side effect of the mutate callback.
+    await mutateSiteRecord(agent, did, siteSlug, (record) => {
+      domain = String(record.domain ?? "");
+      basePath = String(record.basePath ?? "");
+      for (const g of record.groups ?? []) {
+        for (const a of g.articles ?? []) {
+          if (a.uri.includes(`/${DOCUMENT_COLLECTION}/`)) {
+            oldGroupByUri.set(a.uri, g.slug);
+          }
+        }
+      }
+      return {
+        ...record,
+        groups: groups as SiteRecordValue["groups"],
+        ungroupedArticles,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    const updates = computeDocumentPathUpdates(
+      oldGroupByUri,
+      groups,
+      ungroupedArticles,
+      domain,
+      basePath,
+    );
+    const results = await Promise.allSettled(
+      updates.map(async ({ rkey, newPath, newCanonicalUrl }) => {
+        const { data: docData } = await agent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey,
+        });
+        const docVal = docData.value as Record<string, unknown>;
+        if (docVal.path === newPath) return;
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: DOCUMENT_COLLECTION,
+          rkey,
+          record: {
+            ...docVal,
+            path: newPath,
+            scribe: {
+              ...((docVal.scribe as Record<string, unknown>) ?? {}),
+              canonicalUrl: newCanonicalUrl,
+            },
+            updatedAt: new Date().toISOString(),
+          },
+          swapRecord: docData.cid,
+        });
+      }),
+    );
+    const failures = results.filter((r) => r.status === "rejected").length;
+    if (failures > 0) {
+      return { error: `${failures} article path(s) failed to update.` };
+    }
+  } catch (err) {
+    console.error("Failed to save site:", err);
+    return { error: `Failed to save order: ${String(err)}` };
   }
   return { ok: true };
 }
