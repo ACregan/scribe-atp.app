@@ -20,11 +20,16 @@ import { devSitesLoader } from "~/services/devFixtures.server";
 import { SiteTile } from "~/components/SiteTile/SiteTile";
 import { type SiteCard } from "~/components/types";
 
-import { SITE_COLLECTION, DOMAIN_RE } from "~/constants";
+import { DOMAIN_RE, SITE_COLLECTION } from "~/constants";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import SiteListItem from "~/components/SiteListItem/SiteListItem";
 import { useTheme } from "~/context/ThemeContext";
 import { logger } from "~/services/logger.server";
+import {
+  createSite as createSiteRecord,
+  deleteSite as deleteSiteRecord,
+  listSites,
+} from "~/services/siteRepository.server";
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -38,34 +43,35 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!useRealOAuth) return devSitesLoader();
 
   const agent = await getAtpAgent(did);
-  const result = await agent.com.atproto.repo.listRecords({
-    repo: did,
-    collection: SITE_COLLECTION,
-    limit: 100,
-  });
+  const records = await listSites(agent, did);
 
-  const sites: SiteCard[] = result.data.records
-    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
+  const sites: SiteCard[] = records
+    .filter((record) => record.value.scribe != null)
     .map((record) => {
-    const v = record.value as Record<string, unknown>;
-    const scribe = (v.scribe as Record<string, unknown>) ?? {};
-    const groups = (scribe.groups as Array<{ articles: unknown[] }>) ?? [];
-    const topArticles = (scribe.ungroupedArticles as unknown[]) ?? [];
-    return {
-      rkey: record.uri.split("/").pop()!,
-      cid: record.cid,
-      title: String(scribe.title ?? ""),
-      url: String(scribe.domain ?? ""),
-      urlPrefix: String(scribe.basePath ?? ""),
-      description: scribe.description ? String(scribe.description) : undefined,
-      splashImageUrl: scribe.splashImageUrl ? String(scribe.splashImageUrl) : undefined,
-      logoImageUrl: scribe.logoImageUrl ? String(scribe.logoImageUrl) : undefined,
-      groupCount: groups.length,
-      articleCount:
-        groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0) +
-        topArticles.length,
-    };
-  });
+      const scribe = (record.value.scribe as Record<string, unknown>) ?? {};
+      const groups = (scribe.groups as Array<{ articles: unknown[] }>) ?? [];
+      const topArticles = (scribe.ungroupedArticles as unknown[]) ?? [];
+      return {
+        rkey: record.rkey,
+        cid: record.cid,
+        title: String(scribe.title ?? ""),
+        url: String(scribe.domain ?? ""),
+        urlPrefix: String(scribe.basePath ?? ""),
+        description: scribe.description
+          ? String(scribe.description)
+          : undefined,
+        splashImageUrl: scribe.splashImageUrl
+          ? String(scribe.splashImageUrl)
+          : undefined,
+        logoImageUrl: scribe.logoImageUrl
+          ? String(scribe.logoImageUrl)
+          : undefined,
+        groupCount: groups.length,
+        articleCount:
+          groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0) +
+          topArticles.length,
+      };
+    });
 
   return { sites };
 }
@@ -109,28 +115,23 @@ export async function action({ request }: Route.ActionArgs) {
       try {
         const agent = await getAtpAgent(did);
         const now = new Date().toISOString();
-        await agent.com.atproto.repo.createRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey,
-          record: {
-            $type: SITE_COLLECTION,
-            url: `https://${url}`,
-            name: title,
-            preferences: { showInDiscover },
-            scribe: {
-              domain: url,
-              basePath: urlPrefix,
-              title,
-              ...(description && { description }),
-              ...(splashImageUrl && { splashImageUrl }),
-              ...(logoImageUrl && { logoImageUrl }),
-              contributors: [],
-              groups: [],
-              ungroupedArticles: [],
-              createdAt: now,
-              updatedAt: now,
-            },
+        await createSiteRecord(agent, did, rkey, {
+          $type: SITE_COLLECTION,
+          url: `https://${url}`,
+          name: title,
+          preferences: { showInDiscover },
+          scribe: {
+            domain: url,
+            basePath: urlPrefix,
+            title,
+            ...(description && { description }),
+            ...(splashImageUrl && { splashImageUrl }),
+            ...(logoImageUrl && { logoImageUrl }),
+            contributors: [],
+            groups: [],
+            ungroupedArticles: [],
+            createdAt: now,
+            updatedAt: now,
           },
         });
       } catch (err) {
@@ -154,12 +155,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
-        await agent.com.atproto.repo.deleteRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey,
-          swapRecord: cid,
-        });
+        await deleteSiteRecord(agent, did, rkey, cid);
       } catch (err) {
         return { ok: false, error: `Failed to delete site: ${String(err)}` };
       }
@@ -397,7 +393,14 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             label="Logo Image URL"
             placeholder="https://…"
           />
-          <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.4rem" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.6rem",
+              fontSize: "1.4rem",
+            }}
+          >
             <input type="checkbox" name="showInDiscover" defaultChecked />
             Show in Discover
           </label>
