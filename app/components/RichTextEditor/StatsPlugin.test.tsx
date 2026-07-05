@@ -68,24 +68,20 @@ describe("readingTime", () => {
     expect(readingTime(0)).toBe("< 1 min read");
   });
 
-  it("returns '< 1 min read' for 249 words", () => {
-    expect(readingTime(249)).toBe("< 1 min read");
+  it("returns '< 1 min read' for 224 words", () => {
+    expect(readingTime(224)).toBe("< 1 min read");
   });
 
-  it("returns '1 min read' for exactly 250 words", () => {
-    expect(readingTime(250)).toBe("1 min read");
+  it("returns '1 min read' for exactly 225 words", () => {
+    expect(readingTime(225)).toBe("1 min read");
   });
 
-  it("returns '1 min read' for 499 words", () => {
-    expect(readingTime(499)).toBe("1 min read");
+  it("returns '1 min read' for 449 words", () => {
+    expect(readingTime(449)).toBe("1 min read");
   });
 
-  it("returns '1 min read' for 499 words", () => {
-    expect(readingTime(499)).toBe("1 min read");
-  });
-
-  it("returns '2 min read' for 500 words", () => {
-    expect(readingTime(500)).toBe("2 min read");
+  it("returns '2 min read' for 450 words", () => {
+    expect(readingTime(450)).toBe("2 min read");
   });
 });
 
