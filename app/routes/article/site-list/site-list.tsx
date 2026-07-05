@@ -49,7 +49,6 @@ import {
   type TreeGroupNode,
   toSlug,
   treeToSiteData,
-  removeArticleRef,
   updateArticleRef,
 } from "./siteTree";
 import { useDirtyTree } from "./useDirtyTree";
@@ -61,6 +60,8 @@ import {
 import {
   createGroup as createGroupManifest,
   deleteGroup as deleteGroupManifest,
+  moveArticleToDraft as moveArticleToDraftManifest,
+  removeArticleFromSite as removeArticleFromSiteManifest,
   validateGroupFields,
 } from "~/services/siteManifest.server";
 import { resolveThumbUrl } from "~/services/article.server";
@@ -336,14 +337,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!uri) return redirect(`/article/list/${siteSlug}`);
 
     if (useRealOAuth) {
-      try {
-        const agent = await getAtpAgent(did);
-        await mutateSiteRecord(agent, did, siteSlug, (val) =>
-          removeArticleRef(val, uri),
-        );
-      } catch (err) {
-        console.error("Failed to remove article:", err);
-      }
+      const agent = await getAtpAgent(did);
+      await removeArticleFromSiteManifest(agent, did, siteSlug, uri);
     }
 
     return redirect(`/article/list/${siteSlug}`);
@@ -354,69 +349,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!uri) return redirect(`/article/list/${siteSlug}`);
 
     if (useRealOAuth) {
-      try {
-        const agent = await getAtpAgent(did);
-        const rkey = uri.split("/").pop()!;
-        const now = new Date().toISOString();
-
-        const docResult = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          rkey,
-        });
-        const doc = docResult.data.value as Record<string, unknown>;
-        const slug =
-          String(doc.path ?? "")
-            .split("/")
-            .pop() || rkey;
-
-        // Move ref from named group → ungroupedArticles (URI unchanged)
-        await mutateSiteRecord(agent, did, siteSlug, (val) => {
-          let existingRef: ArticleRef | undefined;
-          const newGroups = (val.groups ?? []).map((g) => {
-            const found = g.articles.find((a) => a.uri === uri);
-            if (found) existingRef = found;
-            return { ...g, articles: g.articles.filter((a) => a.uri !== uri) };
-          });
-          const ref = existingRef ?? {
-            uri,
-            slug,
-            title: String(doc.title ?? ""),
-            splashImageUrl: doc.splashImageUrl
-              ? String(doc.splashImageUrl)
-              : null,
-            description: doc.description ? String(doc.description) : null,
-            createdAt: String(doc.createdAt ?? now),
-            updatedAt: now,
-          };
-          return {
-            ...val,
-            groups: newGroups,
-            ungroupedArticles: [...(val.ungroupedArticles ?? []), ref],
-            updatedAt: now,
-          };
-        });
-
-        // Reset document path to /{slug} and clear published-only fields
-        const updatedDoc: Record<string, unknown> = { ...doc };
-        updatedDoc.path = `/${slug}`;
-        updatedDoc.updatedAt = now;
-        delete updatedDoc.publishedAt;
-        const updatedScribe = {
-          ...((updatedDoc.scribe as Record<string, unknown>) ?? {}),
-        };
-        delete updatedScribe.canonicalUrl;
-        updatedDoc.scribe = updatedScribe;
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          rkey,
-          record: updatedDoc,
-          swapRecord: docResult.data.cid,
-        });
-      } catch (err) {
-        console.error("Failed to move article to draft:", err);
-      }
+      const agent = await getAtpAgent(did);
+      await moveArticleToDraftManifest(agent, did, siteSlug, uri);
     }
 
     return redirect(`/article/list/${siteSlug}`);

@@ -1,8 +1,9 @@
 import { Agent } from "@atproto/api";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
-import { toSlug } from "~/routes/article/site-list/siteTree";
+import { toSlug, removeArticleRef } from "~/routes/article/site-list/siteTree";
 import type { SiteManifest } from "~/routes/article/site-list/siteTree";
-import { SITE_COLLECTION, SLUG_RE } from "~/constants";
+import type { ArticleRef } from "~/hooks/types";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 
 // Business logic for site-manifest mutations (groups, article placement,
 // publish/draft transitions) extracted from the site-list route's action.
@@ -90,4 +91,101 @@ export async function deleteGroup(
     return { ok: false, error: `Failed to delete group: ${String(err)}` };
   }
   return { ok: true, deletedSlug: groupSlug };
+}
+
+// Route awaits, discards, and always redirects regardless of outcome —
+// matches the existing "errors are logged, never surfaced" behaviour.
+export async function removeArticleFromSite(
+  agent: Agent,
+  did: string,
+  siteSlug: string,
+  uri: string,
+): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  try {
+    await mutateSiteRecord(agent, did, siteSlug, (val) =>
+      removeArticleRef(val, uri),
+    );
+  } catch (err) {
+    console.error("Failed to remove article:", err);
+    return { ok: false, error: err };
+  }
+  return { ok: true };
+}
+
+// Same swallow-and-log contract as removeArticleFromSite.
+export async function moveArticleToDraft(
+  agent: Agent,
+  did: string,
+  siteSlug: string,
+  uri: string,
+): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  try {
+    const rkey = uri.split("/").pop()!;
+    const now = new Date().toISOString();
+
+    const docResult = await agent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      rkey,
+    });
+    const doc = docResult.data.value as Record<string, unknown>;
+    const slug =
+      String(doc.path ?? "")
+        .split("/")
+        .pop() || rkey;
+
+    // Move ref from named group -> ungroupedArticles (URI unchanged).
+    // Bug fix: also drop any existing ungroupedArticles entry for this uri
+    // before appending, so re-running this on an already-draft article
+    // (previously only prevented by the UI hiding the button) can't
+    // duplicate the ArticleRef.
+    await mutateSiteRecord(agent, did, siteSlug, (val) => {
+      let existingRef: ArticleRef | undefined;
+      const newGroups = (val.groups ?? []).map((g) => {
+        const found = g.articles.find((a) => a.uri === uri);
+        if (found) existingRef = found;
+        return { ...g, articles: g.articles.filter((a) => a.uri !== uri) };
+      });
+      const ref = existingRef ?? {
+        uri,
+        slug,
+        title: String(doc.title ?? ""),
+        splashImageUrl: doc.splashImageUrl ? String(doc.splashImageUrl) : null,
+        description: doc.description ? String(doc.description) : null,
+        createdAt: String(doc.createdAt ?? now),
+        updatedAt: now,
+      };
+      return {
+        ...val,
+        groups: newGroups,
+        ungroupedArticles: [
+          ...(val.ungroupedArticles ?? []).filter((a) => a.uri !== uri),
+          ref,
+        ],
+        updatedAt: now,
+      };
+    });
+
+    // Reset document path to /{slug} and clear published-only fields
+    const updatedDoc: Record<string, unknown> = { ...doc };
+    updatedDoc.path = `/${slug}`;
+    updatedDoc.updatedAt = now;
+    delete updatedDoc.publishedAt;
+    const updatedScribe = {
+      ...((updatedDoc.scribe as Record<string, unknown>) ?? {}),
+    };
+    delete updatedScribe.canonicalUrl;
+    updatedDoc.scribe = updatedScribe;
+    await agent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      rkey,
+      record: updatedDoc,
+      swapRecord: docResult.data.cid,
+    });
+  } catch (err) {
+    console.error("Failed to move article to draft:", err);
+    return { ok: false, error: err };
+  }
+  return { ok: true };
 }
