@@ -10,6 +10,14 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.11.4] — 2026-07-05
+
+### Changed (internal)
+
+- **Document repository seam introduced** — `app/routes/article/create/create.tsx`'s article-creation call no longer hand-rolls `agent.com.atproto.repo.createRecord` directly; extracted to new `app/services/documentRepository.server.ts` (`createDocument`), second of five routes migrating onto a shared repository seam per the architecture review (candidate #2). Added test coverage for `create.tsx` (previously untested) and the new module. `documentRepository.server.ts` will grow `getDocument`/`putDocument`/`deleteDocument`/`listDocuments` as `list.tsx`, `configure.tsx`, and `edit.tsx` migrate onto it in follow-up PRs.
+
+---
+
 ## [5.11.3] — 2026-07-05
 
 ### Changed (internal)
