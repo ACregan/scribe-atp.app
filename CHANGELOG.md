@@ -10,6 +10,19 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.11.5] — 2026-07-05
+
+### Fixed
+
+- **`/article/list` delete** — deleting an article's PDS record never removed its `ArticleRef` from any site's `ungroupedArticles`/`groups`, leaving orphaned refs pointing at a deleted record; now cleans those up on every site that references the deleted article.
+- **`/article/list`** — the loader and delete action had no error handling at all; a PDS failure crashed instead of degrading gracefully (loader now redirects to `/`, action now returns `{ ok: false, error }`).
+
+### Changed (internal)
+
+- **Third route migrated onto the repository seam** — `app/routes/article/list/list.tsx`'s loader/action no longer hand-roll `agent.com.atproto.repo.*` calls; uses `listDocuments`/`deleteDocument` (`documentRepository.server.ts`, now also covering list/delete) and `listSites` (`siteRepository.server.ts`). Both document and site listing are now paginated internally (previously `limit: 100` with no cursor on either). Added test coverage for `list.tsx` (previously untested).
+
+---
+
 ## [5.11.4] — 2026-07-05
 
 ### Changed (internal)

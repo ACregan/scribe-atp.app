@@ -1,8 +1,15 @@
 import type { Route } from "./+types/list";
-import { Form, Link } from "react-router";
+import { Form, Link, redirect } from "react-router";
 import { useRef, useState } from "react";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { devArticleListLoader } from "~/services/devFixtures.server";
+import {
+  listDocuments,
+  deleteDocument,
+} from "~/services/documentRepository.server";
+import { listSites } from "~/services/siteRepository.server";
+import { findSitesContaining } from "~/services/articleSiteSync.server";
+import { removeArticleFromSite } from "~/services/siteManifest.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -12,7 +19,7 @@ import {
   PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
-import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
@@ -47,101 +54,99 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const { agent, did, handle } = await requireAtpAgent(request);
 
-  const [publishedResult, sitesResult] = await Promise.all([
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: DOCUMENT_COLLECTION,
-      limit: 100,
-    }),
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: SITE_COLLECTION,
-      limit: 100,
-    }),
-  ]);
+  try {
+    const [documentRecords, siteRecords] = await Promise.all([
+      listDocuments(agent, did),
+      listSites(agent, did),
+    ]);
 
-  const assignmentMap = new Map<string, ArticleAssignment[]>();
+    const assignmentMap = new Map<string, ArticleAssignment[]>();
 
-  for (const record of sitesResult.data.records) {
-    const value = record.value as Record<string, unknown>;
-    if (value.scribe == null) continue;
-    const scribe = value.scribe as Record<string, unknown>;
-    const siteRkey = record.uri.split("/").pop()!;
-    const siteBase = {
-      siteTitle: String(scribe.title ?? ""),
-      siteRkey,
-      siteAtUri: record.uri,
-      siteUrl: String(scribe.domain ?? ""),
-      siteUrlPrefix: String(scribe.basePath ?? ""),
-      logoImageUrl: scribe.logoImageUrl
-        ? String(scribe.logoImageUrl)
-        : undefined,
-      splashImageUrl: scribe.splashImageUrl
-        ? String(scribe.splashImageUrl)
-        : undefined,
-    };
+    for (const record of siteRecords) {
+      const value = record.value;
+      if (value.scribe == null) continue;
+      const scribe = value.scribe as Record<string, unknown>;
+      const siteBase = {
+        siteTitle: String(scribe.title ?? ""),
+        siteRkey: record.rkey,
+        siteAtUri: record.uri,
+        siteUrl: String(scribe.domain ?? ""),
+        siteUrlPrefix: String(scribe.basePath ?? ""),
+        logoImageUrl: scribe.logoImageUrl
+          ? String(scribe.logoImageUrl)
+          : undefined,
+        splashImageUrl: scribe.splashImageUrl
+          ? String(scribe.splashImageUrl)
+          : undefined,
+      };
 
-    for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ??
-      []) {
-      const list = assignmentMap.get(a.uri) ?? [];
-      list.push({ ...siteBase });
-      assignmentMap.set(a.uri, list);
-    }
-
-    for (const g of (scribe.groups as Array<{
-      slug: string;
-      title: string;
-      articles: Array<{ uri: string }>;
-    }>) ?? []) {
-      for (const a of g.articles ?? []) {
+      for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ??
+        []) {
         const list = assignmentMap.get(a.uri) ?? [];
-        list.push({ ...siteBase, groupTitle: g.title, groupSlug: g.slug });
+        list.push({ ...siteBase });
         assignmentMap.set(a.uri, list);
       }
+
+      for (const g of (scribe.groups as Array<{
+        slug: string;
+        title: string;
+        articles: Array<{ uri: string }>;
+      }>) ?? []) {
+        for (const a of g.articles ?? []) {
+          const list = assignmentMap.get(a.uri) ?? [];
+          list.push({ ...siteBase, groupTitle: g.title, groupSlug: g.slug });
+          assignmentMap.set(a.uri, list);
+        }
+      }
     }
+
+    const publishedArticles: PublishedArticle[] = documentRecords
+      .filter((record) => assignmentMap.has(record.uri))
+      .map((record) => {
+        const value = record.value;
+        return {
+          rkey: record.rkey,
+          uri: record.uri,
+          title: String(value.title ?? "Untitled"),
+          slug:
+            String(value.path ?? "")
+              .split("/")
+              .filter(Boolean)
+              .pop() ?? "",
+          publishedAt: value.publishedAt
+            ? String(value.publishedAt)
+            : undefined,
+          assignments: assignmentMap.get(record.uri) ?? [],
+        };
+      })
+      .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
+
+    // Orphaned = DOCUMENT_COLLECTION records not referenced in any site manifest
+    const orphanedDrafts: OrphanedDraft[] = documentRecords
+      .filter((r) => !assignmentMap.has(r.uri))
+      .map((record) => {
+        const value = record.value;
+        const path = String(value.path ?? "");
+        return {
+          rkey: record.rkey,
+          uri: record.uri,
+          title: String(value.title ?? "Untitled"),
+          slug: path.split("/").pop() || record.rkey,
+          cid: record.cid ?? "",
+          createdAt: String(value.createdAt ?? ""),
+        };
+      });
+
+    return {
+      publishedArticles,
+      orphanedDrafts,
+      authorDid: did,
+      authorHandle: handle,
+    };
+  } catch (err) {
+    console.error("Failed to load article list:", err);
+    throw redirect("/");
   }
-
-  const publishedArticles: PublishedArticle[] = publishedResult.data.records
-    .filter((record) => assignmentMap.has(record.uri))
-    .map((record) => {
-      const value = record.value as Record<string, unknown>;
-      return {
-        rkey: record.uri.split("/").pop()!,
-        uri: record.uri,
-        title: String(value.title ?? "Untitled"),
-        slug:
-          String(value.path ?? "")
-            .split("/")
-            .filter(Boolean)
-            .pop() ?? "",
-        publishedAt: value.publishedAt ? String(value.publishedAt) : undefined,
-        assignments: assignmentMap.get(record.uri) ?? [],
-      };
-    })
-    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
-
-  // Orphaned = DOCUMENT_COLLECTION records not referenced in any site manifest
-  const orphanedDrafts: OrphanedDraft[] = publishedResult.data.records
-    .filter((r) => !assignmentMap.has(r.uri))
-    .map((record) => {
-      const value = record.value as Record<string, unknown>;
-      const path = String(value.path ?? "");
-      return {
-        rkey: record.uri.split("/").pop()!,
-        uri: record.uri,
-        title: String(value.title ?? "Untitled"),
-        slug: path.split("/").pop() || record.uri.split("/").pop()!,
-        cid: record.cid ?? "",
-        createdAt: String(value.createdAt ?? ""),
-      };
-    });
-
-  return {
-    publishedArticles,
-    orphanedDrafts,
-    authorDid: did,
-    authorHandle: handle,
-  };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -151,12 +156,26 @@ export async function action({ request }: Route.ActionArgs) {
   const { agent, did } = await requireAtpAgent(request);
   const rkey = formData.get("rkey") as string;
   const cid = formData.get("cid") as string | null;
-  await agent.com.atproto.repo.deleteRecord({
-    repo: did,
-    collection: DOCUMENT_COLLECTION,
-    rkey,
-    swapRecord: cid ?? undefined,
-  });
+
+  try {
+    await deleteDocument(agent, did, rkey, cid ?? undefined);
+
+    // Bug fix: an ArticleRef for this uri may still be cached in a site's
+    // ungroupedArticles/groups even though it's orphaned on this screen
+    // (e.g. it was removed from its owning site but still referenced
+    // elsewhere) — clean those up too so deleting doesn't leave dangling refs.
+    const uri = `at://${did}/${DOCUMENT_COLLECTION}/${rkey}`;
+    const siteRkeys = await findSitesContaining(agent, did, uri);
+    await Promise.allSettled(
+      siteRkeys.map((siteRkey) =>
+        removeArticleFromSite(agent, did, siteRkey, uri),
+      ),
+    );
+  } catch (err) {
+    console.error("Failed to delete article:", err);
+    return { ok: false, error: `Failed to delete article: ${String(err)}` };
+  }
+
   logger.info(
     { event: "article.delete", user_did: did, rkey },
     "article.delete",
