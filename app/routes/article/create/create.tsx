@@ -9,16 +9,14 @@ import {
   PageContainer,
   PageContainerHeading,
 } from "~/components/PageContainer/PageContainer";
-import {
-  requireAtpAgent,
-  useRealOAuth,
-} from "~/services/auth.server";
+import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
   buildArticleRef,
   loadSiteOptions,
 } from "~/services/article.server";
 import { addArticleToSites } from "~/services/articleSiteSync.server";
+import { createDocument } from "~/services/documentRepository.server";
 import { toSlug } from "~/hooks/utils";
 import { hasTextContent } from "~/components/utils";
 import { devCreateLoader } from "~/services/devFixtures.server";
@@ -80,7 +78,8 @@ export async function action({ request }: Route.ActionArgs) {
           collection: SITE_COLLECTION,
           rkey: primarySiteRkey,
         });
-        const scribe = (siteRecord.data.value as Record<string, unknown>).scribe as Record<string, unknown>;
+        const scribe = (siteRecord.data.value as Record<string, unknown>)
+          .scribe as Record<string, unknown>;
         siteDomain = String(scribe?.domain ?? "");
       } catch {
         // non-fatal
@@ -91,35 +90,34 @@ export async function action({ request }: Route.ActionArgs) {
       : "";
 
     const textContent = content
-      ? content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+      ? content
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
       : undefined;
 
     // Create site.standard.document — PDS generates TID rkey; no manifest entry = draft
-    const createResult = await agent.com.atproto.repo.createRecord({
-      repo: did,
-      collection: DOCUMENT_COLLECTION,
-      record: {
-        $type: DOCUMENT_COLLECTION,
-        title,
-        content: { $type: "app.scribe.content.html", html: content },
-        textContent: textContent || undefined,
-        description: description?.trim() || undefined,
-        tags: tags.length ? tags : undefined,
-        path: `/${slug}`,
-        site: siteAtUri,
-        updatedAt: now,
-        scribe: {
-          coverImageUrl: splashImageUrl?.trim() || undefined,
-          createdAt: now,
-          domain: siteDomain || undefined,
-        },
+    const createResult = await createDocument(agent, did, {
+      $type: DOCUMENT_COLLECTION,
+      title,
+      content: { $type: "app.scribe.content.html", html: content },
+      textContent: textContent || undefined,
+      description: description?.trim() || undefined,
+      tags: tags.length ? tags : undefined,
+      path: `/${slug}`,
+      site: siteAtUri,
+      updatedAt: now,
+      scribe: {
+        coverImageUrl: splashImageUrl?.trim() || undefined,
+        createdAt: now,
+        domain: siteDomain || undefined,
       },
     });
 
     // Add to selected sites' ungroupedArticles so user can publish from site-list
     if (selectedSiteRkeys.length > 0) {
       const ref = buildArticleRef({
-        uri: createResult.data.uri,
+        uri: createResult.uri,
         title,
         slug,
         splashImageUrl,
