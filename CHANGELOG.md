@@ -10,6 +10,19 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.11.6] — 2026-07-05
+
+### Fixed
+
+- **`/site/:siteSlug/configure` save** — the site-record write had no `swapRecord`/CID check at all (unlike every other site-record write in the codebase), a real concurrent-edit race window; now passes the CID fetched immediately before the save.
+- **`/site/:siteSlug/configure` canonical-URL cascade** — the document scan triggered by a domain/basePath change used `limit: 100` with no cursor, silently missing documents beyond the first page on larger sites; now paginated via `listDocuments`.
+
+### Changed (internal)
+
+- **Fourth route migrated onto the repository seam** — `app/routes/site/configure/configure.tsx`'s loader/action no longer hand-roll `agent.com.atproto.repo.*` calls; uses `getSite`/`putSite` (`siteRepository.server.ts`) and `listDocuments`/`putDocument` (`documentRepository.server.ts`, now also covering put). The route's local `resolveLogoThumbUrl` helper (byte-for-byte duplicate) was replaced with the existing shared `resolveThumbUrl` from `article.server.ts`. Added test coverage for `configure.tsx` (previously untested).
+
+---
+
 ## [5.11.5] — 2026-07-05
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "scribe-cms.app",
-  "version": "5.11.5",
+  "version": "5.11.6",
   "private": true,
   "type": "module",
   "scripts": {
