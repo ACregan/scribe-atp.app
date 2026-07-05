@@ -10,6 +10,21 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.11.2] — 2026-07-05
+
+### Fixed
+
+- **`createGroup`** — a PDS failure (e.g. a concurrent-edit CID mismatch) previously threw past the site-list action instead of returning an error, unlike every sibling intent; now caught and reported the same way
+- **`moveToDraft`** — running it on an article already in a site's unpublished list could append a duplicate `ArticleRef`; now filters out any existing match before appending
+- **`publishArticle`** — malformed `siteAssignments` form data crashed the whole action instead of degrading gracefully; now guarded and returns `{ ok: false }`
+- **`publishArticle`** — failures returned no error message, so the frontend's failure toast could never fire; now includes an error message
+
+### Changed (internal)
+
+- **Site manifest logic extracted** — the site-list route's action (`createGroup`, `deleteGroup`, `saveSite`, `removeArticle`, `publishArticle`, `moveToDraft`) moved out of the ~610-line inline action into `app/services/siteManifest.server.ts`, mirroring the existing `article.server.ts`/`articleSiteSync.server.ts` pattern; the route is now a thin dispatcher. Added test coverage for all six intents (previously untested) at both the action-dispatch and module level.
+
+---
+
 ## [5.9.0] — 2026-06-19
 
 ### Added
