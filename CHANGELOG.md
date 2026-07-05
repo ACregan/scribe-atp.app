@@ -10,6 +10,14 @@ _Nothing unreleased — `main` is current._
 
 ---
 
+## [5.11.3] — 2026-07-05
+
+### Changed (internal)
+
+- **Site repository seam introduced** — `app/routes/sites/sites.tsx`'s loader/action no longer hand-roll `agent.com.atproto.repo.*` calls directly; extracted to new `app/services/siteRepository.server.ts` (`listSites`, `getSite`, `createSite`, `putSite`, `deleteSite`), the first of five routes migrating onto a shared repository seam per the architecture review (candidate #2, follow-up to the site-list extraction in 5.11.2). Added test coverage for `sites.tsx` (previously untested) and the new module.
+
+---
+
 ## [5.11.2] — 2026-07-05
 
 ### Fixed
