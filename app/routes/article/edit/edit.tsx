@@ -17,11 +17,16 @@ import {
   computeSiteAssignmentChanges,
   syncSiteArticleRefs,
 } from "~/services/articleSiteSync.server";
+import {
+  listDocuments,
+  getDocument,
+  putDocument,
+} from "~/services/documentRepository.server";
 import { hasTextContent } from "~/components/utils";
 import { devEditLoader } from "~/services/devFixtures.server";
 import { useState, useEffect } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import {
   PageContainer,
@@ -47,31 +52,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const { agent, did } = await requireAtpAgent(request);
   const siteOptionsPromise = loadSiteOptions(agent, did);
 
-  // Resolve human-readable slug → TID via listRecords scan.
+  // Resolve human-readable slug → TID by scanning all documents.
   // slug = path.split('/').pop() for each site.standard.document record.
   const slug = params.articleUrl;
-  const allRecords: Array<{ uri: string; cid: string; value: unknown }> = [];
-  let cursor: string | undefined;
-  do {
-    const result = await agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: DOCUMENT_COLLECTION,
-      limit: 100,
-      cursor,
-    });
-    allRecords.push(...(result.data.records as typeof allRecords));
-    cursor = result.data.cursor;
-  } while (cursor);
+  const allDocuments = await listDocuments(agent, did);
 
-  const found = allRecords.find((r) => {
-    const path = String((r.value as Record<string, unknown>).path ?? "");
+  const found = allDocuments.find((r) => {
+    const path = String(r.value.path ?? "");
     return path.split("/").pop() === slug;
   });
 
   if (!found) throw new Response("Article not found", { status: 404 });
 
-  const rkey = found.uri.split("/").pop()!;
-  const value = found.value as Record<string, unknown>;
+  const rkey = found.rkey;
+  const value = found.value;
 
   const rawContent = value.content;
   const content =
@@ -94,10 +88,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     title: String(value.title ?? ""),
     content,
     slug,
-    splashImageUrl: String(scribe.coverImageUrl ?? scribe.splashImageUrl ?? value.splashImageUrl ?? ""),
+    splashImageUrl: String(
+      scribe.coverImageUrl ??
+        scribe.splashImageUrl ??
+        value.splashImageUrl ??
+        "",
+    ),
     description: String(value.description ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
-    createdAt: String(scribe.createdAt ?? value.createdAt ?? new Date().toISOString()),
+    createdAt: String(
+      scribe.createdAt ?? value.createdAt ?? new Date().toISOString(),
+    ),
     cid: found.cid ?? null,
     sites,
     currentSiteRkeys,
@@ -136,18 +137,17 @@ export async function action({ request }: Route.ActionArgs) {
 
   try {
     const { agent, did } = await requireAtpAgent(request);
-    const siteChanges = computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys);
+    const siteChanges = computeSiteAssignmentChanges(
+      oldSiteRkeys,
+      oldSiteRkeys,
+    );
     const now = new Date().toISOString();
 
     // Fetch existing record for blob caching and contributors preservation
     let existingDoc: Record<string, unknown> = {};
     try {
-      const existingResult = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: DOCUMENT_COLLECTION,
-        rkey: oldRkey,
-      });
-      existingDoc = existingResult.data.value as Record<string, unknown>;
+      const existingResult = await getDocument(agent, did, oldRkey);
+      existingDoc = existingResult.value;
     } catch {
       // Non-fatal: proceed without existing data
     }
@@ -157,8 +157,11 @@ export async function action({ request }: Route.ActionArgs) {
     const contributors = Array.isArray(existingDoc.contributors)
       ? existingDoc.contributors
       : [];
-    const existingCanonicalUrl =
-      String((existingDoc.scribe as Record<string, unknown>)?.canonicalUrl ?? existingDoc.canonicalUrl ?? "");
+    const existingCanonicalUrl = String(
+      (existingDoc.scribe as Record<string, unknown>)?.canonicalUrl ??
+        existingDoc.canonicalUrl ??
+        "",
+    );
     const existingBskyPostRef = existingDoc.bskyPostRef as
       | { uri: string; cid: string }
       | undefined;
@@ -168,8 +171,14 @@ export async function action({ request }: Route.ActionArgs) {
     let coverImageUploadFailed = false;
     if (splashImageUrl?.trim()) {
       const existingCoverImageBlob = existingDoc.coverImage;
-      const existingScribeForBlob = (existingDoc.scribe as Record<string, unknown>) ?? {};
-      const existingSplashImageUrl = String(existingScribeForBlob.coverImageUrl ?? existingScribeForBlob.splashImageUrl ?? existingDoc.splashImageUrl ?? "");
+      const existingScribeForBlob =
+        (existingDoc.scribe as Record<string, unknown>) ?? {};
+      const existingSplashImageUrl = String(
+        existingScribeForBlob.coverImageUrl ??
+          existingScribeForBlob.splashImageUrl ??
+          existingDoc.splashImageUrl ??
+          "",
+      );
       if (
         existingSplashImageUrl !== splashImageUrl ||
         !existingCoverImageBlob
@@ -182,8 +191,7 @@ export async function action({ request }: Route.ActionArgs) {
           }
           if (imgRes.ok) {
             const imgBuffer = await imgRes.arrayBuffer();
-            const mimeType =
-              imgRes.headers.get("content-type") ?? "image/webp";
+            const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
             const uploadRes = await agent.uploadBlob(
               new Uint8Array(imgBuffer),
               { encoding: mimeType },
@@ -221,7 +229,10 @@ export async function action({ request }: Route.ActionArgs) {
         : existingCanonicalUrl;
 
     const textContent = content
-      ? content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+      ? content
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
       : undefined;
 
     const updatedRecord: Record<string, unknown> = {
@@ -249,13 +260,13 @@ export async function action({ request }: Route.ActionArgs) {
     };
 
     // Always putRecord — rkey is the immutable TID, never recreated
-    const putResult = await agent.com.atproto.repo.putRecord({
-      repo: did,
-      collection: DOCUMENT_COLLECTION,
-      rkey: oldRkey,
-      record: updatedRecord,
-      swapRecord: cid ?? undefined,
-    });
+    const putResult = await putDocument(
+      agent,
+      did,
+      oldRkey,
+      updatedRecord,
+      cid ?? undefined,
+    );
 
     const uri = `at://${did}/${DOCUMENT_COLLECTION}/${oldRkey}`;
     const ref = buildArticleRef({
@@ -287,7 +298,7 @@ export async function action({ request }: Route.ActionArgs) {
     return {
       ok: true as const,
       title,
-      newCid: putResult.data.cid,
+      newCid: putResult.cid,
       coverImageWarning,
     };
   } catch (err) {

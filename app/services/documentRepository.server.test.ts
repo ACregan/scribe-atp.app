@@ -3,6 +3,7 @@ import type { Agent } from "@atproto/api";
 import {
   createDocument,
   listDocuments,
+  getDocument,
   putDocument,
   deleteDocument,
 } from "./documentRepository.server";
@@ -12,6 +13,7 @@ const DID = "did:plc:testuser";
 function makeAgent(
   overrides: {
     listRecords?: ReturnType<typeof vi.fn>;
+    getRecord?: ReturnType<typeof vi.fn>;
     createRecord?: ReturnType<typeof vi.fn>;
     putRecord?: ReturnType<typeof vi.fn>;
     deleteRecord?: ReturnType<typeof vi.fn>;
@@ -22,6 +24,7 @@ function makeAgent(
       atproto: {
         repo: {
           listRecords: overrides.listRecords ?? vi.fn(),
+          getRecord: overrides.getRecord ?? vi.fn(),
           createRecord: overrides.createRecord ?? vi.fn(),
           putRecord: overrides.putRecord ?? vi.fn(),
           deleteRecord: overrides.deleteRecord ?? vi.fn(),
@@ -89,6 +92,24 @@ describe("listDocuments", () => {
     const result = await listDocuments(agent, DID);
     expect(result.map((r) => r.rkey)).toEqual(["a", "b"]);
     expect(listRecords).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("getDocument", () => {
+  it("normalizes the record to {cid, value}", async () => {
+    const getRecord = vi.fn().mockResolvedValue({
+      data: { cid: "cid-a", value: { title: "A" } },
+    });
+    const agent = makeAgent({ getRecord });
+
+    const result = await getDocument(agent, DID, "a");
+
+    expect(getRecord).toHaveBeenCalledWith({
+      repo: DID,
+      collection: "site.standard.document",
+      rkey: "a",
+    });
+    expect(result).toEqual({ cid: "cid-a", value: { title: "A" } });
   });
 });
 
