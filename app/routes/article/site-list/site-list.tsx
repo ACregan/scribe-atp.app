@@ -41,11 +41,7 @@ import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
 import { Select } from "~/components/Select/Select";
-import {
-  DOCUMENT_COLLECTION,
-  SITE_COLLECTION,
-  SLUG_RE,
-} from "~/constants";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
   type SiteManifest,
@@ -62,7 +58,11 @@ import {
   findSitesContaining,
   mutateSiteRecord,
 } from "~/services/articleSiteSync.server";
-import { deleteGroup as deleteGroupManifest } from "~/services/siteManifest.server";
+import {
+  createGroup as createGroupManifest,
+  deleteGroup as deleteGroupManifest,
+  validateGroupFields,
+} from "~/services/siteManifest.server";
 import { resolveThumbUrl } from "~/services/article.server";
 import { devSiteListLoader } from "~/services/devFixtures.server";
 import { logger } from "~/services/logger.server";
@@ -105,7 +105,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
     // Map each ungrouped article URI to the list of sites it appears in
     const articleSiteMap = new Map<string, SiteAssignment[]>();
-    for (const sr of allSitesResult.data.records.filter((r) => (r.value as Record<string, unknown>).scribe != null)) {
+    for (const sr of allSitesResult.data.records.filter(
+      (r) => (r.value as Record<string, unknown>).scribe != null,
+    )) {
       const sv = sr.value as Record<string, unknown>;
       const scribe = (sv.scribe as Record<string, unknown>) ?? {};
       const srkey = sr.uri.split("/").pop()!;
@@ -115,7 +117,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         url: String(scribe.domain ?? ""),
         urlPrefix: String(scribe.basePath ?? ""),
       };
-      for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ?? []) {
+      for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ??
+        []) {
         const list = articleSiteMap.get(a.uri) ?? [];
         list.push(entry);
         articleSiteMap.set(a.uri, list);
@@ -136,9 +139,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         groups: (scribeVal.groups as SiteGroup[]) ?? [],
         ungroupedArticles: (scribeVal.ungroupedArticles as ArticleRef[]) ?? [],
       } as SiteManifest,
-      articleSiteAssignments: Object.fromEntries(
-        articleSiteMap,
-      ) as Record<string, SiteAssignment[]>,
+      articleSiteAssignments: Object.fromEntries(articleSiteMap) as Record<
+        string,
+        SiteAssignment[]
+      >,
     };
   } catch {
     throw redirect("/sites");
@@ -154,44 +158,16 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "createGroup") {
     const title = (formData.get("title") as string)?.trim();
     if (!title) return { error: "Group title is required." };
-    const slugInput = (formData.get("slug") as string)?.trim().toLowerCase();
-    const slug = slugInput || toSlug(title);
-    if (!slug)
-      return { error: "Title must contain at least one letter or number." };
-    if (!SLUG_RE.test(slug))
-      return {
-        error: "URL path must be lowercase letters, numbers and hyphens only.",
-      };
+    const slugInput = formData.get("slug") as string;
+    const validated = validateGroupFields(title, slugInput);
+    if ("error" in validated) return validated;
+    if (!useRealOAuth) return { ok: true };
 
-    if (useRealOAuth) {
-      const agent = await getAtpAgent(did);
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteSlug,
-      });
-      const pubRecord = rec.data.value as Record<string, unknown>;
-      const scribe = pubRecord.scribe as SiteManifest;
-      if ((scribe.groups ?? []).some((g) => g.slug === slug)) {
-        return { error: "A group with this name already exists." };
-      }
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteSlug,
-        record: {
-          ...pubRecord,
-          scribe: {
-            ...scribe,
-            groups: [...(scribe.groups ?? []), { slug, title, articles: [] }],
-            updatedAt: new Date().toISOString(),
-          },
-        },
-        swapRecord: rec.data.cid,
-      });
-    }
-
-    return { ok: true };
+    const agent = await getAtpAgent(did);
+    return createGroupManifest(agent, did, siteSlug, {
+      title,
+      slug: validated.slug,
+    });
   }
 
   if (intent === "deleteGroup") {
@@ -221,8 +197,12 @@ export async function action({ request, params }: Route.ActionArgs) {
           collection: SITE_COLLECTION,
           rkey: siteSlug,
         });
-        const currentPubRecord = currentSite.data.value as Record<string, unknown>;
-        const currentScribeExt = (currentPubRecord.scribe as Record<string, unknown>) ?? {};
+        const currentPubRecord = currentSite.data.value as Record<
+          string,
+          unknown
+        >;
+        const currentScribeExt =
+          (currentPubRecord.scribe as Record<string, unknown>) ?? {};
         const domain = String(currentScribeExt.domain ?? "");
         const basePath = String(currentScribeExt.basePath ?? "");
         const currentScribe = currentScribeExt as SiteRecordValue;
@@ -284,7 +264,7 @@ export async function action({ request, params }: Route.ActionArgs) {
                   ...docVal,
                   path: newPath,
                   scribe: {
-                    ...(docVal.scribe as Record<string, unknown> ?? {}),
+                    ...((docVal.scribe as Record<string, unknown>) ?? {}),
                     canonicalUrl: newCanonicalUrl,
                   },
                   updatedAt: new Date().toISOString(),
@@ -323,7 +303,7 @@ export async function action({ request, params }: Route.ActionArgs) {
                 ...docVal,
                 path: newPath,
                 scribe: {
-                  ...(docVal.scribe as Record<string, unknown> ?? {}),
+                  ...((docVal.scribe as Record<string, unknown>) ?? {}),
                   canonicalUrl: newCanonicalUrl,
                 },
                 updatedAt: new Date().toISOString(),
@@ -332,8 +312,13 @@ export async function action({ request, params }: Route.ActionArgs) {
             });
           });
 
-        const saveResults = await Promise.allSettled([...pathUpdates, ...ungroupedUpdates]);
-        const saveFailures = saveResults.filter(r => r.status === "rejected").length;
+        const saveResults = await Promise.allSettled([
+          ...pathUpdates,
+          ...ungroupedUpdates,
+        ]);
+        const saveFailures = saveResults.filter(
+          (r) => r.status === "rejected",
+        ).length;
         if (saveFailures > 0) {
           return { error: `${saveFailures} article path(s) failed to update.` };
         }
@@ -380,7 +365,10 @@ export async function action({ request, params }: Route.ActionArgs) {
           rkey,
         });
         const doc = docResult.data.value as Record<string, unknown>;
-        const slug = String(doc.path ?? "").split("/").pop() || rkey;
+        const slug =
+          String(doc.path ?? "")
+            .split("/")
+            .pop() || rkey;
 
         // Move ref from named group → ungroupedArticles (URI unchanged)
         await mutateSiteRecord(agent, did, siteSlug, (val) => {
@@ -394,7 +382,9 @@ export async function action({ request, params }: Route.ActionArgs) {
             uri,
             slug,
             title: String(doc.title ?? ""),
-            splashImageUrl: doc.splashImageUrl ? String(doc.splashImageUrl) : null,
+            splashImageUrl: doc.splashImageUrl
+              ? String(doc.splashImageUrl)
+              : null,
             description: doc.description ? String(doc.description) : null,
             createdAt: String(doc.createdAt ?? now),
             updatedAt: now,
@@ -412,7 +402,9 @@ export async function action({ request, params }: Route.ActionArgs) {
         updatedDoc.path = `/${slug}`;
         updatedDoc.updatedAt = now;
         delete updatedDoc.publishedAt;
-        const updatedScribe = { ...(updatedDoc.scribe as Record<string, unknown> ?? {}) };
+        const updatedScribe = {
+          ...((updatedDoc.scribe as Record<string, unknown>) ?? {}),
+        };
         delete updatedScribe.canonicalUrl;
         updatedDoc.scribe = updatedScribe;
         await agent.com.atproto.repo.putRecord({
@@ -433,8 +425,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "publishArticle") {
     const uri = formData.get("uri") as string;
     const groupSlug = formData.get("groupSlug") as string;
-    const canonicalSiteRkey = (formData.get("canonicalSiteRkey") as string) || siteSlug;
-    const siteAssignmentsRaw = (formData.get("siteAssignments") as string) || "[]";
+    const canonicalSiteRkey =
+      (formData.get("canonicalSiteRkey") as string) || siteSlug;
+    const siteAssignmentsRaw =
+      (formData.get("siteAssignments") as string) || "[]";
     const siteAssignments = JSON.parse(siteAssignmentsRaw) as Array<{
       rkey: string;
       domain: string;
@@ -443,7 +437,12 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!uri || !groupSlug) return { ok: false };
 
     let secondaryFailures = 0;
-    let publishNotification: { publicationUri: string; siteTitle: string; articleTitle: string; canonicalUrl: string } | null = null;
+    let publishNotification: {
+      publicationUri: string;
+      siteTitle: string;
+      articleTitle: string;
+      canonicalUrl: string;
+    } | null = null;
 
     if (useRealOAuth) {
       try {
@@ -470,7 +469,10 @@ export async function action({ request, params }: Route.ActionArgs) {
         const scribeExt = (pubRecord.scribe as Record<string, unknown>) ?? {};
 
         // Derive slug from current document path
-        const slug = String(doc.path ?? "").split("/").pop() || rkey;
+        const slug =
+          String(doc.path ?? "")
+            .split("/")
+            .pop() || rkey;
 
         const siteAtUri = `at://${did}/${SITE_COLLECTION}/${canonicalSiteRkey}`;
         const canonicalAssignment = siteAssignments.find(
@@ -494,7 +496,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 
         // Upload cover image blob (non-fatal)
         const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
-        const docCoverImageUrl = String(docScribe.coverImageUrl ?? docScribe.splashImageUrl ?? doc.splashImageUrl ?? "");
+        const docCoverImageUrl = String(
+          docScribe.coverImageUrl ??
+            docScribe.splashImageUrl ??
+            doc.splashImageUrl ??
+            "",
+        );
         let coverImageBlobRef: unknown;
         if (docCoverImageUrl) {
           try {
@@ -505,21 +512,30 @@ export async function action({ request, params }: Route.ActionArgs) {
             }
             if (imgRes.ok) {
               const imgBuffer = await imgRes.arrayBuffer();
-              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
-              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
-                encoding: mimeType,
-              });
+              const mimeType =
+                imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(
+                new Uint8Array(imgBuffer),
+                {
+                  encoding: mimeType,
+                },
+              );
               coverImageBlobRef = uploadRes.data.blob;
             }
           } catch (blobErr) {
             logger.warn(
-              { event: "article.publish.cover_image_blob_error", error: String(blobErr) },
+              {
+                event: "article.publish.cover_image_blob_error",
+                error: String(blobErr),
+              },
               "cover image blob upload error — publish will proceed without coverImage",
             );
           }
         }
 
-        const docTags = Array.isArray(doc.tags) ? (doc.tags as string[]) : undefined;
+        const docTags = Array.isArray(doc.tags)
+          ? (doc.tags as string[])
+          : undefined;
 
         // Update the existing document (same TID rkey) with published fields
         await agent.com.atproto.repo.putRecord({
@@ -529,13 +545,15 @@ export async function action({ request, params }: Route.ActionArgs) {
           record: {
             ...doc,
             $type: DOCUMENT_COLLECTION,
-            ...(coverImageBlobRef !== undefined ? { coverImage: coverImageBlobRef } : {}),
+            ...(coverImageBlobRef !== undefined
+              ? { coverImage: coverImageBlobRef }
+              : {}),
             path: docPath,
             site: siteAtUri,
             publishedAt,
             updatedAt: publishedAt,
             scribe: {
-              ...(doc.scribe as Record<string, unknown> ?? {}),
+              ...((doc.scribe as Record<string, unknown>) ?? {}),
               coverImageUrl: docCoverImageUrl || undefined,
               canonicalUrl,
             },
@@ -547,7 +565,9 @@ export async function action({ request, params }: Route.ActionArgs) {
           uri,
           title: String(doc.title ?? ""),
           slug,
-          splashImageUrl: doc.splashImageUrl ? String(doc.splashImageUrl) : null,
+          splashImageUrl: doc.splashImageUrl
+            ? String(doc.splashImageUrl)
+            : null,
           description: doc.description ? String(doc.description) : null,
           tags: docTags,
           createdAt: String(doc.createdAt ?? publishedAt),
@@ -557,22 +577,28 @@ export async function action({ request, params }: Route.ActionArgs) {
 
         // Current site: move from ungroupedArticles → named group (URI unchanged)
         await mutateSiteRecord(agent, did, siteSlug, (val) => {
-          const existing = (val.ungroupedArticles ?? []).find((a) => a.uri === uri);
+          const existing = (val.ungroupedArticles ?? []).find(
+            (a) => a.uri === uri,
+          );
           const ref = existing ? { ...existing, ...updatedRef } : updatedRef;
           return {
             ...val,
-            ungroupedArticles: (val.ungroupedArticles ?? []).filter((a) => a.uri !== uri),
+            ungroupedArticles: (val.ungroupedArticles ?? []).filter(
+              (a) => a.uri !== uri,
+            ),
             groups: (val.groups ?? []).map((g) =>
-              g.slug === groupSlug ? { ...g, articles: [...g.articles, ref] } : g,
+              g.slug === groupSlug
+                ? { ...g, articles: [...g.articles, ref] }
+                : g,
             ),
             updatedAt: publishedAt,
           };
         });
 
         // Other sites: refresh cached ref fields in-place (URI unchanged)
-        const otherSiteRkeys = (await findSitesContaining(agent, did, uri)).filter(
-          (r) => r !== siteSlug,
-        );
+        const otherSiteRkeys = (
+          await findSitesContaining(agent, did, uri)
+        ).filter((r) => r !== siteSlug);
         if (otherSiteRkeys.length > 0) {
           const refResults = await Promise.allSettled(
             otherSiteRkeys.map((rk) =>
@@ -581,10 +607,17 @@ export async function action({ request, params }: Route.ActionArgs) {
               ),
             ),
           );
-          secondaryFailures = refResults.filter((r) => r.status === "rejected").length;
+          secondaryFailures = refResults.filter(
+            (r) => r.status === "rejected",
+          ).length;
           if (secondaryFailures > 0) {
             logger.warn(
-              { event: "article.publish.ref_update_error", user_did: did, uri, failed: secondaryFailures },
+              {
+                event: "article.publish.ref_update_error",
+                user_did: did,
+                uri,
+                failed: secondaryFailures,
+              },
               "secondary site ref updates failed",
             );
           }
@@ -600,7 +633,9 @@ export async function action({ request, params }: Route.ActionArgs) {
       uri,
       groupSlug,
       ...(secondaryFailures > 0
-        ? { warning: `Article published, but ${secondaryFailures} linked site(s) could not be updated.` }
+        ? {
+            warning: `Article published, but ${secondaryFailures} linked site(s) could not be updated.`,
+          }
         : {}),
       notification: publishNotification,
     };
@@ -617,19 +652,36 @@ export async function action({ request, params }: Route.ActionArgs) {
         const rkey = uri.split("/").pop()!;
 
         const [docResult, siteResult] = await Promise.all([
-          agent.com.atproto.repo.getRecord({ repo: did, collection: DOCUMENT_COLLECTION, rkey }),
-          agent.com.atproto.repo.getRecord({ repo: did, collection: SITE_COLLECTION, rkey: siteSlug }),
+          agent.com.atproto.repo.getRecord({
+            repo: did,
+            collection: DOCUMENT_COLLECTION,
+            rkey,
+          }),
+          agent.com.atproto.repo.getRecord({
+            repo: did,
+            collection: SITE_COLLECTION,
+            rkey: siteSlug,
+          }),
         ]);
 
         const doc = docResult.data.value as Record<string, unknown>;
         const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
-        const canonicalUrl = String(docScribe.canonicalUrl ?? doc.canonicalUrl ?? "");
+        const canonicalUrl = String(
+          docScribe.canonicalUrl ?? doc.canonicalUrl ?? "",
+        );
         const title = String(doc.title ?? "");
-        const description = doc.description ? String(doc.description) : undefined;
+        const description = doc.description
+          ? String(doc.description)
+          : undefined;
         const publicationUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
         const publicationCid = siteResult.data.cid;
 
-        const coverImageUrl = String(docScribe.coverImageUrl ?? docScribe.splashImageUrl ?? doc.splashImageUrl ?? "");
+        const coverImageUrl = String(
+          docScribe.coverImageUrl ??
+            docScribe.splashImageUrl ??
+            doc.splashImageUrl ??
+            "",
+        );
         let coverImageBlobRef: unknown;
         if (coverImageUrl) {
           try {
@@ -640,15 +692,22 @@ export async function action({ request, params }: Route.ActionArgs) {
             }
             if (imgRes.ok) {
               const imgBuffer = await imgRes.arrayBuffer();
-              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
-              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
-                encoding: mimeType,
-              });
+              const mimeType =
+                imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(
+                new Uint8Array(imgBuffer),
+                {
+                  encoding: mimeType,
+                },
+              );
               coverImageBlobRef = uploadRes.data.blob;
             }
           } catch (blobErr) {
             logger.warn(
-              { event: "article.share.cover_image_blob_error", error: String(blobErr) },
+              {
+                event: "article.share.cover_image_blob_error",
+                error: String(blobErr),
+              },
               "cover image blob upload failed — sharing without thumb",
             );
           }
@@ -659,8 +718,16 @@ export async function action({ request, params }: Route.ActionArgs) {
           title,
           description: description ?? "",
           associatedRefs: [
-            { $type: "com.atproto.repo.strongRef", uri, cid: docResult.data.cid },
-            { $type: "com.atproto.repo.strongRef", uri: publicationUri, cid: publicationCid },
+            {
+              $type: "com.atproto.repo.strongRef",
+              uri,
+              cid: docResult.data.cid,
+            },
+            {
+              $type: "com.atproto.repo.strongRef",
+              uri: publicationUri,
+              cid: publicationCid,
+            },
           ],
         };
         if (coverImageBlobRef !== undefined) external.thumb = coverImageBlobRef;
@@ -676,7 +743,10 @@ export async function action({ request, params }: Route.ActionArgs) {
           },
         });
 
-        const bskyPostRef = { uri: postResult.data.uri, cid: postResult.data.cid };
+        const bskyPostRef = {
+          uri: postResult.data.uri,
+          cid: postResult.data.cid,
+        };
 
         await agent.com.atproto.repo.putRecord({
           repo: did,
@@ -706,8 +776,7 @@ export async function action({ request, params }: Route.ActionArgs) {
           { event: "article.share.error", error: String(err) },
           "article.share.error",
         );
-        const message =
-          err instanceof Error ? err.message : String(err);
+        const message = err instanceof Error ? err.message : String(err);
         return { ok: false, error: `Share failed: ${message}` };
       }
     }
@@ -722,26 +791,46 @@ export async function action({ request, params }: Route.ActionArgs) {
     const canonicalUrl = (formData.get("canonicalUrl") as string) ?? "";
     const origin = (formData.get("origin") as string) ?? "";
 
-    const socialServiceUrl = process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
+    const socialServiceUrl =
+      process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
     const notifySecret = process.env.NOTIFY_SECRET;
 
-    if (useRealOAuth && notifySecret && publicationUri && articleTitle && canonicalUrl) {
+    if (
+      useRealOAuth &&
+      notifySecret &&
+      publicationUri &&
+      articleTitle &&
+      canonicalUrl
+    ) {
       try {
         const res = await fetch(`${socialServiceUrl}/notify`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${notifySecret}`,
+            Authorization: `Bearer ${notifySecret}`,
           },
-          body: JSON.stringify({ publicationUri, siteTitle, articleTitle, canonicalUrl, origin }),
+          body: JSON.stringify({
+            publicationUri,
+            siteTitle,
+            articleTitle,
+            canonicalUrl,
+            origin,
+          }),
           signal: AbortSignal.timeout(15000),
         });
-        const data = await res.json() as { ok?: boolean; sent?: number; skipped?: number };
+        const data = (await res.json()) as {
+          ok?: boolean;
+          sent?: number;
+          skipped?: number;
+        };
         if (data.ok) {
           return { ok: true, sent: data.sent ?? 0, skipped: data.skipped ?? 0 };
         }
       } catch (err) {
-        logger.warn({ event: "notify.cms_call_failed", error: String(err) }, "notify call failed");
+        logger.warn(
+          { event: "notify.cms_call_failed", error: String(err) },
+          "notify call failed",
+        );
       }
     }
 
@@ -857,7 +946,11 @@ function PublishArticleModal({
   article,
   groups,
 }: {
-  article: { uri: string; title: string; assignedSites: SiteAssignment[] } | null;
+  article: {
+    uri: string;
+    title: string;
+    assignedSites: SiteAssignment[];
+  } | null;
   groups: { slug: string; title: string }[];
 }) {
   if (!article) return null;
@@ -945,8 +1038,14 @@ function ShareModal({
       <input type="hidden" name="_intent" value="shareToBluesky" />
       <input type="hidden" name="uri" value={article.uri} />
       {article.bskyPostRef && (
-        <p style={{ marginBottom: "1rem", color: "var(--color-warning, #d97706)" }}>
-          This article has already been shared to Bluesky. Sharing again will create a new post.
+        <p
+          style={{
+            marginBottom: "1rem",
+            color: "var(--color-warning, #d97706)",
+          }}
+        >
+          This article has already been shared to Bluesky. Sharing again will
+          create a new post.
         </p>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -969,7 +1068,13 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, articleSiteAssignments, publicationUri, notifySubscribersEnabled } = loaderData;
+  const {
+    site,
+    devMode,
+    articleSiteAssignments,
+    publicationUri,
+    notifySubscribersEnabled,
+  } = loaderData;
   const { isOpen, open, close } = useModal();
 
   const navigate = useNavigate();
@@ -1004,8 +1109,15 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   } | null>(null);
   const shareModal = useModal();
 
-  const { tree, setTree, isDirty, markSaved, removeGroup, moveArticleToGroup, setBskyPostRef } =
-    useDirtyTree(site);
+  const {
+    tree,
+    setTree,
+    isDirty,
+    markSaved,
+    removeGroup,
+    moveArticleToGroup,
+    setBskyPostRef,
+  } = useDirtyTree(site);
   const {
     sensors,
     activeArticle,
@@ -1029,9 +1141,19 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     groupSlug?: string;
     error?: string;
     warning?: string;
-    notification?: { publicationUri: string; siteTitle: string; articleTitle: string; canonicalUrl: string } | null;
+    notification?: {
+      publicationUri: string;
+      siteTitle: string;
+      articleTitle: string;
+      canonicalUrl: string;
+    } | null;
   }>();
-  const notifyFetcher = useFetcher<{ ok?: boolean; sent?: number; skipped?: number; error?: string }>();
+  const notifyFetcher = useFetcher<{
+    ok?: boolean;
+    sent?: number;
+    skipped?: number;
+    error?: string;
+  }>();
   const [pendingNotification, setPendingNotification] = useState<{
     publicationUri: string;
     siteTitle: string;
@@ -1113,7 +1235,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     if (notifyFetcher.data.ok) {
       const { sent = 0 } = notifyFetcher.data;
       addToast({
-        heading: sent === 0 ? "No subscribers to notify" : `Notified ${sent} subscriber${sent === 1 ? "" : "s"}`,
+        heading:
+          sent === 0
+            ? "No subscribers to notify"
+            : `Notified ${sent} subscriber${sent === 1 ? "" : "s"}`,
         variant: "success",
       });
     }
@@ -1167,7 +1292,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     const article = rootGroup?.children.find((c) => c.uri === uri);
     if (!article) return;
     const assignedSites = articleSiteAssignments[uri] ?? [
-      { rkey: site.rkey, title: site.title, url: site.url, urlPrefix: site.urlPrefix },
+      {
+        rkey: site.rkey,
+        title: site.title,
+        url: site.url,
+        urlPrefix: site.urlPrefix,
+      },
     ];
     setPublishingArticle({ uri, title: article.title, assignedSites });
     publishModal.open();
@@ -1356,7 +1486,11 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           shareModal.close();
           setSharingArticle(null);
         }}
-        title={sharingArticle?.bskyPostRef ? "Re-share to Bluesky" : "Share to Bluesky"}
+        title={
+          sharingArticle?.bskyPostRef
+            ? "Re-share to Bluesky"
+            : "Share to Bluesky"
+        }
         footer={
           <div
             style={{
@@ -1386,7 +1520,11 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                 shareFetcher.submit(new FormData(form), { method: "post" });
               }}
             >
-              {isSharing ? "Sharing…" : sharingArticle?.bskyPostRef ? "Re-share" : "Share"}
+              {isSharing
+                ? "Sharing…"
+                : sharingArticle?.bskyPostRef
+                  ? "Re-share"
+                  : "Share"}
             </Button>
           </div>
         }
@@ -1452,7 +1590,13 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         }}
         title="Notify subscribers?"
         footer={
-          <div style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              justifyContent: "flex-end",
+            }}
+          >
             <Button
               variant="secondary"
               onClick={() => {
@@ -1474,7 +1618,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                 fd.set("siteTitle", pendingNotification.siteTitle);
                 fd.set("articleTitle", pendingNotification.articleTitle);
                 fd.set("canonicalUrl", pendingNotification.canonicalUrl);
-                fd.set("origin", typeof window !== "undefined" ? window.location.origin : "");
+                fd.set(
+                  "origin",
+                  typeof window !== "undefined" ? window.location.origin : "",
+                );
                 notifyFetcher.submit(fd, { method: "post" });
               }}
             >
@@ -1484,11 +1631,17 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         }
       >
         <p style={{ margin: 0, fontSize: "1.3rem" }}>
-          Send a Bluesky DM to all subscribers of{" "}
-          <strong>{site.title}</strong> about this new article?
+          Send a Bluesky DM to all subscribers of <strong>{site.title}</strong>{" "}
+          about this new article?
         </p>
         {pendingNotification && (
-          <p style={{ margin: "0.8rem 0 0", fontSize: "1.2rem", color: "var(--text-secondary)" }}>
+          <p
+            style={{
+              margin: "0.8rem 0 0",
+              fontSize: "1.2rem",
+              color: "var(--text-secondary)",
+            }}
+          >
             &ldquo;{pendingNotification.articleTitle}&rdquo;
           </p>
         )}
