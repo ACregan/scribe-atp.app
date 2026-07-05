@@ -14,8 +14,14 @@ import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
 
-import { SITE_COLLECTION, DOCUMENT_COLLECTION, DOMAIN_RE, IMAGE_URL_RE } from "~/constants";
+import { DOMAIN_RE, IMAGE_URL_RE } from "~/constants";
 import { logger } from "~/services/logger.server";
+import { getSite, putSite } from "~/services/siteRepository.server";
+import {
+  listDocuments,
+  putDocument,
+} from "~/services/documentRepository.server";
+import { resolveThumbUrl } from "~/services/article.server";
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -26,13 +32,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!useRealOAuth) return devConfigureLoader(siteSlug);
 
   const agent = await getAtpAgent(did);
-  const record = await agent.com.atproto.repo.getRecord({
-    repo: did,
-    collection: SITE_COLLECTION,
-    rkey: siteSlug,
-  });
+  const record = await getSite(agent, did, siteSlug);
 
-  const v = record.data.value as Record<string, unknown>;
+  const v = record.value;
   const scribe = (v.scribe as Record<string, unknown>) ?? {};
   const prefs = (v.preferences as Record<string, unknown>) ?? {};
   return {
@@ -52,12 +54,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Replace any Scribe image variant in a URL with the thumb (300px) variant.
-// Non-Scribe URLs are returned unchanged.
-function resolveLogoThumbUrl(logoImageUrl: string): string {
-  return logoImageUrl.replace(/\/(600|1200|1800|max)\.webp$/, "/thumb.webp");
-}
-
 // ── Action ────────────────────────────────────────────────────────────────────
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -76,7 +72,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   ).trim();
   const logoImageUrl = ((formData.get("logoImageUrl") as string) ?? "").trim();
   const showInDiscover = formData.get("showInDiscover") === "on";
-  const notifySubscribersEnabled = formData.get("notifySubscribersEnabled") !== null;
+  const notifySubscribersEnabled =
+    formData.get("notifySubscribersEnabled") !== null;
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!url) return { ok: false, error: "Domain is required." };
@@ -99,12 +96,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 
       // Fetch existing record to preserve fields we don't manage here
       // (articles, groups, contributors, createdAt, etc.)
-      const existing = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteSlug,
-      });
-      const existingValue = existing.data.value as Record<string, unknown>;
+      const existing = await getSite(agent, did, siteSlug);
+      const existingValue = existing.value;
       const {
         description: _scribeDescription,
         logoImageBlob: existingLogoBlob,
@@ -117,24 +110,31 @@ export async function action({ request, params }: Route.ActionArgs) {
         const existingLogoUrl = String(existingScribeBase.logoImageUrl ?? "");
         if (existingLogoUrl !== logoImageUrl || !existingLogoBlob) {
           try {
-            const thumbSrc = resolveLogoThumbUrl(logoImageUrl);
+            const thumbSrc = resolveThumbUrl(logoImageUrl);
             let imgRes = await fetch(thumbSrc);
             if (!imgRes.ok && thumbSrc !== logoImageUrl) {
               imgRes = await fetch(logoImageUrl);
             }
             if (imgRes.ok) {
               const imgBuffer = await imgRes.arrayBuffer();
-              const mimeType = imgRes.headers.get("content-type") ?? "image/webp";
-              const uploadRes = await agent.uploadBlob(new Uint8Array(imgBuffer), {
-                encoding: mimeType,
-              });
+              const mimeType =
+                imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(
+                new Uint8Array(imgBuffer),
+                {
+                  encoding: mimeType,
+                },
+              );
               iconBlobRef = uploadRes.data.blob;
             } else {
               iconUploadFailed = true;
             }
           } catch (blobErr) {
             logger.warn(
-              { event: "site.configure.icon_blob_error", error: String(blobErr) },
+              {
+                event: "site.configure.icon_blob_error",
+                error: String(blobErr),
+              },
               "icon blob upload error — save will proceed without icon",
             );
             iconUploadFailed = true;
@@ -144,69 +144,87 @@ export async function action({ request, params }: Route.ActionArgs) {
         }
       }
 
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteSlug,
-        record: {
+      // Bug fix: previously saved with no swapRecord at all — a real
+      // concurrent-edit race window. Now passes the CID fetched above.
+      await putSite(
+        agent,
+        did,
+        siteSlug,
+        {
           ...existingValue,
           url: `https://${url}`,
           name: title,
           ...(description ? { description } : { description: undefined }),
-          ...(iconBlobRef !== undefined ? { icon: iconBlobRef } : { icon: undefined }),
+          ...(iconBlobRef !== undefined
+            ? { icon: iconBlobRef }
+            : { icon: undefined }),
           preferences: { showInDiscover, notifySubscribersEnabled },
           scribe: {
-            ...(({ $type: _, ...rest }) => rest)(existingScribeBase as Record<string, unknown>),
+            ...(({ $type: _, ...rest }) => rest)(
+              existingScribeBase as Record<string, unknown>,
+            ),
             domain: url,
             basePath: urlPrefix,
             title,
-            ...(splashImageUrl ? { splashImageUrl } : { splashImageUrl: undefined }),
+            ...(splashImageUrl
+              ? { splashImageUrl }
+              : { splashImageUrl: undefined }),
             ...(logoImageUrl ? { logoImageUrl } : { logoImageUrl: undefined }),
-            ...(iconBlobRef !== undefined ? { logoImageBlob: iconBlobRef } : { logoImageBlob: undefined }),
+            ...(iconBlobRef !== undefined
+              ? { logoImageBlob: iconBlobRef }
+              : { logoImageBlob: undefined }),
             updatedAt: new Date().toISOString(),
           },
         },
-      });
+        existing.cid,
+      );
 
       const domainChanged = String(existingScribeBase.domain ?? "") !== url;
-      const basePathChanged = String(existingScribeBase.basePath ?? "") !== urlPrefix;
+      const basePathChanged =
+        String(existingScribeBase.basePath ?? "") !== urlPrefix;
 
       if (domainChanged || basePathChanged) {
-        const docsResult = await agent.com.atproto.repo.listRecords({
-          repo: did,
-          collection: DOCUMENT_COLLECTION,
-          limit: 100,
-        });
+        // Bug fix: previously a raw listRecords with limit:100 and no cursor,
+        // silently missing documents beyond the first page. listDocuments
+        // paginates internally.
+        const documentRecords = await listDocuments(agent, did);
         const oldSiteHttpsUrl = `https://${String(existingScribeBase.domain ?? "")}`;
         const newSiteHttpsUrl = `https://${url}`;
-        const docUpdates = docsResult.data.records
-          .filter((record) => (record.value as Record<string, unknown>).site === oldSiteHttpsUrl)
+        const docUpdates = documentRecords
+          .filter((record) => record.value.site === oldSiteHttpsUrl)
           .map((record) => {
-            const val = record.value as Record<string, unknown>;
+            const val = record.value;
             const docPath = String(val.path ?? "");
             const newCanonicalUrl = urlPrefix
               ? `${newSiteHttpsUrl}/${urlPrefix}${docPath}`
               : `${newSiteHttpsUrl}${docPath}`;
-            const existingDocScribe = (val.scribe as Record<string, unknown>) ?? {};
-            const drkey = record.uri.split("/").pop()!;
-            return agent.com.atproto.repo.putRecord({
-              repo: did,
-              collection: DOCUMENT_COLLECTION,
-              rkey: drkey,
-              record: {
+            const existingDocScribe =
+              (val.scribe as Record<string, unknown>) ?? {};
+            return putDocument(
+              agent,
+              did,
+              record.rkey,
+              {
                 ...val,
                 site: newSiteHttpsUrl,
                 scribe: { ...existingDocScribe, canonicalUrl: newCanonicalUrl },
                 updatedAt: new Date().toISOString(),
               },
-              swapRecord: record.cid,
-            });
+              record.cid,
+            );
           });
         const canonicalResults = await Promise.allSettled(docUpdates);
-        canonicalFailures = canonicalResults.filter((r) => r.status === "rejected").length;
+        canonicalFailures = canonicalResults.filter(
+          (r) => r.status === "rejected",
+        ).length;
         if (canonicalFailures > 0) {
           logger.warn(
-            { event: "site.configure.canonical_update_error", user_did: did, rkey: siteSlug, failed: canonicalFailures },
+            {
+              event: "site.configure.canonical_update_error",
+              user_did: did,
+              rkey: siteSlug,
+              failed: canonicalFailures,
+            },
             "canonical URL updates partially failed",
           );
         }
@@ -222,8 +240,17 @@ export async function action({ request, params }: Route.ActionArgs) {
   );
   return {
     ok: true,
-    ...(iconUploadFailed ? { iconWarning: "Icon could not be uploaded — it will be retried on next save." } : {}),
-    ...(canonicalFailures > 0 ? { canonicalWarning: `${canonicalFailures} article canonical URL(s) could not be updated — try saving again.` } : {}),
+    ...(iconUploadFailed
+      ? {
+          iconWarning:
+            "Icon could not be uploaded — it will be retried on next save.",
+        }
+      : {}),
+    ...(canonicalFailures > 0
+      ? {
+          canonicalWarning: `${canonicalFailures} article canonical URL(s) could not be updated — try saving again.`,
+        }
+      : {}),
   };
 }
 
@@ -381,13 +408,23 @@ export default function ConfigureSite({
 
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Discovery</legend>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.4rem" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                fontSize: "1.4rem",
+              }}
+            >
               <input
                 type="checkbox"
                 name="showInDiscover"
                 checked={formValues.showInDiscover}
                 onChange={(e) =>
-                  setFormValues((prev) => ({ ...prev, showInDiscover: e.target.checked }))
+                  setFormValues((prev) => ({
+                    ...prev,
+                    showInDiscover: e.target.checked,
+                  }))
                 }
               />
               Show in Discover
@@ -396,20 +433,37 @@ export default function ConfigureSite({
 
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Notifications</legend>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.4rem" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                fontSize: "1.4rem",
+              }}
+            >
               <input
                 type="checkbox"
                 name="notifySubscribersEnabled"
                 value="on"
                 checked={formValues.notifySubscribersEnabled}
                 onChange={(e) =>
-                  setFormValues((prev) => ({ ...prev, notifySubscribersEnabled: e.target.checked }))
+                  setFormValues((prev) => ({
+                    ...prev,
+                    notifySubscribersEnabled: e.target.checked,
+                  }))
                 }
               />
               Show &ldquo;Notify subscribers?&rdquo; prompt after publishing
             </label>
-            <p style={{ margin: "0.4rem 0 0", fontSize: "1.2rem", color: "var(--text-secondary)" }}>
-              Uncheck to silence the notification prompt if you prefer to notify manually.
+            <p
+              style={{
+                margin: "0.4rem 0 0",
+                fontSize: "1.2rem",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Uncheck to silence the notification prompt if you prefer to notify
+              manually.
             </p>
           </fieldset>
 
