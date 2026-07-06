@@ -68,6 +68,15 @@ An Article moves through three publication states based on its relationship to S
 
 The Site-assignment boundary (Draft → Unpublished) and the Group-membership boundary (Unpublished → Published) are both meaningful. Previously only the Group-membership boundary was documented as the publish boundary — this was an oversimplification.
 
+### Analytics
+
+| Term                    | Definition                                                                                                                                                                                                                             | Aliases to Avoid                    |
+| :---------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
+| **Umami Configuration** | The optional per-Site connection details (base URL, website ID, API key) linking a Site to an author's own Umami instance. Stored locally in the CMS server's database, never on the Site's AT Protocol record — see ADR 0010. | Umami settings, analytics config     |
+| **Umami Website**       | The tracked-site entity within a third-party Umami instance, identified by its **Website ID**. Distinct from a Scribe **Site** — a Scribe Site optionally links to one Umami Website.                                                    | Umami site (ambiguous with **Site**) |
+
+**Note:** Umami Configuration is deliberately excluded from the `scribe` extension object that holds all other Site metadata — see ADR 0010 for why.
+
 ## Flagged Ambiguities
 
 - **"original"**: Previously used as the name for the largest stored image size. _Resolved: Use **max**. "original" implies the source file is unmodified; "max" correctly conveys it is a WebP-converted, capped Variant._
