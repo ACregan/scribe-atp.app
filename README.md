@@ -4,7 +4,7 @@ An AT Protocol-driven content management system. Authors write and store article
 
 ## How it works
 
-Articles are stored as `app.scribe.article` records in the author's PDS. Sites (managed publications) are stored as `app.scribe.site` records. Because AT Protocol repositories are publicly readable without authentication, any consumer — a static site, a blog frontend, a feed — can fetch and display content directly from the PDS with no API key or intermediary.
+Articles are stored as `site.standard.document` records in the author's PDS. Sites (managed publications) are stored as `site.standard.publication` records. Because AT Protocol repositories are publicly readable without authentication, any consumer — a static site, a blog frontend, a feed — can fetch and display content directly from the PDS with no API key or intermediary.
 
 Scribe CMS provides the authoring interface: write, organise, and publish.
 
@@ -151,27 +151,7 @@ See `docs/adr/0001-separate-image-service.md` for why the Image Service runs as 
 
 ## AT Protocol collections
 
-### `app.scribe.article` — draft article, rkey = slug
-
-Drafts use the `site.standard.document` field shape but omit `site` and `publishedAt`. `createdAt` is a Scribe extension field.
-
-```json
-{
-  "$type": "app.scribe.article",
-  "title": "My First Post",
-  "slug": "my-first-post",
-  "content": { "$type": "app.scribe.content.html", "html": "<p>Article body as serialised HTML.</p>" },
-  "textContent": "Article body as serialised HTML.",
-  "splashImageUrl": "https://example.com/images/splash.jpg",
-  "description": "A short description.",
-  "createdAt": "2025-01-01T00:00:00.000Z",
-  "updatedAt": "2025-06-01T10:00:00.000Z"
-}
-```
-
-`splashImageUrl` and `description` are optional. `content` uses the `app.scribe.content.html` union type.
-
-### `site.standard.document` — published article, rkey = slug
+### `site.standard.document` — article, rkey = TID
 
 ```json
 {
@@ -190,38 +170,7 @@ Drafts use the `site.standard.document` field shape but omit `site` and `publish
 }
 ```
 
-`site` is the Canonical Site `https://` URL. `publishedAt` is set at the actual publish instant — absent on drafts. `splashImageUrl` is a Scribe extension field (standard.site uses a blob `coverImage` which Scribe does not adopt).
-
-### `app.scribe.site` — rkey = URL-derived slug (e.g. `norobots-blog`)
-
-```json
-{
-  "$type": "app.scribe.site",
-  "title": "NoRobots.blog",
-  "url": "norobots.blog",
-  "urlPrefix": "blog",
-  "description": "A blog about engineering and design.",
-  "splashImageUrl": "https://norobots.blog/images/splash.jpg",
-  "logoImageUrl": "https://norobots.blog/images/logo.png",
-  "contributors": ["did:plc:contributorOneId"],
-  "groups": [
-    {
-      "slug": "engineering",
-      "title": "Engineering",
-      "articles": [
-        /* ArticleRef objects */
-      ]
-    }
-  ],
-  "ungroupedArticles": [
-    /* ArticleRef objects */
-  ],
-  "createdAt": "2025-01-01T00:00:00.000Z",
-  "updatedAt": "2025-06-01T12:00:00.000Z"
-}
-```
-
-`description`, `splashImageUrl`, and `logoImageUrl` are optional. The site owner is implicit — it is whoever's PDS holds the record. `groups` order is significant and determines display order on the site.
+`site` is the Canonical Site `https://` URL. `publishedAt` is set when the article is first published (moved into a named group) — absent until then. `splashImageUrl` is a Scribe extension field (standard.site uses a blob `coverImage` which Scribe does not adopt).
 
 #### ArticleRef — cached snapshot stored inside the site record
 
@@ -247,8 +196,8 @@ AT Protocol repositories are publicly readable without authentication:
 
 ```
 GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=site.standard.document
-GET https://{pds}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=site.standard.document&rkey={slug}
-GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=app.scribe.article   (drafts)
+GET https://{pds}/xrpc/com.atproto.repo.getRecord?repo={did}&collection=site.standard.document&rkey={tid}
+GET https://{pds}/xrpc/com.atproto.repo.listRecords?repo={did}&collection=site.standard.publication
 ```
 
 ## Public hooks
@@ -283,7 +232,7 @@ const { article, loading, error } = useArticle(author, articleSlug);
 ```ts
 import { slugFromUri, flattenArticles } from "~/hooks";
 
-slugFromUri("at://did/app.scribe.article/my-post"); // → "my-post"
+slugFromUri("at://did/site.standard.document/3mp4hfovqib2h"); // → "3mp4hfovqib2h"
 flattenArticles(site); // → ArticleRef[] — all grouped articles first, then ungrouped
 ```
 

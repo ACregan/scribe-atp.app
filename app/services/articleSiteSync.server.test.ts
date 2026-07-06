@@ -54,8 +54,8 @@ describe("computeSiteAssignmentChanges", () => {
 // ---------------------------------------------------------------------------
 
 const DID = "did:example:alice";
-const ARTICLE_URI = `at://${DID}/app.scribe.article/my-post`;
-const OTHER_URI = `at://${DID}/app.scribe.article/other-post`;
+const ARTICLE_URI = `at://${DID}/site.standard.document/my-post`;
+const OTHER_URI = `at://${DID}/site.standard.document/other-post`;
 
 function makeRef(uri: string) {
   return { uri, title: "T", slug: "t", splashImageUrl: null, description: null, createdAt: "2024-01-01" };
@@ -77,7 +77,7 @@ describe("findSitesContaining", () => {
   it("returns rkey of a site that references the article in ungroupedArticles", async () => {
     const agent = makeAgent([
       {
-        uri: `at://${DID}/app.scribe.site/site-a`,
+        uri: `at://${DID}/site.standard.publication/site-a`,
         value: { scribe: { ungroupedArticles: [makeRef(ARTICLE_URI)], groups: [] } },
       },
     ]);
@@ -87,7 +87,7 @@ describe("findSitesContaining", () => {
   it("returns rkey of a site that references the article inside a group", async () => {
     const agent = makeAgent([
       {
-        uri: `at://${DID}/app.scribe.site/site-b`,
+        uri: `at://${DID}/site.standard.publication/site-b`,
         value: {
           scribe: {
             ungroupedArticles: [],
@@ -102,7 +102,7 @@ describe("findSitesContaining", () => {
   it("excludes sites that only reference other articles", async () => {
     const agent = makeAgent([
       {
-        uri: `at://${DID}/app.scribe.site/site-a`,
+        uri: `at://${DID}/site.standard.publication/site-a`,
         value: {
           scribe: {
             ungroupedArticles: [makeRef(OTHER_URI)],
@@ -117,11 +117,11 @@ describe("findSitesContaining", () => {
   it("returns multiple rkeys when the article appears in more than one site", async () => {
     const agent = makeAgent([
       {
-        uri: `at://${DID}/app.scribe.site/site-a`,
+        uri: `at://${DID}/site.standard.publication/site-a`,
         value: { scribe: { ungroupedArticles: [makeRef(ARTICLE_URI)], groups: [] } },
       },
       {
-        uri: `at://${DID}/app.scribe.site/site-b`,
+        uri: `at://${DID}/site.standard.publication/site-b`,
         value: {
           scribe: {
             ungroupedArticles: [],
@@ -138,7 +138,7 @@ describe("findSitesContaining", () => {
 
   it("handles site records with missing ungroupedArticles and groups", async () => {
     const agent = makeAgent([
-      { uri: `at://${DID}/app.scribe.site/site-a`, value: {} },
+      { uri: `at://${DID}/site.standard.publication/site-a`, value: {} },
     ]);
     expect(await findSitesContaining(agent, DID, ARTICLE_URI)).toEqual([]);
   });

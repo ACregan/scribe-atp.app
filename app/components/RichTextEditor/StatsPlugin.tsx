@@ -15,8 +15,8 @@ export function countChars(text: string): number {
 }
 
 export function readingTime(wordCount: number): string {
-  if (wordCount < 250) return "< 1 min read";
-  return `${Math.floor(wordCount / 250)} min read`;
+  if (wordCount < 225) return "< 1 min read";
+  return `${Math.floor(wordCount / 225)} min read`;
 }
 
 function formatNumber(n: number): string {

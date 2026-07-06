@@ -130,13 +130,13 @@ vi.mock("../Tooltip/Tooltip", () => ({
 const sampleArticles: TreeArticle[] = [
   {
     id: "a:article-1",
-    uri: "at://did/app.scribe.article/article-1",
+    uri: "at://did/site.standard.document/article-1",
     title: "Article One",
     createdAt: "2024-01-01T00:00:00.000Z",
   },
   {
     id: "a:article-2",
-    uri: "at://did/app.scribe.article/article-2",
+    uri: "at://did/site.standard.document/article-2",
     title: "Article Two",
     createdAt: "2024-01-02T00:00:00.000Z",
   },
@@ -417,11 +417,11 @@ describe("GroupItemPreview", () => {
       <GroupItemPreview
         title="Preview Group"
         slug="preview-group"
-        uri="at://did/app.scribe.site/test"
+        uri="at://did/site.standard.publication/test"
       />,
     );
     expect(
-      screen.getByText("at://did/app.scribe.site/test"),
+      screen.getByText("at://did/site.standard.publication/test"),
     ).toBeInTheDocument();
   });
 

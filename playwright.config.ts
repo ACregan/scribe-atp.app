@@ -24,6 +24,7 @@ export default defineConfig({
   webServer: {
     command: "npm run build && npm run start",
     port: 3008,
+    timeout: 120_000,
     reuseExistingServer: !process.env.CI,
     env: {
       E2E: "true",
