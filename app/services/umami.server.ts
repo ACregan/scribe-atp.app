@@ -9,10 +9,10 @@ const FETCH_TIMEOUT_MS = 5000;
 
 // ── SSRF guard (ADR 0011) ────────────────────────────────────────────────────
 //
-// Base URL is user-supplied and fetched server-side on every test-connection
-// and every Insights-page load. Re-resolve and re-check on every call, not
-// just at save time — a hostname that resolved safely once could later be
-// repointed at an internal address.
+// Base URL is user-supplied and fetched server-side on every login and every
+// stats/pageviews call. Re-resolve and re-check on every call, not just at
+// save time — a hostname that resolved safely once could later be repointed
+// at an internal address.
 
 const PRIVATE_IPV4_RANGES: Array<[base: string, bits: number]> = [
   ["10.0.0.0", 8],
@@ -93,6 +93,79 @@ function apiUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/$/, "")}${path}`;
 }
 
+// ── Login (ADR 0012) ─────────────────────────────────────────────────────────
+//
+// Self-hosted Umami has no static API key — auth is POST /api/auth/login
+// with { username, password } returning a JWT, used as
+// "Authorization: Bearer {token}" on every subsequent request. Confirmed
+// empirically against a live Umami v3.1.0 instance.
+
+export class UmamiAuthError extends Error {}
+
+function decodeJwtExpiry(token: string): number | null {
+  try {
+    const payloadSegment = token.split(".")[1];
+    if (!payloadSegment) return null;
+    const json = Buffer.from(payloadSegment, "base64url").toString("utf-8");
+    const payload = JSON.parse(json) as { exp?: number };
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loginToUmami(
+  baseUrl: string,
+  username: string,
+  password: string,
+): Promise<{ token: string; expiresAt: number }> {
+  const res = await fetch(apiUrl(baseUrl, "/api/auth/login"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new UmamiAuthError("Umami rejected the username or password.");
+  }
+  if (!res.ok) {
+    throw new UmamiAuthError(`Umami login failed (${res.status}).`);
+  }
+  const data = (await res.json()) as { token?: string };
+  if (!data.token) {
+    throw new UmamiAuthError("Umami login response did not include a token.");
+  }
+  // exp is seconds since epoch (JWT standard claim) — fall back to a
+  // conservative 1-hour assumption if the token is missing the claim.
+  const expiresAt =
+    decodeJwtExpiry(data.token) ?? Math.floor(Date.now() / 1000) + 3600;
+  return { token: data.token, expiresAt };
+}
+
+const TOKEN_REFRESH_MARGIN_SECONDS = 60;
+
+async function getValidToken(
+  userDid: string,
+  siteRkey: string,
+  config: UmamiConfig,
+): Promise<string> {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (
+    config.cachedJwt &&
+    config.jwtExpiresAt &&
+    config.jwtExpiresAt - TOKEN_REFRESH_MARGIN_SECONDS > nowSeconds
+  ) {
+    return config.cachedJwt;
+  }
+  const { token, expiresAt } = await loginToUmami(
+    config.baseUrl,
+    config.username,
+    config.password,
+  );
+  umamiConfigStore.setCachedJwt(userDid, siteRkey, token, expiresAt);
+  return token;
+}
+
 // ── Connection test ──────────────────────────────────────────────────────────
 
 export type UmamiTestResult =
@@ -102,7 +175,8 @@ export type UmamiTestResult =
 export async function testUmamiConnection(
   baseUrl: string,
   websiteId: string,
-  apiKey: string,
+  username: string,
+  password: string,
 ): Promise<UmamiTestResult> {
   try {
     await assertPublicHost(baseUrl);
@@ -113,14 +187,26 @@ export async function testUmamiConnection(
     };
   }
 
+  let token: string;
+  try {
+    const result = await loginToUmami(baseUrl, username, password);
+    token = result.token;
+  } catch (err) {
+    if (err instanceof UmamiAuthError) {
+      return { ok: false, error: err.message };
+    }
+    logger.warn(
+      { event: "umami.test_connection_error", error: String(err) },
+      "umami.test_connection_error",
+    );
+    return { ok: false, error: "Could not reach that Umami instance." };
+  }
+
   try {
     const res = await fetch(apiUrl(baseUrl, `/api/websites/${websiteId}`), {
-      headers: { "x-umami-api-key": apiKey },
+      headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    if (res.status === 401 || res.status === 403) {
-      return { ok: false, error: "Umami rejected the API key." };
-    }
     if (res.status === 404) {
       return {
         ok: false,
@@ -148,13 +234,12 @@ export async function testUmamiConnection(
 
 export type UmamiDayPoint = { date: string; pageviews: number };
 
-export async function fetchUmamiPageviews(
+async function requestPageviews(
   config: UmamiConfig,
+  token: string,
   fromMs: number,
   toMs: number,
-): Promise<UmamiDayPoint[]> {
-  await assertPublicHost(config.baseUrl);
-
+): Promise<UmamiDayPoint[] | "unauthorized"> {
   const url = new URL(
     apiUrl(config.baseUrl, `/api/websites/${config.websiteId}/pageviews`),
   );
@@ -164,18 +249,48 @@ export async function fetchUmamiPageviews(
   url.searchParams.set("timezone", "UTC");
 
   const res = await fetch(url.toString(), {
-    headers: { "x-umami-api-key": config.apiKey },
+    headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
+  if (res.status === 401 || res.status === 403) return "unauthorized";
   if (!res.ok) {
     throw new Error(`Umami pageviews request failed (${res.status}).`);
   }
 
-  const data = (await res.json()) as { pageviews?: { t: string; y: number }[] };
+  const data = (await res.json()) as { pageviews?: { x: string; y: number }[] };
   return (data.pageviews ?? []).map((p) => ({
-    date: p.t.slice(0, 10),
+    date: p.x.slice(0, 10),
     pageviews: p.y,
   }));
+}
+
+export async function fetchUmamiPageviews(
+  userDid: string,
+  siteRkey: string,
+  config: UmamiConfig,
+  fromMs: number,
+  toMs: number,
+): Promise<UmamiDayPoint[]> {
+  await assertPublicHost(config.baseUrl);
+
+  const token = await getValidToken(userDid, siteRkey, config);
+  const points = await requestPageviews(config, token, fromMs, toMs);
+  if (points !== "unauthorized") return points;
+
+  // Cached token was rejected (e.g. the password was changed elsewhere,
+  // invalidating existing sessions early) — force a fresh login and retry
+  // once before giving up.
+  const { token: freshToken, expiresAt } = await loginToUmami(
+    config.baseUrl,
+    config.username,
+    config.password,
+  );
+  umamiConfigStore.setCachedJwt(userDid, siteRkey, freshToken, expiresAt);
+  const retryPoints = await requestPageviews(config, freshToken, fromMs, toMs);
+  if (retryPoints === "unauthorized") {
+    throw new Error("Umami rejected the stored credentials.");
+  }
+  return retryPoints;
 }
 
 // ── Config CRUD ──────────────────────────────────────────────────────────────
@@ -194,7 +309,8 @@ export function saveUmamiConfig(
     baseUrl: string;
     websiteId: string;
     websiteName: string;
-    apiKey: string;
+    username: string;
+    password: string;
   },
 ): void {
   umamiConfigStore.set(userDid, siteRkey, config);

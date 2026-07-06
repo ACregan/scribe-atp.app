@@ -38,7 +38,13 @@ import {
 // ── Loader ────────────────────────────────────────────────────────────────────
 
 type UmamiStatus =
-  | { configured: true; baseUrl: string; websiteId: string; websiteName: string }
+  | {
+      configured: true;
+      baseUrl: string;
+      websiteId: string;
+      websiteName: string;
+      username: string;
+    }
   | { configured: false };
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -61,6 +67,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         baseUrl: umamiConfig.baseUrl,
         websiteId: umamiConfig.websiteId,
         websiteName: umamiConfig.websiteName,
+        username: umamiConfig.username,
       }
     : { configured: false };
 
@@ -89,24 +96,28 @@ async function handleConnectUmami(
 ) {
   const baseUrl = ((formData.get("umamiBaseUrl") as string) ?? "").trim();
   const websiteId = ((formData.get("umamiWebsiteId") as string) ?? "").trim();
-  const apiKeyInput = ((formData.get("umamiApiKey") as string) ?? "").trim();
+  const username = ((formData.get("umamiUsername") as string) ?? "").trim();
+  const passwordInput = ((formData.get("umamiPassword") as string) ?? "").trim();
 
-  if (!baseUrl || !websiteId) {
-    return { ok: false, error: "Base URL and Website ID are required." };
+  if (!baseUrl || !websiteId || !username) {
+    return {
+      ok: false,
+      error: "Base URL, Website ID, and Username are required.",
+    };
   }
 
-  // Blank API key on Edit means "keep the existing key" — only the initial
-  // connect requires it, since nothing is stored yet at that point.
-  let apiKey = apiKeyInput;
-  if (!apiKey) {
+  // Blank password on Edit means "keep the existing password" — only the
+  // initial connect requires it, since nothing is stored yet at that point.
+  let password = passwordInput;
+  if (!password) {
     const existing = getUmamiConfig(did, siteSlug);
     if (!existing) {
-      return { ok: false, error: "API key is required." };
+      return { ok: false, error: "Password is required." };
     }
-    apiKey = existing.apiKey;
+    password = existing.password;
   }
 
-  const result = await testUmamiConnection(baseUrl, websiteId, apiKey);
+  const result = await testUmamiConnection(baseUrl, websiteId, username, password);
   if (!result.ok) {
     return { ok: false, error: result.error };
   }
@@ -115,7 +126,8 @@ async function handleConnectUmami(
     baseUrl,
     websiteId,
     websiteName: result.websiteName,
-    apiKey,
+    username,
+    password,
   });
 
   logger.info(
@@ -440,11 +452,12 @@ export default function ConfigureSite({
   const [umamiFormValues, setUmamiFormValues] = useState({
     baseUrl: "",
     websiteId: "",
-    apiKey: "",
+    username: "",
+    password: "",
   });
 
   function openConnectUmamiModal() {
-    setUmamiFormValues({ baseUrl: "", websiteId: "", apiKey: "" });
+    setUmamiFormValues({ baseUrl: "", websiteId: "", username: "", password: "" });
     umamiModal.open();
   }
 
@@ -452,7 +465,8 @@ export default function ConfigureSite({
     setUmamiFormValues({
       baseUrl: site.umami.configured ? site.umami.baseUrl : "",
       websiteId: site.umami.configured ? site.umami.websiteId : "",
-      apiKey: "",
+      username: site.umami.configured ? site.umami.username : "",
+      password: "",
     });
     umamiModal.open();
   }
@@ -747,24 +761,43 @@ export default function ConfigureSite({
             required
           />
           <Input
-            id="umamiApiKey"
-            name="umamiApiKey"
-            type="password"
-            label="Umami API Key"
-            value={umamiFormValues.apiKey}
+            id="umamiUsername"
+            name="umamiUsername"
+            label="Umami Username"
+            value={umamiFormValues.username}
             onChange={(e) =>
               setUmamiFormValues((prev) => ({
                 ...prev,
-                apiKey: e.target.value,
+                username: e.target.value,
+              }))
+            }
+            required
+          />
+          <Input
+            id="umamiPassword"
+            name="umamiPassword"
+            type="password"
+            label="Umami Password"
+            value={umamiFormValues.password}
+            onChange={(e) =>
+              setUmamiFormValues((prev) => ({
+                ...prev,
+                password: e.target.value,
               }))
             }
             placeholder={
               site.umami.configured
-                ? "•••••••• (leave blank to keep existing key)"
+                ? "•••••••• (leave blank to keep existing password)"
                 : undefined
             }
             required={!site.umami.configured}
           />
+          <p className={styles.umamiHint}>
+            Self-hosted Umami has no scoped API key — this uses your Umami
+            login directly. We recommend creating a dedicated Umami user
+            restricted to just this website, rather than using your main
+            admin login, in case this credential is ever compromised.
+          </p>
           {umamiFetcher.data && !umamiFetcher.data.ok && (
             <p className={styles.errorMessage}>{umamiFetcher.data.error}</p>
           )}
@@ -800,7 +833,7 @@ export default function ConfigureSite({
           <p>Disconnect this site from Umami?</p>
           <p className={styles.deleteWarning}>
             The Pageviews chart will disappear from Insights for this site.
-            Reconnecting later requires re-entering your Umami API key — it
+            Reconnecting later requires re-entering your Umami password — it
             isn&rsquo;t stored anywhere it can be retrieved from.
           </p>
           {umamiDisconnectFetcher.data && !umamiDisconnectFetcher.data.ok && (

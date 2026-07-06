@@ -107,6 +107,12 @@
   gap: 0.8rem;
 }
 
+.umamiHint {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
 /* ── Modal footer / warning text (shared with sites.module.css pattern) ───────── */
 
 .modalFooter {
