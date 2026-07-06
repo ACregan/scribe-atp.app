@@ -23,7 +23,33 @@ function getDb(): Database.Database {
   return global.__db;
 }
 
+// One-time repair: an earlier deploy created umami_config with the api_key
+// schema (before ADR 0012's login-JWT rework), and CREATE TABLE IF NOT
+// EXISTS is a no-op against an already-existing table — so the corrected
+// schema below never applied in place. The old static-key auth never
+// actually worked against self-hosted Umami (no static key exists there),
+// so no connect attempt could have persisted a usable row — safe to drop
+// and let the create-table below rebuild it with the current schema.
+function repairUmamiConfigSchema(db: Database.Database) {
+  const columns = db
+    .prepare("PRAGMA table_info(umami_config)")
+    .all() as { name: string }[];
+  if (columns.length === 0) return; // table doesn't exist yet
+  if (columns.some((c) => c.name === "username")) return; // already current
+
+  const { count } = db
+    .prepare("SELECT COUNT(*) as count FROM umami_config")
+    .get() as { count: number };
+  if (count > 0) {
+    console.warn(
+      `[db.server] Dropping ${count} umami_config row(s) using the old api_key schema — see ADR 0012.`,
+    );
+  }
+  db.exec("DROP TABLE umami_config;");
+}
+
 function migrate(db: Database.Database) {
+  repairUmamiConfigSchema(db);
   db.exec(`
     CREATE TABLE IF NOT EXISTS oauth_state (
       key   TEXT PRIMARY KEY,
