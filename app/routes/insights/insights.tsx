@@ -1,4 +1,5 @@
 import type { Route } from "./+types/insights";
+import { useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -17,6 +18,9 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { Spinner } from "~/components/Spinner/Spinner";
+import { useToast } from "~/components/Toast/ToastContext";
+import { logger } from "~/services/logger.server";
+import { getUmamiConfig, fetchUmamiPageviews } from "~/services/umami.server";
 import styles from "./insights.module.css";
 
 const ACTION_TYPES = ["recommend", "subscribe", "share"] as const;
@@ -31,7 +35,7 @@ const METRIC_LABELS: Record<ActionType, string> = {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type DayStat = { day: string; thisWeek: number; prevWeek: number };
-type SiteMetricData = Record<ActionType, DayStat[]>;
+type SiteMetricData = Record<ActionType, DayStat[]> & { pageviews?: DayStat[] };
 type SiteData = {
   siteUrl: string;
   title: string;
@@ -84,15 +88,18 @@ export async function loader({ request }: Route.LoaderArgs) {
       { siteUrl: "https://norobots.blog", title: "NoRobots.blog" },
       { siteUrl: "https://anthonycregan.co.uk", title: "Anthony Cregan" },
       { siteUrl: "https://perpetualsummer.ltd", title: "Perpetual Summer" },
-    ].map((s) => ({
+    ].map((s, i) => ({
       ...s,
       metrics: {
         recommend: mockDayStats(4),
         subscribe: mockDayStats(2),
         share: mockDayStats(1),
+        // Only the first mock site shows Umami configured, matching the
+        // per-site opt-in behaviour of the real loader below.
+        ...(i === 0 ? { pageviews: mockDayStats(40) } : {}),
       },
     }));
-    return { sites: mockSites };
+    return { sites: mockSites, umamiWarnings: [] as string[] };
   }
 
   const agent = await getAtpAgent(did);
@@ -102,7 +109,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     limit: 100,
   });
 
-  type SiteInfo = { siteUrl: string; title: string; logoImageUrl?: string };
+  type SiteInfo = {
+    rkey: string;
+    siteUrl: string;
+    title: string;
+    logoImageUrl?: string;
+  };
 
   const sites: SiteInfo[] = sitesResult.data.records
     .map((record): SiteInfo | null => {
@@ -113,6 +125,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       const domain = String(scribe.domain ?? "");
       if (!domain) return null;
       return {
+        rkey: record.uri.split("/").pop()!,
         siteUrl: `https://${domain}`,
         title: String(scribe.title ?? domain),
         logoImageUrl: scribe.logoImageUrl
@@ -168,17 +181,56 @@ export async function loader({ request }: Route.LoaderArgs) {
     for (const { key, count } of groups) byDate.set(key, count);
   }
 
-  const siteMetrics: SiteData[] = sites.map((site) => ({
-    ...site,
-    metrics: ACTION_TYPES.reduce((acc, actionType) => {
+  // Umami is opt-in per site (see ADR 0010) — only sites with a config row
+  // fetch pageviews, and a fetch failure for one site never affects others.
+  const nowMs = Date.now();
+  const from14Ms = nowMs - 14 * 86400 * 1000;
+  const umamiFailedTitles: string[] = [];
+
+  const umamiResults = await Promise.all(
+    sites.map(async (site) => {
+      const config = getUmamiConfig(did, site.rkey);
+      if (!config) return { siteUrl: site.siteUrl, byDate: null };
+      try {
+        const points = await fetchUmamiPageviews(config, from14Ms, nowMs);
+        const byDate = new Map<string, number>();
+        for (const p of points) byDate.set(p.date, p.pageviews);
+        return { siteUrl: site.siteUrl, byDate };
+      } catch (err) {
+        logger.warn(
+          {
+            event: "insights.umami_fetch_error",
+            site: site.siteUrl,
+            error: String(err),
+          },
+          "insights.umami_fetch_error",
+        );
+        umamiFailedTitles.push(site.title);
+        return { siteUrl: site.siteUrl, byDate: null };
+      }
+    }),
+  );
+  const umamiByDateMap = new Map(
+    umamiResults.map(({ siteUrl, byDate }) => [siteUrl, byDate]),
+  );
+
+  const siteMetrics: SiteData[] = sites.map((site) => {
+    const metrics: SiteMetricData = ACTION_TYPES.reduce((acc, actionType) => {
       const byDate =
         countMap.get(site.siteUrl)?.[actionType] ?? new Map<string, number>();
       acc[actionType] = buildDaySlots(byDate, thisWeekDays, prevWeekDays);
       return acc;
-    }, {} as SiteMetricData),
-  }));
+    }, {} as SiteMetricData);
 
-  return { sites: siteMetrics };
+    const umamiByDate = umamiByDateMap.get(site.siteUrl);
+    if (umamiByDate) {
+      metrics.pageviews = buildDaySlots(umamiByDate, thisWeekDays, prevWeekDays);
+    }
+
+    return { ...site, metrics };
+  });
+
+  return { sites: siteMetrics, umamiWarnings: umamiFailedTitles };
 }
 
 export function meta({}: Route.MetaArgs) {
@@ -276,13 +328,30 @@ function SiteCard({ site }: { site: SiteData }) {
             label={METRIC_LABELS[actionType]}
           />
         ))}
+        {site.metrics.pageviews && (
+          <MetricChart data={site.metrics.pageviews} label="Pageviews" />
+        )}
       </div>
     </div>
   );
 }
 
 export default function Insights({ loaderData }: Route.ComponentProps) {
-  const { sites } = loaderData;
+  const { sites, umamiWarnings } = loaderData;
+  const { addToast } = useToast();
+
+  // Fires once on initial mount only — not on later revalidations, so a
+  // background refresh doesn't re-stack the same warnings.
+  useEffect(() => {
+    umamiWarnings.forEach((title) => {
+      addToast({
+        heading: `Analytics unavailable for ${title}`,
+        variant: "danger",
+        autoExpire: false,
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <PageContainer
