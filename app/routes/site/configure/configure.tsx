@@ -1,4 +1,9 @@
-import { useNavigate, useBlocker, type BlockerFunction } from "react-router";
+import {
+  useNavigate,
+  useBlocker,
+  useFetcher,
+  type BlockerFunction,
+} from "react-router";
 import { useEffect, useState, useMemo } from "react";
 import {
   PageContainer,
@@ -8,6 +13,7 @@ import {
 import { Input } from "~/components/Input/Input";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
+import { useModal } from "~/components/Modal/useModal";
 import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
 import { devConfigureLoader } from "~/services/devFixtures.server";
 import type { Route } from "./+types/configure";
@@ -22,8 +28,18 @@ import {
   putDocument,
 } from "~/services/documentRepository.server";
 import { resolveThumbUrl } from "~/services/article.server";
+import {
+  getUmamiConfig,
+  saveUmamiConfig,
+  deleteUmamiConfig,
+  testUmamiConnection,
+} from "~/services/umami.server";
 
 // ── Loader ────────────────────────────────────────────────────────────────────
+
+type UmamiStatus =
+  | { configured: true; baseUrl: string; websiteId: string; websiteName: string }
+  | { configured: false };
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { did } = await requireAuth(request);
@@ -37,6 +53,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const v = record.value;
   const scribe = (v.scribe as Record<string, unknown>) ?? {};
   const prefs = (v.preferences as Record<string, unknown>) ?? {};
+
+  const umamiConfig = getUmamiConfig(did, siteSlug);
+  const umami: UmamiStatus = umamiConfig
+    ? {
+        configured: true,
+        baseUrl: umamiConfig.baseUrl,
+        websiteId: umamiConfig.websiteId,
+        websiteName: umamiConfig.websiteName,
+      }
+    : { configured: false };
+
   return {
     site: {
       rkey: siteSlug,
@@ -48,11 +75,61 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       logoImageUrl: String(scribe.logoImageUrl ?? ""),
       showInDiscover: prefs.showInDiscover !== false,
       notifySubscribersEnabled: prefs.notifySubscribersEnabled !== false,
+      umami,
     },
   };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function handleConnectUmami(
+  did: string,
+  siteSlug: string,
+  formData: FormData,
+) {
+  const baseUrl = ((formData.get("umamiBaseUrl") as string) ?? "").trim();
+  const websiteId = ((formData.get("umamiWebsiteId") as string) ?? "").trim();
+  const apiKeyInput = ((formData.get("umamiApiKey") as string) ?? "").trim();
+
+  if (!baseUrl || !websiteId) {
+    return { ok: false, error: "Base URL and Website ID are required." };
+  }
+
+  // Blank API key on Edit means "keep the existing key" — only the initial
+  // connect requires it, since nothing is stored yet at that point.
+  let apiKey = apiKeyInput;
+  if (!apiKey) {
+    const existing = getUmamiConfig(did, siteSlug);
+    if (!existing) {
+      return { ok: false, error: "API key is required." };
+    }
+    apiKey = existing.apiKey;
+  }
+
+  const result = await testUmamiConnection(baseUrl, websiteId, apiKey);
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  saveUmamiConfig(did, siteSlug, {
+    baseUrl,
+    websiteId,
+    websiteName: result.websiteName,
+    apiKey,
+  });
+
+  logger.info(
+    { event: "site.umami_connect", user_did: did, rkey: siteSlug },
+    "site.umami_connect",
+  );
+
+  return {
+    ok: true,
+    error: undefined,
+    umamiConnected: true as const,
+    umamiWebsiteName: result.websiteName,
+  };
+}
 
 // ── Action ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +137,20 @@ export async function action({ request, params }: Route.ActionArgs) {
   const { did } = await requireAuth(request);
   const { siteSlug } = params;
   const formData = await request.formData();
+  const intent = (formData.get("_intent") as string) ?? "saveSite";
+
+  if (intent === "connectUmami") {
+    return handleConnectUmami(did, siteSlug, formData);
+  }
+
+  if (intent === "disconnectUmami") {
+    deleteUmamiConfig(did, siteSlug);
+    logger.info(
+      { event: "site.umami_disconnect", user_did: did, rkey: siteSlug },
+      "site.umami_disconnect",
+    );
+    return { ok: true, error: undefined, umamiDisconnected: true as const };
+  }
 
   const title = (formData.get("title") as string)?.trim();
   const url = (formData.get("url") as string)?.trim().toLowerCase();
@@ -254,6 +345,14 @@ export async function action({ request, params }: Route.ActionArgs) {
   };
 }
 
+type ConnectUmamiActionData =
+  | { ok: true; umamiConnected: true; umamiWebsiteName: string }
+  | { ok: false; error: string };
+
+type DisconnectUmamiActionData =
+  | { ok: true; umamiDisconnected: true }
+  | { ok: false; error: string };
+
 export function meta({ data }: Route.MetaArgs) {
   const title = data?.site?.title ?? "Configure Site";
   return [{ title: `Configure — ${title}` }];
@@ -329,6 +428,51 @@ export default function ConfigureSite({
       setFormValues((prev) => ({ ...prev, [field]: e.target.value }));
   }
 
+  // ── Umami analytics ──────────────────────────────────────────────────────
+
+  const umamiModal = useModal();
+  const umamiDisconnectModal = useModal();
+  const umamiFetcher = useFetcher<ConnectUmamiActionData>();
+  const umamiDisconnectFetcher = useFetcher<DisconnectUmamiActionData>();
+  const isConnectingUmami = umamiFetcher.state !== "idle";
+  const isDisconnectingUmami = umamiDisconnectFetcher.state !== "idle";
+
+  const [umamiFormValues, setUmamiFormValues] = useState({
+    baseUrl: "",
+    websiteId: "",
+    apiKey: "",
+  });
+
+  function openConnectUmamiModal() {
+    setUmamiFormValues({ baseUrl: "", websiteId: "", apiKey: "" });
+    umamiModal.open();
+  }
+
+  function openEditUmamiModal() {
+    setUmamiFormValues({
+      baseUrl: site.umami.configured ? site.umami.baseUrl : "",
+      websiteId: site.umami.configured ? site.umami.websiteId : "",
+      apiKey: "",
+    });
+    umamiModal.open();
+  }
+
+  useEffect(() => {
+    if (!umamiFetcher.data?.ok) return;
+    addToast({
+      heading: "Umami connected",
+      content: `Now tracking ${umamiFetcher.data.umamiWebsiteName}`,
+      variant: "success",
+    });
+    umamiModal.close();
+  }, [umamiFetcher.data]);
+
+  useEffect(() => {
+    if (!umamiDisconnectFetcher.data?.ok) return;
+    addToast({ heading: "Umami disconnected", variant: "primary" });
+    umamiDisconnectModal.close();
+  }, [umamiDisconnectFetcher.data]);
+
   return (
     <PageContainer
       title={
@@ -340,6 +484,7 @@ export default function ConfigureSite({
       <PageSection>
         <h5>{site.title}</h5>
         <Form id="configure-site-form" method="post" className={styles.form}>
+          <input type="hidden" name="_intent" value="saveSite" />
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Identity</legend>
             <Input
@@ -472,6 +617,47 @@ export default function ConfigureSite({
           )}
         </Form>
       </PageSection>
+
+      <PageSection>
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Analytics</legend>
+          {site.umami.configured ? (
+            <div className={styles.umamiConnected}>
+              <p>
+                Connected to Umami — tracking{" "}
+                <a
+                  href={`${site.umami.baseUrl.replace(/\/$/, "")}/websites/${site.umami.websiteId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {site.umami.websiteName}
+                </a>
+              </p>
+              <div className={styles.umamiActions}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={openEditUmamiModal}
+                >
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={umamiDisconnectModal.open}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button type="button" onClick={openConnectUmamiModal}>
+              Integrate with Umami
+            </Button>
+          )}
+        </fieldset>
+      </PageSection>
+
       <FooterPortal>
         <Link to="/sites">
           <Button type="button" variant="secondary" tabIndex={-1}>
@@ -506,6 +692,123 @@ export default function ConfigureSite({
         <p>
           You have unsaved changes that will be lost if you leave this page.
         </p>
+      </Modal>
+
+      <Modal
+        isOpen={umamiModal.isOpen}
+        onClose={umamiModal.close}
+        title={site.umami.configured ? "Edit Umami Integration" : "Integrate with Umami"}
+        footer={
+          <div className={styles.modalFooter}>
+            <Button
+              variant="secondary"
+              onClick={umamiModal.close}
+              disabled={isConnectingUmami}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="umami-connect-form"
+              disabled={isConnectingUmami}
+            >
+              {isConnectingUmami ? "Connecting…" : "Connect"}
+            </Button>
+          </div>
+        }
+      >
+        <umamiFetcher.Form id="umami-connect-form" method="post">
+          <input type="hidden" name="_intent" value="connectUmami" />
+          <Input
+            id="umamiBaseUrl"
+            name="umamiBaseUrl"
+            label="Umami Base URL"
+            value={umamiFormValues.baseUrl}
+            onChange={(e) =>
+              setUmamiFormValues((prev) => ({
+                ...prev,
+                baseUrl: e.target.value,
+              }))
+            }
+            placeholder="https://analytics.example.com"
+            required
+          />
+          <Input
+            id="umamiWebsiteId"
+            name="umamiWebsiteId"
+            label="Umami Website ID"
+            value={umamiFormValues.websiteId}
+            onChange={(e) =>
+              setUmamiFormValues((prev) => ({
+                ...prev,
+                websiteId: e.target.value,
+              }))
+            }
+            required
+          />
+          <Input
+            id="umamiApiKey"
+            name="umamiApiKey"
+            type="password"
+            label="Umami API Key"
+            value={umamiFormValues.apiKey}
+            onChange={(e) =>
+              setUmamiFormValues((prev) => ({
+                ...prev,
+                apiKey: e.target.value,
+              }))
+            }
+            placeholder={
+              site.umami.configured
+                ? "•••••••• (leave blank to keep existing key)"
+                : undefined
+            }
+            required={!site.umami.configured}
+          />
+          {umamiFetcher.data && !umamiFetcher.data.ok && (
+            <p className={styles.errorMessage}>{umamiFetcher.data.error}</p>
+          )}
+        </umamiFetcher.Form>
+      </Modal>
+
+      <Modal
+        isOpen={umamiDisconnectModal.isOpen}
+        onClose={umamiDisconnectModal.close}
+        title="Disconnect Umami"
+        footer={
+          <div className={styles.modalFooter}>
+            <Button
+              variant="secondary"
+              onClick={umamiDisconnectModal.close}
+              disabled={isDisconnectingUmami}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="umami-disconnect-form"
+              variant="danger"
+              disabled={isDisconnectingUmami}
+            >
+              {isDisconnectingUmami ? "Disconnecting…" : "Disconnect"}
+            </Button>
+          </div>
+        }
+      >
+        <umamiDisconnectFetcher.Form id="umami-disconnect-form" method="post">
+          <input type="hidden" name="_intent" value="disconnectUmami" />
+          <p>Disconnect this site from Umami?</p>
+          <p className={styles.deleteWarning}>
+            The Pageviews chart will disappear from Insights for this site.
+            Reconnecting later requires re-entering your Umami API key — it
+            isn&rsquo;t stored anywhere it can be retrieved from.
+          </p>
+          {umamiDisconnectFetcher.data && !umamiDisconnectFetcher.data.ok && (
+            <p className={styles.errorMessage}>
+              {umamiDisconnectFetcher.data.error}
+            </p>
+          )}
+        </umamiDisconnectFetcher.Form>
       </Modal>
     </PageContainer>
   );

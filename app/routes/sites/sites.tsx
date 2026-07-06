@@ -30,6 +30,7 @@ import {
   deleteSite as deleteSiteRecord,
   listSites,
 } from "~/services/siteRepository.server";
+import { deleteUmamiConfig } from "~/services/umami.server";
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -160,6 +161,10 @@ export async function action({ request }: Route.ActionArgs) {
         return { ok: false, error: `Failed to delete site: ${String(err)}` };
       }
     }
+
+    // Umami config lives in a local table, not the PDS record (ADR 0010) —
+    // deleting the site record doesn't clean it up on its own.
+    deleteUmamiConfig(did, rkey);
 
     logger.info({ event: "site.delete", user_did: did, rkey }, "site.delete");
     return { ok: true };
