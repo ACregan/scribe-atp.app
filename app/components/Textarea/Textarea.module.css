@@ -22,6 +22,7 @@
   box-sizing: border-box;
   resize: vertical;
   margin: 0 0.4rem;
+  resize: none;
 }
 
 .textarea:focus {

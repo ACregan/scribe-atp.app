@@ -22,7 +22,7 @@ const ref = (
   slug: string,
   overrides: Partial<ArticleRef> = {},
 ): ArticleRef => ({
-  uri: `at://did:plc:test/app.scribe.article/${slug}`,
+  uri: `at://did:plc:test/site.standard.document/${slug}`,
   title: `Article: ${slug}`,
   slug,
   splashImageUrl: null,
@@ -45,7 +45,7 @@ const emptySite: SiteManifest = {
 
 describe("slugFromUri", () => {
   it("returns the final path segment of an AT URI", () => {
-    expect(slugFromUri("at://did:plc:abc/app.scribe.article/my-post")).toBe(
+    expect(slugFromUri("at://did:plc:abc/site.standard.document/my-post")).toBe(
       "my-post",
     );
   });
@@ -353,7 +353,7 @@ describe("treeToSiteData", () => {
 const makeRecord = (
   overrides: Partial<SiteRecordValue> = {},
 ): SiteRecordValue => ({
-  $type: "app.scribe.site",
+  $type: "site.standard.publication",
   title: "My Site",
   url: "example.com",
   urlPrefix: "blog",
@@ -429,7 +429,7 @@ describe("removeArticleRef", () => {
 
 describe("updateArticleRef", () => {
   const newRef: ArticleRef = {
-    uri: "at://did:plc:test/app.scribe.article/renamed",
+    uri: "at://did:plc:test/site.standard.document/renamed",
     title: "Renamed",
     slug: "renamed",
     splashImageUrl: null,

@@ -6,7 +6,7 @@ import type { Site, ArticleRef } from "./types";
 
 describe("slugFromUri", () => {
   it("returns the final path segment of an AT URI", () => {
-    expect(slugFromUri("at://did:plc:abc/app.scribe.article/my-post")).toBe("my-post");
+    expect(slugFromUri("at://did:plc:abc/site.standard.document/my-post")).toBe("my-post");
   });
 
   it("works for any URI depth", () => {
@@ -21,7 +21,7 @@ describe("slugFromUri", () => {
 // ─── flattenArticles ─────────────────────────────────────────────────────────
 
 const articleRef = (slug: string, overrides: Partial<ArticleRef> = {}): ArticleRef => ({
-  uri: `at://did/app.scribe.article/${slug}`,
+  uri: `at://did/site.standard.document/${slug}`,
   title: `Article: ${slug}`,
   splashImageUrl: null,
   createdAt: "2024-01-01T00:00:00.000Z",
