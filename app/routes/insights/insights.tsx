@@ -192,7 +192,13 @@ export async function loader({ request }: Route.LoaderArgs) {
       const config = getUmamiConfig(did, site.rkey);
       if (!config) return { siteUrl: site.siteUrl, byDate: null };
       try {
-        const points = await fetchUmamiPageviews(config, from14Ms, nowMs);
+        const points = await fetchUmamiPageviews(
+          did,
+          site.rkey,
+          config,
+          from14Ms,
+          nowMs,
+        );
         const byDate = new Map<string, number>();
         for (const p of points) byDate.set(p.date, p.pageviews);
         return { siteUrl: site.siteUrl, byDate };

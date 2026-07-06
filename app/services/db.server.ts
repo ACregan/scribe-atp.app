@@ -46,14 +46,20 @@ function migrate(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS login_attempts_ip_created
       ON login_attempts (ip, created_at);
 
+    -- username/password, not a static API key: self-hosted Umami has no
+    -- static-key auth (see ADR 0012). cached_jwt/jwt_expires_at avoid
+    -- re-authenticating on every request.
     CREATE TABLE IF NOT EXISTS umami_config (
-      user_did     TEXT    NOT NULL,
-      site_rkey    TEXT    NOT NULL,
-      base_url     TEXT    NOT NULL,
-      website_id   TEXT    NOT NULL,
-      website_name TEXT    NOT NULL,
-      api_key      TEXT    NOT NULL,
-      updated_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+      user_did       TEXT    NOT NULL,
+      site_rkey      TEXT    NOT NULL,
+      base_url       TEXT    NOT NULL,
+      website_id     TEXT    NOT NULL,
+      website_name   TEXT    NOT NULL,
+      username       TEXT    NOT NULL,
+      password       TEXT    NOT NULL,
+      cached_jwt     TEXT,
+      jwt_expires_at INTEGER,
+      updated_at     INTEGER NOT NULL DEFAULT (unixepoch()),
       PRIMARY KEY (user_did, site_rkey)
     );
   `);
@@ -122,12 +128,17 @@ export const loginAttempts = {
 };
 
 // Deliberately never written to the AT Protocol record — see ADR 0010
-// (docs/adr/0010-umami-config-stored-locally-not-on-pds.md).
+// (docs/adr/0010-umami-config-stored-locally-not-on-pds.md). Credentials are
+// username/password, not a static API key — self-hosted Umami has no static
+// key auth; see ADR 0012 (docs/adr/0012-umami-jwt-login-auth.md).
 export type UmamiConfig = {
   baseUrl: string;
   websiteId: string;
   websiteName: string;
-  apiKey: string;
+  username: string;
+  password: string;
+  cachedJwt: string | null;
+  jwtExpiresAt: number | null;
   updatedAt: number;
 };
 
@@ -140,11 +151,14 @@ export const umamiConfigStore = {
           base_url: string;
           website_id: string;
           website_name: string;
-          api_key: string;
+          username: string;
+          password: string;
+          cached_jwt: string | null;
+          jwt_expires_at: number | null;
           updated_at: number;
         }
       >(
-        "SELECT base_url, website_id, website_name, api_key, updated_at FROM umami_config WHERE user_did = ? AND site_rkey = ?",
+        "SELECT base_url, website_id, website_name, username, password, cached_jwt, jwt_expires_at, updated_at FROM umami_config WHERE user_did = ? AND site_rkey = ?",
       )
       .get(userDid, siteRkey);
     if (!row) return undefined;
@@ -152,7 +166,10 @@ export const umamiConfigStore = {
       baseUrl: row.base_url,
       websiteId: row.website_id,
       websiteName: row.website_name,
-      apiKey: row.api_key,
+      username: row.username,
+      password: row.password,
+      cachedJwt: row.cached_jwt,
+      jwtExpiresAt: row.jwt_expires_at,
       updatedAt: row.updated_at,
     };
   },
@@ -163,17 +180,23 @@ export const umamiConfigStore = {
       baseUrl: string;
       websiteId: string;
       websiteName: string;
-      apiKey: string;
+      username: string;
+      password: string;
     },
   ) => {
+    // Credentials changed — invalidate any cached token so the next fetch
+    // re-authenticates against the newly-saved username/password.
     db.prepare(
-      `INSERT INTO umami_config (user_did, site_rkey, base_url, website_id, website_name, api_key, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, unixepoch())
+      `INSERT INTO umami_config (user_did, site_rkey, base_url, website_id, website_name, username, password, cached_jwt, jwt_expires_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, unixepoch())
        ON CONFLICT(user_did, site_rkey) DO UPDATE SET
          base_url = excluded.base_url,
          website_id = excluded.website_id,
          website_name = excluded.website_name,
-         api_key = excluded.api_key,
+         username = excluded.username,
+         password = excluded.password,
+         cached_jwt = NULL,
+         jwt_expires_at = NULL,
          updated_at = excluded.updated_at`,
     ).run(
       userDid,
@@ -181,8 +204,19 @@ export const umamiConfigStore = {
       config.baseUrl,
       config.websiteId,
       config.websiteName,
-      config.apiKey,
+      config.username,
+      config.password,
     );
+  },
+  setCachedJwt: (
+    userDid: string,
+    siteRkey: string,
+    jwt: string,
+    expiresAt: number,
+  ) => {
+    db.prepare(
+      "UPDATE umami_config SET cached_jwt = ?, jwt_expires_at = ? WHERE user_did = ? AND site_rkey = ?",
+    ).run(jwt, expiresAt, userDid, siteRkey);
   },
   del: (userDid: string, siteRkey: string) => {
     db.prepare(
