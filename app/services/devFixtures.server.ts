@@ -371,6 +371,7 @@ export function devConfigureLoader(siteSlug: string) {
       logoImageUrl: "",
       showInDiscover: true,
       notifySubscribersEnabled: true,
+      umami: { configured: false as const },
     },
   };
 }

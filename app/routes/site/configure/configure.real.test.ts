@@ -126,6 +126,7 @@ describe("loader", () => {
         logoImageUrl: "https://x.com/l.png",
         showInDiscover: false,
         notifySubscribersEnabled: false,
+        umami: { configured: false },
       },
     });
   });

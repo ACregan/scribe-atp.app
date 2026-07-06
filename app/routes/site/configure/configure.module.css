@@ -93,3 +93,30 @@
   font-size: 1.3rem;
   margin: 0;
 }
+
+/* ── Umami analytics ─────────────────────────────────────────────────────────── */
+
+.umamiConnected {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.umamiActions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+/* ── Modal footer / warning text (shared with sites.module.css pattern) ───────── */
+
+.modalFooter {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.deleteWarning {
+  font-size: 1.3rem;
+  color: var(--text-secondary);
+  margin-top: 0.8rem;
+}

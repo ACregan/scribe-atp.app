@@ -47,12 +47,13 @@ function migrate(db: Database.Database) {
       ON login_attempts (ip, created_at);
 
     CREATE TABLE IF NOT EXISTS umami_config (
-      user_did   TEXT    NOT NULL,
-      site_rkey  TEXT    NOT NULL,
-      base_url   TEXT    NOT NULL,
-      website_id TEXT    NOT NULL,
-      api_key    TEXT    NOT NULL,
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      user_did     TEXT    NOT NULL,
+      site_rkey    TEXT    NOT NULL,
+      base_url     TEXT    NOT NULL,
+      website_id   TEXT    NOT NULL,
+      website_name TEXT    NOT NULL,
+      api_key      TEXT    NOT NULL,
+      updated_at   INTEGER NOT NULL DEFAULT (unixepoch()),
       PRIMARY KEY (user_did, site_rkey)
     );
   `);
@@ -125,6 +126,7 @@ export const loginAttempts = {
 export type UmamiConfig = {
   baseUrl: string;
   websiteId: string;
+  websiteName: string;
   apiKey: string;
   updatedAt: number;
 };
@@ -137,17 +139,19 @@ export const umamiConfigStore = {
         {
           base_url: string;
           website_id: string;
+          website_name: string;
           api_key: string;
           updated_at: number;
         }
       >(
-        "SELECT base_url, website_id, api_key, updated_at FROM umami_config WHERE user_did = ? AND site_rkey = ?",
+        "SELECT base_url, website_id, website_name, api_key, updated_at FROM umami_config WHERE user_did = ? AND site_rkey = ?",
       )
       .get(userDid, siteRkey);
     if (!row) return undefined;
     return {
       baseUrl: row.base_url,
       websiteId: row.website_id,
+      websiteName: row.website_name,
       apiKey: row.api_key,
       updatedAt: row.updated_at,
     };
@@ -155,17 +159,30 @@ export const umamiConfigStore = {
   set: (
     userDid: string,
     siteRkey: string,
-    config: { baseUrl: string; websiteId: string; apiKey: string },
+    config: {
+      baseUrl: string;
+      websiteId: string;
+      websiteName: string;
+      apiKey: string;
+    },
   ) => {
     db.prepare(
-      `INSERT INTO umami_config (user_did, site_rkey, base_url, website_id, api_key, updated_at)
-       VALUES (?, ?, ?, ?, ?, unixepoch())
+      `INSERT INTO umami_config (user_did, site_rkey, base_url, website_id, website_name, api_key, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, unixepoch())
        ON CONFLICT(user_did, site_rkey) DO UPDATE SET
          base_url = excluded.base_url,
          website_id = excluded.website_id,
+         website_name = excluded.website_name,
          api_key = excluded.api_key,
          updated_at = excluded.updated_at`,
-    ).run(userDid, siteRkey, config.baseUrl, config.websiteId, config.apiKey);
+    ).run(
+      userDid,
+      siteRkey,
+      config.baseUrl,
+      config.websiteId,
+      config.websiteName,
+      config.apiKey,
+    );
   },
   del: (userDid: string, siteRkey: string) => {
     db.prepare(

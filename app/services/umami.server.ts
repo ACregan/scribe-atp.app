@@ -190,7 +190,12 @@ export function getUmamiConfig(
 export function saveUmamiConfig(
   userDid: string,
   siteRkey: string,
-  config: { baseUrl: string; websiteId: string; apiKey: string },
+  config: {
+    baseUrl: string;
+    websiteId: string;
+    websiteName: string;
+    apiKey: string;
+  },
 ): void {
   umamiConfigStore.set(userDid, siteRkey, config);
 }
