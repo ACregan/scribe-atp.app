@@ -27,6 +27,24 @@ import { DOCUMENT_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
 // shape) — these functions operate on ArticleRef/SiteGroup DTOs and the raw
 // SiteRecordValue, never SiteManifest.
 
+// Composes a document's site-relative `path` and fully-qualified
+// `canonicalUrl` from the owning site's domain/basePath plus group/slug
+// segments. Single source of truth for both fields — basePath must be
+// baked into `path` itself, not just canonicalUrl, since consumer sites
+// compose links as `publication.url + document.path` with no separate
+// urlPrefix step (see the 2026-07-07 incident: three call sites each built
+// path without basePath, producing broken referrer links).
+export function buildDocumentPathAndUrl(
+  domain: string,
+  basePath: string,
+  ...segments: string[]
+): { path: string; canonicalUrl: string } {
+  const path = basePath
+    ? `/${basePath}/${segments.join("/")}`
+    : `/${segments.join("/")}`;
+  return { path, canonicalUrl: `https://${domain}${path}` };
+}
+
 // Pure — no I/O
 export function validateGroupFields(
   title: string,
@@ -221,11 +239,6 @@ export function computeDocumentPathUpdates(
   newCanonicalUrl: string;
   needsPublishedAt: boolean;
 }> {
-  const canonicalUrl = (path: string) =>
-    basePath
-      ? `https://${domain}/${basePath}${path}`
-      : `https://${domain}${path}`;
-
   const groupMoves = groups.flatMap((g) =>
     (g.articles ?? [])
       .filter(
@@ -235,11 +248,12 @@ export function computeDocumentPathUpdates(
       )
       .map((a) => {
         const rkey = a.uri.split("/").pop()!;
-        const newPath = `/${g.slug}/${a.slug ?? rkey}`;
+        const { path: newPath, canonicalUrl: newCanonicalUrl } =
+          buildDocumentPathAndUrl(domain, basePath, g.slug, a.slug ?? rkey);
         return {
           rkey,
           newPath,
-          newCanonicalUrl: canonicalUrl(newPath),
+          newCanonicalUrl,
           needsPublishedAt: !oldGroupByUri.has(a.uri),
         };
       }),
@@ -252,11 +266,14 @@ export function computeDocumentPathUpdates(
     )
     .map((a) => {
       const rkey = a.uri.split("/").pop()!;
-      const newPath = `/${a.slug ?? rkey}`;
+      // Drafts have no group segment and no live reader route — leave path
+      // basePath-less here too, matching how create.tsx seeds a new draft.
+      const { path: newPath, canonicalUrl: newCanonicalUrl } =
+        buildDocumentPathAndUrl(domain, "", a.slug ?? rkey);
       return {
         rkey,
         newPath,
-        newCanonicalUrl: canonicalUrl(newPath),
+        newCanonicalUrl,
         needsPublishedAt: false,
       };
     });
@@ -451,10 +468,12 @@ export async function publishArticleToGroup(
       domain: String(scribeExt.domain ?? ""),
       basePath: String(scribeExt.basePath ?? ""),
     };
-    const docPath = `/${groupSlug}/${slug}`;
-    const canonicalUrl = canonicalAssignment.basePath
-      ? `https://${canonicalAssignment.domain}/${canonicalAssignment.basePath}${docPath}`
-      : `https://${canonicalAssignment.domain}${docPath}`;
+    const { path: docPath, canonicalUrl } = buildDocumentPathAndUrl(
+      canonicalAssignment.domain,
+      canonicalAssignment.basePath,
+      groupSlug,
+      slug,
+    );
 
     const publishNotification = {
       publicationUri: `at://${did}/${SITE_COLLECTION}/${siteSlug}`,

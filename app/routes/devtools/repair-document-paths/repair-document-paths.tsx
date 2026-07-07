@@ -2,6 +2,7 @@ import type { Route } from "./+types/repair-document-paths";
 import { useFetcher } from "react-router";
 import { type Agent } from "@atproto/api";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import { buildDocumentPathAndUrl } from "~/services/siteManifest.server";
 import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
@@ -46,12 +47,6 @@ type RepairResult = {
 
 function isTid(rkey: string): boolean {
   return /^[234567a-z]{13}$/.test(rkey);
-}
-
-function buildCanonicalUrl(domain: string, basePath: string, docPath: string): string {
-  return basePath
-    ? `https://${domain}/${basePath}${docPath}`
-    : `https://${domain}${docPath}`;
 }
 
 async function fetchAllDocuments(agent: Agent, did: string) {
@@ -157,9 +152,16 @@ function buildPlan(
       continue;
     }
 
-    const expectedPath = location.groupSlug
-      ? `/${location.groupSlug}/${location.slug}`
-      : `/${location.slug}`;
+    // Drafts (no groupSlug) have no live reader route — basePath-less,
+    // matching computeDocumentPathUpdates' convention for ungrouped articles.
+    const { path: expectedPath, canonicalUrl } = location.groupSlug
+      ? buildDocumentPathAndUrl(
+          location.domain,
+          location.basePath,
+          location.groupSlug,
+          location.slug,
+        )
+      : buildDocumentPathAndUrl(location.domain, "", location.slug);
 
     if (currentPath === expectedPath) {
       alreadyCorrect++;
@@ -171,7 +173,7 @@ function buildPlan(
       title,
       currentPath,
       expectedPath,
-      canonicalUrl: buildCanonicalUrl(location.domain, location.basePath, expectedPath),
+      canonicalUrl,
     });
   }
 
@@ -251,7 +253,13 @@ export async function action({ request }: Route.ActionArgs): Promise<RepairResul
         record: {
           ...v,
           path: item.expectedPath,
-          canonicalUrl: item.canonicalUrl,
+          // canonicalUrl lives under scribe, not top-level (site.standard
+          // lexicon spec compliance) — this previously wrote a spurious
+          // top-level field and left the real scribe.canonicalUrl stale.
+          scribe: {
+            ...((v.scribe as Record<string, unknown>) ?? {}),
+            canonicalUrl: item.canonicalUrl,
+          },
           updatedAt: new Date().toISOString(),
         },
         swapRecord: doc.cid,
