@@ -1,7 +1,7 @@
 import type { Route } from "./+types/repair-document-site-uris";
 import { useFetcher } from "react-router";
 import { type Agent } from "@atproto/api";
-import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import { requireAdminAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   PageContainer,
@@ -175,7 +175,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { plan: null as RepairPlan | null, devMode: true as const };
   }
 
-  const { agent, did } = await requireAtpAgent(request);
+  const { agent, did } = await requireAdminAtpAgent(request);
   const [publications, documents] = await Promise.all([
     fetchAllPublications(agent, did),
     fetchAllDocuments(agent, did),
@@ -195,7 +195,7 @@ export async function action({ request }: Route.ActionArgs): Promise<RepairResul
     return { ok: false, error: "Not available in dev mode." };
   }
 
-  const { agent, did } = await requireAtpAgent(request);
+  const { agent, did } = await requireAdminAtpAgent(request);
   const [publications, documents] = await Promise.all([
     fetchAllPublications(agent, did),
     fetchAllDocuments(agent, did),

@@ -36,25 +36,16 @@ export default [
       ),
       route("images", "./routes/images/images.tsx"),
       route("insights", "./routes/insights/insights.tsx"),
-      route(
-        "devtools/migrate",
-        "./routes/devtools/migrate/migrate.tsx",
-      ),
-      route(
-        "devtools/migrate-publication",
-        "./routes/devtools/migrate-publication/migrate-publication.tsx",
-      ),
-      route(
-        "devtools/migrate-document-rkeys",
-        "./routes/devtools/migrate-document-rkeys/migrate-document-rkeys.tsx",
-      ),
+      // The one-time schema/rkey migration tools that used to live here
+      // (migrate, migrate-publication, migrate-document-rkeys,
+      // migrate-publication-rkeys, migrate-spec-compliance,
+      // migrate-records-v2) have all completed their migrations and were
+      // removed entirely — see backlog-test-coverage-gaps memory. The
+      // remaining ongoing repair tools below are admin-only
+      // (requireAdminAtpAgent, gated on ADMIN_DID).
       route(
         "devtools/repair-publication-refs",
         "./routes/devtools/repair-publication-refs/repair-publication-refs.tsx",
-      ),
-      route(
-        "devtools/migrate-publication-rkeys",
-        "./routes/devtools/migrate-publication-rkeys/migrate-publication-rkeys.tsx",
       ),
       route(
         "devtools/repair-document-site-uris",
@@ -63,14 +54,6 @@ export default [
       route(
         "devtools/repair-document-paths",
         "./routes/devtools/repair-document-paths/repair-document-paths.tsx",
-      ),
-      route(
-        "devtools/migrate-spec-compliance",
-        "./routes/devtools/migrate-spec-compliance/migrate-spec-compliance.tsx",
-      ),
-      route(
-        "devtools/migrate-records-v2",
-        "./routes/devtools/migrate-records-v2/migrate-records-v2.tsx",
       ),
     ]),
   ]),

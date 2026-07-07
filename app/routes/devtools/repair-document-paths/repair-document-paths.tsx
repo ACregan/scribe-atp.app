@@ -1,6 +1,6 @@
 import type { Route } from "./+types/repair-document-paths";
 import { useFetcher } from "react-router";
-import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import { requireAdminAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   fetchAllDocuments,
   fetchAllSites,
@@ -38,7 +38,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { plan: null as RepairPlan | null, devMode: true as const };
   }
 
-  const { agent, did } = await requireAtpAgent(request);
+  const { agent, did } = await requireAdminAtpAgent(request);
   const [documents, sites] = await Promise.all([
     fetchAllDocuments(agent, did),
     fetchAllSites(agent, did),
@@ -57,7 +57,7 @@ export async function action({ request }: Route.ActionArgs): Promise<RepairResul
     return { ok: false, error: "Not available in dev mode." };
   }
 
-  const { agent, did } = await requireAtpAgent(request);
+  const { agent, did } = await requireAdminAtpAgent(request);
   const [documents, sites] = await Promise.all([
     fetchAllDocuments(agent, did),
     fetchAllSites(agent, did),
