@@ -316,17 +316,22 @@ export async function fetchUmamiPageviews(
 // ── Stats summary (bounce rate / avg visit duration) ─────────────────────────
 //
 // Umami's /stats endpoint returns period summaries — visits, bounces, and
-// totaltime (session duration in seconds) — for the given startAt/endAt
-// window. Bounce rate and avg visit duration are derived here rather than
-// trusting Umami's own dashboard math, so the exact endpoint field names are
-// the only assumption riding on this: verify against a live instance before
-// treating this as done (see ADR 0012 — the original Umami auth model was
-// also assumed from docs and turned out wrong until tested for real).
+// totaltime (session duration in seconds) — as flat numbers at the top level
+// (not { value: number } as an earlier version of this code assumed — that
+// bug silently produced 0% / 0s for bounce rate and avg duration since it
+// never threw). It also returns a "comparison" object with the same fields
+// for the immediately preceding period of equal length, computed by Umami
+// itself — so a single call covers both this-period and prev-period, no
+// second request needed. Confirmed against a live self-hosted instance
+// 2026-07-07 (see [[backlog-umami-stats-followup]]).
 
 export type UmamiStatsSummary = {
   visits: number;
   bounces: number;
   totaltimeSeconds: number;
+  prevVisits: number;
+  prevBounces: number;
+  prevTotaltimeSeconds: number;
 };
 
 async function requestStats(
@@ -351,14 +356,18 @@ async function requestStats(
   }
 
   const data = (await res.json()) as {
-    visits?: { value?: number };
-    bounces?: { value?: number };
-    totaltime?: { value?: number };
+    visits?: number;
+    bounces?: number;
+    totaltime?: number;
+    comparison?: { visits?: number; bounces?: number; totaltime?: number };
   };
   return {
-    visits: data.visits?.value ?? 0,
-    bounces: data.bounces?.value ?? 0,
-    totaltimeSeconds: data.totaltime?.value ?? 0,
+    visits: data.visits ?? 0,
+    bounces: data.bounces ?? 0,
+    totaltimeSeconds: data.totaltime ?? 0,
+    prevVisits: data.comparison?.visits ?? 0,
+    prevBounces: data.comparison?.bounces ?? 0,
+    prevTotaltimeSeconds: data.comparison?.totaltime ?? 0,
   };
 }
 
@@ -377,12 +386,14 @@ export async function fetchUmamiStats(
 
 // ── Top pages / referrers ─────────────────────────────────────────────────────
 //
-// Umami's /metrics endpoint returns a ranked list for a given "type" (url,
+// Umami's /metrics endpoint returns a ranked list for a given "type" (path,
 // referrer, browser, os, device, country, ...) over a startAt/endAt window,
-// pre-sorted by count descending. Same unverified-against-a-live-instance
-// caveat as /stats above — field names (x, y) are assumed from Umami's docs.
+// pre-sorted by count descending. Field names (x, y) confirmed against
+// https://docs.umami.is/docs/api/website-stats — "path" is the correct type
+// for pages, not "url" (an earlier version of this code used "url" and got
+// a 400 from every real Umami instance; see [[backlog-umami-stats-followup]]).
 
-export type UmamiMetricType = "url" | "referrer";
+export type UmamiMetricType = "path" | "referrer";
 export type UmamiMetricRow = { label: string; count: number };
 
 async function requestMetrics(
