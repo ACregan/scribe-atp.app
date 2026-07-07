@@ -20,7 +20,12 @@ import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { useToast } from "~/components/Toast/ToastContext";
 import { logger } from "~/services/logger.server";
-import { getUmamiConfig, fetchUmamiPageviews } from "~/services/umami.server";
+import {
+  getUmamiConfig,
+  fetchUmamiPageviews,
+  fetchUmamiStats,
+  type UmamiStatsSummary,
+} from "~/services/umami.server";
 import styles from "./insights.module.css";
 
 const ACTION_TYPES = ["recommend", "subscribe", "share"] as const;
@@ -35,7 +40,17 @@ const METRIC_LABELS: Record<ActionType, string> = {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type DayStat = { day: string; thisWeek: number; prevWeek: number };
-type SiteMetricData = Record<ActionType, DayStat[]> & { pageviews?: DayStat[] };
+type UmamiSummary = {
+  bounceRatePercent: number;
+  prevBounceRatePercent: number;
+  avgDurationSeconds: number;
+  prevAvgDurationSeconds: number;
+};
+type SiteMetricData = Record<ActionType, DayStat[]> & {
+  pageviews?: DayStat[];
+  visitors?: DayStat[];
+  summary?: UmamiSummary;
+};
 type SiteData = {
   siteUrl: string;
   title: string;
@@ -61,6 +76,18 @@ function mockDayStats(baseCount: number): DayStat[] {
     thisWeek: Math.max(0, baseCount + Math.round((Math.random() - 0.3) * 3)),
     prevWeek: Math.max(0, baseCount + Math.round((Math.random() - 0.5) * 3)),
   }));
+}
+
+// Umami doesn't report bounce rate / avg visit duration directly — both are
+// derived from the same /stats summary (visits, bounces, totaltime). Avg
+// duration excludes bounced visits, matching Umami's own dashboard math.
+function bounceRatePercent(stats: UmamiStatsSummary): number {
+  return stats.visits > 0 ? (stats.bounces / stats.visits) * 100 : 0;
+}
+
+function avgDurationSeconds(stats: UmamiStatsSummary): number {
+  const nonBounced = stats.visits - stats.bounces;
+  return nonBounced > 0 ? stats.totaltimeSeconds / nonBounced : 0;
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -96,7 +123,18 @@ export async function loader({ request }: Route.LoaderArgs) {
         share: mockDayStats(1),
         // Only the first mock site shows Umami configured, matching the
         // per-site opt-in behaviour of the real loader below.
-        ...(i === 0 ? { pageviews: mockDayStats(40) } : {}),
+        ...(i === 0
+          ? {
+              pageviews: mockDayStats(40),
+              visitors: mockDayStats(15),
+              summary: {
+                bounceRatePercent: 42,
+                prevBounceRatePercent: 47,
+                avgDurationSeconds: 96,
+                prevAvgDurationSeconds: 84,
+              },
+            }
+          : {}),
       },
     }));
     return { sites: mockSites, umamiWarnings: [] as string[] };
@@ -185,23 +223,38 @@ export async function loader({ request }: Route.LoaderArgs) {
   // fetch pageviews, and a fetch failure for one site never affects others.
   const nowMs = Date.now();
   const from14Ms = nowMs - 14 * 86400 * 1000;
+  const from7Ms = nowMs - 7 * 86400 * 1000;
   const umamiFailedTitles: string[] = [];
 
   const umamiResults = await Promise.all(
     sites.map(async (site) => {
       const config = getUmamiConfig(did, site.rkey);
-      if (!config) return { siteUrl: site.siteUrl, byDate: null };
+      if (!config)
+        return {
+          siteUrl: site.siteUrl,
+          pageviewsByDate: null,
+          visitorsByDate: null,
+          summary: null,
+        };
       try {
-        const points = await fetchUmamiPageviews(
-          did,
-          site.rkey,
-          config,
-          from14Ms,
-          nowMs,
-        );
-        const byDate = new Map<string, number>();
-        for (const p of points) byDate.set(p.date, p.pageviews);
-        return { siteUrl: site.siteUrl, byDate };
+        const [points, thisWeekStats, prevWeekStats] = await Promise.all([
+          fetchUmamiPageviews(did, site.rkey, config, from14Ms, nowMs),
+          fetchUmamiStats(did, site.rkey, config, from7Ms, nowMs),
+          fetchUmamiStats(did, site.rkey, config, from14Ms, from7Ms),
+        ]);
+        const pageviewsByDate = new Map<string, number>();
+        const visitorsByDate = new Map<string, number>();
+        for (const p of points) {
+          pageviewsByDate.set(p.date, p.pageviews);
+          visitorsByDate.set(p.date, p.visitors);
+        }
+        const summary: UmamiSummary = {
+          bounceRatePercent: bounceRatePercent(thisWeekStats),
+          prevBounceRatePercent: bounceRatePercent(prevWeekStats),
+          avgDurationSeconds: avgDurationSeconds(thisWeekStats),
+          prevAvgDurationSeconds: avgDurationSeconds(prevWeekStats),
+        };
+        return { siteUrl: site.siteUrl, pageviewsByDate, visitorsByDate, summary };
       } catch (err) {
         logger.warn(
           {
@@ -212,12 +265,23 @@ export async function loader({ request }: Route.LoaderArgs) {
           "insights.umami_fetch_error",
         );
         umamiFailedTitles.push(site.title);
-        return { siteUrl: site.siteUrl, byDate: null };
+        return {
+          siteUrl: site.siteUrl,
+          pageviewsByDate: null,
+          visitorsByDate: null,
+          summary: null,
+        };
       }
     }),
   );
-  const umamiByDateMap = new Map(
-    umamiResults.map(({ siteUrl, byDate }) => [siteUrl, byDate]),
+  const umamiPageviewsMap = new Map(
+    umamiResults.map(({ siteUrl, pageviewsByDate }) => [siteUrl, pageviewsByDate]),
+  );
+  const umamiVisitorsMap = new Map(
+    umamiResults.map(({ siteUrl, visitorsByDate }) => [siteUrl, visitorsByDate]),
+  );
+  const umamiSummaryMap = new Map(
+    umamiResults.map(({ siteUrl, summary }) => [siteUrl, summary]),
   );
 
   const siteMetrics: SiteData[] = sites.map((site) => {
@@ -228,9 +292,17 @@ export async function loader({ request }: Route.LoaderArgs) {
       return acc;
     }, {} as SiteMetricData);
 
-    const umamiByDate = umamiByDateMap.get(site.siteUrl);
-    if (umamiByDate) {
-      metrics.pageviews = buildDaySlots(umamiByDate, thisWeekDays, prevWeekDays);
+    const pageviewsByDate = umamiPageviewsMap.get(site.siteUrl);
+    if (pageviewsByDate) {
+      metrics.pageviews = buildDaySlots(pageviewsByDate, thisWeekDays, prevWeekDays);
+    }
+    const visitorsByDate = umamiVisitorsMap.get(site.siteUrl);
+    if (visitorsByDate) {
+      metrics.visitors = buildDaySlots(visitorsByDate, thisWeekDays, prevWeekDays);
+    }
+    const summary = umamiSummaryMap.get(site.siteUrl);
+    if (summary) {
+      metrics.summary = summary;
     }
 
     return { ...site, metrics };
@@ -312,6 +384,62 @@ function MetricChart({ data, label }: { data: DayStat[]; label: string }) {
   );
 }
 
+function formatDuration(totalSeconds: number): string {
+  const s = Math.round(totalSeconds);
+  const minutes = Math.floor(s / 60);
+  const seconds = s % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+function StatTile({
+  label,
+  value,
+  delta,
+}: {
+  label: string;
+  value: string;
+  delta?: { text: string; good: boolean };
+}) {
+  return (
+    <div className={styles.metricChart}>
+      <div className={styles.metricHeader}>
+        <span className={styles.metricLabel}>{label}</span>
+        <span className={styles.metricTotal}>{value}</span>
+        {delta && (
+          <span
+            className={delta.good ? styles.metricDeltaUp : styles.metricDeltaDown}
+          >
+            {delta.text}
+          </span>
+        )}
+      </div>
+      <div className={styles.statTileBody} />
+    </div>
+  );
+}
+
+function bounceRateDelta(
+  current: number,
+  prev: number,
+): { text: string; good: boolean } | undefined {
+  const delta = Math.round(current) - Math.round(prev);
+  if (delta === 0) return undefined;
+  // Lower bounce rate is better — invert the usual up-is-good colouring.
+  return { text: `${delta > 0 ? "+" : ""}${delta}pp`, good: delta < 0 };
+}
+
+function avgDurationDelta(
+  current: number,
+  prev: number,
+): { text: string; good: boolean } | undefined {
+  const delta = Math.round(current) - Math.round(prev);
+  if (delta === 0) return undefined;
+  return {
+    text: `${delta > 0 ? "+" : "-"}${formatDuration(Math.abs(delta))}`,
+    good: delta > 0,
+  };
+}
+
 function SiteCard({ site }: { site: SiteData }) {
   return (
     <div className={styles.siteCard}>
@@ -336,6 +464,29 @@ function SiteCard({ site }: { site: SiteData }) {
         ))}
         {site.metrics.pageviews && (
           <MetricChart data={site.metrics.pageviews} label="Pageviews" />
+        )}
+        {site.metrics.visitors && (
+          <MetricChart data={site.metrics.visitors} label="Visitors" />
+        )}
+        {site.metrics.summary && (
+          <>
+            <StatTile
+              label="Bounce Rate"
+              value={`${Math.round(site.metrics.summary.bounceRatePercent)}%`}
+              delta={bounceRateDelta(
+                site.metrics.summary.bounceRatePercent,
+                site.metrics.summary.prevBounceRatePercent,
+              )}
+            />
+            <StatTile
+              label="Avg. Visit Duration"
+              value={formatDuration(site.metrics.summary.avgDurationSeconds)}
+              delta={avgDurationDelta(
+                site.metrics.summary.avgDurationSeconds,
+                site.metrics.summary.prevAvgDurationSeconds,
+              )}
+            />
+          </>
         )}
       </div>
     </div>
