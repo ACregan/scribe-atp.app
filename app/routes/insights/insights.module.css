@@ -69,10 +69,16 @@
 }
 
 .metricChart {
+  display: flex;
+  flex-direction: column;
   background: var(--surface-page);
   border: 1px solid var(--border-subtle);
   border-radius: 0.4rem;
   padding: 1.2rem 1.2rem 0.8rem;
+}
+
+.statTileBody {
+  flex: 1;
 }
 
 .metricHeader {

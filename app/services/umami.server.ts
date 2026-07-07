@@ -273,6 +273,33 @@ async function requestPageviews(
   }));
 }
 
+// Shared by every authenticated Umami request: get a cached token, run the
+// request, and if it comes back unauthorized (e.g. the password was changed
+// elsewhere, invalidating existing sessions early), force a fresh login and
+// retry once before giving up.
+async function callWithAuth<T>(
+  userDid: string,
+  siteRkey: string,
+  config: UmamiConfig,
+  request: (token: string) => Promise<T | "unauthorized">,
+): Promise<T> {
+  const token = await getValidToken(userDid, siteRkey, config);
+  const result = await request(token);
+  if (result !== "unauthorized") return result;
+
+  const { token: freshToken, expiresAt } = await loginToUmami(
+    config.baseUrl,
+    config.username,
+    config.password,
+  );
+  umamiConfigStore.setCachedJwt(userDid, siteRkey, freshToken, expiresAt);
+  const retryResult = await request(freshToken);
+  if (retryResult === "unauthorized") {
+    throw new Error("Umami rejected the stored credentials.");
+  }
+  return retryResult;
+}
+
 export async function fetchUmamiPageviews(
   userDid: string,
   siteRkey: string,
@@ -281,25 +308,71 @@ export async function fetchUmamiPageviews(
   toMs: number,
 ): Promise<UmamiDayPoint[]> {
   await assertPublicHost(config.baseUrl);
-
-  const token = await getValidToken(userDid, siteRkey, config);
-  const points = await requestPageviews(config, token, fromMs, toMs);
-  if (points !== "unauthorized") return points;
-
-  // Cached token was rejected (e.g. the password was changed elsewhere,
-  // invalidating existing sessions early) — force a fresh login and retry
-  // once before giving up.
-  const { token: freshToken, expiresAt } = await loginToUmami(
-    config.baseUrl,
-    config.username,
-    config.password,
+  return callWithAuth(userDid, siteRkey, config, (token) =>
+    requestPageviews(config, token, fromMs, toMs),
   );
-  umamiConfigStore.setCachedJwt(userDid, siteRkey, freshToken, expiresAt);
-  const retryPoints = await requestPageviews(config, freshToken, fromMs, toMs);
-  if (retryPoints === "unauthorized") {
-    throw new Error("Umami rejected the stored credentials.");
+}
+
+// ── Stats summary (bounce rate / avg visit duration) ─────────────────────────
+//
+// Umami's /stats endpoint returns period summaries — visits, bounces, and
+// totaltime (session duration in seconds) — for the given startAt/endAt
+// window. Bounce rate and avg visit duration are derived here rather than
+// trusting Umami's own dashboard math, so the exact endpoint field names are
+// the only assumption riding on this: verify against a live instance before
+// treating this as done (see ADR 0012 — the original Umami auth model was
+// also assumed from docs and turned out wrong until tested for real).
+
+export type UmamiStatsSummary = {
+  visits: number;
+  bounces: number;
+  totaltimeSeconds: number;
+};
+
+async function requestStats(
+  config: UmamiConfig,
+  token: string,
+  fromMs: number,
+  toMs: number,
+): Promise<UmamiStatsSummary | "unauthorized"> {
+  const url = new URL(
+    apiUrl(config.baseUrl, `/api/websites/${config.websiteId}/stats`),
+  );
+  url.searchParams.set("startAt", String(fromMs));
+  url.searchParams.set("endAt", String(toMs));
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (res.status === 401 || res.status === 403) return "unauthorized";
+  if (!res.ok) {
+    throw new Error(`Umami stats request failed (${res.status}).`);
   }
-  return retryPoints;
+
+  const data = (await res.json()) as {
+    visits?: { value?: number };
+    bounces?: { value?: number };
+    totaltime?: { value?: number };
+  };
+  return {
+    visits: data.visits?.value ?? 0,
+    bounces: data.bounces?.value ?? 0,
+    totaltimeSeconds: data.totaltime?.value ?? 0,
+  };
+}
+
+export async function fetchUmamiStats(
+  userDid: string,
+  siteRkey: string,
+  config: UmamiConfig,
+  fromMs: number,
+  toMs: number,
+): Promise<UmamiStatsSummary> {
+  await assertPublicHost(config.baseUrl);
+  return callWithAuth(userDid, siteRkey, config, (token) =>
+    requestStats(config, token, fromMs, toMs),
+  );
 }
 
 // ── Config CRUD ──────────────────────────────────────────────────────────────
