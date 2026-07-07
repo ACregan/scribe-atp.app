@@ -2,8 +2,10 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 
-// Resolve db path relative to the project root, not the build output
-const DB_PATH = path.resolve(process.cwd(), "data/oauth.db");
+// Resolve db path relative to the project root, not the build output.
+// Overridable so tests can point at an isolated `:memory:` database instead
+// of the real one on disk (see test.setup.ts / auth.server.test.ts).
+const DB_PATH = process.env.CMS_DB_PATH ?? path.resolve(process.cwd(), "data/oauth.db");
 
 declare global {
   // eslint-disable-next-line no-var
@@ -13,7 +15,7 @@ declare global {
 // Reuse across HMR reloads — opening a new connection each reload leaks handles
 function getDb(): Database.Database {
   if (!global.__db) {
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    if (DB_PATH !== ":memory:") fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
     global.__db = new Database(DB_PATH);
     global.__db.pragma("journal_mode = WAL");
   }
