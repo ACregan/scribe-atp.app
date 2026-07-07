@@ -509,27 +509,33 @@ function formatDuration(totalSeconds: number): string {
 }
 
 function StatTile({
-  label,
-  value,
-  delta,
+  stats,
 }: {
-  label: string;
-  value: string;
-  delta?: { text: string; good: boolean };
+  stats: Array<{
+    label: string;
+    value: string;
+    delta?: { text: string; good: boolean };
+  }>;
 }) {
   return (
-    <div className={`${styles.metricChart} ${styles.compactTile}`}>
-      <div className={styles.metricHeader}>
-        <span className={styles.metricLabel}>{label}</span>
-        <span className={styles.metricTotal}>{value}</span>
-        {delta && (
-          <span
-            className={delta.good ? styles.metricDeltaUp : styles.metricDeltaDown}
-          >
-            {delta.text}
-          </span>
-        )}
-      </div>
+    <div
+      className={`${styles.metricChart} ${styles.compactTile} ${styles.statTilePair}`}
+    >
+      {stats.map((stat) => (
+        <div key={stat.label} className={styles.statTileCell}>
+          <span className={styles.metricLabel}>{stat.label}</span>
+          <span className={styles.metricTotal}>{stat.value}</span>
+          {stat.delta && (
+            <span
+              className={
+                stat.delta.good ? styles.metricDeltaUp : styles.metricDeltaDown
+              }
+            >
+              {stat.delta.text}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -608,24 +614,26 @@ function SiteCard({ site }: { site: SiteData }) {
           <MetricChart data={site.metrics.visitors} label="Visitors" />
         )}
         {site.metrics.summary && (
-          <>
-            <StatTile
-              label="Bounce Rate"
-              value={`${Math.round(site.metrics.summary.bounceRatePercent)}%`}
-              delta={bounceRateDelta(
-                site.metrics.summary.bounceRatePercent,
-                site.metrics.summary.prevBounceRatePercent,
-              )}
-            />
-            <StatTile
-              label="Avg. Visit Duration"
-              value={formatDuration(site.metrics.summary.avgDurationSeconds)}
-              delta={avgDurationDelta(
-                site.metrics.summary.avgDurationSeconds,
-                site.metrics.summary.prevAvgDurationSeconds,
-              )}
-            />
-          </>
+          <StatTile
+            stats={[
+              {
+                label: "Bounce Rate",
+                value: `${Math.round(site.metrics.summary.bounceRatePercent)}%`,
+                delta: bounceRateDelta(
+                  site.metrics.summary.bounceRatePercent,
+                  site.metrics.summary.prevBounceRatePercent,
+                ),
+              },
+              {
+                label: "Avg. Visit Duration",
+                value: formatDuration(site.metrics.summary.avgDurationSeconds),
+                delta: avgDurationDelta(
+                  site.metrics.summary.avgDurationSeconds,
+                  site.metrics.summary.prevAvgDurationSeconds,
+                ),
+              },
+            ]}
+          />
         )}
         {site.metrics.topPages && (
           <TopList title="Top Pages (30 days)" items={site.metrics.topPages} />

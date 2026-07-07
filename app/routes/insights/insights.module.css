@@ -85,6 +85,31 @@
   align-self: start;
 }
 
+/* Bounce Rate + Avg. Visit Duration share one grid square but stay visually
+   distinct as two cells side by side, split by a divider. Overrides
+   .metricChart's flex-column with a two-column grid (later rule wins on
+   equal specificity). */
+.statTilePair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.statTileCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.statTileCell:not(:first-child) {
+  border-left: 1px solid var(--border-subtle);
+  padding-left: 0.8rem;
+}
+
+.statTileCell .metricLabel {
+  flex: none;
+}
+
 .metricHeader {
   display: flex;
   align-items: baseline;
