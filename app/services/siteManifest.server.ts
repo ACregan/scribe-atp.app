@@ -332,6 +332,16 @@ export async function saveSiteOrder(
       domain,
       basePath,
     );
+    // A document can be cross-posted to more than one site (multi-select on
+    // create/edit). Only its canonical site — the one named in the
+    // document's own `site` field — may rewrite path/canonicalUrl here;
+    // otherwise reordering a *secondary* site's article list would silently
+    // overwrite the canonical URL with this site's basePath. See
+    // [[urgent-article-path-basepath-bug]] for the incident this guards
+    // against. `publishedAt` stamping is intentionally NOT guarded the same
+    // way — that's a "first published anywhere" signal, independent of
+    // which site owns the canonical URL.
+    const siteAtUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
     const results = await Promise.allSettled(
       updates.map(async ({ rkey, newPath, newCanonicalUrl, needsPublishedAt }) => {
         const { data: docData } = await agent.com.atproto.repo.getRecord({
@@ -340,6 +350,20 @@ export async function saveSiteOrder(
           rkey,
         });
         const docVal = docData.value as Record<string, unknown>;
+        const isCanonicalSite = !docVal.site || docVal.site === siteAtUri;
+
+        if (!isCanonicalSite) {
+          if (!needsPublishedAt) return;
+          await agent.com.atproto.repo.putRecord({
+            repo: did,
+            collection: DOCUMENT_COLLECTION,
+            rkey,
+            record: { ...docVal, publishedAt: now, updatedAt: now },
+            swapRecord: docData.cid,
+          });
+          return;
+        }
+
         if (docVal.path === newPath && !needsPublishedAt) return;
         await agent.com.atproto.repo.putRecord({
           repo: did,

@@ -82,18 +82,35 @@ async function fetchAllSites(agent: Agent, did: string) {
 }
 
 type DocLocation = {
+  siteRkey: string;
   slug: string;
   groupSlug: string | null;
   domain: string;
   basePath: string;
 };
 
-function buildDocLocationMap(
+// A document can be cross-posted to more than one site (multi-select on
+// create/edit), so this must collect every location a document appears in —
+// not just the last one seen. A naive Map<rkey, DocLocation> here previously
+// let whichever site was processed last silently win for every shared
+// document, which could compute an "expected" path from the wrong site's
+// basePath. See [[urgent-article-path-basepath-bug]] for the incident where
+// this caused a real cross-posted article to be skipped as "already
+// correct" — its wrong path happened to match the wrong site's formula.
+export function buildDocLocationMap(
   sites: Array<{ uri: string; cid: string; value: unknown }>,
-): Map<string, DocLocation> {
-  const map = new Map<string, DocLocation>();
+): Map<string, DocLocation[]> {
+  const map = new Map<string, DocLocation[]>();
+
+  function addLocation(tid: string, location: DocLocation) {
+    if (!tid || !location.slug) return;
+    const existing = map.get(tid) ?? [];
+    existing.push(location);
+    map.set(tid, existing);
+  }
 
   for (const siteRecord of sites) {
+    const siteRkey = siteRecord.uri.split("/").pop()!;
     const v = siteRecord.value as Record<string, unknown>;
     const scribe = (v.scribe as Record<string, unknown>) ?? {};
     const domain = String(scribe.domain ?? "");
@@ -109,23 +126,38 @@ function buildDocLocationMap(
       for (const ref of articles) {
         const tid = String(ref.uri ?? "").split("/").pop()!;
         const slug = String(ref.slug ?? "");
-        if (tid && slug) map.set(tid, { slug, groupSlug, domain, basePath });
+        addLocation(tid, { siteRkey, slug, groupSlug, domain, basePath });
       }
     }
 
     for (const ref of ungrouped) {
       const tid = String(ref.uri ?? "").split("/").pop()!;
       const slug = String(ref.slug ?? "");
-      if (tid && slug) map.set(tid, { slug, groupSlug: null, domain, basePath });
+      addLocation(tid, { siteRkey, slug, groupSlug: null, domain, basePath });
     }
   }
 
   return map;
 }
 
-function buildPlan(
+// Resolves which of a document's (possibly several, cross-posted) locations
+// is canonical, using the document's own `site` field — the same source of
+// truth publishArticleToGroup's canonicalSiteRkey param already respects.
+// Falls back to the first location found if `site` is missing/stale/doesn't
+// match any manifest, so a document is never silently skipped.
+export function resolveCanonicalLocation(
+  docSiteUri: string,
+  locations: DocLocation[],
+): DocLocation | undefined {
+  const canonicalSiteRkey = docSiteUri.split("/").pop() ?? "";
+  return (
+    locations.find((l) => l.siteRkey === canonicalSiteRkey) ?? locations[0]
+  );
+}
+
+export function buildPlan(
   documents: Array<{ uri: string; cid: string; value: unknown }>,
-  locationMap: Map<string, DocLocation>,
+  locationMap: Map<string, DocLocation[]>,
 ): RepairPlan {
   const toRepair: DocumentRepairPlan[] = [];
   const toDelete: string[] = [];
@@ -143,7 +175,11 @@ function buildPlan(
       continue;
     }
 
-    const location = locationMap.get(rkey);
+    const locations = locationMap.get(rkey);
+    const location =
+      locations && locations.length > 0
+        ? resolveCanonicalLocation(String(v.site ?? ""), locations)
+        : undefined;
 
     if (!location) {
       // Draft — not in any manifest. Flag if path looks corrupted (ends with TID).
