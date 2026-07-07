@@ -104,11 +104,19 @@ export async function action({ request }: Route.ActionArgs): Promise<RepairResul
         record: {
           ...v,
           path: item.expectedPath,
+          // `site` is also self-healed here, not just path/canonicalUrl —
+          // a stale/orphaned `site` field (pointing at a publication that
+          // no longer references the document) previously caused the
+          // canonical-location fallback to pick an arbitrary location,
+          // once demoting a real published page below an unrelated draft.
+          // See [[urgent-article-path-basepath-bug]] ("Code Assistants").
+          site: `at://${did}/site.standard.publication/${item.canonicalSiteRkey}`,
           // canonicalUrl lives under scribe, not top-level (site.standard
           // lexicon spec compliance) — this previously wrote a spurious
           // top-level field and left the real scribe.canonicalUrl stale.
           scribe: {
             ...((v.scribe as Record<string, unknown>) ?? {}),
+            domain: item.domain,
             canonicalUrl: item.canonicalUrl,
           },
           updatedAt: new Date().toISOString(),
