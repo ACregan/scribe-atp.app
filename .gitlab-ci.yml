@@ -4,6 +4,17 @@ stages:
   - e2e
   - deploy
 
+variables:
+  # Project-relative so GitLab CI can cache it across runs — sharp's install
+  # script checks $npm_config_cache/_libvips for an already-downloaded
+  # prebuilt binary before hitting the network (node_modules/sharp/install/
+  # libvips.js), but npm ci always wipes and reinstalls node_modules, so
+  # only caching npm's own cache dir (not just node_modules/) lets that
+  # check ever hit. Without this, sharp re-downloads from GitHub releases
+  # on every single CI run, and a slow/flaky connection to GitHub means an
+  # intermittently failing install with no application-code cause.
+  npm_config_cache: "$CI_PROJECT_DIR/.npm-cache"
+
 typecheck:
   stage: typecheck
   image: node:20
@@ -16,6 +27,7 @@ typecheck:
         - package-lock.json
     paths:
       - node_modules/
+      - .npm-cache/
   script:
     - npm ci
     - npm run typecheck
@@ -40,6 +52,7 @@ unit:
         - package-lock.json
     paths:
       - node_modules/
+      - .npm-cache/
   script:
     - npm ci
     - npm run test:coverage
@@ -73,6 +86,7 @@ e2e:
         - package-lock.json
     paths:
       - node_modules/
+      - .npm-cache/
   script:
     - npm ci
     - npx playwright test
