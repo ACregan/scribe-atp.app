@@ -291,46 +291,46 @@ export async function loader({ request }: Route.LoaderArgs) {
         };
 
       const [points, stats, topPages, topReferrers] = await Promise.all([
-          safeFetch(
-            fetchUmamiPageviews(did, site.rkey, config, from14Ms, nowMs),
-            site,
-            "pageviews",
+        safeFetch(
+          fetchUmamiPageviews(did, site.rkey, config, from14Ms, nowMs),
+          site,
+          "pageviews",
+        ),
+        // Umami's /stats response includes a "comparison" object for the
+        // immediately preceding period of equal length — one call covers
+        // both this-week and prev-week, no second request needed.
+        safeFetch(
+          fetchUmamiStats(did, site.rkey, config, from7Ms, nowMs),
+          site,
+          "stats",
+        ),
+        safeFetch(
+          fetchUmamiMetrics(
+            did,
+            site.rkey,
+            config,
+            "path",
+            from30Ms,
+            nowMs,
+            TOP_LIST_LIMIT,
           ),
-          // Umami's /stats response includes a "comparison" object for the
-          // immediately preceding period of equal length — one call covers
-          // both this-week and prev-week, no second request needed.
-          safeFetch(
-            fetchUmamiStats(did, site.rkey, config, from7Ms, nowMs),
-            site,
-            "stats",
+          site,
+          "top-pages",
+        ),
+        safeFetch(
+          fetchUmamiMetrics(
+            did,
+            site.rkey,
+            config,
+            "referrer",
+            from30Ms,
+            nowMs,
+            TOP_LIST_LIMIT,
           ),
-          safeFetch(
-            fetchUmamiMetrics(
-              did,
-              site.rkey,
-              config,
-              "path",
-              from30Ms,
-              nowMs,
-              TOP_LIST_LIMIT,
-            ),
-            site,
-            "top-pages",
-          ),
-          safeFetch(
-            fetchUmamiMetrics(
-              did,
-              site.rkey,
-              config,
-              "referrer",
-              from30Ms,
-              nowMs,
-              TOP_LIST_LIMIT,
-            ),
-            site,
-            "top-referrers",
-          ),
-        ]);
+          site,
+          "top-referrers",
+        ),
+      ]);
 
       let pageviewsByDate: Map<string, number> | null = null;
       let visitorsByDate: Map<string, number> | null = null;
@@ -378,10 +378,16 @@ export async function loader({ request }: Route.LoaderArgs) {
     }),
   );
   const umamiPageviewsMap = new Map(
-    umamiResults.map(({ siteUrl, pageviewsByDate }) => [siteUrl, pageviewsByDate]),
+    umamiResults.map(({ siteUrl, pageviewsByDate }) => [
+      siteUrl,
+      pageviewsByDate,
+    ]),
   );
   const umamiVisitorsMap = new Map(
-    umamiResults.map(({ siteUrl, visitorsByDate }) => [siteUrl, visitorsByDate]),
+    umamiResults.map(({ siteUrl, visitorsByDate }) => [
+      siteUrl,
+      visitorsByDate,
+    ]),
   );
   const umamiSummaryMap = new Map(
     umamiResults.map(({ siteUrl, summary }) => [siteUrl, summary]),
@@ -403,11 +409,19 @@ export async function loader({ request }: Route.LoaderArgs) {
 
     const pageviewsByDate = umamiPageviewsMap.get(site.siteUrl);
     if (pageviewsByDate) {
-      metrics.pageviews = buildDaySlots(pageviewsByDate, thisWeekDays, prevWeekDays);
+      metrics.pageviews = buildDaySlots(
+        pageviewsByDate,
+        thisWeekDays,
+        prevWeekDays,
+      );
     }
     const visitorsByDate = umamiVisitorsMap.get(site.siteUrl);
     if (visitorsByDate) {
-      metrics.visitors = buildDaySlots(visitorsByDate, thisWeekDays, prevWeekDays);
+      metrics.visitors = buildDaySlots(
+        visitorsByDate,
+        thisWeekDays,
+        prevWeekDays,
+      );
     }
     const summary = umamiSummaryMap.get(site.siteUrl);
     if (summary) {
@@ -519,21 +533,25 @@ function StatTile({
 }) {
   return (
     <div
-      className={`${styles.metricChart} ${styles.compactTile} ${styles.statTilePair}`}
+      className={`${styles.statTileContainer} ${styles.compactTile} ${styles.statTilePair}`}
     >
       {stats.map((stat) => (
         <div key={stat.label} className={styles.statTileCell}>
           <span className={styles.metricLabel}>{stat.label}</span>
-          <span className={styles.metricTotal}>{stat.value}</span>
-          {stat.delta && (
-            <span
-              className={
-                stat.delta.good ? styles.metricDeltaUp : styles.metricDeltaDown
-              }
-            >
-              {stat.delta.text}
-            </span>
-          )}
+          <span>
+            <span className={styles.metricTotal}>{stat.value}</span>
+            {stat.delta && (
+              <span
+                className={
+                  stat.delta.good
+                    ? styles.metricDeltaUp
+                    : styles.metricDeltaDown
+                }
+              >
+                {stat.delta.text}
+              </span>
+            )}
+          </span>
         </div>
       ))}
     </div>

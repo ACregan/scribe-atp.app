@@ -89,20 +89,29 @@
    distinct as two cells side by side, split by a divider. Overrides
    .metricChart's flex-column with a two-column grid (later rule wins on
    equal specificity). */
+.statTileContainer {
+}
+
 .statTilePair {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.8rem;
+  grid-template-rows: 1fr 1fr;
+  gap: 1.6rem;
+  height: 100%;
 }
 
 .statTileCell {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
+
+  padding: 1.2rem 1.2rem 0.8rem;
   gap: 0.4rem;
+
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.4rem;
 }
 
 .statTileCell:not(:first-child) {
-  border-left: 1px solid var(--border-subtle);
   padding-left: 0.8rem;
 }
 
@@ -136,12 +145,14 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: #16a34a;
+  margin-left: 0.8rem;
 }
 
 .metricDeltaDown {
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--action-danger);
+  margin-left: 0.8rem;
 }
 
 .topList {
