@@ -87,13 +87,17 @@ function mockDayStats(baseCount: number): DayStat[] {
 // Umami doesn't report bounce rate / avg visit duration directly — both are
 // derived from the same /stats summary (visits, bounces, totaltime). Avg
 // duration excludes bounced visits, matching Umami's own dashboard math.
-function bounceRatePercent(stats: UmamiStatsSummary): number {
-  return stats.visits > 0 ? (stats.bounces / stats.visits) * 100 : 0;
+function bounceRatePercent(visits: number, bounces: number): number {
+  return visits > 0 ? (bounces / visits) * 100 : 0;
 }
 
-function avgDurationSeconds(stats: UmamiStatsSummary): number {
-  const nonBounced = stats.visits - stats.bounces;
-  return nonBounced > 0 ? stats.totaltimeSeconds / nonBounced : 0;
+function avgDurationSeconds(
+  visits: number,
+  bounces: number,
+  totaltimeSeconds: number,
+): number {
+  const nonBounced = visits - bounces;
+  return nonBounced > 0 ? totaltimeSeconds / nonBounced : 0;
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -240,12 +244,38 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   // Umami is opt-in per site (see ADR 0010) — only sites with a config row
-  // fetch pageviews, and a fetch failure for one site never affects others.
+  // fetch anything, and a fetch failure for one site never affects others.
+  // Each metric is fetched independently (not bundled in one try/catch) so
+  // one endpoint failing (e.g. a bad param) doesn't also blank out metrics
+  // that succeeded — this broke Pageviews/Visitors in production once
+  // already when Top Pages/Referrers started 400ing (see
+  // [[backlog-umami-stats-followup]]).
   const nowMs = Date.now();
   const from14Ms = nowMs - 14 * 86400 * 1000;
   const from7Ms = nowMs - 7 * 86400 * 1000;
   const from30Ms = nowMs - 30 * 86400 * 1000;
   const umamiFailedTitles: string[] = [];
+
+  async function safeFetch<T>(
+    promise: Promise<T>,
+    site: { siteUrl: string; title: string },
+    metric: string,
+  ): Promise<T | null> {
+    try {
+      return await promise;
+    } catch (err) {
+      logger.warn(
+        {
+          event: "insights.umami_fetch_error",
+          site: site.siteUrl,
+          metric,
+          error: String(err),
+        },
+        "insights.umami_fetch_error",
+      );
+      return null;
+    }
+  }
 
   const umamiResults = await Promise.all(
     sites.map(async (site) => {
@@ -259,21 +289,35 @@ export async function loader({ request }: Route.LoaderArgs) {
           topPages: null,
           topReferrers: null,
         };
-      try {
-        const [points, thisWeekStats, prevWeekStats, topPages, topReferrers] =
-          await Promise.all([
+
+      const [points, stats, topPages, topReferrers] = await Promise.all([
+          safeFetch(
             fetchUmamiPageviews(did, site.rkey, config, from14Ms, nowMs),
+            site,
+            "pageviews",
+          ),
+          // Umami's /stats response includes a "comparison" object for the
+          // immediately preceding period of equal length — one call covers
+          // both this-week and prev-week, no second request needed.
+          safeFetch(
             fetchUmamiStats(did, site.rkey, config, from7Ms, nowMs),
-            fetchUmamiStats(did, site.rkey, config, from14Ms, from7Ms),
+            site,
+            "stats",
+          ),
+          safeFetch(
             fetchUmamiMetrics(
               did,
               site.rkey,
               config,
-              "url",
+              "path",
               from30Ms,
               nowMs,
               TOP_LIST_LIMIT,
             ),
+            site,
+            "top-pages",
+          ),
+          safeFetch(
             fetchUmamiMetrics(
               did,
               site.rkey,
@@ -283,46 +327,54 @@ export async function loader({ request }: Route.LoaderArgs) {
               nowMs,
               TOP_LIST_LIMIT,
             ),
-          ]);
-        const pageviewsByDate = new Map<string, number>();
-        const visitorsByDate = new Map<string, number>();
+            site,
+            "top-referrers",
+          ),
+        ]);
+
+      let pageviewsByDate: Map<string, number> | null = null;
+      let visitorsByDate: Map<string, number> | null = null;
+      if (points) {
+        pageviewsByDate = new Map();
+        visitorsByDate = new Map();
         for (const p of points) {
           pageviewsByDate.set(p.date, p.pageviews);
           visitorsByDate.set(p.date, p.visitors);
         }
-        const summary: UmamiSummary = {
-          bounceRatePercent: bounceRatePercent(thisWeekStats),
-          prevBounceRatePercent: bounceRatePercent(prevWeekStats),
-          avgDurationSeconds: avgDurationSeconds(thisWeekStats),
-          prevAvgDurationSeconds: avgDurationSeconds(prevWeekStats),
-        };
-        return {
-          siteUrl: site.siteUrl,
-          pageviewsByDate,
-          visitorsByDate,
-          summary,
-          topPages,
-          topReferrers,
-        };
-      } catch (err) {
-        logger.warn(
-          {
-            event: "insights.umami_fetch_error",
-            site: site.siteUrl,
-            error: String(err),
-          },
-          "insights.umami_fetch_error",
-        );
-        umamiFailedTitles.push(site.title);
-        return {
-          siteUrl: site.siteUrl,
-          pageviewsByDate: null,
-          visitorsByDate: null,
-          summary: null,
-          topPages: null,
-          topReferrers: null,
-        };
       }
+
+      const summary: UmamiSummary | null = stats
+        ? {
+            bounceRatePercent: bounceRatePercent(stats.visits, stats.bounces),
+            prevBounceRatePercent: bounceRatePercent(
+              stats.prevVisits,
+              stats.prevBounces,
+            ),
+            avgDurationSeconds: avgDurationSeconds(
+              stats.visits,
+              stats.bounces,
+              stats.totaltimeSeconds,
+            ),
+            prevAvgDurationSeconds: avgDurationSeconds(
+              stats.prevVisits,
+              stats.prevBounces,
+              stats.prevTotaltimeSeconds,
+            ),
+          }
+        : null;
+
+      if (!points || !stats || !topPages || !topReferrers) {
+        umamiFailedTitles.push(site.title);
+      }
+
+      return {
+        siteUrl: site.siteUrl,
+        pageviewsByDate,
+        visitorsByDate,
+        summary,
+        topPages,
+        topReferrers,
+      };
     }),
   );
   const umamiPageviewsMap = new Map(
