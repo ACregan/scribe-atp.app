@@ -16,6 +16,13 @@ export type DocumentRepairPlan = {
   currentPath: string;
   expectedPath: string;
   canonicalUrl: string;
+  // The site the repair resolves as canonical — written back to the
+  // document's own `site` field and scribe.domain every time a record is
+  // repaired, so a stale/orphaned canonical pointer (see
+  // [[urgent-article-path-basepath-bug]]) gets self-healed too, not just
+  // path/canonicalUrl.
+  canonicalSiteRkey: string;
+  domain: string;
 };
 
 export type RepairPlan = {
@@ -125,16 +132,27 @@ export function buildDocLocationMap(
 // Resolves which of a document's (possibly several, cross-posted) locations
 // is canonical, using the document's own `site` field — the same source of
 // truth publishArticleToGroup's canonicalSiteRkey param already respects.
-// Falls back to the first location found if `site` is missing/stale/doesn't
-// match any manifest, so a document is never silently skipped.
+//
+// Falls back when `site` is missing/stale/doesn't match any manifest (a
+// real, observed case — see [[urgent-article-path-basepath-bug]], "Code
+// Assistants" incident: doc.site pointed at a site that didn't reference
+// the article at all). The fallback prefers a *published* location
+// (groupSlug set) over an unpublished draft one — picking the first
+// location regardless of type once demoted a real, live published page
+// below an unrelated draft placeholder on a different site.
 export function resolveCanonicalLocation(
   docSiteUri: string,
   locations: DocLocation[],
 ): DocLocation | undefined {
   const canonicalSiteRkey = docSiteUri.split("/").pop() ?? "";
-  return (
-    locations.find((l) => l.siteRkey === canonicalSiteRkey) ?? locations[0]
-  );
+  const matched = locations.find((l) => l.siteRkey === canonicalSiteRkey);
+  if (matched) return matched;
+  const published = locations.find((l) => l.groupSlug !== null);
+  return published ?? locations[0];
+}
+
+function docSiteRkey(doc: Record<string, unknown>): string {
+  return String(doc.site ?? "").split("/").pop() ?? "";
 }
 
 export function buildPlan(
@@ -181,7 +199,8 @@ export function buildPlan(
         )
       : buildDocumentPathAndUrl(location.domain, "", location.slug);
 
-    if (currentPath === expectedPath) {
+    const siteFieldMatches = docSiteRkey(v) === location.siteRkey;
+    if (currentPath === expectedPath && siteFieldMatches) {
       alreadyCorrect++;
       continue;
     }
@@ -192,6 +211,8 @@ export function buildPlan(
       currentPath,
       expectedPath,
       canonicalUrl,
+      canonicalSiteRkey: location.siteRkey,
+      domain: location.domain,
     });
   }
 

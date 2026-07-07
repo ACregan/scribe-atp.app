@@ -214,3 +214,185 @@ describe("buildPlan — reproduces the reported bug scenario exactly", () => {
     expect(lastWriteWinsLocation.basePath).toBe("");
   });
 });
+
+// Regression coverage for the "Code Assistants" incident (2026-07-07,
+// discovered immediately after deploying the cross-posted-article fix
+// above): the document's own `site` field pointed at a publication that
+// didn't reference the article at all (an orphaned canonical pointer). The
+// only two real locations were a draft (ungrouped) placement on one site and
+// a *published* placement on another. The first version of the fallback —
+// `locations[0]` — picked whichever site was iterated first, which in
+// production was the draft, silently overwriting a working live URL with a
+// 404. See [[urgent-article-path-basepath-bug]].
+describe("resolveCanonicalLocation — orphaned site field prefers a published location", () => {
+  it("prefers the published location over a draft when doc.site matches neither", () => {
+    const locations = [
+      { siteRkey: "draft-site", slug: "code-assistants", groupSlug: null, domain: "norobots.blog", basePath: "" },
+      { siteRkey: "published-site", slug: "code-assistants", groupSlug: "technology", domain: "perpetualsummer.ltd", basePath: "blog" },
+    ];
+
+    const result = resolveCanonicalLocation(
+      `at://${DID}/site.standard.publication/orphaned-canonical-site`,
+      locations,
+    );
+
+    expect(result?.siteRkey).toBe("published-site");
+  });
+
+  it("prefers the published location regardless of iteration order", () => {
+    const locations = [
+      { siteRkey: "published-site", slug: "code-assistants", groupSlug: "technology", domain: "perpetualsummer.ltd", basePath: "blog" },
+      { siteRkey: "draft-site", slug: "code-assistants", groupSlug: null, domain: "norobots.blog", basePath: "" },
+    ];
+
+    const result = resolveCanonicalLocation(
+      `at://${DID}/site.standard.publication/orphaned-canonical-site`,
+      locations,
+    );
+
+    expect(result?.siteRkey).toBe("published-site");
+  });
+
+  it("still honours an exact doc.site match over any published preference", () => {
+    const locations = [
+      { siteRkey: "matches-doc-site", slug: "a", groupSlug: null, domain: "a.com", basePath: "" },
+      { siteRkey: "other-published", slug: "a", groupSlug: "g", domain: "b.com", basePath: "blog" },
+    ];
+
+    const result = resolveCanonicalLocation(
+      `at://${DID}/site.standard.publication/matches-doc-site`,
+      locations,
+    );
+
+    expect(result?.siteRkey).toBe("matches-doc-site");
+  });
+});
+
+describe("buildPlan — Code Assistants scenario end-to-end", () => {
+  it("resolves to the published site, corrects path/canonicalUrl/site, and reports canonicalSiteRkey", () => {
+    const articleRkey = "3mp47vxbfg226";
+    const sites = [
+      siteRecord("draft-site", {
+        domain: "norobots.blog",
+        basePath: "",
+        groups: [],
+        ungroupedArticles: [
+          {
+            uri: `at://${DID}/site.standard.document/${articleRkey}`,
+            slug: "code-assistants",
+          },
+        ],
+      }),
+      siteRecord("published-site", {
+        domain: "perpetualsummer.ltd",
+        basePath: "blog",
+        groups: [
+          {
+            slug: "technology",
+            articles: [
+              {
+                uri: `at://${DID}/site.standard.document/${articleRkey}`,
+                slug: "code-assistants",
+              },
+            ],
+          },
+        ],
+        ungroupedArticles: [],
+      }),
+    ];
+
+    const documents = [
+      docRecord(articleRkey, {
+        title: "Code Assistants",
+        path: "/technology/code-assistants",
+        site: `at://${DID}/site.standard.publication/orphaned-canonical-site`,
+        scribe: { domain: "anthonycregan.co.uk", canonicalUrl: "https://norobots.blog/code-assistants" },
+      }),
+    ];
+
+    const locationMap = buildDocLocationMap(sites);
+    const plan = buildPlan(documents, locationMap);
+
+    expect(plan.toRepair).toEqual([
+      expect.objectContaining({
+        rkey: articleRkey,
+        expectedPath: "/blog/technology/code-assistants",
+        canonicalUrl: "https://perpetualsummer.ltd/blog/technology/code-assistants",
+        canonicalSiteRkey: "published-site",
+        domain: "perpetualsummer.ltd",
+      }),
+    ]);
+  });
+
+  it("flags a record for repair when path is already correct but the site field is stale", () => {
+    const articleRkey = "a1";
+    const sites = [
+      siteRecord("real-site", {
+        domain: "example.com",
+        basePath: "blog",
+        groups: [
+          {
+            slug: "g",
+            articles: [
+              { uri: `at://${DID}/site.standard.document/${articleRkey}`, slug: "a1" },
+            ],
+          },
+        ],
+        ungroupedArticles: [],
+      }),
+    ];
+
+    const documents = [
+      docRecord(articleRkey, {
+        title: "A",
+        path: "/blog/g/a1", // already correct
+        site: `at://${DID}/site.standard.publication/some-stale-site`, // wrong
+      }),
+    ];
+
+    const locationMap = buildDocLocationMap(sites);
+    const plan = buildPlan(documents, locationMap);
+
+    expect(plan.alreadyCorrect).toBe(0);
+    expect(plan.toRepair).toEqual([
+      expect.objectContaining({
+        rkey: articleRkey,
+        expectedPath: "/blog/g/a1",
+        canonicalSiteRkey: "real-site",
+      }),
+    ]);
+  });
+
+  it("does not flag a record when both path and site field are already correct", () => {
+    const articleRkey = "a1";
+    const sites = [
+      siteRecord("real-site", {
+        domain: "example.com",
+        basePath: "blog",
+        groups: [
+          {
+            slug: "g",
+            articles: [
+              { uri: `at://${DID}/site.standard.document/${articleRkey}`, slug: "a1" },
+            ],
+          },
+        ],
+        ungroupedArticles: [],
+      }),
+    ];
+
+    const documents = [
+      docRecord(articleRkey, {
+        title: "A",
+        path: "/blog/g/a1",
+        site: `at://${DID}/site.standard.publication/real-site`,
+      }),
+    ];
+
+    const locationMap = buildDocLocationMap(sites);
+    const plan = buildPlan(documents, locationMap);
+
+    expect(plan.toRepair).toEqual([]);
+    expect(plan.alreadyCorrect).toBe(1);
+  });
+});
