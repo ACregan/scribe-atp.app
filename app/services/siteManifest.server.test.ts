@@ -5,6 +5,7 @@ import {
   createGroup,
   deleteGroup,
   publishArticleToGroup,
+  saveSiteOrder,
 } from "./siteManifest.server";
 
 // Deep edge-case suite for siteManifest.server.ts — the long-term primary
@@ -168,7 +169,11 @@ describe("computeDocumentPathUpdates", () => {
     ).toEqual([]);
   });
 
-  it("includes basePath in the canonical URL when set", () => {
+  it("includes basePath in both newPath and the canonical URL when set", () => {
+    // Regression test for the 2026-07-07 incident: newPath previously omitted
+    // basePath even though newCanonicalUrl included it (computed separately),
+    // so this exact assertion on newPath would have failed before the fix —
+    // the old test only checked newCanonicalUrl and passed either way.
     const uri = `at://${DID}/site.standard.document/a1`;
     const oldGroupByUri = new Map([[uri, "old-group"]]);
     const groups = [
@@ -186,8 +191,58 @@ describe("computeDocumentPathUpdates", () => {
       domain,
       "blog",
     );
+    expect(updates[0].newPath).toBe("/blog/new-group/a1");
     expect(updates[0].newCanonicalUrl).toBe("https://example.com/blog/new-group/a1");
     expect(updates[0].needsPublishedAt).toBe(false);
+  });
+
+  it("reproduces the reported bug scenario exactly (basePath=blog, group=creative-writing)", () => {
+    const uri = `at://${DID}/site.standard.document/3mp47vunfy42h`;
+    const groups = [
+      {
+        slug: "creative-writing",
+        title: "Creative Writing",
+        articles: [
+          {
+            uri,
+            title: "The Crows Of Shenton Way.",
+            slug: "the-crows-of-shenton-way",
+          } as never,
+        ],
+      },
+    ];
+
+    const updates = computeDocumentPathUpdates(
+      new Map(),
+      groups,
+      [],
+      "anthonycregan.co.uk",
+      "blog",
+    );
+
+    expect(updates[0].newPath).toBe(
+      "/blog/creative-writing/the-crows-of-shenton-way",
+    );
+    expect(updates[0].newCanonicalUrl).toBe(
+      "https://anthonycregan.co.uk/blog/creative-writing/the-crows-of-shenton-way",
+    );
+  });
+
+  it("leaves ungrouped (draft) moves basePath-less — no live route to protect", () => {
+    const uri = `at://${DID}/site.standard.document/a1`;
+    const oldGroupByUri = new Map([[uri, "old-group"]]);
+    const ungroupedArticles = [{ uri, title: "A", slug: "a1" } as never];
+
+    const updates = computeDocumentPathUpdates(
+      oldGroupByUri,
+      [],
+      ungroupedArticles,
+      domain,
+      "blog",
+    );
+
+    expect(updates[0].newPath).toBe("/a1");
+    expect(updates[0].newCanonicalUrl).toBe("https://example.com/a1");
   });
 
   it("combines group-move and ungrouped-move candidates in one pass", () => {
@@ -407,5 +462,183 @@ describe("publishArticleToGroup — secondary-site partial failure", () => {
 
     expect(result.ok).toBe(true);
     expect(result).not.toHaveProperty("warning");
+  });
+});
+
+describe("publishArticleToGroup — path/canonicalUrl with a non-empty basePath", () => {
+  const articleUri = `at://${DID}/site.standard.document/a1`;
+
+  it("includes basePath in the written path, not just canonicalUrl", async () => {
+    // Regression test for the 2026-07-07 incident: this call site built
+    // docPath without basePath even though canonicalUrl included it.
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.document") {
+          return Promise.resolve(
+            docRecord("a1", { path: "/a1", title: "A", scribe: {} }),
+          );
+        }
+        return Promise.resolve(
+          siteRecord({
+            domain: "example.com",
+            basePath: "blog",
+            title: "My Site",
+            groups: [{ slug: "creative-writing", title: "Creative Writing", articles: [] }],
+            ungroupedArticles: [{ uri: articleUri, title: "A", slug: "a1" }],
+          }),
+        );
+      }),
+      putRecord,
+      listRecords: vi.fn().mockResolvedValue({
+        data: {
+          records: [
+            {
+              uri: `at://${DID}/site.standard.publication/${SITE_SLUG}`,
+              value: {
+                scribe: { ungroupedArticles: [{ uri: articleUri }], groups: [] },
+              },
+            },
+          ],
+        },
+      }),
+    });
+
+    const result = await publishArticleToGroup(agent, DID, SITE_SLUG, {
+      uri: articleUri,
+      groupSlug: "creative-writing",
+      canonicalSiteRkey: SITE_SLUG,
+      siteAssignments: [],
+    });
+
+    expect(result.ok).toBe(true);
+    const documentPutCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.document",
+    )!;
+    expect(documentPutCall[0].record.path).toBe("/blog/creative-writing/a1");
+    expect(documentPutCall[0].record.scribe.canonicalUrl).toBe(
+      "https://example.com/blog/creative-writing/a1",
+    );
+  });
+});
+
+describe("saveSiteOrder — cross-posted article canonical-site guard", () => {
+  // Regression coverage for the 2026-07-07 incident: a document cross-posted
+  // to two sites had its canonical path/canonicalUrl silently overwritten
+  // whenever the *other* (non-canonical) site's article list was reordered,
+  // because saveSiteOrder had no concept of which site actually owns the
+  // document's canonical URL. See [[urgent-article-path-basepath-bug]].
+  const articleUri = `at://${DID}/site.standard.document/a1`;
+
+  it("does not touch path/canonicalUrl when this site is not the document's canonical site", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.publication") {
+          return Promise.resolve(
+            siteRecord({
+              domain: "norobots.blog",
+              basePath: "",
+              groups: [
+                {
+                  slug: "old-group",
+                  title: "Old",
+                  articles: [{ uri: articleUri, title: "A", slug: "a1" }],
+                },
+              ],
+              ungroupedArticles: [],
+            }),
+          );
+        }
+        // The document's canonical site is a *different* publication.
+        return Promise.resolve(
+          docRecord("a1", {
+            path: "/blog/creative-writing/a1",
+            title: "A",
+            site: `at://${DID}/site.standard.publication/canonical-site`,
+            scribe: {
+              canonicalUrl: "https://anthonycregan.co.uk/blog/creative-writing/a1",
+            },
+          }),
+        );
+      }),
+      putRecord,
+    });
+
+    const groups = [
+      {
+        slug: "creative-writing",
+        title: "Creative Writing",
+        articles: [{ uri: articleUri, title: "A", slug: "a1" } as never],
+      },
+    ];
+
+    const result = await saveSiteOrder(agent, DID, SITE_SLUG, {
+      groups,
+      ungroupedArticles: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    const documentPutCalls = putRecord.mock.calls.filter(
+      ([args]) => args.collection === "site.standard.document",
+    );
+    expect(documentPutCalls).toHaveLength(0);
+  });
+
+  it("does rewrite path/canonicalUrl (with basePath) when this site is the canonical site", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.publication") {
+          return Promise.resolve(
+            siteRecord({
+              domain: "anthonycregan.co.uk",
+              basePath: "blog",
+              groups: [
+                {
+                  slug: "old-group",
+                  title: "Old",
+                  articles: [{ uri: articleUri, title: "A", slug: "a1" }],
+                },
+              ],
+              ungroupedArticles: [],
+            }),
+          );
+        }
+        return Promise.resolve(
+          docRecord("a1", {
+            path: "/blog/old-group/a1",
+            title: "A",
+            site: `at://${DID}/site.standard.publication/${SITE_SLUG}`,
+            scribe: {
+              canonicalUrl: "https://anthonycregan.co.uk/blog/old-group/a1",
+            },
+          }),
+        );
+      }),
+      putRecord,
+    });
+
+    const groups = [
+      {
+        slug: "creative-writing",
+        title: "Creative Writing",
+        articles: [{ uri: articleUri, title: "A", slug: "a1" } as never],
+      },
+    ];
+
+    const result = await saveSiteOrder(agent, DID, SITE_SLUG, {
+      groups,
+      ungroupedArticles: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+    const documentPutCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.document",
+    )!;
+    expect(documentPutCall[0].record.path).toBe("/blog/creative-writing/a1");
+    expect(documentPutCall[0].record.scribe.canonicalUrl).toBe(
+      "https://anthonycregan.co.uk/blog/creative-writing/a1",
+    );
   });
 });

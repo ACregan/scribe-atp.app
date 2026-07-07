@@ -1,8 +1,14 @@
 import type { Route } from "./+types/repair-document-paths";
 import { useFetcher } from "react-router";
-import { type Agent } from "@atproto/api";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
-import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
+import {
+  fetchAllDocuments,
+  fetchAllSites,
+  buildDocLocationMap,
+  buildPlan,
+  type RepairPlan,
+} from "~/services/repairDocumentPaths.server";
+import { DOCUMENT_COLLECTION } from "~/constants";
 import {
   PageContainer,
   PageContainerHeading,
@@ -14,24 +20,7 @@ import { Spinner } from "~/components/Spinner/Spinner";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { logger } from "~/services/logger.server";
 
-const STALE_RKEY = "alt-text-test";
-
 // --- Types ---
-
-type DocumentRepairPlan = {
-  rkey: string;
-  title: string;
-  currentPath: string;
-  expectedPath: string;
-  canonicalUrl: string;
-};
-
-type RepairPlan = {
-  toRepair: DocumentRepairPlan[];
-  toDelete: string[];
-  alreadyCorrect: number;
-  orphaned: number;
-};
 
 type RepairResult = {
   ok: boolean;
@@ -41,142 +30,6 @@ type RepairResult = {
   details?: Array<{ rkey: string; ok: boolean; error?: string }>;
   error?: string;
 };
-
-// --- Helpers ---
-
-function isTid(rkey: string): boolean {
-  return /^[234567a-z]{13}$/.test(rkey);
-}
-
-function buildCanonicalUrl(domain: string, basePath: string, docPath: string): string {
-  return basePath
-    ? `https://${domain}/${basePath}${docPath}`
-    : `https://${domain}${docPath}`;
-}
-
-async function fetchAllDocuments(agent: Agent, did: string) {
-  const records: Array<{ uri: string; cid: string; value: unknown }> = [];
-  let cursor: string | undefined;
-  do {
-    const result = await agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: DOCUMENT_COLLECTION,
-      limit: 100,
-      cursor,
-    });
-    records.push(...(result.data.records as typeof records));
-    cursor = result.data.cursor;
-  } while (cursor);
-  return records;
-}
-
-async function fetchAllSites(agent: Agent, did: string) {
-  const records: Array<{ uri: string; cid: string; value: unknown }> = [];
-  let cursor: string | undefined;
-  do {
-    const result = await agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: SITE_COLLECTION,
-      limit: 100,
-      cursor,
-    });
-    records.push(...(result.data.records as typeof records));
-    cursor = result.data.cursor;
-  } while (cursor);
-  return records;
-}
-
-type DocLocation = {
-  slug: string;
-  groupSlug: string | null;
-  domain: string;
-  basePath: string;
-};
-
-function buildDocLocationMap(
-  sites: Array<{ uri: string; cid: string; value: unknown }>,
-): Map<string, DocLocation> {
-  const map = new Map<string, DocLocation>();
-
-  for (const siteRecord of sites) {
-    const v = siteRecord.value as Record<string, unknown>;
-    const scribe = (v.scribe as Record<string, unknown>) ?? {};
-    const domain = String(scribe.domain ?? "");
-    const basePath = String(scribe.basePath ?? "");
-    if (!domain) continue;
-
-    const groups = ((scribe.groups as Array<Record<string, unknown>>) ?? []);
-    const ungrouped = ((scribe.ungroupedArticles as Array<Record<string, unknown>>) ?? []);
-
-    for (const group of groups) {
-      const groupSlug = String(group.slug ?? "");
-      const articles = ((group.articles as Array<Record<string, unknown>>) ?? []);
-      for (const ref of articles) {
-        const tid = String(ref.uri ?? "").split("/").pop()!;
-        const slug = String(ref.slug ?? "");
-        if (tid && slug) map.set(tid, { slug, groupSlug, domain, basePath });
-      }
-    }
-
-    for (const ref of ungrouped) {
-      const tid = String(ref.uri ?? "").split("/").pop()!;
-      const slug = String(ref.slug ?? "");
-      if (tid && slug) map.set(tid, { slug, groupSlug: null, domain, basePath });
-    }
-  }
-
-  return map;
-}
-
-function buildPlan(
-  documents: Array<{ uri: string; cid: string; value: unknown }>,
-  locationMap: Map<string, DocLocation>,
-): RepairPlan {
-  const toRepair: DocumentRepairPlan[] = [];
-  const toDelete: string[] = [];
-  let alreadyCorrect = 0;
-  let orphaned = 0;
-
-  for (const doc of documents) {
-    const rkey = doc.uri.split("/").pop()!;
-    const v = doc.value as Record<string, unknown>;
-    const title = String(v.title ?? "Untitled");
-    const currentPath = String(v.path ?? "");
-
-    if (rkey === STALE_RKEY) {
-      toDelete.push(rkey);
-      continue;
-    }
-
-    const location = locationMap.get(rkey);
-
-    if (!location) {
-      // Draft — not in any manifest. Flag if path looks corrupted (ends with TID).
-      const lastSegment = currentPath.split("/").pop() ?? "";
-      if (isTid(lastSegment)) orphaned++;
-      continue;
-    }
-
-    const expectedPath = location.groupSlug
-      ? `/${location.groupSlug}/${location.slug}`
-      : `/${location.slug}`;
-
-    if (currentPath === expectedPath) {
-      alreadyCorrect++;
-      continue;
-    }
-
-    toRepair.push({
-      rkey,
-      title,
-      currentPath,
-      expectedPath,
-      canonicalUrl: buildCanonicalUrl(location.domain, location.basePath, expectedPath),
-    });
-  }
-
-  return { toRepair, toDelete, alreadyCorrect, orphaned };
-}
 
 // --- Loader ---
 
@@ -251,7 +104,13 @@ export async function action({ request }: Route.ActionArgs): Promise<RepairResul
         record: {
           ...v,
           path: item.expectedPath,
-          canonicalUrl: item.canonicalUrl,
+          // canonicalUrl lives under scribe, not top-level (site.standard
+          // lexicon spec compliance) — this previously wrote a spurious
+          // top-level field and left the real scribe.canonicalUrl stale.
+          scribe: {
+            ...((v.scribe as Record<string, unknown>) ?? {}),
+            canonicalUrl: item.canonicalUrl,
+          },
           updatedAt: new Date().toISOString(),
         },
         swapRecord: doc.cid,
