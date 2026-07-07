@@ -4,6 +4,7 @@
 *.db-wal
 .env
 /node_modules/
+/.npm-cache/
 
 # React Router
 /.react-router/
