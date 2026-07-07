@@ -375,6 +375,63 @@ export async function fetchUmamiStats(
   );
 }
 
+// ── Top pages / referrers ─────────────────────────────────────────────────────
+//
+// Umami's /metrics endpoint returns a ranked list for a given "type" (url,
+// referrer, browser, os, device, country, ...) over a startAt/endAt window,
+// pre-sorted by count descending. Same unverified-against-a-live-instance
+// caveat as /stats above — field names (x, y) are assumed from Umami's docs.
+
+export type UmamiMetricType = "url" | "referrer";
+export type UmamiMetricRow = { label: string; count: number };
+
+async function requestMetrics(
+  config: UmamiConfig,
+  token: string,
+  type: UmamiMetricType,
+  fromMs: number,
+  toMs: number,
+): Promise<UmamiMetricRow[] | "unauthorized"> {
+  const url = new URL(
+    apiUrl(config.baseUrl, `/api/websites/${config.websiteId}/metrics`),
+  );
+  url.searchParams.set("type", type);
+  url.searchParams.set("startAt", String(fromMs));
+  url.searchParams.set("endAt", String(toMs));
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (res.status === 401 || res.status === 403) return "unauthorized";
+  if (!res.ok) {
+    throw new Error(`Umami metrics request failed (${res.status}).`);
+  }
+
+  const data = (await res.json()) as { x?: string; y?: number }[];
+  return data.map((row) => ({
+    // Umami reports direct/no-referrer traffic as an empty string.
+    label: row.x || (type === "referrer" ? "Direct" : "/"),
+    count: row.y ?? 0,
+  }));
+}
+
+export async function fetchUmamiMetrics(
+  userDid: string,
+  siteRkey: string,
+  config: UmamiConfig,
+  type: UmamiMetricType,
+  fromMs: number,
+  toMs: number,
+  limit: number,
+): Promise<UmamiMetricRow[]> {
+  await assertPublicHost(config.baseUrl);
+  const rows = await callWithAuth(userDid, siteRkey, config, (token) =>
+    requestMetrics(config, token, type, fromMs, toMs),
+  );
+  return rows.slice(0, limit);
+}
+
 // ── Config CRUD ──────────────────────────────────────────────────────────────
 
 export function getUmamiConfig(

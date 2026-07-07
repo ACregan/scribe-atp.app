@@ -24,6 +24,7 @@ import {
   getUmamiConfig,
   fetchUmamiPageviews,
   fetchUmamiStats,
+  fetchUmamiMetrics,
   type UmamiStatsSummary,
 } from "~/services/umami.server";
 import styles from "./insights.module.css";
@@ -39,6 +40,8 @@ const METRIC_LABELS: Record<ActionType, string> = {
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const TOP_LIST_LIMIT = 5;
+
 type DayStat = { day: string; thisWeek: number; prevWeek: number };
 type UmamiSummary = {
   bounceRatePercent: number;
@@ -46,10 +49,13 @@ type UmamiSummary = {
   avgDurationSeconds: number;
   prevAvgDurationSeconds: number;
 };
+type TopMetric = { label: string; count: number };
 type SiteMetricData = Record<ActionType, DayStat[]> & {
   pageviews?: DayStat[];
   visitors?: DayStat[];
   summary?: UmamiSummary;
+  topPages?: TopMetric[];
+  topReferrers?: TopMetric[];
 };
 type SiteData = {
   siteUrl: string;
@@ -133,6 +139,20 @@ export async function loader({ request }: Route.LoaderArgs) {
                 avgDurationSeconds: 96,
                 prevAvgDurationSeconds: 84,
               },
+              topPages: [
+                { label: "/blog/getting-started", count: 214 },
+                { label: "/blog/why-atproto", count: 156 },
+                { label: "/", count: 132 },
+                { label: "/blog/self-hosting-umami", count: 98 },
+                { label: "/about", count: 61 },
+              ],
+              topReferrers: [
+                { label: "Direct", count: 240 },
+                { label: "bsky.app", count: 120 },
+                { label: "google.com", count: 87 },
+                { label: "norobots.blog", count: 44 },
+                { label: "news.ycombinator.com", count: 19 },
+              ],
             }
           : {}),
       },
@@ -224,6 +244,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const nowMs = Date.now();
   const from14Ms = nowMs - 14 * 86400 * 1000;
   const from7Ms = nowMs - 7 * 86400 * 1000;
+  const from30Ms = nowMs - 30 * 86400 * 1000;
   const umamiFailedTitles: string[] = [];
 
   const umamiResults = await Promise.all(
@@ -235,13 +256,34 @@ export async function loader({ request }: Route.LoaderArgs) {
           pageviewsByDate: null,
           visitorsByDate: null,
           summary: null,
+          topPages: null,
+          topReferrers: null,
         };
       try {
-        const [points, thisWeekStats, prevWeekStats] = await Promise.all([
-          fetchUmamiPageviews(did, site.rkey, config, from14Ms, nowMs),
-          fetchUmamiStats(did, site.rkey, config, from7Ms, nowMs),
-          fetchUmamiStats(did, site.rkey, config, from14Ms, from7Ms),
-        ]);
+        const [points, thisWeekStats, prevWeekStats, topPages, topReferrers] =
+          await Promise.all([
+            fetchUmamiPageviews(did, site.rkey, config, from14Ms, nowMs),
+            fetchUmamiStats(did, site.rkey, config, from7Ms, nowMs),
+            fetchUmamiStats(did, site.rkey, config, from14Ms, from7Ms),
+            fetchUmamiMetrics(
+              did,
+              site.rkey,
+              config,
+              "url",
+              from30Ms,
+              nowMs,
+              TOP_LIST_LIMIT,
+            ),
+            fetchUmamiMetrics(
+              did,
+              site.rkey,
+              config,
+              "referrer",
+              from30Ms,
+              nowMs,
+              TOP_LIST_LIMIT,
+            ),
+          ]);
         const pageviewsByDate = new Map<string, number>();
         const visitorsByDate = new Map<string, number>();
         for (const p of points) {
@@ -254,7 +296,14 @@ export async function loader({ request }: Route.LoaderArgs) {
           avgDurationSeconds: avgDurationSeconds(thisWeekStats),
           prevAvgDurationSeconds: avgDurationSeconds(prevWeekStats),
         };
-        return { siteUrl: site.siteUrl, pageviewsByDate, visitorsByDate, summary };
+        return {
+          siteUrl: site.siteUrl,
+          pageviewsByDate,
+          visitorsByDate,
+          summary,
+          topPages,
+          topReferrers,
+        };
       } catch (err) {
         logger.warn(
           {
@@ -270,6 +319,8 @@ export async function loader({ request }: Route.LoaderArgs) {
           pageviewsByDate: null,
           visitorsByDate: null,
           summary: null,
+          topPages: null,
+          topReferrers: null,
         };
       }
     }),
@@ -282,6 +333,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   );
   const umamiSummaryMap = new Map(
     umamiResults.map(({ siteUrl, summary }) => [siteUrl, summary]),
+  );
+  const umamiTopPagesMap = new Map(
+    umamiResults.map(({ siteUrl, topPages }) => [siteUrl, topPages]),
+  );
+  const umamiTopReferrersMap = new Map(
+    umamiResults.map(({ siteUrl, topReferrers }) => [siteUrl, topReferrers]),
   );
 
   const siteMetrics: SiteData[] = sites.map((site) => {
@@ -303,6 +360,14 @@ export async function loader({ request }: Route.LoaderArgs) {
     const summary = umamiSummaryMap.get(site.siteUrl);
     if (summary) {
       metrics.summary = summary;
+    }
+    const topPages = umamiTopPagesMap.get(site.siteUrl);
+    if (topPages) {
+      metrics.topPages = topPages;
+    }
+    const topReferrers = umamiTopReferrersMap.get(site.siteUrl);
+    if (topReferrers) {
+      metrics.topReferrers = topReferrers;
     }
 
     return { ...site, metrics };
@@ -440,6 +505,29 @@ function avgDurationDelta(
   };
 }
 
+function TopList({ title, items }: { title: string; items: TopMetric[] }) {
+  return (
+    <div className={styles.topList}>
+      <span className={styles.topListTitle}>{title}</span>
+      {items.length === 0 ? (
+        <p className={styles.topListEmpty}>No data yet.</p>
+      ) : (
+        <ol className={styles.topListItems}>
+          {items.map((item, i) => (
+            <li key={item.label} className={styles.topListItem}>
+              <span className={styles.topListRank}>{i + 1}</span>
+              <span className={styles.topListLabel} title={item.label}>
+                {item.label}
+              </span>
+              <span className={styles.topListCount}>{item.count}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 function SiteCard({ site }: { site: SiteData }) {
   return (
     <div className={styles.siteCard}>
@@ -489,6 +577,19 @@ function SiteCard({ site }: { site: SiteData }) {
           </>
         )}
       </div>
+      {(site.metrics.topPages || site.metrics.topReferrers) && (
+        <div className={styles.topListsRow}>
+          {site.metrics.topPages && (
+            <TopList title="Top Pages (30 days)" items={site.metrics.topPages} />
+          )}
+          {site.metrics.topReferrers && (
+            <TopList
+              title="Top Referrers (30 days)"
+              items={site.metrics.topReferrers}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
