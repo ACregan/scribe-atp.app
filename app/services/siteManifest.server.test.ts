@@ -6,6 +6,8 @@ import {
   deleteGroup,
   publishArticleToGroup,
   saveSiteOrder,
+  removeArticleFromSite,
+  moveArticleToDraft,
 } from "./siteManifest.server";
 
 // Deep edge-case suite for siteManifest.server.ts — the long-term primary
@@ -640,5 +642,209 @@ describe("saveSiteOrder — cross-posted article canonical-site guard", () => {
     expect(documentPutCall[0].record.scribe.canonicalUrl).toBe(
       "https://anthonycregan.co.uk/blog/creative-writing/a1",
     );
+  });
+});
+
+describe("removeArticleFromSite", () => {
+  const articleUri = `at://${DID}/site.standard.document/a1`;
+
+  it("removes the article ref from ungroupedArticles", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          groups: [],
+          ungroupedArticles: [{ uri: articleUri, title: "A", slug: "a1" }],
+        }),
+      ),
+      putRecord,
+    });
+
+    const result = await removeArticleFromSite(agent, DID, SITE_SLUG, articleUri);
+
+    expect(result).toEqual({ ok: true });
+    const written = putRecord.mock.calls[0][0].record.scribe;
+    expect(written.ungroupedArticles).toEqual([]);
+  });
+
+  it("removes the article ref from whichever group contains it", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          groups: [
+            {
+              slug: "g1",
+              title: "G1",
+              articles: [{ uri: articleUri, title: "A", slug: "a1" }],
+            },
+          ],
+          ungroupedArticles: [],
+        }),
+      ),
+      putRecord,
+    });
+
+    const result = await removeArticleFromSite(agent, DID, SITE_SLUG, articleUri);
+
+    expect(result).toEqual({ ok: true });
+    const written = putRecord.mock.calls[0][0].record.scribe;
+    expect(written.groups[0].articles).toEqual([]);
+  });
+
+  it("swaps on the fetched site record's cid", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({ groups: [], ungroupedArticles: [] }),
+      ),
+      putRecord,
+    });
+
+    await removeArticleFromSite(agent, DID, SITE_SLUG, articleUri);
+
+    expect(putRecord.mock.calls[0][0].swapRecord).toBe("site-cid");
+  });
+
+  it("returns ok:false rather than throwing when the write fails (e.g. a CID race)", async () => {
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({ groups: [], ungroupedArticles: [] }),
+      ),
+      putRecord: vi.fn().mockRejectedValue(new Error("InvalidSwap")),
+    });
+
+    const result = await removeArticleFromSite(agent, DID, SITE_SLUG, articleUri);
+
+    expect(result).toEqual({ ok: false, error: expect.any(Error) });
+  });
+});
+
+describe("moveArticleToDraft", () => {
+  const articleUri = `at://${DID}/site.standard.document/a1`;
+
+  function makeDraftAgent(opts: {
+    docValue: Record<string, unknown>;
+    siteScribe: Record<string, unknown>;
+    putRecord?: ReturnType<typeof vi.fn>;
+  }) {
+    const putRecord = opts.putRecord ?? vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.document") {
+          return Promise.resolve(docRecord("a1", opts.docValue));
+        }
+        return Promise.resolve(siteRecord(opts.siteScribe));
+      }),
+      putRecord,
+    });
+    return { agent, putRecord };
+  }
+
+  it("moves the article ref from its group into ungroupedArticles", async () => {
+    const { agent, putRecord } = makeDraftAgent({
+      docValue: { path: "/blog/g1/a1", title: "A" },
+      siteScribe: {
+        groups: [
+          {
+            slug: "g1",
+            title: "G1",
+            articles: [{ uri: articleUri, title: "A", slug: "a1" }],
+          },
+        ],
+        ungroupedArticles: [],
+      },
+    });
+
+    const result = await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+
+    expect(result).toEqual({ ok: true });
+    const siteCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.publication",
+    )!;
+    expect(siteCall[0].record.scribe.groups[0].articles).toEqual([]);
+    expect(siteCall[0].record.scribe.ungroupedArticles).toHaveLength(1);
+    expect(siteCall[0].record.scribe.ungroupedArticles[0]).toMatchObject({
+      uri: articleUri,
+      slug: "a1",
+    });
+  });
+
+  it("does not duplicate the ref when the article is already in ungroupedArticles", async () => {
+    // existingRef is only ever recovered by scanning *groups* — an article
+    // already sitting in ungroupedArticles has no group to be found in, so
+    // its old entry is dropped and a fresh ref is fabricated from the
+    // document's live fields rather than preserved verbatim. The "bug fix"
+    // this guards is duplication (two entries), not metadata preservation.
+    const staleRef = { uri: articleUri, title: "Stale Title", slug: "a1", createdAt: "2020-01-01" };
+    const { agent, putRecord } = makeDraftAgent({
+      docValue: { path: "/a1", title: "Current Title", createdAt: "2025-05-05" },
+      siteScribe: { groups: [], ungroupedArticles: [staleRef] },
+    });
+
+    await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+
+    const siteCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.publication",
+    )!;
+    expect(siteCall[0].record.scribe.ungroupedArticles).toHaveLength(1);
+    expect(siteCall[0].record.scribe.ungroupedArticles[0]).toMatchObject({
+      uri: articleUri,
+      title: "Current Title",
+      createdAt: "2025-05-05",
+    });
+  });
+
+  it("resets the document's path to /{slug}, clears publishedAt, and clears scribe.canonicalUrl", async () => {
+    const { agent, putRecord } = makeDraftAgent({
+      docValue: {
+        path: "/blog/g1/a1",
+        title: "A",
+        publishedAt: "2026-01-01T00:00:00.000Z",
+        scribe: { canonicalUrl: "https://example.com/blog/g1/a1", domain: "example.com" },
+      },
+      siteScribe: {
+        groups: [{ slug: "g1", title: "G1", articles: [{ uri: articleUri, title: "A", slug: "a1" }] }],
+        ungroupedArticles: [],
+      },
+    });
+
+    await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+
+    const docCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.document",
+    )!;
+    expect(docCall[0].record.path).toBe("/a1");
+    expect(docCall[0].record.publishedAt).toBeUndefined();
+    expect(docCall[0].record.scribe.canonicalUrl).toBeUndefined();
+    // Other scribe fields survive the reset.
+    expect(docCall[0].record.scribe.domain).toBe("example.com");
+  });
+
+  it("swaps the document write on the fetched document's cid", async () => {
+    const { agent, putRecord } = makeDraftAgent({
+      docValue: { path: "/blog/g1/a1", title: "A" },
+      siteScribe: {
+        groups: [{ slug: "g1", title: "G1", articles: [{ uri: articleUri, title: "A", slug: "a1" }] }],
+        ungroupedArticles: [],
+      },
+    });
+
+    await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+
+    const docCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.document",
+    )!;
+    expect(docCall[0].swapRecord).toBe("a1-cid");
+  });
+
+  it("returns ok:false rather than throwing when the document fetch fails", async () => {
+    const agent = makeAgent({
+      getRecord: vi.fn().mockRejectedValue(new Error("Record not found")),
+    });
+
+    const result = await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+
+    expect(result).toEqual({ ok: false, error: expect.any(Error) });
   });
 });
