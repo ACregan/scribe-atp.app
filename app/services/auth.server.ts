@@ -159,6 +159,23 @@ export async function requireAtpAgent(
   return { agent, did, handle };
 }
 
+// Scribe CMS has open registration (any Bluesky account can log in — see
+// ADR 0010), so requireAtpAgent alone is not enough to gate the /devtools
+// repair tools: any authenticated user could reach them and run repair
+// logic against their own PDS repo. Restricts access to a single DID set
+// via ADMIN_DID, 404ing (not 403 — an admin route shouldn't confirm its own
+// existence to other users) for everyone else.
+export async function requireAdminAtpAgent(
+  request: Request,
+): Promise<{ agent: Agent; did: string; handle: string }> {
+  const result = await requireAtpAgent(request);
+  const adminDid = process.env.ADMIN_DID;
+  if (!adminDid || result.did !== adminDid) {
+    throw new Response("Not Found", { status: 404 });
+  }
+  return result;
+}
+
 export async function destroyAuthSession(request: Request, redirectTo: string) {
   const session = await getSession(request.headers.get("Cookie"));
   const did = session.get("did") as string | undefined;
