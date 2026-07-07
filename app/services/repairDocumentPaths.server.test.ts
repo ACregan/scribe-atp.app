@@ -1,18 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   buildDocLocationMap,
   resolveCanonicalLocation,
   buildPlan,
-} from "./repair-document-paths";
-
-vi.mock("~/services/auth.server", () => ({
-  requireAtpAgent: vi.fn(),
-  useRealOAuth: true,
-}));
-
-vi.mock("~/services/logger.server", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}));
+} from "./repairDocumentPaths.server";
 
 const DID = "did:plc:e2lcgwxhymx3q6u7blziecdr";
 
