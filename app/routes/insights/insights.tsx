@@ -518,7 +518,7 @@ function StatTile({
   delta?: { text: string; good: boolean };
 }) {
   return (
-    <div className={styles.metricChart}>
+    <div className={`${styles.metricChart} ${styles.compactTile}`}>
       <div className={styles.metricHeader}>
         <span className={styles.metricLabel}>{label}</span>
         <span className={styles.metricTotal}>{value}</span>
@@ -530,7 +530,6 @@ function StatTile({
           </span>
         )}
       </div>
-      <div className={styles.statTileBody} />
     </div>
   );
 }
@@ -559,7 +558,7 @@ function avgDurationDelta(
 
 function TopList({ title, items }: { title: string; items: TopMetric[] }) {
   return (
-    <div className={styles.topList}>
+    <div className={`${styles.topList} ${styles.compactTile}`}>
       <span className={styles.topListTitle}>{title}</span>
       {items.length === 0 ? (
         <p className={styles.topListEmpty}>No data yet.</p>
@@ -628,20 +627,16 @@ function SiteCard({ site }: { site: SiteData }) {
             />
           </>
         )}
+        {site.metrics.topPages && (
+          <TopList title="Top Pages (30 days)" items={site.metrics.topPages} />
+        )}
+        {site.metrics.topReferrers && (
+          <TopList
+            title="Top Referrers (30 days)"
+            items={site.metrics.topReferrers}
+          />
+        )}
       </div>
-      {(site.metrics.topPages || site.metrics.topReferrers) && (
-        <div className={styles.topListsRow}>
-          {site.metrics.topPages && (
-            <TopList title="Top Pages (30 days)" items={site.metrics.topPages} />
-          )}
-          {site.metrics.topReferrers && (
-            <TopList
-              title="Top Referrers (30 days)"
-              items={site.metrics.topReferrers}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }

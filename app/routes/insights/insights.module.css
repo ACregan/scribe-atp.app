@@ -77,8 +77,12 @@
   padding: 1.2rem 1.2rem 0.8rem;
 }
 
-.statTileBody {
-  flex: 1;
+/* Bounce Rate / Avg. Visit Duration / Top Pages / Top Referrers have no
+   chart body, so left to CSS Grid's default align-items:stretch they'd
+   stretch to match a taller chart sharing their row and look like an
+   oversized empty box. Opt out so they size to their own content instead. */
+.compactTile {
+  align-self: start;
 }
 
 .metricHeader {
@@ -113,19 +117,6 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--action-danger);
-}
-
-.topListsRow {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.6rem;
-  margin-top: 1.6rem;
-}
-
-@media (max-width: 900px) {
-  .topListsRow {
-    grid-template-columns: 1fr;
-  }
 }
 
 .topList {
