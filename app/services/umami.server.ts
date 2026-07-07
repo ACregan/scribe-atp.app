@@ -232,7 +232,7 @@ export async function testUmamiConnection(
 
 // ── Pageviews fetch (Insights loader) ────────────────────────────────────────
 
-export type UmamiDayPoint = { date: string; pageviews: number };
+export type UmamiDayPoint = { date: string; pageviews: number; visitors: number };
 
 async function requestPageviews(
   config: UmamiConfig,
@@ -257,10 +257,19 @@ async function requestPageviews(
     throw new Error(`Umami pageviews request failed (${res.status}).`);
   }
 
-  const data = (await res.json()) as { pageviews?: { x: string; y: number }[] };
+  // Umami's /pageviews endpoint returns unique visitor counts (per unit) in
+  // the same response as a separate "sessions" series — no second request needed.
+  const data = (await res.json()) as {
+    pageviews?: { x: string; y: number }[];
+    sessions?: { x: string; y: number }[];
+  };
+  const visitorsByDate = new Map(
+    (data.sessions ?? []).map((s) => [s.x.slice(0, 10), s.y]),
+  );
   return (data.pageviews ?? []).map((p) => ({
     date: p.x.slice(0, 10),
     pageviews: p.y,
+    visitors: visitorsByDate.get(p.x.slice(0, 10)) ?? 0,
   }));
 }
 

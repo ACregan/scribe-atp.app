@@ -35,7 +35,10 @@ const METRIC_LABELS: Record<ActionType, string> = {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type DayStat = { day: string; thisWeek: number; prevWeek: number };
-type SiteMetricData = Record<ActionType, DayStat[]> & { pageviews?: DayStat[] };
+type SiteMetricData = Record<ActionType, DayStat[]> & {
+  pageviews?: DayStat[];
+  visitors?: DayStat[];
+};
 type SiteData = {
   siteUrl: string;
   title: string;
@@ -96,7 +99,9 @@ export async function loader({ request }: Route.LoaderArgs) {
         share: mockDayStats(1),
         // Only the first mock site shows Umami configured, matching the
         // per-site opt-in behaviour of the real loader below.
-        ...(i === 0 ? { pageviews: mockDayStats(40) } : {}),
+        ...(i === 0
+          ? { pageviews: mockDayStats(40), visitors: mockDayStats(15) }
+          : {}),
       },
     }));
     return { sites: mockSites, umamiWarnings: [] as string[] };
@@ -190,7 +195,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const umamiResults = await Promise.all(
     sites.map(async (site) => {
       const config = getUmamiConfig(did, site.rkey);
-      if (!config) return { siteUrl: site.siteUrl, byDate: null };
+      if (!config)
+        return { siteUrl: site.siteUrl, pageviewsByDate: null, visitorsByDate: null };
       try {
         const points = await fetchUmamiPageviews(
           did,
@@ -199,9 +205,13 @@ export async function loader({ request }: Route.LoaderArgs) {
           from14Ms,
           nowMs,
         );
-        const byDate = new Map<string, number>();
-        for (const p of points) byDate.set(p.date, p.pageviews);
-        return { siteUrl: site.siteUrl, byDate };
+        const pageviewsByDate = new Map<string, number>();
+        const visitorsByDate = new Map<string, number>();
+        for (const p of points) {
+          pageviewsByDate.set(p.date, p.pageviews);
+          visitorsByDate.set(p.date, p.visitors);
+        }
+        return { siteUrl: site.siteUrl, pageviewsByDate, visitorsByDate };
       } catch (err) {
         logger.warn(
           {
@@ -212,12 +222,15 @@ export async function loader({ request }: Route.LoaderArgs) {
           "insights.umami_fetch_error",
         );
         umamiFailedTitles.push(site.title);
-        return { siteUrl: site.siteUrl, byDate: null };
+        return { siteUrl: site.siteUrl, pageviewsByDate: null, visitorsByDate: null };
       }
     }),
   );
-  const umamiByDateMap = new Map(
-    umamiResults.map(({ siteUrl, byDate }) => [siteUrl, byDate]),
+  const umamiPageviewsMap = new Map(
+    umamiResults.map(({ siteUrl, pageviewsByDate }) => [siteUrl, pageviewsByDate]),
+  );
+  const umamiVisitorsMap = new Map(
+    umamiResults.map(({ siteUrl, visitorsByDate }) => [siteUrl, visitorsByDate]),
   );
 
   const siteMetrics: SiteData[] = sites.map((site) => {
@@ -228,9 +241,13 @@ export async function loader({ request }: Route.LoaderArgs) {
       return acc;
     }, {} as SiteMetricData);
 
-    const umamiByDate = umamiByDateMap.get(site.siteUrl);
-    if (umamiByDate) {
-      metrics.pageviews = buildDaySlots(umamiByDate, thisWeekDays, prevWeekDays);
+    const pageviewsByDate = umamiPageviewsMap.get(site.siteUrl);
+    if (pageviewsByDate) {
+      metrics.pageviews = buildDaySlots(pageviewsByDate, thisWeekDays, prevWeekDays);
+    }
+    const visitorsByDate = umamiVisitorsMap.get(site.siteUrl);
+    if (visitorsByDate) {
+      metrics.visitors = buildDaySlots(visitorsByDate, thisWeekDays, prevWeekDays);
     }
 
     return { ...site, metrics };
@@ -336,6 +353,9 @@ function SiteCard({ site }: { site: SiteData }) {
         ))}
         {site.metrics.pageviews && (
           <MetricChart data={site.metrics.pageviews} label="Pageviews" />
+        )}
+        {site.metrics.visitors && (
+          <MetricChart data={site.metrics.visitors} label="Visitors" />
         )}
       </div>
     </div>
