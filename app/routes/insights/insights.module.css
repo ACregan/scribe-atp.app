@@ -115,6 +115,76 @@
   color: var(--action-danger);
 }
 
+.topListsRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.6rem;
+  margin-top: 1.6rem;
+}
+
+@media (max-width: 900px) {
+  .topListsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.topList {
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.4rem;
+  padding: 1.2rem 1.2rem 0.8rem;
+}
+
+.topListTitle {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.8rem;
+}
+
+.topListEmpty {
+  font-size: 1.3rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.topListItems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.topListItem {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.3rem;
+}
+
+.topListRank {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.topListLabel {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topListCount {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .empty {
   padding: 2rem;
   color: var(--text-secondary);
