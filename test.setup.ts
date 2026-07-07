@@ -9,3 +9,5 @@ process.env.SESSION_SECRET ??=
 // db.server.ts opens data/oauth.db (the real dev database) at import time
 // unless overridden — point tests at an isolated in-memory database instead.
 process.env.CMS_DB_PATH ??= ":memory:";
+// Same reasoning for the Image Service's own SQLite database.
+process.env.IMAGE_DB_PATH ??= ":memory:";

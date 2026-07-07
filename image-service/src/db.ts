@@ -2,10 +2,15 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-const dataDir = path.join(process.cwd(), "data");
-fs.mkdirSync(dataDir, { recursive: true });
+// Overridable so tests can point at an isolated `:memory:` database instead
+// of the real one on disk (see test.setup.ts).
+const dbPath = process.env.IMAGE_DB_PATH ?? (() => {
+  const dataDir = path.join(process.cwd(), "data");
+  fs.mkdirSync(dataDir, { recursive: true });
+  return path.join(dataDir, "images.db");
+})();
 
-const db = new Database(path.join(dataDir, "images.db"));
+const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 
 db.exec(`
