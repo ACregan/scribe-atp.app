@@ -1,45 +1,72 @@
 import { test, expect } from "@playwright/test";
 
+// Since ADR 0013, Publish is a single consolidated action (site -> group,
+// with inline create-group) that lives only on /article/list, applied to
+// Unassigned Drafts. It no longer lives on the per-site view. Unpublish
+// (still labelled "moveToDraft" internally) stays on the per-site view,
+// fully detaching an article back to loose rather than moving it within
+// the site.
+
+const ARTICLE_LIST_URL = "/article/list";
 const SITE_LIST_URL = "/article/list/norobots-blog";
 
-// ── Publish flow ──────────────────────────────────────────────────────────────
+// ── Publish flow (/article/list) ──────────────────────────────────────────────
 
-test("ungrouped articles show a Publish button", async ({ page }) => {
-  await page.goto(SITE_LIST_URL);
-  await expect(
-    page.getByText("Getting Started with AT Protocol", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Publish" }).first(),
-  ).toBeVisible();
+test("Unassigned Drafts show a Publish button", async ({ page }) => {
+  await page.goto(ARTICLE_LIST_URL);
+  await expect(page.getByText("Dev Orphan Draft", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
 });
 
 test("clicking Publish opens the Publish Article modal", async ({ page }) => {
-  await page.goto(SITE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).first().click();
+  await page.goto(ARTICLE_LIST_URL);
+  await page.getByRole("button", { name: "Publish" }).click();
   await expect(
     page.getByRole("heading", { name: "Publish Article" }),
   ).toBeVisible();
   await expect(
-    page
-      .locator("dialog[open]")
-      .getByText("Getting Started with AT Protocol"),
+    page.locator("dialog[open]").getByText("Dev Orphan Draft"),
   ).toBeVisible();
 });
 
-test("Publish modal shows a group selector with available groups", async ({
-  page,
-}) => {
-  await page.goto(SITE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).first().click();
+test("Publish modal shows site and group selectors", async ({ page }) => {
+  await page.goto(ARTICLE_LIST_URL);
+  await page.getByRole("button", { name: "Publish" }).click();
+  const siteSelect = page.locator('dialog[open] select[name="siteRkey"]');
+  await expect(siteSelect).toBeVisible();
+  await expect(siteSelect).toContainText("NoRobots.blog");
+  await expect(siteSelect).toContainText("Perpetual Summer LTD");
+
   const groupSelect = page.locator('dialog[open] select[name="groupSlug"]');
   await expect(groupSelect).toBeVisible();
-  await expect(groupSelect).toContainText("Engineering");
+  await expect(groupSelect).toContainText("Getting Started");
+});
+
+test("switching site updates the available groups", async ({ page }) => {
+  await page.goto(ARTICLE_LIST_URL);
+  await page.getByRole("button", { name: "Publish" }).click();
+  await page
+    .locator('dialog[open] select[name="siteRkey"]')
+    .selectOption("perpetualsummer-ltd");
+  const groupSelect = page.locator('dialog[open] select[name="groupSlug"]');
+  await expect(groupSelect).toContainText("Create new group");
+  await expect(groupSelect).not.toContainText("Getting Started");
+});
+
+test("selecting create-new-group reveals a title field", async ({ page }) => {
+  await page.goto(ARTICLE_LIST_URL);
+  await page.getByRole("button", { name: "Publish" }).click();
+  await page
+    .locator('dialog[open] select[name="groupSlug"]')
+    .selectOption({ label: "+ Create new group" });
+  await expect(
+    page.locator("dialog[open]").getByLabel("New group title"),
+  ).toBeVisible();
 });
 
 test("Publish modal Cancel button closes the modal", async ({ page }) => {
-  await page.goto(SITE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).first().click();
+  await page.goto(ARTICLE_LIST_URL);
+  await page.getByRole("button", { name: "Publish" }).click();
   await expect(
     page.getByRole("heading", { name: "Publish Article" }),
   ).toBeVisible();
@@ -55,11 +82,8 @@ test("Publish modal Cancel button closes the modal", async ({ page }) => {
 test("publishing an article shows a success toast and closes the modal", async ({
   page,
 }) => {
-  await page.goto(SITE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).first().click();
-  await page
-    .locator('dialog[open] select[name="groupSlug"]')
-    .selectOption("engineering");
+  await page.goto(ARTICLE_LIST_URL);
+  await page.getByRole("button", { name: "Publish" }).click();
   await page
     .locator("dialog[open]")
     .getByRole("button", { name: "Publish" })
@@ -70,61 +94,19 @@ test("publishing an article shows a success toast and closes the modal", async (
   ).not.toBeVisible();
 });
 
-// ── Canonical site picker ─────────────────────────────────────────────────────
+// ── Unpublish flow (per-site view) ────────────────────────────────────────────
 
-test("Publish modal shows canonical site picker when article is on multiple sites", async ({
-  page,
-}) => {
-  await page.goto(SITE_LIST_URL);
-  // "Getting Started" is on two sites in the fixture — picker should appear
-  await page
-    .getByText("Getting Started with AT Protocol", { exact: true })
-    .locator("..")
-    .locator("..")
-    .getByRole("button", { name: "Publish" })
-    .click();
-  await expect(
-    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
-  ).toBeVisible();
-  await expect(
-    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
-  ).toContainText("NoRobots.blog");
-  await expect(
-    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
-  ).toContainText("Perpetual Summer LTD");
-});
-
-test("Publish modal does not show canonical site picker for single-site article", async ({
-  page,
-}) => {
-  await page.goto(SITE_LIST_URL);
-  // "Building a Rich Text Editor" is on one site — no picker
-  await page
-    .getByText("Building a Rich Text Editor with Lexical", { exact: true })
-    .locator("..")
-    .locator("..")
-    .getByRole("button", { name: "Publish" })
-    .click();
-  await expect(
-    page.locator('dialog[open] select[name="canonicalSiteRkey"]'),
-  ).not.toBeVisible();
-});
-
-// ── Move to Drafts flow ───────────────────────────────────────────────────────
-
-test("published articles show a Move to Drafts button", async ({ page }) => {
+test("published articles show an Unpublish button", async ({ page }) => {
   await page.goto(SITE_LIST_URL);
   await expect(page.getByText("Hello World", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Move to Drafts" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Unpublish" })).toBeVisible();
 });
 
-test("clicking Move to Drafts opens a confirmation modal", async ({ page }) => {
+test("clicking Unpublish opens a confirmation modal", async ({ page }) => {
   await page.goto(SITE_LIST_URL);
-  await page.getByRole("button", { name: "Move to Drafts" }).click();
+  await page.getByRole("button", { name: "Unpublish" }).click();
   await expect(
-    page.getByRole("heading", { name: "Move to Drafts" }),
+    page.getByRole("heading", { name: "Unpublish Article" }),
   ).toBeVisible();
   await expect(
     page.locator("dialog[open]").getByText("NoRobots.blog (Dev)"),
@@ -134,28 +116,26 @@ test("clicking Move to Drafts opens a confirmation modal", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("Move to Drafts modal Cancel button closes the modal", async ({
-  page,
-}) => {
+test("Unpublish modal Cancel button closes the modal", async ({ page }) => {
   await page.goto(SITE_LIST_URL);
-  await page.getByRole("button", { name: "Move to Drafts" }).click();
+  await page.getByRole("button", { name: "Unpublish" }).click();
   await expect(
-    page.getByRole("heading", { name: "Move to Drafts" }),
+    page.getByRole("heading", { name: "Unpublish Article" }),
   ).toBeVisible();
   await page
     .locator("dialog[open]")
     .getByRole("button", { name: "Cancel" })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Move to Drafts" }),
+    page.getByRole("heading", { name: "Unpublish Article" }),
   ).not.toBeVisible();
 });
 
-test("confirming Move to Drafts redirects back to the site list", async ({
+test("confirming Unpublish redirects back to the site list", async ({
   page,
 }) => {
   await page.goto(SITE_LIST_URL);
-  await page.getByRole("button", { name: "Move to Drafts" }).click();
+  await page.getByRole("button", { name: "Unpublish" }).click();
   await page
     .locator("dialog[open]")
     .getByRole("button", { name: "Confirm" })
