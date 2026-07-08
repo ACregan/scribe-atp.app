@@ -519,7 +519,7 @@ export async function publishArticleToGroup(
           (a) => a.uri !== uri,
         ),
         groups: (val.groups ?? []).map((g) =>
-          g.slug === groupSlug ? { ...g, articles: [...g.articles, ref] } : g,
+          g.slug === groupSlug ? { ...g, articles: [ref, ...g.articles] } : g,
         ),
         updatedAt: publishedAt,
       };

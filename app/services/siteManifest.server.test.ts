@@ -434,6 +434,55 @@ describe("publishArticleToGroup — ArticleRef splashImageUrl", () => {
   });
 });
 
+describe("publishArticleToGroup — new article placement within the group", () => {
+  const newArticleUri = `at://${DID}/site.standard.document/new1`;
+  const existingArticleUri = `at://${DID}/site.standard.document/existing1`;
+
+  it("prepends the newly-published article to the front of the group, not the back", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.document") {
+          return Promise.resolve(docRecord("new1", { path: "/new1", title: "New" }));
+        }
+        return Promise.resolve(
+          siteRecord({
+            domain: "example.com",
+            basePath: "",
+            title: "My Site",
+            groups: [
+              {
+                slug: "g1",
+                title: "G1",
+                articles: [
+                  { uri: existingArticleUri, title: "Existing", slug: "existing1" },
+                ],
+              },
+            ],
+            ungroupedArticles: [{ uri: newArticleUri, title: "New", slug: "new1" }],
+          }),
+        );
+      }),
+      putRecord,
+    });
+
+    await publishArticleToGroup(agent, DID, SITE_SLUG, {
+      uri: newArticleUri,
+      groupSlug: "g1",
+      canonicalSiteRkey: SITE_SLUG,
+      siteAssignments: [],
+    });
+
+    const siteCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.publication",
+    )!;
+    const articleUris = siteCall[0].record.scribe.groups[0].articles.map(
+      (a: { uri: string }) => a.uri,
+    );
+    expect(articleUris).toEqual([newArticleUri, existingArticleUri]);
+  });
+});
+
 describe("publishArticleToGroup — path/canonicalUrl with a non-empty basePath", () => {
   const articleUri = `at://${DID}/site.standard.document/a1`;
 
