@@ -175,10 +175,22 @@ export function buildPlan(
       continue;
     }
 
-    const locations = locationMap.get(rkey);
+    // Since ADR 0013, `site` is the sole loose-vs-published signal: an
+    // at:// URI means published, anything else (the loose reader URL) means
+    // unassigned — full stop, even if a stale manifest entry still
+    // references this document (that inconsistency belongs to
+    // repairLooseDocuments, not this tool). Without this guard,
+    // docSiteRkey's naive split("/").pop() would read the document's own
+    // rkey out of the reader URL, fail to match any real site, and fall
+    // through to "pick the first stale reference" — resurrecting a site
+    // assignment ADR 0013 says shouldn't exist.
+    const siteField = String(v.site ?? "");
+    const isLoose = siteField !== "" && !siteField.startsWith("at://");
+
+    const locations = isLoose ? undefined : locationMap.get(rkey);
     const location =
       locations && locations.length > 0
-        ? resolveCanonicalLocation(String(v.site ?? ""), locations)
+        ? resolveCanonicalLocation(siteField, locations)
         : undefined;
 
     if (!location) {

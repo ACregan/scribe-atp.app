@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildLoosePlan, buildLooseSiteUrl } from "./repairLooseDocuments.server";
+import { buildLoosePlan } from "./repairLooseDocuments.server";
+import { buildLooseSiteUrl } from "./article.server";
 
 const DID = "did:plc:e2lcgwxhymx3q6u7blziecdr";
 

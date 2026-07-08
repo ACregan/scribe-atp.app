@@ -9,14 +9,10 @@ import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
   buildArticleRef,
-  loadSiteOptions,
   resolveThumbUrl,
 } from "~/services/article.server";
-import {
-  findSitesContaining,
-  computeSiteAssignmentChanges,
-  syncSiteArticleRefs,
-} from "~/services/articleSiteSync.server";
+import { mutateSiteRecord } from "~/services/articleSiteSync.server";
+import { updateArticleRef } from "~/routes/article/site-list/siteTree";
 import {
   listDocuments,
   getDocument,
@@ -36,10 +32,7 @@ import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { SaveChecklist } from "~/components/SaveChecklist/SaveChecklist";
-import {
-  ArticleForm,
-  type SiteOption,
-} from "~/components/ArticleForm/ArticleForm";
+import { ArticleForm } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
 export function meta({}: Route.MetaArgs) {
@@ -50,7 +43,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!useRealOAuth) return devEditLoader(params.articleUrl);
 
   const { agent, did } = await requireAtpAgent(request);
-  const siteOptionsPromise = loadSiteOptions(agent, did);
 
   // Resolve human-readable slug → TID by scanning all documents.
   // slug = path.split('/').pop() for each site.standard.document record.
@@ -75,12 +67,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       ? String((rawContent as Record<string, unknown>).html ?? "")
       : String(rawContent ?? "");
 
-  const articleUri = `at://${did}/${DOCUMENT_COLLECTION}/${rkey}`;
-  const [sites, currentSiteRkeys] = await Promise.all([
-    siteOptionsPromise,
-    findSitesContaining(agent, did, articleUri),
-  ]);
-
   const scribe = (value.scribe as Record<string, unknown>) ?? {};
 
   return {
@@ -100,8 +86,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       scribe.createdAt ?? value.createdAt ?? new Date().toISOString(),
     ),
     cid: found.cid ?? null,
-    sites,
-    currentSiteRkeys,
     publishedSite: String(value.site ?? ""),
     publishedAt: String(value.publishedAt ?? ""),
     publishedPath: String(value.path ?? ""),
@@ -123,10 +107,6 @@ export async function action({ request }: Route.ActionArgs) {
   const publishedSite = (formData.get("publishedSite") as string) || "";
   const publishedAt = (formData.get("publishedAt") as string) || "";
   const publishedPath = (formData.get("publishedPath") as string) || "";
-  const oldSiteRkeys: string[] = JSON.parse(
-    (formData.get("oldSiteRkeys") as string) || "[]",
-  );
-  const selectedSiteRkeys = formData.getAll("sites") as string[];
 
   const validationError = validateArticleFields(title, newSlug, splashImageUrl);
   if (validationError) return { ok: false as const, error: validationError };
@@ -138,10 +118,6 @@ export async function action({ request }: Route.ActionArgs) {
 
   try {
     const { agent, did } = await requireAtpAgent(request);
-    const siteChanges = computeSiteAssignmentChanges(
-      oldSiteRkeys,
-      selectedSiteRkeys,
-    );
     const now = new Date().toISOString();
 
     // Fetch existing record for blob caching and contributors preservation
@@ -270,18 +246,30 @@ export async function action({ request }: Route.ActionArgs) {
     );
 
     const uri = `at://${did}/${DOCUMENT_COLLECTION}/${oldRkey}`;
-    const ref = buildArticleRef({
-      uri,
-      title,
-      slug: newSlug,
-      splashImageUrl,
-      description,
-      tags: tags.length ? tags : undefined,
-      publishedAt,
-      createdAt,
-      updatedAt: now,
-    });
-    await syncSiteArticleRefs(agent, did, siteChanges, uri, ref);
+
+    // ArticleRef keep-alive: an article can only ever belong to one site now
+    // (ADR 0013) — if it's currently published (site is a real at:// URI,
+    // not the loose reader URL), refresh its cached ref snapshot in that one
+    // site's manifest so title/description/etc. stay in sync. Editing never
+    // changes *which* site an article is assigned to — that's exclusively
+    // the Publish/Unpublish actions' job.
+    if (publishedSite.startsWith("at://")) {
+      const ref = buildArticleRef({
+        uri,
+        title,
+        slug: newSlug,
+        splashImageUrl,
+        description,
+        tags: tags.length ? tags : undefined,
+        publishedAt,
+        createdAt,
+        updatedAt: now,
+      });
+      const siteRkey = publishedSite.split("/").pop()!;
+      await mutateSiteRecord(agent, did, siteRkey, (record) =>
+        updateArticleRef(record, uri, ref),
+      );
+    }
 
     logger.info(
       {
@@ -328,15 +316,11 @@ export default function EditArticle({
     tags,
     createdAt,
     cid,
-    sites,
-    currentSiteRkeys,
     publishedSite,
     publishedAt,
     publishedPath,
   } = loaderData;
 
-  const [selectedSites, setSelectedSites] =
-    useState<string[]>(currentSiteRkeys);
   const [isDirty, setIsDirty] = useState(false);
   // Initialise from loader data so canSave is correct before the user edits.
   const [titleValue, setTitleValue] = useState(title);
@@ -378,11 +362,6 @@ export default function EditArticle({
     setIsDirty(true);
   }
 
-  function handleSitesChange(rkeys: string[]) {
-    setSelectedSites(rkeys);
-    setIsDirty(true);
-  }
-
   function handleTagsChange(_tags: string[]) {
     setIsDirty(true);
   }
@@ -420,11 +399,6 @@ export default function EditArticle({
       <input type="hidden" name="rkey" value={rkey} />
       <input type="hidden" name="cid" value={cidValue ?? ""} />
       <input type="hidden" name="createdAt" value={createdAt} />
-      <input
-        type="hidden"
-        name="oldSiteRkeys"
-        value={JSON.stringify(currentSiteRkeys)}
-      />
       <input type="hidden" name="publishedSite" value={publishedSite} />
       <input type="hidden" name="publishedAt" value={publishedAt} />
       <input type="hidden" name="publishedPath" value={publishedPath} />
@@ -445,9 +419,6 @@ export default function EditArticle({
           defaultContent={content}
           onTagsChange={handleTagsChange}
           onSplashImageUrlChange={handleSplashImageChange}
-          sites={sites}
-          selectedSites={selectedSites}
-          onSitesChange={handleSitesChange}
           onContentChange={handleContentChange}
           error={actionData?.error}
           urlWarning={

@@ -4,8 +4,10 @@ import { loader, action } from "./create";
 import { requireAtpAgent } from "~/services/auth.server";
 
 // Characterization tests for the create-article route's real-OAuth path
-// (useRealOAuth: true), written before extracting its document-creation call
-// onto app/services/documentRepository.server.ts. Dev-bypass path is covered
+// (useRealOAuth: true). Since ADR 0013, every new article starts loose —
+// no site selection at creation time. `site` is a two-step create-then-patch
+// (the rkey/TID is only known after createRecord returns) rather than
+// resolved from a selected site's domain. Dev-bypass path is covered
 // separately in create.devBypass.test.ts.
 
 vi.mock("~/services/auth.server", () => ({
@@ -17,26 +19,23 @@ const DID = "did:plc:testuser";
 
 function makeAgent(
   overrides: {
-    getRecord?: ReturnType<typeof vi.fn>;
     createRecord?: ReturnType<typeof vi.fn>;
-    listRecords?: ReturnType<typeof vi.fn>;
+    putRecord?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
   return {
     com: {
       atproto: {
         repo: {
-          getRecord: overrides.getRecord ?? vi.fn(),
           createRecord:
             overrides.createRecord ??
-            vi
-              .fn()
-              .mockResolvedValue({
-                data: { uri: "at://x/site.standard.document/new", cid: "cid" },
-              }),
-          listRecords:
-            overrides.listRecords ??
-            vi.fn().mockResolvedValue({ data: { records: [] } }),
+            vi.fn().mockResolvedValue({
+              data: {
+                uri: `at://${DID}/site.standard.document/new1`,
+                cid: "create-cid",
+              },
+            }),
+          putRecord: overrides.putRecord ?? vi.fn().mockResolvedValue({ data: { cid: "patch-cid" } }),
         },
       },
     },
@@ -73,48 +72,10 @@ beforeEach(() => {
 });
 
 describe("loader", () => {
-  it("loads site options and marks a valid ?site= preselection", async () => {
-    const agent = makeAgent({
-      listRecords: vi.fn().mockResolvedValue({
-        data: {
-          records: [
-            {
-              uri: `at://${DID}/site.standard.publication/site-a`,
-              value: { scribe: { title: "Site A", domain: "a.com" } },
-            },
-          ],
-        },
-      }),
-    });
-    vi.mocked(requireAtpAgent).mockResolvedValue({
-      agent,
-      did: DID,
-      handle: DID,
-    });
-
-    const result = await callLoader(
-      "http://localhost/article/create?site=site-a",
-    );
-    expect(result).toEqual({
-      sites: [{ rkey: "site-a", title: "Site A", url: "a.com" }],
-      preselectedSite: "site-a",
-    });
-  });
-
-  it("ignores a ?site= preselection that doesn't match any of the user's sites", async () => {
-    const agent = makeAgent({
-      listRecords: vi.fn().mockResolvedValue({ data: { records: [] } }),
-    });
-    vi.mocked(requireAtpAgent).mockResolvedValue({
-      agent,
-      did: DID,
-      handle: DID,
-    });
-
-    const result = await callLoader(
-      "http://localhost/article/create?site=nonexistent",
-    );
-    expect(result).toEqual({ sites: [], preselectedSite: undefined });
+  it("returns no data — creation never offers a site picker", async () => {
+    const result = await callLoader();
+    expect(result).toEqual({});
+    expect(requireAtpAgent).not.toHaveBeenCalled();
   });
 });
 
@@ -139,18 +100,15 @@ describe("action", () => {
     });
   });
 
-  it("creates the document with the derived fields, resolving the primary site's domain", async () => {
-    const createRecord = vi
-      .fn()
-      .mockResolvedValue({
-        data: { uri: `at://${DID}/site.standard.document/new1`, cid: "cid" },
-      });
-    const getRecord = vi
-      .fn()
-      .mockResolvedValue({
-        data: { value: { scribe: { domain: "example.com" } } },
-      });
-    const agent = makeAgent({ createRecord, getRecord });
+  it("creates the document loose, then patches `site` to the reader URL using the newly-assigned rkey", async () => {
+    const createRecord = vi.fn().mockResolvedValue({
+      data: {
+        uri: `at://${DID}/site.standard.document/new1`,
+        cid: "create-cid",
+      },
+    });
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "patch-cid" } });
+    const agent = makeAgent({ createRecord, putRecord });
     vi.mocked(requireAtpAgent).mockResolvedValue({
       agent,
       did: DID,
@@ -163,7 +121,6 @@ describe("action", () => {
       content: "<p>Hello <b>world</b></p>",
       description: "A description",
       splashImageUrl: "https://x.com/s.png",
-      sites: ["site-a"],
       tags: ["tag1", "tag2"],
     });
 
@@ -172,15 +129,12 @@ describe("action", () => {
       devMode: false,
       title: "My Article",
     });
-    expect(getRecord).toHaveBeenCalledWith({
-      repo: DID,
-      collection: "site.standard.publication",
-      rkey: "site-a",
-    });
+
+    // Step 1: create with a placeholder site
     expect(createRecord).toHaveBeenCalledWith({
       repo: DID,
       collection: "site.standard.document",
-      record: {
+      record: expect.objectContaining({
         $type: "site.standard.document",
         title: "My Article",
         content: {
@@ -191,72 +145,24 @@ describe("action", () => {
         description: "A description",
         tags: ["tag1", "tag2"],
         path: "/my-article",
-        site: `at://${DID}/site.standard.publication/site-a`,
-        updatedAt: expect.any(String),
+        site: "",
         scribe: {
           coverImageUrl: "https://x.com/s.png",
           createdAt: expect.any(String),
-          domain: "example.com",
         },
-      },
-    });
-  });
-
-  it("proceeds without a resolved domain when the primary site's getRecord fails (non-fatal)", async () => {
-    const createRecord = vi
-      .fn()
-      .mockResolvedValue({
-        data: { uri: `at://${DID}/site.standard.document/new1`, cid: "cid" },
-      });
-    const agent = makeAgent({
-      createRecord,
-      getRecord: vi.fn().mockRejectedValue(new Error("not found")),
-    });
-    vi.mocked(requireAtpAgent).mockResolvedValue({
-      agent,
-      did: DID,
-      handle: DID,
-    });
-
-    const result = await callAction({
-      title: "My Article",
-      url: "my-article",
-      content: "<p>hi</p>",
-      sites: ["site-a"],
-    });
-
-    expect(result).toEqual({
-      slug: "my-article",
-      devMode: false,
-      title: "My Article",
-    });
-    expect(createRecord).toHaveBeenCalledWith(
-      expect.objectContaining({
-        record: expect.objectContaining({
-          scribe: expect.objectContaining({ domain: undefined }),
-        }),
       }),
-    );
-  });
-
-  it("does not call addArticleToSites when no sites are selected", async () => {
-    const listRecords = vi.fn();
-    const agent = makeAgent({ listRecords });
-    vi.mocked(requireAtpAgent).mockResolvedValue({
-      agent,
-      did: DID,
-      handle: DID,
     });
 
-    await callAction({
-      title: "My Article",
-      url: "my-article",
-      content: "<p>hi</p>",
+    // Step 2: patch site to the loose reader URL, using the rkey from step 1
+    expect(putRecord).toHaveBeenCalledWith({
+      repo: DID,
+      collection: "site.standard.document",
+      rkey: "new1",
+      record: expect.objectContaining({
+        site: `https://reader.scribe-atp.app/${DID}/site.standard.document/new1`,
+      }),
+      swapRecord: "create-cid",
     });
-
-    // addArticleToSites -> mutateSiteRecord -> getRecord/putRecord on SITE_COLLECTION;
-    // none of that should happen when selectedSiteRkeys is empty.
-    expect(listRecords).not.toHaveBeenCalled();
   });
 
   it("returns an error message when the PDS create call fails", async () => {
@@ -275,5 +181,23 @@ describe("action", () => {
       content: "<p>hi</p>",
     });
     expect(result).toEqual({ error: "PDS unavailable" });
+  });
+
+  it("returns an error message when the site-field patch call fails", async () => {
+    const agent = makeAgent({
+      putRecord: vi.fn().mockRejectedValue(new Error("patch failed")),
+    });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: DID,
+    });
+
+    const result = await callAction({
+      title: "My Article",
+      url: "my-article",
+      content: "<p>hi</p>",
+    });
+    expect(result).toEqual({ error: "patch failed" });
   });
 });

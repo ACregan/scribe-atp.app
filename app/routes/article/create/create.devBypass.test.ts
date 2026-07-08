@@ -36,9 +36,7 @@ beforeEach(() => {
 
 describe("loader — dev bypass", () => {
   it("returns the dev fixture without touching the agent", async () => {
-    await expect(
-      callLoader("http://localhost/article/create?site=abc"),
-    ).resolves.toEqual(devCreateLoader("abc"));
+    await expect(callLoader()).resolves.toEqual(devCreateLoader());
     expect(requireAtpAgent).not.toHaveBeenCalled();
   });
 });

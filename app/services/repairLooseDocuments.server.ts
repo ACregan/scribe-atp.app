@@ -3,6 +3,7 @@ import {
   fetchAllDocuments,
   fetchAllSites,
 } from "~/services/repairDocumentPaths.server";
+import { buildLooseSiteUrl } from "~/services/article.server";
 
 // Business logic for the /devtools/repair-loose-documents tool — Phase 1 of
 // ADR 0013 (docs/adr/0013-document-site-field-is-the-loose-vs-published-signal.md).
@@ -14,13 +15,10 @@ import {
 // inconsistently depending on which action last touched the record. This
 // tool normalizes all four fields unconditionally for every document that
 // is not currently referenced by any site's `groups` or `ungroupedArticles`.
-
-export const READER_BASE_URL = "https://reader.scribe-atp.app";
-export const DOCUMENT_COLLECTION_NAME = "site.standard.document";
-
-export function buildLooseSiteUrl(did: string, rkey: string): string {
-  return `${READER_BASE_URL}/${did}/${DOCUMENT_COLLECTION_NAME}/${rkey}`;
-}
+//
+// buildLooseSiteUrl is shared with article.server.ts (used there for new
+// article creation and the unpublish action) — one definition of "loose"
+// for the whole app, not a copy per call site.
 
 export type LooseDocumentRepairItem = {
   rkey: string;

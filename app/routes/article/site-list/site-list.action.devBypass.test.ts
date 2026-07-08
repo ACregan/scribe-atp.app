@@ -85,19 +85,4 @@ describe("action — dev-bypass path", () => {
     expect(getAtpAgent).not.toHaveBeenCalled();
   });
 
-  it("publishArticle: returns the optimistic literal without touching the agent", async () => {
-    await expect(
-      callAction({
-        _intent: "publishArticle",
-        uri: "at://did/site.standard.document/a1",
-        groupSlug: "g1",
-      }),
-    ).resolves.toEqual({
-      ok: true,
-      uri: "at://did/site.standard.document/a1",
-      groupSlug: "g1",
-      notification: null,
-    });
-    expect(getAtpAgent).not.toHaveBeenCalled();
-  });
 });

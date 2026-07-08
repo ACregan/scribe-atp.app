@@ -12,39 +12,28 @@ import {
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
-  buildArticleRef,
-  loadSiteOptions,
+  buildLooseSiteUrl,
 } from "~/services/article.server";
-import { addArticleToSites } from "~/services/articleSiteSync.server";
-import { createDocument } from "~/services/documentRepository.server";
+import {
+  createDocument,
+  putDocument,
+} from "~/services/documentRepository.server";
 import { toSlug } from "~/hooks/utils";
 import { hasTextContent } from "~/components/utils";
 import { devCreateLoader } from "~/services/devFixtures.server";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "~/components/Toast/ToastContext";
-import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION } from "~/constants";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { SaveChecklist } from "~/components/SaveChecklist/SaveChecklist";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
-import {
-  ArticleForm,
-  type SiteOption,
-} from "~/components/ArticleForm/ArticleForm";
+import { ArticleForm } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const preselect = new URL(request.url).searchParams.get("site") ?? undefined;
-
-  if (!useRealOAuth) return devCreateLoader(preselect);
-
-  const { agent, did } = await requireAtpAgent(request);
-  const sites = await loadSiteOptions(agent, did);
-  const preselectedSite = sites.some((s) => s.rkey === preselect)
-    ? preselect
-    : undefined;
-
-  return { sites, preselectedSite };
+export async function loader({}: Route.LoaderArgs) {
+  if (!useRealOAuth) return devCreateLoader();
+  return {};
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -54,7 +43,6 @@ export async function action({ request }: Route.ActionArgs) {
   const slug = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const description = formData.get("description") as string;
-  const selectedSiteRkeys = formData.getAll("sites") as string[];
   const tags = formData.getAll("tags") as string[];
 
   const validationError = validateArticleFields(title, slug, splashImageUrl);
@@ -68,27 +56,6 @@ export async function action({ request }: Route.ActionArgs) {
     const { agent, did } = await requireAtpAgent(request);
     const now = new Date().toISOString();
 
-    // Resolve the primary site's domain for scribe.domain
-    let siteDomain = "";
-    const primarySiteRkey = selectedSiteRkeys[0] ?? "";
-    if (primarySiteRkey) {
-      try {
-        const siteRecord = await agent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: SITE_COLLECTION,
-          rkey: primarySiteRkey,
-        });
-        const scribe = (siteRecord.data.value as Record<string, unknown>)
-          .scribe as Record<string, unknown>;
-        siteDomain = String(scribe?.domain ?? "");
-      } catch {
-        // non-fatal
-      }
-    }
-    const siteAtUri = primarySiteRkey
-      ? `at://${did}/${SITE_COLLECTION}/${primarySiteRkey}`
-      : "";
-
     const textContent = content
       ? content
           .replace(/<[^>]*>/g, " ")
@@ -96,8 +63,7 @@ export async function action({ request }: Route.ActionArgs) {
           .trim()
       : undefined;
 
-    // Create site.standard.document — PDS generates TID rkey; no manifest entry = draft
-    const createResult = await createDocument(agent, did, {
+    const baseRecord = {
       $type: DOCUMENT_COLLECTION,
       title,
       content: { $type: "app.scribe.content.html", html: content },
@@ -105,29 +71,30 @@ export async function action({ request }: Route.ActionArgs) {
       description: description?.trim() || undefined,
       tags: tags.length ? tags : undefined,
       path: `/${slug}`,
-      site: siteAtUri,
       updatedAt: now,
       scribe: {
         coverImageUrl: splashImageUrl?.trim() || undefined,
         createdAt: now,
-        domain: siteDomain || undefined,
       },
-    });
+    };
 
-    // Add to selected sites' ungroupedArticles so user can publish from site-list
-    if (selectedSiteRkeys.length > 0) {
-      const ref = buildArticleRef({
-        uri: createResult.uri,
-        title,
-        slug,
-        splashImageUrl,
-        description,
-        tags: tags.length ? tags : undefined,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await addArticleToSites(agent, did, selectedSiteRkeys, ref);
-    }
+    // ADR 0013: every new article starts loose — `site` must be a real,
+    // resolvable https:// URL, not an at:// publication URI or an empty
+    // string. The rkey (TID) is only known once the PDS generates it, so
+    // this is a create-then-patch: write once with a placeholder `site`,
+    // then immediately correct it now that the rkey is known.
+    const createResult = await createDocument(agent, did, {
+      ...baseRecord,
+      site: "",
+    });
+    const rkey = createResult.uri.split("/").pop()!;
+    await putDocument(
+      agent,
+      did,
+      rkey,
+      { ...baseRecord, site: buildLooseSiteUrl(did, rkey) },
+      createResult.cid,
+    );
 
     return { slug, devMode: false as const, title };
   } catch (err) {
@@ -141,14 +108,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-export default function Create({
-  loaderData,
-  actionData,
-}: Route.ComponentProps) {
-  const { sites, preselectedSite } = loaderData;
-  const [selectedSites, setSelectedSites] = useState<string[]>(
-    preselectedSite ? [preselectedSite] : [],
-  );
+export default function Create({ actionData }: Route.ComponentProps) {
   const [isDirty, setIsDirty] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [urlValue, setUrlValue] = useState("");
@@ -191,11 +151,6 @@ export default function Create({
     setIsDirty(true);
   }
 
-  function handleSitesChange(rkeys: string[]) {
-    setSelectedSites(rkeys);
-    setIsDirty(true);
-  }
-
   function handleTagsChange(_tags: string[]) {
     setIsDirty(true);
   }
@@ -233,9 +188,6 @@ export default function Create({
           onUrlChange={handleUrlChange}
           onTagsChange={handleTagsChange}
           onSplashImageUrlChange={handleSplashImageChange}
-          sites={sites}
-          selectedSites={selectedSites}
-          onSitesChange={handleSitesChange}
           onContentChange={handleContentChange}
           error={actionData?.error}
           columnar

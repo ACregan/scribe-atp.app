@@ -3,7 +3,7 @@ import {
   findSitesContaining,
   mutateSiteRecord,
 } from "~/services/articleSiteSync.server";
-import { resolveThumbUrl } from "~/services/article.server";
+import { resolveThumbUrl, buildLooseDocumentFields } from "~/services/article.server";
 import { logger } from "~/services/logger.server";
 import {
   toSlug,
@@ -142,8 +142,13 @@ export async function removeArticleFromSite(
   return { ok: true };
 }
 
-// Same swallow-and-log contract as removeArticleFromSite.
-export async function moveArticleToDraft(
+// Merged unpublish action (ADR 0013) — replaces the old moveArticleToDraft.
+// A document can belong to at most one site ever, so unpublishing fully
+// detaches it from the site manifest (no more "drafts live inside a site"
+// intermediate state) and resets `site`/`path`/`scribe` back to the loose
+// shape via the same buildLooseDocumentFields helper used by create and the
+// repair devtool, so all three call sites can never drift out of sync again.
+export async function unpublishArticle(
   agent: Agent,
   did: string,
   siteSlug: string,
@@ -153,59 +158,30 @@ export async function moveArticleToDraft(
     const rkey = uri.split("/").pop()!;
     const now = new Date().toISOString();
 
+    await mutateSiteRecord(agent, did, siteSlug, (val) =>
+      removeArticleRef(val, uri),
+    );
+
     const docResult = await agent.com.atproto.repo.getRecord({
       repo: did,
       collection: DOCUMENT_COLLECTION,
       rkey,
     });
     const doc = docResult.data.value as Record<string, unknown>;
-    const slug =
-      String(doc.path ?? "")
-        .split("/")
-        .pop() || rkey;
-
-    // Move ref from named group -> ungroupedArticles (URI unchanged).
-    // Bug fix: also drop any existing ungroupedArticles entry for this uri
-    // before appending, so re-running this on an already-draft article
-    // (previously only prevented by the UI hiding the button) can't
-    // duplicate the ArticleRef.
-    await mutateSiteRecord(agent, did, siteSlug, (val) => {
-      let existingRef: ArticleRef | undefined;
-      const newGroups = (val.groups ?? []).map((g) => {
-        const found = g.articles.find((a) => a.uri === uri);
-        if (found) existingRef = found;
-        return { ...g, articles: g.articles.filter((a) => a.uri !== uri) };
-      });
-      const ref = existingRef ?? {
-        uri,
-        slug,
-        title: String(doc.title ?? ""),
-        splashImageUrl: doc.splashImageUrl ? String(doc.splashImageUrl) : null,
-        description: doc.description ? String(doc.description) : null,
-        createdAt: String(doc.createdAt ?? now),
-        updatedAt: now,
-      };
-      return {
-        ...val,
-        groups: newGroups,
-        ungroupedArticles: [
-          ...(val.ungroupedArticles ?? []).filter((a) => a.uri !== uri),
-          ref,
-        ],
-        updatedAt: now,
-      };
-    });
-
-    // Reset document path to /{slug} and clear published-only fields
-    const updatedDoc: Record<string, unknown> = { ...doc };
-    updatedDoc.path = `/${slug}`;
-    updatedDoc.updatedAt = now;
-    delete updatedDoc.publishedAt;
-    const updatedScribe = {
-      ...((updatedDoc.scribe as Record<string, unknown>) ?? {}),
+    const { site, path, scribe } = buildLooseDocumentFields(
+      did,
+      rkey,
+      String(doc.path ?? ""),
+      (doc.scribe as Record<string, unknown>) ?? {},
+    );
+    const updatedDoc: Record<string, unknown> = {
+      ...doc,
+      site,
+      path,
+      scribe,
+      updatedAt: now,
     };
-    delete updatedScribe.canonicalUrl;
-    updatedDoc.scribe = updatedScribe;
+    delete updatedDoc.publishedAt;
     await agent.com.atproto.repo.putRecord({
       repo: did,
       collection: DOCUMENT_COLLECTION,
@@ -214,7 +190,7 @@ export async function moveArticleToDraft(
       swapRecord: docResult.data.cid,
     });
   } catch (err) {
-    console.error("Failed to move article to draft:", err);
+    console.error("Failed to unpublish article:", err);
     return { ok: false, error: err };
   }
   return { ok: true };
@@ -222,15 +198,17 @@ export async function moveArticleToDraft(
 
 // Pure — given the group each published article was in before the save, plus
 // the new tree and domain/basePath, computes which documents need a
-// path/canonicalUrl rewrite. Covers both group->group moves and
-// group->ungrouped moves. needsPublishedAt is true when an article is moving
-// from ungroupedArticles into a named group for the first time. Whether a
-// candidate's path has *actually* changed can only be known after fetching the
-// document, so that check stays in the I/O wrapper below.
+// path/canonicalUrl rewrite. Since ADR 0013, there is no more "ungrouped
+// articles inside a site" state to move to/from — every document reaching
+// this function is already published, so this only ever covers group->group
+// moves. needsPublishedAt is retained defensively for any article that
+// somehow arrives with no prior group membership recorded (e.g. a stray
+// legacy record), rather than assuming it can never happen. Whether a
+// candidate's path has *actually* changed can only be known after fetching
+// the document, so that check stays in the I/O wrapper below.
 export function computeDocumentPathUpdates(
   oldGroupByUri: Map<string, string>,
   groups: SiteGroup[],
-  ungroupedArticles: ArticleRef[],
   domain: string,
   basePath: string,
 ): Array<{
@@ -239,7 +217,7 @@ export function computeDocumentPathUpdates(
   newCanonicalUrl: string;
   needsPublishedAt: boolean;
 }> {
-  const groupMoves = groups.flatMap((g) =>
+  return groups.flatMap((g) =>
     (g.articles ?? [])
       .filter(
         (a) =>
@@ -258,27 +236,6 @@ export function computeDocumentPathUpdates(
         };
       }),
   );
-
-  const ungroupedMoves = ungroupedArticles
-    .filter(
-      (a) =>
-        a.uri.includes(`/${DOCUMENT_COLLECTION}/`) && oldGroupByUri.has(a.uri),
-    )
-    .map((a) => {
-      const rkey = a.uri.split("/").pop()!;
-      // Drafts have no group segment and no live reader route — leave path
-      // basePath-less here too, matching how create.tsx seeds a new draft.
-      const { path: newPath, canonicalUrl: newCanonicalUrl } =
-        buildDocumentPathAndUrl(domain, "", a.slug ?? rkey);
-      return {
-        rkey,
-        newPath,
-        newCanonicalUrl,
-        needsPublishedAt: false,
-      };
-    });
-
-  return [...groupMoves, ...ungroupedMoves];
 }
 
 export async function saveSiteOrder(
@@ -328,7 +285,6 @@ export async function saveSiteOrder(
     const updates = computeDocumentPathUpdates(
       oldGroupByUri,
       groups,
-      ungroupedArticles,
       domain,
       basePath,
     );

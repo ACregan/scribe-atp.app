@@ -8,6 +8,7 @@ import {
   buildLoosePlan,
   type LooseRepairPlan,
 } from "~/services/repairLooseDocuments.server";
+import { buildLooseDocumentFields } from "~/services/article.server";
 import { DOCUMENT_COLLECTION } from "~/constants";
 import {
   PageContainer,
@@ -75,14 +76,18 @@ export async function action({ request }: Route.ActionArgs): Promise<RepairResul
 
     try {
       const v = doc.value as Record<string, unknown>;
-      const existingScribe = (v.scribe as Record<string, unknown>) ?? {};
-      const { domain: _domain, canonicalUrl: _canonicalUrl, ...restScribe } = existingScribe;
+      const { site, path, scribe } = buildLooseDocumentFields(
+        did,
+        item.rkey,
+        String(v.path ?? ""),
+        (v.scribe as Record<string, unknown>) ?? {},
+      );
 
       const updatedRecord: Record<string, unknown> = {
         ...v,
-        site: item.newSite,
-        path: item.newPath,
-        scribe: restScribe,
+        site,
+        path,
+        scribe,
         updatedAt: new Date().toISOString(),
       };
       delete updatedRecord.publishedAt;
