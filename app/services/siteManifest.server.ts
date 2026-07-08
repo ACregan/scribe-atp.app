@@ -506,7 +506,7 @@ export async function publishArticleToGroup(
       uri,
       title: String(doc.title ?? ""),
       slug,
-      splashImageUrl: doc.splashImageUrl ? String(doc.splashImageUrl) : null,
+      splashImageUrl: docCoverImageUrl || null,
       description: doc.description ? String(doc.description) : null,
       tags: docTags,
       createdAt: String(doc.createdAt ?? publishedAt),

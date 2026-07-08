@@ -377,6 +377,63 @@ describe("publishArticleToGroup — secondary-site partial failure", () => {
   });
 });
 
+describe("publishArticleToGroup — ArticleRef splashImageUrl", () => {
+  const articleUri = `at://${DID}/site.standard.document/a1`;
+
+  it("reads the cover image from scribe.coverImageUrl, not a nonexistent top-level splashImageUrl (regression)", async () => {
+    // Bug: the ArticleRef written into the site manifest was built from
+    // doc.splashImageUrl — a field that never exists at the top level of a
+    // site.standard.document record (it lives at doc.scribe.coverImageUrl,
+    // per the spec). Every article published through this path got a
+    // permanently-null ArticleRef.splashImageUrl, breaking image display on
+    // any page that reads the cached ref (e.g. a blog list) even though the
+    // document itself, and any page that fetches it directly, had the
+    // correct image all along.
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.document") {
+          return Promise.resolve(
+            docRecord("a1", {
+              path: "/a1",
+              title: "A",
+              scribe: { coverImageUrl: "https://example.com/cover.webp" },
+            }),
+          );
+        }
+        return Promise.resolve(
+          siteRecord({
+            domain: "example.com",
+            basePath: "",
+            title: "My Site",
+            groups: [{ slug: "g1", title: "G1", articles: [] }],
+            ungroupedArticles: [{ uri: articleUri, title: "A", slug: "a1" }],
+          }),
+        );
+      }),
+      putRecord,
+    });
+    // uploadCoverImageBlob does a real fetch() for the image — let it fail
+    // harmlessly (non-fatal by design); we're only asserting the ArticleRef.
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("no network in test")));
+
+    await publishArticleToGroup(agent, DID, SITE_SLUG, {
+      uri: articleUri,
+      groupSlug: "g1",
+      canonicalSiteRkey: SITE_SLUG,
+      siteAssignments: [],
+    });
+
+    const siteCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.publication",
+    )!;
+    const ref = siteCall[0].record.scribe.groups[0].articles[0];
+    expect(ref.splashImageUrl).toBe("https://example.com/cover.webp");
+
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("publishArticleToGroup — path/canonicalUrl with a non-empty basePath", () => {
   const articleUri = `at://${DID}/site.standard.document/a1`;
 
