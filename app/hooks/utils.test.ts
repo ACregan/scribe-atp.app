@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { slugFromUri, flattenArticles } from "./utils";
 import type { Site, ArticleRef } from "./types";
 
@@ -86,54 +86,5 @@ describe("flattenArticles", () => {
       ungroupedArticles: [articleRef("c")],
     };
     expect(flattenArticles(site)).toHaveLength(3);
-  });
-});
-
-// ─── resolveIdentifier ────────────────────────────────────────────────────────
-
-describe("resolveIdentifier", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("returns a DID unchanged without making a network request", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch");
-    const { resolveIdentifier } = await import("./utils");
-    const result = await resolveIdentifier("did:plc:abc123");
-    expect(result).toBe("did:plc:abc123");
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it("resolves a handle to a DID via the public API", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ did: "did:plc:resolved123" }),
-    } as Response);
-    const { resolveIdentifier } = await import("./utils");
-    const result = await resolveIdentifier("user.bsky.social");
-    expect(result).toBe("did:plc:resolved123");
-  });
-
-  it("passes the encoded handle in the request URL", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ did: "did:plc:x" }),
-    } as Response);
-    const { resolveIdentifier } = await import("./utils");
-    await resolveIdentifier("user.bsky.social");
-    expect(fetchSpy).toHaveBeenCalledWith(
-      expect.stringContaining("handle=user.bsky.social"),
-    );
-  });
-
-  it("throws when the API returns a non-ok response", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce({
-      ok: false,
-      statusText: "Not Found",
-    } as Response);
-    const { resolveIdentifier } = await import("./utils");
-    await expect(resolveIdentifier("unknown.handle")).rejects.toThrow(
-      'Could not resolve handle "unknown.handle"',
-    );
   });
 });

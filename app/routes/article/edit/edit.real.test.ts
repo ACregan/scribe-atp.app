@@ -192,13 +192,17 @@ describe("loader", () => {
     expect(result.content).toBe("raw string content");
   });
 
-  it("falls back through splashImageUrl sources: scribe.splashImageUrl, then value.splashImageUrl, then empty string", async () => {
+  it("reads splashImageUrl only from scribe.coverImageUrl — no fallback to legacy field shapes", async () => {
+    // Every account's live data (confirmed by direct PDS scan) has always
+    // used scribe.coverImageUrl; the old scribe.splashImageUrl and
+    // top-level splashImageUrl fallback branches never had a real reader,
+    // and masked the real ArticleRef.splashImageUrl bug on publish.
     const listRecordsA = listRecordsByCollection([
       {
         records: [
           docListRecord("my-article", {
             path: "/my-article",
-            scribe: { splashImageUrl: "https://x.com/scribe-splash.png" },
+            scribe: { coverImageUrl: "https://x.com/cover.png" },
           }),
         ],
       },
@@ -210,7 +214,7 @@ describe("loader", () => {
       handle: DID,
     });
     expect((await callLoader("my-article")).splashImageUrl).toBe(
-      "https://x.com/scribe-splash.png",
+      "https://x.com/cover.png",
     );
 
     const listRecordsB = listRecordsByCollection([
@@ -218,7 +222,8 @@ describe("loader", () => {
         records: [
           docListRecord("my-article", {
             path: "/my-article",
-            splashImageUrl: "https://x.com/toplevel-splash.png",
+            scribe: { splashImageUrl: "https://x.com/legacy-scribe-splash.png" },
+            splashImageUrl: "https://x.com/legacy-toplevel-splash.png",
           }),
         ],
       },
@@ -229,9 +234,7 @@ describe("loader", () => {
       did: DID,
       handle: DID,
     });
-    expect((await callLoader("my-article")).splashImageUrl).toBe(
-      "https://x.com/toplevel-splash.png",
-    );
+    expect((await callLoader("my-article")).splashImageUrl).toBe("");
 
     const listRecordsC = listRecordsByCollection([
       { records: [docListRecord("my-article", { path: "/my-article" })] },

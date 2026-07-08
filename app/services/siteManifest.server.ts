@@ -464,12 +464,7 @@ export async function publishArticleToGroup(
 
     // Upload cover image blob (non-fatal)
     const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
-    const docCoverImageUrl = String(
-      docScribe.coverImageUrl ??
-        docScribe.splashImageUrl ??
-        doc.splashImageUrl ??
-        "",
-    );
+    const docCoverImageUrl = String(docScribe.coverImageUrl ?? "");
     const coverImageBlobRef = docCoverImageUrl
       ? await uploadCoverImageBlob(agent, docCoverImageUrl)
       : undefined;

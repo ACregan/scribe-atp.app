@@ -857,18 +857,11 @@ The `client_id` is a plain URL (`${publicUrl}/client-metadata.json`) with no ver
 
 **To add a new OAuth scope:** update `OAUTH_SCOPE` in `app/services/auth.server.ts` only — `client-metadata.ts` and `login.tsx` consume it automatically. Then ask users to re-authenticate (revoke at https://bsky.social/account and log in again).
 
-## Public hooks (`app/hooks/`)
+## Shared types and utilities (`app/hooks/`)
 
-`app/hooks/` (re-exported via `app/hooks/index.ts`) provides React hooks that read Scribe ATP data directly from the AT Protocol — no auth, no API backend. Intended to be copied into consumer websites (not imported as a package — there is no published npm artifact yet).
+`app/hooks/` (re-exported via `app/hooks/index.ts`) is now just the canonical home for `ArticleRef`/`SiteGroup`/`Site`/`Article` types and a couple of pure helpers, used internally by the CMS's own server-side code (`article.server.ts`, `siteManifest.server.ts`, `siteTree.ts`, etc.).
 
-### Hooks
-
-| Hook         | Signature                               | Returns                                                                                                                                  |
-| ------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `useSite`    | `(author: string, siteSlug: string)`    | `{ site: Site \| null, loading: boolean, error: Error \| null }` — fetches the full site manifest (groups, ungrouped articles, metadata) |
-| `useArticle` | `(author: string, articleSlug: string)` | `{ article: Article \| null, loading: boolean, error: Error \| null }` — fetches a single article including HTML content                 |
-
-Both hooks cancel the in-flight fetch on unmount and on parameter change.
+The `useSite`/`useArticle` React hooks that used to live here (a pre-SDK, no-auth read implementation) were deleted — `@scribe-atp/core`'s `fetchSite`/`fetchArticle` (published, PDS-resolution-aware) fully supersede them, and nothing in this repo imported them anymore. Consumer sites and any other external reader should use the SDK directly, not copy code from this directory.
 
 ### Helper functions (pure, no hooks)
 
@@ -956,7 +949,7 @@ All components in `app/components/` have test suites. Pure function coverage:
 | File                                            | What's tested                                                                                                             |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `app/constants.test.ts`                         | `SLUG_RE`, `DOMAIN_RE` valid/invalid cases; collection name constants                                                     |
-| `app/hooks/utils.test.ts`                       | `slugFromUri`, `flattenArticles` ordering, `resolveIdentifier` (DID passthrough, handle fetch, error)                     |
+| `app/hooks/utils.test.ts`                       | `slugFromUri`, `flattenArticles` ordering                                                                                 |
 | `app/routes/article/site-list/siteTree.test.ts` | `toSlug`, `nodeFromRef`, `articleRefFromNode`, `buildTreeFromSite` field mapping, `treeToSiteData`, full round-trip suite |
 
 **Next priority:** route loader/action tests (slug validation, site assignment logic, orphan detection).
