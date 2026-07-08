@@ -963,7 +963,7 @@ All components in `app/components/` have test suites. Pure function coverage:
 
 ## E2E tests (Playwright)
 
-Full-journey browser tests that run against a **production build** with Chromium. 46 tests across 11 spec files covering all major user journeys. Decision rationale and considered alternatives are in `docs/adr/0006-e2e-testing-strategy.md`.
+Full-journey browser tests that run against a **production build** with Chromium. 68 tests across 12 spec files covering all major user journeys. Decision rationale and considered alternatives are in `docs/adr/0006-e2e-testing-strategy.md`.
 
 ### Config
 
@@ -985,19 +985,20 @@ export const useRealOAuth =
 
 ### Spec files
 
-| File                          | Route(s)                             | Tests |
-| ----------------------------- | ------------------------------------ | ----- |
-| `e2e/login.spec.ts`           | `/login`                             | 2     |
-| `e2e/home.spec.ts`            | `/`                                  | 5     |
-| `e2e/create-article.spec.ts`  | `/article/create`                    | 5     |
-| `e2e/edit-article.spec.ts`    | `/article/edit/:url`                 | 4     |
-| `e2e/view-article.spec.ts`    | `/article/view/:url`                 | 3     |
-| `e2e/article-list.spec.ts`    | `/article/list`                      | 4     |
-| `e2e/logout.spec.ts`          | `/logout`                            | 2     |
-| `e2e/sites.spec.ts`           | `/sites`, `/sites/new`               | 6     |
-| `e2e/site-management.spec.ts` | `/groups`, `/article/list/:siteSlug` | 8     |
-| `e2e/configure-site.spec.ts`  | `/site/:siteSlug/configure`          | 4     |
-| `e2e/images.spec.ts`          | `/images`                            | 3     |
+| File                          | Route(s)                                                | Tests |
+| ----------------------------- | -------------------------------------------------------- | ----- |
+| `e2e/login.spec.ts`           | `/login`                                                  | 2     |
+| `e2e/home.spec.ts`            | `/`                                                       | 5     |
+| `e2e/create-article.spec.ts`  | `/article/create`                                         | 5     |
+| `e2e/edit-article.spec.ts`    | `/article/edit/:url`                                      | 7     |
+| `e2e/view-article.spec.ts`    | `/article/view/:url`                                      | 3     |
+| `e2e/article-list.spec.ts`    | `/article/list`                                           | 4     |
+| `e2e/publish-workflow.spec.ts`| `/article/list` (Publish), `/article/list/:siteSlug` (Unpublish) — ADR 0013 | 11    |
+| `e2e/logout.spec.ts`          | `/logout`                                                 | 2     |
+| `e2e/sites.spec.ts`           | `/sites`, `/sites/new`                                    | 6     |
+| `e2e/site-management.spec.ts` | `/groups`, `/article/list/:siteSlug`                      | 8     |
+| `e2e/configure-site.spec.ts`  | `/site/:siteSlug/configure`                               | 4     |
+| `e2e/images.spec.ts`          | `/images`                                                 | 11    |
 
 ### Selector conventions
 

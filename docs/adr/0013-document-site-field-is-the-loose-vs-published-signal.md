@@ -1,7 +1,7 @@
 # ADR 0013: Document `site` Field Is the Sole Loose-vs-Published Signal
 
 ## Status
-Proposed
+Accepted — implemented and merged (MR !103, 2026-07-08)
 
 ## Context
 

@@ -10,11 +10,12 @@
 | **Contributor**        | A user added by an Owner to a Site who can write Articles for that Site. Their Articles appear in the Owner's CMS for assignment to Groups.                        | Author, Writer, Member         |
 | **Site**               | A managed website whose manifest (Groups, Article references, metadata) is stored as a single record on the Owner's PDS.                                           | Blog, Website, Publication     |
 | **Group**              | A named, ordered collection of Articles within a Site. A Site may have zero or more Groups. Order is significant and controlled by the Owner.                      | Category, Section, Tag, Folder |
-| **Article**            | A document (title, HTML content, slug, metadata) stored on the author's PDS. An Article is site-agnostic — it carries no reference to any Site or Group.           | Post, Page, Entry              |
+| **Article**            | A document (title, HTML content, slug, metadata) stored on the author's PDS. An Article belongs to at most one Site, ever (ADR 0013) — never zero-or-many.         | Post, Page, Entry              |
 | **ArticleRef**         | A cached snapshot of Article metadata (all fields except content) stored inside a Site record. Allows Sites to be read without fetching each Article individually. | Article link, Article pointer  |
 | **Slug**               | A lowercase, dash-separated string that serves as both the URL path segment and the AT Protocol record key (rkey) for Articles and Groups.                         | URL, path, ID, handle          |
-| **Draft Article**      | An Article that exists on the author's PDS but is not referenced in any Site record at all — not in any Group and not in `ungroupedArticles`. The **Draft** publication state. | Orphan |
-| **Ungrouped Article**  | An Article that is referenced in a Site's `ungroupedArticles` — assigned to a Site but not yet placed in any Group. The **Unpublished** publication state.                     | Draft, Orphan |
+| **Loose Article**      | An Article not yet assigned to any Site — its own `site` field holds a resolvable reader URL rather than a Site's `at://` URI (ADR 0013). The **Loose** publication state. Every Article starts here on creation; assignment and publication happen together via **Publish**. | Draft, Ungrouped Article, Orphan |
+| **Publish**            | The single, atomic action that assigns a Loose Article to a Site and places it into a Group in the same step. There is no intermediate "assigned but not grouped" state. | Assign, Add to site            |
+| **Unpublish**          | The single, atomic action that removes an Article's Group placement and Site assignment together, returning it to Loose. Merges what used to be two separate actions ("Move to Drafts" + "Remove from Site"). | Move to Drafts, Unassign       |
 
 ### Image Library
 
@@ -48,8 +49,8 @@
 - A **Site** has zero or more **Contributors**.
 - A **Site** has zero or more **Groups**; Group order within a Site is significant.
 - A **Group** holds zero or more **ArticleRefs**; Article order within a Group is significant.
-- A **Site** also holds a top-level list of **ArticleRefs** (ungrouped Articles).
-- An **Article** may be referenced by zero or more Sites simultaneously via **ArticleRef**.
+- A **Site** record still has an `ungroupedArticles` field for backwards compatibility, but it is vestigial (ADR 0013) — no current UI path can populate it, since Publish places an Article directly into a Group.
+- An **Article** may be referenced by **at most one** Site at a time via **ArticleRef** (ADR 0013) — never zero-or-many. Older data predating this rule has been repaired; see the `repair-loose-documents` devtool.
 - An **Article** is authored by the user whose PDS holds the record; no explicit author field is needed.
 - An uploaded image produces exactly one set of **Variants** (at least thumb and max; intermediate sizes skipped if source is too small to avoid upscaling).
 - Every user has exactly one **User Image Folder** at the top level of the **Image Library**; it is created automatically on first upload.
@@ -58,15 +59,14 @@
 
 ## Publication States
 
-An Article moves through three publication states based on its relationship to Site records:
+**Revised by ADR 0013 (2026-07-08).** An Article now moves through exactly **two** publication states — not three. The previous three-state model (Draft → Unpublished → Published, with a separate "assigned to a Site but not yet in a Group" middle state) was itself the root cause of a real production bug: a document's own `site` field was being stamped with a real Site URI at the Draft→Unpublished transition, before the Article was actually published, leaking unpublished content to third-party `site.standard` readers that only look at `site`. ADR 0013 collapsed assignment and publication into one atomic step, eliminating the middle state entirely.
 
 | State | Condition | Term |
 | :---- | :-------- | :--- |
-| **Draft** | Exists on the author's PDS; not referenced in any Site record | Draft Article |
-| **Unpublished** | Referenced in a Site's `ungroupedArticles`; not in any Group | Ungrouped Article |
-| **Published** | Referenced in a Group within a Site record; has a canonical URL | — |
+| **Loose** | Not referenced in any Site record; the Article's own `site` field holds a reader URL, not a Site URI | Loose Article |
+| **Published** | Referenced in a Group within a Site record; `site` holds that Site's `at://` URI; has a canonical URL | — |
 
-The Site-assignment boundary (Draft → Unpublished) and the Group-membership boundary (Unpublished → Published) are both meaningful. Previously only the Group-membership boundary was documented as the publish boundary — this was an oversimplification.
+The old **Unpublished**/**Ungrouped Article** state (referenced in a Site's `ungroupedArticles` but not in any Group) no longer has any UI path that can produce it. `ungroupedArticles` remains in the schema for backwards compatibility but is vestigial going forward — treat any non-empty `ungroupedArticles` array as a data artifact predating ADR 0013, not a state new code should create or expect.
 
 ### Analytics
 

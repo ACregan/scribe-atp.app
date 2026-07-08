@@ -1184,3 +1184,16 @@ Same as consumer site ticket — `npm update @scribe-atp/core`, fix TypeScript e
 **Critical constraint:** Phase 5 (consumer site updates) must complete in the same release window as the migration (Phase 4). Once `app.scribe.article` records are deleted, any consumer site still on the old SDK will return 404s for articles. Do not leave Phase 5 for another day.
 
 **Not blocked on:** this can be decided after the article migration ships and the standard.site ecosystem has more time to develop a grouping story of its own.
+
+## MIGRATION: ADR 0013 Single-Site Model (2026-07-08, COMPLETE)
+
+**Supersedes the publish-lifecycle assumptions embedded throughout the migration above** (e.g. lines ~913–932): the three-state Draft → Unpublished (`ungroupedArticles`) → Published model, and the assumption that an Article's `site` field could legitimately be set before it's genuinely published. That model was itself the root cause of a real production bug — see `docs/adr/0013-document-site-field-is-the-loose-vs-published-signal.md` for the incident and full decision record; see `UBIQUITOUS_LANGUAGE.md`'s "Publication States" section for the corrected two-state model (**Loose** / **Published**).
+
+Shipped in two phases on branch `feat/repair-loose-documents-devtool`, merged via MR !103:
+
+- **Phase 1** — the ADR itself, plus the `repair-loose-documents` devtool (dry-run-then-confirm, admin-gated) to fix already-corrupted live records.
+- **Phase 2** — code enforcement: `create.tsx` always creates loose (no site picker); `edit.tsx` no longer touches site assignment; a single consolidated Publish action (site → group, with inline create-group) lives on `/article/list`; `unpublishArticle` replaces `moveArticleToDraft` and fully detaches an Article back to loose in one write; the per-site view (`/article/list/:siteSlug`) lost its Publish UI entirely and only manages Groups/ordering now.
+
+Also fixed as a direct consequence (both were dormant bugs the ADR's Consequences section predicted): `site/configure.tsx`'s domain-change cascade was comparing `doc.site` against a `https://{domain}` shape no document's `site` field can ever hold; `repairDocumentPaths.server.ts` was guarded against misreading a loose document's reader-URL `site` field as an at:// site rkey.
+
+**Not done as part of this migration:** a live-data audit (2026-07-08) found zero multi-assigned Articles and zero data-quality issues remaining — the ADR's anticipated "fewer than 20 cross-posted articles needing manual reassignment" cleanup step turned out to be unnecessary; the loose-document repair (Phase 1) had already resolved it. The only remaining task is republishing existing loose Articles through the new Publish flow, at the site owner's discretion — a content decision, not an engineering one.
