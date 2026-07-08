@@ -235,7 +235,14 @@ describe("action — save (no domain/basePath change)", () => {
 });
 
 describe("action — save (domain changed, triggers canonical-URL cascade)", () => {
-  it("updates matching documents' site and canonicalUrl", async () => {
+  // Since ADR 0013, `site` holds either a loose reader URL or the document's
+  // owning publication's at:// URI — never a bare `https://{domain}` string.
+  // The filter (and these fixtures) match on that at:// shape; a document's
+  // `site` field is never rewritten by a domain/basePath edit, since the
+  // rkey (and therefore the at:// URI) doesn't change.
+  const SITE_AT_URI = `at://${DID}/site.standard.publication/${SITE_SLUG}`;
+
+  it("updates matching documents' canonicalUrl, leaving site untouched", async () => {
     const docPutRecord = vi
       .fn()
       .mockResolvedValue({ data: { cid: "doc-new-cid" } });
@@ -262,7 +269,7 @@ describe("action — save (domain changed, triggers canonical-URL cascade)", () 
             {
               uri: "at://x/site.standard.document/a1",
               cid: "a1-cid",
-              value: { site: "https://old.example.com", path: "/a1" },
+              value: { site: SITE_AT_URI, path: "/a1" },
             },
           ],
         },
@@ -277,7 +284,7 @@ describe("action — save (domain changed, triggers canonical-URL cascade)", () 
       expect.objectContaining({
         rkey: "a1",
         record: expect.objectContaining({
-          site: "https://new.example.com",
+          site: SITE_AT_URI,
           scribe: expect.objectContaining({
             canonicalUrl: "https://new.example.com/a1",
           }),
@@ -285,6 +292,50 @@ describe("action — save (domain changed, triggers canonical-URL cascade)", () 
         swapRecord: "a1-cid",
       }),
     );
+  });
+
+  it("ignores loose documents (site is a reader URL, not this site's at:// URI)", async () => {
+    const docPutRecord = vi
+      .fn()
+      .mockResolvedValue({ data: { cid: "doc-new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi
+        .fn()
+        .mockResolvedValue(
+          siteRecordValue({
+            domain: "old.example.com",
+            basePath: "",
+            title: "Site",
+          }),
+        ),
+      putRecord: vi
+        .fn()
+        .mockImplementation((args) =>
+          args.collection === "site.standard.publication"
+            ? Promise.resolve({ data: { cid: "site-new-cid" } })
+            : docPutRecord(args),
+        ),
+      listRecords: vi.fn().mockResolvedValue({
+        data: {
+          records: [
+            {
+              uri: "at://x/site.standard.document/loose1",
+              cid: "loose1-cid",
+              value: {
+                site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                path: "/loose1",
+              },
+            },
+          ],
+        },
+      }),
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+    const result = await callAction({ title: "Site", url: "new.example.com" });
+
+    expect(result).toEqual({ ok: true });
+    expect(docPutRecord).not.toHaveBeenCalled();
   });
 
   it("reports canonicalWarning when some document updates fail", async () => {
@@ -311,7 +362,7 @@ describe("action — save (domain changed, triggers canonical-URL cascade)", () 
             {
               uri: "at://x/site.standard.document/a1",
               cid: "a1-cid",
-              value: { site: "https://old.example.com", path: "/a1" },
+              value: { site: SITE_AT_URI, path: "/a1" },
             },
           ],
         },
@@ -340,7 +391,7 @@ describe("action — save (domain changed, triggers canonical-URL cascade)", () 
             {
               uri: "at://x/site.standard.document/page1doc",
               cid: "c1",
-              value: { site: "https://old.example.com", path: "/page1doc" },
+              value: { site: SITE_AT_URI, path: "/page1doc" },
             },
           ],
           cursor: "page2",
@@ -352,7 +403,7 @@ describe("action — save (domain changed, triggers canonical-URL cascade)", () 
             {
               uri: "at://x/site.standard.document/page2doc",
               cid: "c2",
-              value: { site: "https://old.example.com", path: "/page2doc" },
+              value: { site: SITE_AT_URI, path: "/page2doc" },
             },
           ],
           cursor: undefined,

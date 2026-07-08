@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Input } from "~/components/Input/Input";
 import { Textarea } from "~/components/Textarea/Textarea";
-import { Select } from "~/components/Select/Select";
 import { RichTextEditor } from "~/components/RichTextEditor/RichTextEditor";
 import TextArrayInput from "~/components/TextArrayInput/TextArrayInput";
 import { ImagePicker } from "~/components/ImagePicker/ImagePicker";
@@ -30,9 +29,6 @@ type ArticleFormProps = {
   onUrlChange?: (value: string) => void;
   onTagsChange?: (tags: string[]) => void;
   onSplashImageUrlChange?: (url: string) => void;
-  sites: SiteOption[];
-  selectedSites: string[];
-  onSitesChange: (rkeys: string[]) => void;
   onContentChange?: (html: string) => void;
   error?: string;
   urlWarning?: string;
@@ -52,9 +48,6 @@ export function ArticleForm({
   onUrlChange,
   onTagsChange,
   onSplashImageUrlChange,
-  sites,
-  selectedSites,
-  onSitesChange,
   onContentChange,
   error,
   urlWarning,
@@ -84,11 +77,6 @@ export function ArticleForm({
       />
     </>
   );
-
-  const siteOptions = sites.map((s) => ({
-    value: s.rkey,
-    label: `${s.title} (${s.url})`,
-  }));
 
   const titleProps: React.InputHTMLAttributes<HTMLInputElement> =
     titleValue !== undefined
@@ -142,16 +130,6 @@ export function ArticleForm({
               defaultValue={defaultDescription}
             />
             {tagsInput}
-            {siteOptions.length > 0 && (
-              <Select
-                name="sites"
-                label="Assign to sites"
-                options={siteOptions}
-                multiple
-                value={selectedSites}
-                onChange={onSitesChange}
-              />
-            )}
             {error && <p className={styles.error}>{error}</p>}
           </PageSectionColumn>
           <PageSectionColumn span={8} overflow>
@@ -201,19 +179,6 @@ export function ArticleForm({
         />
         {tagsInput}
       </PageSection>
-
-      {siteOptions.length > 0 && (
-        <PageSection>
-          <Select
-            name="sites"
-            label="Assign to sites"
-            options={siteOptions}
-            multiple
-            value={selectedSites}
-            onChange={onSitesChange}
-          />
-        </PageSection>
-      )}
 
       <PageSection>
         <RichTextEditor

@@ -1,53 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Agent } from "@atproto/api";
-import {
-  computeSiteAssignmentChanges,
-  findSitesContaining,
-} from "./articleSiteSync.server";
-
-// ---------------------------------------------------------------------------
-// computeSiteAssignmentChanges
-// ---------------------------------------------------------------------------
-
-describe("computeSiteAssignmentChanges", () => {
-  it("partitions add / remove / sync correctly", () => {
-    const result = computeSiteAssignmentChanges(
-      ["site-a", "site-b"],
-      ["site-b", "site-c"],
-    );
-    expect(result.sitesToAdd).toEqual(["site-c"]);
-    expect(result.sitesToRemove).toEqual(["site-a"]);
-    expect(result.sitesToSync).toEqual(["site-b"]);
-  });
-
-  it("treats all new rkeys as add when old list is empty", () => {
-    const result = computeSiteAssignmentChanges([], ["site-a", "site-b"]);
-    expect(result.sitesToAdd).toEqual(["site-a", "site-b"]);
-    expect(result.sitesToRemove).toEqual([]);
-    expect(result.sitesToSync).toEqual([]);
-  });
-
-  it("treats all old rkeys as remove when new list is empty", () => {
-    const result = computeSiteAssignmentChanges(["site-a", "site-b"], []);
-    expect(result.sitesToAdd).toEqual([]);
-    expect(result.sitesToRemove).toEqual(["site-a", "site-b"]);
-    expect(result.sitesToSync).toEqual([]);
-  });
-
-  it("syncs everything when old and new are identical", () => {
-    const result = computeSiteAssignmentChanges(["site-a"], ["site-a"]);
-    expect(result.sitesToAdd).toEqual([]);
-    expect(result.sitesToRemove).toEqual([]);
-    expect(result.sitesToSync).toEqual(["site-a"]);
-  });
-
-  it("returns empty sets when both lists are empty", () => {
-    const result = computeSiteAssignmentChanges([], []);
-    expect(result.sitesToAdd).toEqual([]);
-    expect(result.sitesToRemove).toEqual([]);
-    expect(result.sitesToSync).toEqual([]);
-  });
-});
+import { findSitesContaining } from "./articleSiteSync.server";
 
 // ---------------------------------------------------------------------------
 // findSitesContaining

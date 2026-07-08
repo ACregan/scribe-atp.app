@@ -6,13 +6,13 @@ import { requireAtpAgent } from "~/services/auth.server";
 // Characterization tests for the edit-article route's real-OAuth path
 // (useRealOAuth: true). Dev-bypass path is covered in edit.devBypass.test.ts.
 //
-// The "bug fix" tests in the "action — save" describe block assert the FIXED
-// site-reassignment behavior: the action now reads the submitted `sites`
-// field and diffs it against oldSiteRkeys via computeSiteAssignmentChanges,
-// so the edit page's site multi-select can actually add/remove/sync an
-// article's site membership. Previously the action called
-// computeSiteAssignmentChanges(oldSiteRkeys, oldSiteRkeys) — the same value
-// for both "old" and "new" — so sitesToAdd/sitesToRemove were always empty.
+// Since ADR 0013, editing never changes which site an article is assigned
+// to — that's exclusively the Publish/Unpublish actions' job. The only
+// site-manifest interaction left here is the "ArticleRef keep-alive": if the
+// article is currently published (publishedSite is a real at:// URI), the
+// action refreshes its cached ArticleRef snapshot in that one site so
+// title/description/etc. stay in sync. A loose article (publishedSite is
+// the reader URL or empty) never touches any site manifest at all.
 
 vi.mock("~/services/auth.server", () => ({
   requireAtpAgent: vi.fn(),
@@ -57,14 +57,6 @@ function docListRecord(
   cid = `${rkey}-cid`,
 ) {
   return { uri: `at://${DID}/site.standard.document/${rkey}`, cid, value };
-}
-
-function siteListRecord(rkey: string, scribe: Record<string, unknown>) {
-  return {
-    uri: `at://${DID}/site.standard.publication/${rkey}`,
-    cid: `${rkey}-cid`,
-    value: { scribe },
-  };
 }
 
 function listRecordsByCollection(
@@ -114,33 +106,30 @@ beforeEach(() => {
 
 describe("loader", () => {
   it("finds the document by slug across paginated listRecords results and maps it to the form shape", async () => {
-    const listRecords = listRecordsByCollection(
-      [
-        {
-          records: [docListRecord("page1doc", { path: "/page1doc" })],
-          cursor: "page2",
-        },
-        {
-          records: [
-            docListRecord("my-article", {
-              title: "My Article",
-              path: "/my-article",
-              content: { $type: "app.scribe.content.html", html: "<p>Hi</p>" },
-              description: "A description",
-              tags: ["a", "b"],
-              site: "https://example.com",
-              publishedAt: "2026-01-01T00:00:00Z",
-              scribe: {
-                coverImageUrl: "https://x.com/s.png",
-                createdAt: "2025-12-01T00:00:00Z",
-              },
-            }),
-          ],
-          cursor: undefined,
-        },
-      ],
-      [siteListRecord("site-a", { title: "Site A", domain: "a.com" })],
-    );
+    const listRecords = listRecordsByCollection([
+      {
+        records: [docListRecord("page1doc", { path: "/page1doc" })],
+        cursor: "page2",
+      },
+      {
+        records: [
+          docListRecord("my-article", {
+            title: "My Article",
+            path: "/my-article",
+            content: { $type: "app.scribe.content.html", html: "<p>Hi</p>" },
+            description: "A description",
+            tags: ["a", "b"],
+            site: "https://example.com",
+            publishedAt: "2026-01-01T00:00:00Z",
+            scribe: {
+              coverImageUrl: "https://x.com/s.png",
+              createdAt: "2025-12-01T00:00:00Z",
+            },
+          }),
+        ],
+        cursor: undefined,
+      },
+    ]);
     const agent = makeAgent({ listRecords });
     vi.mocked(requireAtpAgent).mockResolvedValue({
       agent,
@@ -160,13 +149,11 @@ describe("loader", () => {
       tags: ["a", "b"],
       createdAt: "2025-12-01T00:00:00Z",
       cid: "my-article-cid",
-      sites: [{ rkey: "site-a", title: "Site A", url: "a.com" }],
-      currentSiteRkeys: [],
       publishedSite: "https://example.com",
       publishedAt: "2026-01-01T00:00:00Z",
       publishedPath: "/my-article",
     });
-    expect(listRecords).toHaveBeenCalledTimes(4); // 2 document pages + loadSiteOptions + findSitesContaining
+    expect(listRecords).toHaveBeenCalledTimes(2); // just the 2 document pages — no site lookups anymore
   });
 
   it("throws a 404 Response when no document matches the slug", async () => {
@@ -280,7 +267,6 @@ describe("action — save", () => {
       publishedSite: "https://example.com",
       publishedAt: "2026-01-01T00:00:00Z",
       publishedPath: "/my-article",
-      oldSiteRkeys: "[]",
       ...overrides,
     };
   }
@@ -537,7 +523,7 @@ describe("action — save", () => {
     );
   });
 
-  it("bug fix: reads the submitted `sites` field and syncs the ref in a retained site", async () => {
+  it("refreshes the cached ArticleRef in the currently-published site when publishedSite is a real at:// URI", async () => {
     const articleUri = `at://${DID}/site.standard.document/the-rkey`;
     const sitePutRecord = vi
       .fn()
@@ -558,8 +544,13 @@ describe("action — save", () => {
           cid: "site-a-cid",
           value: {
             scribe: {
-              ungroupedArticles: [{ uri: articleUri, title: "Old Title" }],
-              groups: [],
+              ungroupedArticles: [],
+              groups: [
+                {
+                  slug: "engineering",
+                  articles: [{ uri: articleUri, title: "Old Title" }],
+                },
+              ],
             },
           },
         },
@@ -575,8 +566,7 @@ describe("action — save", () => {
     await callAction(
       baseFields({
         rkey: "the-rkey",
-        oldSiteRkeys: '["site-a"]',
-        sites: ["site-a"],
+        publishedSite: `at://${DID}/site.standard.publication/site-a`,
       }),
     );
 
@@ -585,10 +575,15 @@ describe("action — save", () => {
         rkey: "site-a",
         record: expect.objectContaining({
           scribe: expect.objectContaining({
-            ungroupedArticles: [
+            groups: [
               expect.objectContaining({
-                uri: articleUri,
-                title: "Updated Title",
+                slug: "engineering",
+                articles: [
+                  expect.objectContaining({
+                    uri: articleUri,
+                    title: "Updated Title",
+                  }),
+                ],
               }),
             ],
           }),
@@ -597,28 +592,9 @@ describe("action — save", () => {
     );
   });
 
-  it("bug fix: adds the article to a newly selected site", async () => {
-    const sitePutRecord = vi
-      .fn()
-      .mockResolvedValue({ data: { cid: "site-new-cid" } });
-    const putRecord = vi
-      .fn()
-      .mockImplementation((args) =>
-        args.collection === "site.standard.document"
-          ? Promise.resolve({ data: { cid: "new-cid" } })
-          : sitePutRecord(args),
-      );
-    const getRecord = vi.fn().mockImplementation((args) => {
-      if (args.collection === "site.standard.document") {
-        return Promise.resolve({ data: { value: {} } });
-      }
-      return Promise.resolve({
-        data: {
-          cid: "site-b-cid",
-          value: { scribe: { ungroupedArticles: [], groups: [] } },
-        },
-      });
-    });
+  it("never touches any site manifest when the article is currently loose", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const getRecord = vi.fn().mockResolvedValue({ data: { value: {} } });
     const agent = makeAgent({ getRecord, putRecord });
     vi.mocked(requireAtpAgent).mockResolvedValue({
       agent,
@@ -629,75 +605,19 @@ describe("action — save", () => {
     await callAction(
       baseFields({
         rkey: "the-rkey",
-        oldSiteRkeys: "[]",
-        sites: ["site-b"],
+        publishedSite: `https://reader.scribe-atp.app/${DID}/site.standard.document/the-rkey`,
       }),
     );
 
-    expect(sitePutRecord).toHaveBeenCalledWith(
-      expect.objectContaining({
-        rkey: "site-b",
-        record: expect.objectContaining({
-          scribe: expect.objectContaining({
-            ungroupedArticles: [
-              expect.objectContaining({ title: "Updated Title" }),
-            ],
-          }),
-        }),
-      }),
+    // Only the document itself should ever be read/written — no
+    // site.standard.publication collection calls at all.
+    expect(getRecord).toHaveBeenCalledTimes(1);
+    expect(getRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: "site.standard.document" }),
     );
-  });
-
-  it("bug fix: removes the article from a deselected site", async () => {
-    const articleUri = `at://${DID}/site.standard.document/the-rkey`;
-    const sitePutRecord = vi
-      .fn()
-      .mockResolvedValue({ data: { cid: "site-new-cid" } });
-    const putRecord = vi
-      .fn()
-      .mockImplementation((args) =>
-        args.collection === "site.standard.document"
-          ? Promise.resolve({ data: { cid: "new-cid" } })
-          : sitePutRecord(args),
-      );
-    const getRecord = vi.fn().mockImplementation((args) => {
-      if (args.collection === "site.standard.document") {
-        return Promise.resolve({ data: { value: {} } });
-      }
-      return Promise.resolve({
-        data: {
-          cid: "site-a-cid",
-          value: {
-            scribe: {
-              ungroupedArticles: [{ uri: articleUri, title: "Old Title" }],
-              groups: [],
-            },
-          },
-        },
-      });
-    });
-    const agent = makeAgent({ getRecord, putRecord });
-    vi.mocked(requireAtpAgent).mockResolvedValue({
-      agent,
-      did: DID,
-      handle: DID,
-    });
-
-    await callAction(
-      baseFields({
-        rkey: "the-rkey",
-        oldSiteRkeys: '["site-a"]',
-        sites: [],
-      }),
-    );
-
-    expect(sitePutRecord).toHaveBeenCalledWith(
-      expect.objectContaining({
-        rkey: "site-a",
-        record: expect.objectContaining({
-          scribe: expect.objectContaining({ ungroupedArticles: [] }),
-        }),
-      }),
+    expect(putRecord).toHaveBeenCalledTimes(1);
+    expect(putRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: "site.standard.document" }),
     );
   });
 });
@@ -729,7 +649,6 @@ describe("action — failure", () => {
       publishedSite: "https://example.com",
       publishedAt: "2026-01-01T00:00:00Z",
       publishedPath: "/my-article",
-      oldSiteRkeys: "[]",
     };
   }
 });

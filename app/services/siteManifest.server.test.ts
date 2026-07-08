@@ -7,7 +7,7 @@ import {
   publishArticleToGroup,
   saveSiteOrder,
   removeArticleFromSite,
-  moveArticleToDraft,
+  unpublishArticle,
 } from "./siteManifest.server";
 
 // Deep edge-case suite for siteManifest.server.ts — the long-term primary
@@ -73,7 +73,6 @@ describe("computeDocumentPathUpdates", () => {
     const updates = computeDocumentPathUpdates(
       oldGroupByUri,
       groups,
-      [],
       domain,
       "",
     );
@@ -99,7 +98,7 @@ describe("computeDocumentPathUpdates", () => {
       },
     ];
 
-    const updates = computeDocumentPathUpdates(new Map(), groups, [], domain, "");
+    const updates = computeDocumentPathUpdates(new Map(), groups, domain, "");
 
     expect(updates).toEqual([
       {
@@ -123,35 +122,7 @@ describe("computeDocumentPathUpdates", () => {
     ];
 
     expect(
-      computeDocumentPathUpdates(oldGroupByUri, groups, [], domain, ""),
-    ).toEqual([]);
-  });
-
-  it("returns a candidate for an article moved from a group into ungroupedArticles", () => {
-    const uri = `at://${DID}/site.standard.document/a1`;
-    const oldGroupByUri = new Map([[uri, "old-group"]]);
-    const ungroupedArticles = [{ uri, title: "A", slug: "a1" } as never];
-
-    const updates = computeDocumentPathUpdates(
-      oldGroupByUri,
-      [],
-      ungroupedArticles,
-      domain,
-      "",
-    );
-
-    expect(updates).toEqual([
-      { rkey: "a1", newPath: "/a1", newCanonicalUrl: "https://example.com/a1", needsPublishedAt: false },
-    ]);
-  });
-
-  it("returns no candidate for an article that was already ungrouped and stays ungrouped", () => {
-    const uri = `at://${DID}/site.standard.document/a1`;
-    const ungroupedArticles = [{ uri, title: "A", slug: "a1" } as never];
-
-    // oldGroupByUri has no entry for uri, since it wasn't in a named group before
-    expect(
-      computeDocumentPathUpdates(new Map(), [], ungroupedArticles, domain, ""),
+      computeDocumentPathUpdates(oldGroupByUri, groups, domain, ""),
     ).toEqual([]);
   });
 
@@ -167,7 +138,7 @@ describe("computeDocumentPathUpdates", () => {
     ];
 
     expect(
-      computeDocumentPathUpdates(oldGroupByUri, groups, [], domain, ""),
+      computeDocumentPathUpdates(oldGroupByUri, groups, domain, ""),
     ).toEqual([]);
   });
 
@@ -189,7 +160,6 @@ describe("computeDocumentPathUpdates", () => {
     const updates = computeDocumentPathUpdates(
       oldGroupByUri,
       groups,
-      [],
       domain,
       "blog",
     );
@@ -217,7 +187,6 @@ describe("computeDocumentPathUpdates", () => {
     const updates = computeDocumentPathUpdates(
       new Map(),
       groups,
-      [],
       "anthonycregan.co.uk",
       "blog",
     );
@@ -227,65 +196,6 @@ describe("computeDocumentPathUpdates", () => {
     );
     expect(updates[0].newCanonicalUrl).toBe(
       "https://anthonycregan.co.uk/blog/creative-writing/the-crows-of-shenton-way",
-    );
-  });
-
-  it("leaves ungrouped (draft) moves basePath-less — no live route to protect", () => {
-    const uri = `at://${DID}/site.standard.document/a1`;
-    const oldGroupByUri = new Map([[uri, "old-group"]]);
-    const ungroupedArticles = [{ uri, title: "A", slug: "a1" } as never];
-
-    const updates = computeDocumentPathUpdates(
-      oldGroupByUri,
-      [],
-      ungroupedArticles,
-      domain,
-      "blog",
-    );
-
-    expect(updates[0].newPath).toBe("/a1");
-    expect(updates[0].newCanonicalUrl).toBe("https://example.com/a1");
-  });
-
-  it("combines group-move and ungrouped-move candidates in one pass", () => {
-    const uriA = `at://${DID}/site.standard.document/a1`;
-    const uriB = `at://${DID}/site.standard.document/b1`;
-    const oldGroupByUri = new Map([
-      [uriA, "old-group"],
-      [uriB, "old-group"],
-    ]);
-    const groups = [
-      {
-        slug: "new-group",
-        title: "New",
-        articles: [{ uri: uriA, title: "A", slug: "a1" } as never],
-      },
-    ];
-    const ungroupedArticles = [{ uri: uriB, title: "B", slug: "b1" } as never];
-
-    const updates = computeDocumentPathUpdates(
-      oldGroupByUri,
-      groups,
-      ungroupedArticles,
-      domain,
-      "",
-    );
-    expect(updates).toHaveLength(2);
-    expect(updates).toEqual(
-      expect.arrayContaining([
-        {
-          rkey: "a1",
-          newPath: "/new-group/a1",
-          newCanonicalUrl: "https://example.com/new-group/a1",
-          needsPublishedAt: false,
-        },
-        {
-          rkey: "b1",
-          newPath: "/b1",
-          newCanonicalUrl: "https://example.com/b1",
-          needsPublishedAt: false,
-        },
-      ]),
     );
   });
 });
@@ -720,10 +630,10 @@ describe("removeArticleFromSite", () => {
   });
 });
 
-describe("moveArticleToDraft", () => {
+describe("unpublishArticle", () => {
   const articleUri = `at://${DID}/site.standard.document/a1`;
 
-  function makeDraftAgent(opts: {
+  function makeUnpublishAgent(opts: {
     docValue: Record<string, unknown>;
     siteScribe: Record<string, unknown>;
     putRecord?: ReturnType<typeof vi.fn>;
@@ -741,8 +651,8 @@ describe("moveArticleToDraft", () => {
     return { agent, putRecord };
   }
 
-  it("moves the article ref from its group into ungroupedArticles", async () => {
-    const { agent, putRecord } = makeDraftAgent({
+  it("removes the article ref from its group entirely — no more ungroupedArticles landing spot (ADR 0013)", async () => {
+    const { agent, putRecord } = makeUnpublishAgent({
       docValue: { path: "/blog/g1/a1", title: "A" },
       siteScribe: {
         groups: [
@@ -756,50 +666,22 @@ describe("moveArticleToDraft", () => {
       },
     });
 
-    const result = await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+    const result = await unpublishArticle(agent, DID, SITE_SLUG, articleUri);
 
     expect(result).toEqual({ ok: true });
     const siteCall = putRecord.mock.calls.find(
       ([args]) => args.collection === "site.standard.publication",
     )!;
     expect(siteCall[0].record.scribe.groups[0].articles).toEqual([]);
-    expect(siteCall[0].record.scribe.ungroupedArticles).toHaveLength(1);
-    expect(siteCall[0].record.scribe.ungroupedArticles[0]).toMatchObject({
-      uri: articleUri,
-      slug: "a1",
-    });
+    expect(siteCall[0].record.scribe.ungroupedArticles).toEqual([]);
   });
 
-  it("does not duplicate the ref when the article is already in ungroupedArticles", async () => {
-    // existingRef is only ever recovered by scanning *groups* — an article
-    // already sitting in ungroupedArticles has no group to be found in, so
-    // its old entry is dropped and a fresh ref is fabricated from the
-    // document's live fields rather than preserved verbatim. The "bug fix"
-    // this guards is duplication (two entries), not metadata preservation.
-    const staleRef = { uri: articleUri, title: "Stale Title", slug: "a1", createdAt: "2020-01-01" };
-    const { agent, putRecord } = makeDraftAgent({
-      docValue: { path: "/a1", title: "Current Title", createdAt: "2025-05-05" },
-      siteScribe: { groups: [], ungroupedArticles: [staleRef] },
-    });
-
-    await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
-
-    const siteCall = putRecord.mock.calls.find(
-      ([args]) => args.collection === "site.standard.publication",
-    )!;
-    expect(siteCall[0].record.scribe.ungroupedArticles).toHaveLength(1);
-    expect(siteCall[0].record.scribe.ungroupedArticles[0]).toMatchObject({
-      uri: articleUri,
-      title: "Current Title",
-      createdAt: "2025-05-05",
-    });
-  });
-
-  it("resets the document's path to /{slug}, clears publishedAt, and clears scribe.canonicalUrl", async () => {
-    const { agent, putRecord } = makeDraftAgent({
+  it("resets the document's site to the loose reader URL, path to /{slug}, and clears publishedAt", async () => {
+    const { agent, putRecord } = makeUnpublishAgent({
       docValue: {
         path: "/blog/g1/a1",
         title: "A",
+        site: `at://${DID}/site.standard.publication/${SITE_SLUG}`,
         publishedAt: "2026-01-01T00:00:00.000Z",
         scribe: { canonicalUrl: "https://example.com/blog/g1/a1", domain: "example.com" },
       },
@@ -809,20 +691,24 @@ describe("moveArticleToDraft", () => {
       },
     });
 
-    await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+    await unpublishArticle(agent, DID, SITE_SLUG, articleUri);
 
     const docCall = putRecord.mock.calls.find(
       ([args]) => args.collection === "site.standard.document",
     )!;
+    expect(docCall[0].record.site).toBe(
+      `https://reader.scribe-atp.app/${DID}/site.standard.document/a1`,
+    );
     expect(docCall[0].record.path).toBe("/a1");
     expect(docCall[0].record.publishedAt).toBeUndefined();
     expect(docCall[0].record.scribe.canonicalUrl).toBeUndefined();
-    // Other scribe fields survive the reset.
-    expect(docCall[0].record.scribe.domain).toBe("example.com");
+    // domain is a site-assignment field too — buildLooseDocumentFields strips
+    // it along with canonicalUrl, since a loose document has no site domain.
+    expect(docCall[0].record.scribe.domain).toBeUndefined();
   });
 
   it("swaps the document write on the fetched document's cid", async () => {
-    const { agent, putRecord } = makeDraftAgent({
+    const { agent, putRecord } = makeUnpublishAgent({
       docValue: { path: "/blog/g1/a1", title: "A" },
       siteScribe: {
         groups: [{ slug: "g1", title: "G1", articles: [{ uri: articleUri, title: "A", slug: "a1" }] }],
@@ -830,7 +716,7 @@ describe("moveArticleToDraft", () => {
       },
     });
 
-    await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+    await unpublishArticle(agent, DID, SITE_SLUG, articleUri);
 
     const docCall = putRecord.mock.calls.find(
       ([args]) => args.collection === "site.standard.document",
@@ -840,10 +726,15 @@ describe("moveArticleToDraft", () => {
 
   it("returns ok:false rather than throwing when the document fetch fails", async () => {
     const agent = makeAgent({
-      getRecord: vi.fn().mockRejectedValue(new Error("Record not found")),
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.document") {
+          return Promise.reject(new Error("Record not found"));
+        }
+        return Promise.resolve(siteRecord({ groups: [], ungroupedArticles: [] }));
+      }),
     });
 
-    const result = await moveArticleToDraft(agent, DID, SITE_SLUG, articleUri);
+    const result = await unpublishArticle(agent, DID, SITE_SLUG, articleUri);
 
     expect(result).toEqual({ ok: false, error: expect.any(Error) });
   });

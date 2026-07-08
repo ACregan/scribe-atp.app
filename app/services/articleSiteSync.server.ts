@@ -1,33 +1,6 @@
 import { Agent } from "@atproto/api";
 import { SITE_COLLECTION } from "~/constants";
-import type { ArticleRef } from "~/hooks/types";
-import {
-  removeArticleRef,
-  updateArticleRef,
-  type SiteRecordValue,
-} from "~/routes/article/site-list/siteTree";
-
-export type SiteAssignmentChanges = {
-  sitesToAdd: string[];
-  sitesToRemove: string[];
-  sitesToSync: string[];
-};
-
-/**
- * Pure function — partitions site rkey lists into the three categories needed
- * when an article is saved. sitesToSync covers both slug-rename and metadata-only
- * saves; both call updateArticleRef with the same arguments.
- */
-export function computeSiteAssignmentChanges(
-  oldRkeys: string[],
-  newRkeys: string[],
-): SiteAssignmentChanges {
-  return {
-    sitesToAdd: newRkeys.filter((r) => !oldRkeys.includes(r)),
-    sitesToRemove: oldRkeys.filter((r) => !newRkeys.includes(r)),
-    sitesToSync: oldRkeys.filter((r) => newRkeys.includes(r)),
-  };
-}
+import type { SiteRecordValue } from "~/routes/article/site-list/siteTree";
 
 /**
  * Fetch → transform → write-back pattern used by every site record mutation.
@@ -55,23 +28,6 @@ export async function mutateSiteRecord(
   });
 }
 
-export async function addArticleToSites(
-  agent: Agent,
-  did: string,
-  siteRkeys: string[],
-  articleRef: ArticleRef,
-): Promise<void> {
-  await Promise.allSettled(
-    siteRkeys.map((siteRkey) =>
-      mutateSiteRecord(agent, did, siteRkey, (record) => ({
-        ...record,
-        ungroupedArticles: [...(record.ungroupedArticles ?? []), articleRef],
-        updatedAt: new Date().toISOString(),
-      })),
-    ),
-  );
-}
-
 export async function findSitesContaining(
   agent: Agent,
   did: string,
@@ -95,31 +51,4 @@ export async function findSitesContaining(
       return inTopLevel || inGroups;
     })
     .map((record) => record.uri.split("/").pop()!);
-}
-
-/**
- * Applies all site ArticleRef changes arising from an article edit.
- * Phase 1 (parallel): remove from unassigned sites, update ref in retained sites.
- * Phase 2 (parallel): append ref to newly assigned sites.
- */
-export async function syncSiteArticleRefs(
-  agent: Agent,
-  did: string,
-  changes: SiteAssignmentChanges,
-  oldArticleUri: string,
-  newArticleRef: ArticleRef,
-): Promise<void> {
-  await Promise.allSettled([
-    ...changes.sitesToRemove.map((rkey) =>
-      mutateSiteRecord(agent, did, rkey, (record) =>
-        removeArticleRef(record, oldArticleUri),
-      ),
-    ),
-    ...changes.sitesToSync.map((rkey) =>
-      mutateSiteRecord(agent, did, rkey, (record) =>
-        updateArticleRef(record, oldArticleUri, newArticleRef),
-      ),
-    ),
-  ]);
-  await addArticleToSites(agent, did, changes.sitesToAdd, newArticleRef);
 }

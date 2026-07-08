@@ -3,39 +3,12 @@
 // typed to match the corresponding loader's return shape so TypeScript will
 // catch shape mismatches at call sites when the real loader changes.
 
-import type { SiteCard, SiteOption } from "~/components/types";
+import type { SiteCard } from "~/components/types";
 import type { SiteManifest } from "~/routes/article/site-list/siteTree";
-import type { ArticleRef } from "~/hooks/types";
 
 // ── Shared base data ──────────────────────────────────────────────────────────
 
 const DEV_DID = "did:dev:user";
-
-const DEV_SITE_OPTIONS: SiteOption[] = [
-  { rkey: "norobots-blog", title: "NoRobots.blog", url: "norobots.blog" },
-  {
-    rkey: "perpetualsummer-ltd",
-    title: "Perpetual Summer LTD",
-    url: "perpetualsummer.ltd",
-  },
-];
-
-const DEV_UNGROUPED: ArticleRef[] = [
-  {
-    uri: `at://${DEV_DID}/site.standard.document/getting-started`,
-    title: "Getting Started with AT Protocol",
-    slug: "getting-started",
-    splashImageUrl: null,
-    createdAt: "2025-02-01T00:00:00.000Z",
-  },
-  {
-    uri: `at://${DEV_DID}/site.standard.document/lexical-editor`,
-    title: "Building a Rich Text Editor with Lexical",
-    slug: "lexical-editor",
-    splashImageUrl: null,
-    createdAt: "2025-03-20T00:00:00.000Z",
-  },
-];
 
 // ── /sites ────────────────────────────────────────────────────────────────────
 
@@ -213,6 +186,22 @@ export function devArticleListLoader() {
         createdAt: new Date().toISOString(),
       },
     ],
+    publishTargets: [
+      {
+        rkey: "norobots-blog",
+        title: "NoRobots.blog",
+        publicationUri: `at://${DEV_DID}/site.standard.publication/norobots-blog`,
+        notifySubscribersEnabled: true,
+        groups: [{ slug: "getting-started", title: "Getting Started" }],
+      },
+      {
+        rkey: "perpetualsummer-ltd",
+        title: "Perpetual Summer LTD",
+        publicationUri: `at://${DEV_DID}/site.standard.publication/perpetualsummer-ltd`,
+        notifySubscribersEnabled: true,
+        groups: [],
+      },
+    ],
     authorDid: DEV_DID,
     authorHandle: "dev.user",
   };
@@ -220,16 +209,8 @@ export function devArticleListLoader() {
 
 // ── /article/create ───────────────────────────────────────────────────────────
 
-export function devCreateLoader(
-  preselect: string | undefined,
-): { sites: SiteOption[]; preselectedSite: string | undefined } {
-  const sites = DEV_SITE_OPTIONS;
-  return {
-    sites,
-    preselectedSite: sites.some((s) => s.rkey === preselect)
-      ? preselect
-      : undefined,
-  };
+export function devCreateLoader(): Record<string, never> {
+  return {};
 }
 
 // ── /article/edit ─────────────────────────────────────────────────────────────
@@ -244,8 +225,6 @@ export function devEditLoader(articleUrl: string): {
   tags: string[];
   createdAt: string;
   cid: string;
-  sites: SiteOption[];
-  currentSiteRkeys: string[];
   publishedSite: string;
   publishedAt: string;
   publishedPath: string;
@@ -260,8 +239,6 @@ export function devEditLoader(articleUrl: string): {
     tags: [],
     createdAt: new Date().toISOString(),
     cid: "dev-cid",
-    sites: DEV_SITE_OPTIONS,
-    currentSiteRkeys: [],
     publishedSite: "",
     publishedAt: "",
     publishedPath: `/${articleUrl}`,
@@ -272,42 +249,10 @@ export function devEditLoader(articleUrl: string): {
 
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
-  publicationUri: string;
-  notifySubscribersEnabled: boolean;
   site: SiteManifest;
-  articleSiteAssignments: Record<
-    string,
-    { rkey: string; title: string; url: string; urlPrefix: string }[]
-  >;
 } {
   return {
     devMode: true,
-    publicationUri: `at://${DEV_DID}/site.standard.publication/${siteSlug}`,
-    notifySubscribersEnabled: true,
-    articleSiteAssignments: {
-      [`at://${DEV_DID}/site.standard.document/getting-started`]: [
-        {
-          rkey: "norobots-blog",
-          title: "NoRobots.blog",
-          url: "norobots.blog",
-          urlPrefix: "blog",
-        },
-        {
-          rkey: "perpetualsummer-ltd",
-          title: "Perpetual Summer LTD",
-          url: "perpetualsummer.ltd",
-          urlPrefix: "articles",
-        },
-      ],
-      [`at://${DEV_DID}/site.standard.document/lexical-editor`]: [
-        {
-          rkey: "norobots-blog",
-          title: "NoRobots.blog",
-          url: "norobots.blog",
-          urlPrefix: "blog",
-        },
-      ],
-    },
     site: {
       rkey: siteSlug,
       cid: "dev-cid-site",
@@ -329,7 +274,10 @@ export function devSiteListLoader(siteSlug: string): {
           ],
         },
       ],
-      ungroupedArticles: DEV_UNGROUPED,
+      // Since ADR 0013, no UI path can populate ungroupedArticles anymore —
+      // every document is either loose (outside any site) or published into
+      // a named group. Kept as [] to match production reality.
+      ungroupedArticles: [],
     },
   };
 }

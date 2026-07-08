@@ -1,6 +1,9 @@
-import { Agent } from "@atproto/api";
-import { SITE_COLLECTION, SLUG_RE, IMAGE_URL_RE } from "~/constants";
-import type { SiteOption } from "~/components/types";
+import {
+  DOCUMENT_COLLECTION,
+  READER_BASE_URL,
+  SLUG_RE,
+  IMAGE_URL_RE,
+} from "~/constants";
 import type { ArticleRef } from "~/hooks/types";
 
 export function validateArticleFields(
@@ -19,6 +22,37 @@ export function validateArticleFields(
 
 export function resolveThumbUrl(imageUrl: string): string {
   return imageUrl.replace(/\/(600|1200|1800|max)\.webp$/, "/thumb.webp");
+}
+
+// The spec's "loose document" signal (ADR 0013): `site` holds a plain
+// https:// URL rather than an at:// publication URI. Reader renders any
+// document by rkey regardless of state, so this is real and resolvable,
+// not a placeholder.
+export function buildLooseSiteUrl(did: string, rkey: string): string {
+  return `${READER_BASE_URL}/${did}/${DOCUMENT_COLLECTION}/${rkey}`;
+}
+
+// Single source of truth for what "loose" means on a document record —
+// shared by article creation (always loose), the unpublish action, and the
+// one-off repair-loose-documents devtool, so all three can never drift from
+// each other the way the pre-ADR-0013 code paths did.
+export function buildLooseDocumentFields(
+  did: string,
+  rkey: string,
+  currentPath: string,
+  existingScribe: Record<string, unknown>,
+): {
+  site: string;
+  path: string;
+  scribe: Record<string, unknown>;
+} {
+  const slug = currentPath.split("/").filter(Boolean).pop() || rkey;
+  const { domain: _domain, canonicalUrl: _canonicalUrl, ...restScribe } = existingScribe;
+  return {
+    site: buildLooseSiteUrl(did, rkey),
+    path: `/${slug}`,
+    scribe: restScribe,
+  };
 }
 
 export function buildArticleRef(fields: {
@@ -45,23 +79,3 @@ export function buildArticleRef(fields: {
   };
 }
 
-export async function loadSiteOptions(
-  agent: Agent,
-  did: string,
-): Promise<SiteOption[]> {
-  const result = await agent.com.atproto.repo.listRecords({
-    repo: did,
-    collection: SITE_COLLECTION,
-    limit: 100,
-  });
-  return result.data.records
-    .filter((record) => (record.value as Record<string, unknown>).scribe != null)
-    .map((record) => {
-    const scribe = ((record.value as Record<string, unknown>).scribe as Record<string, unknown>) ?? {};
-    return {
-      rkey: record.uri.split("/").pop()!,
-      title: String(scribe.title ?? ""),
-      url: String(scribe.domain ?? ""),
-    };
-  });
-}

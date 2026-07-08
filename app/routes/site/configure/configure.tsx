@@ -20,7 +20,7 @@ import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
 import { useToast } from "~/components/Toast/ToastContext";
 
-import { DOMAIN_RE, IMAGE_URL_RE } from "~/constants";
+import { DOMAIN_RE, IMAGE_URL_RE, SITE_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import { getSite, putSite } from "~/services/siteRepository.server";
 import {
@@ -291,10 +291,20 @@ export async function action({ request, params }: Route.ActionArgs) {
         // silently missing documents beyond the first page. listDocuments
         // paginates internally.
         const documentRecords = await listDocuments(agent, did);
-        const oldSiteHttpsUrl = `https://${String(existingScribeBase.domain ?? "")}`;
+        // Bug fix (ADR 0013): `site` is either a loose reader URL or the
+        // document's owning publication's at:// URI — never a bare
+        // `https://{domain}` string. The old filter compared against that
+        // https shape, which no document's `site` field can ever equal, so
+        // this canonical-URL rewrite silently matched nothing. It also used
+        // to overwrite `site` with the same wrong https shape, which would
+        // have corrupted the loose/published signal had the filter ever
+        // matched. The rkey (and therefore the at:// URI) never changes when
+        // only the domain/basePath change, so `site` itself is left alone —
+        // only the derived canonicalUrl is recomputed.
+        const siteAtUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
         const newSiteHttpsUrl = `https://${url}`;
         const docUpdates = documentRecords
-          .filter((record) => record.value.site === oldSiteHttpsUrl)
+          .filter((record) => record.value.site === siteAtUri)
           .map((record) => {
             const val = record.value;
             const docPath = String(val.path ?? "");
@@ -309,7 +319,6 @@ export async function action({ request, params }: Route.ActionArgs) {
               record.rkey,
               {
                 ...val,
-                site: newSiteHttpsUrl,
                 scribe: { ...existingDocScribe, canonicalUrl: newCanonicalUrl },
                 updatedAt: new Date().toISOString(),
               },

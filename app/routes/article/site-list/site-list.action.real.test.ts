@@ -29,8 +29,7 @@ vi.mock("~/services/siteManifest.server", async (importOriginal) => {
     deleteGroup: vi.fn(),
     saveSiteOrder: vi.fn(),
     removeArticleFromSite: vi.fn(),
-    moveArticleToDraft: vi.fn(),
-    publishArticleToGroup: vi.fn(),
+    unpublishArticle: vi.fn(),
   };
 });
 
@@ -61,8 +60,7 @@ beforeEach(() => {
   vi.mocked(siteManifest.deleteGroup).mockReset();
   vi.mocked(siteManifest.saveSiteOrder).mockReset();
   vi.mocked(siteManifest.removeArticleFromSite).mockReset();
-  vi.mocked(siteManifest.moveArticleToDraft).mockReset();
-  vi.mocked(siteManifest.publishArticleToGroup).mockReset();
+  vi.mocked(siteManifest.unpublishArticle).mockReset();
 });
 
 describe("action — createGroup", () => {
@@ -195,7 +193,7 @@ describe("action — removeArticle", () => {
   });
 });
 
-describe("action — moveToDraft", () => {
+describe("action — moveToDraft (unpublish, ADR 0013)", () => {
   const articleUri = `at://${DID}/site.standard.document/article1`;
 
   it("redirects immediately when uri is missing, without calling the module", async () => {
@@ -204,11 +202,11 @@ describe("action — moveToDraft", () => {
       uri: "",
     })) as Response;
     expect(response.headers.get("Location")).toBe(`/article/list/${SITE_SLUG}`);
-    expect(siteManifest.moveArticleToDraft).not.toHaveBeenCalled();
+    expect(siteManifest.unpublishArticle).not.toHaveBeenCalled();
   });
 
-  it("dispatches to moveArticleToDraft and always redirects", async () => {
-    vi.mocked(siteManifest.moveArticleToDraft).mockResolvedValue({ ok: true });
+  it("dispatches to unpublishArticle and always redirects", async () => {
+    vi.mocked(siteManifest.unpublishArticle).mockResolvedValue({ ok: true });
 
     const response = (await callAction({
       _intent: "moveToDraft",
@@ -216,70 +214,11 @@ describe("action — moveToDraft", () => {
     })) as Response;
 
     expect(response.headers.get("Location")).toBe(`/article/list/${SITE_SLUG}`);
-    expect(siteManifest.moveArticleToDraft).toHaveBeenCalledWith(
+    expect(siteManifest.unpublishArticle).toHaveBeenCalledWith(
       AGENT_SENTINEL,
       DID,
       SITE_SLUG,
       articleUri,
-    );
-  });
-});
-
-describe("action — publishArticle", () => {
-  const articleUri = `at://${DID}/site.standard.document/article1`;
-
-  it("returns ok:false when uri or groupSlug is missing, without calling the module", async () => {
-    await expect(
-      callAction({ _intent: "publishArticle", uri: "", groupSlug: "g1" }),
-    ).resolves.toEqual({ ok: false });
-    expect(siteManifest.publishArticleToGroup).not.toHaveBeenCalled();
-  });
-
-  it("degrades to ok:false instead of throwing on malformed siteAssignments (route-owned guard)", async () => {
-    const result = await callAction({
-      _intent: "publishArticle",
-      uri: articleUri,
-      groupSlug: "g1",
-      siteAssignments: "not valid json",
-    });
-    expect(result).toEqual({ ok: false });
-    expect(siteManifest.publishArticleToGroup).not.toHaveBeenCalled();
-  });
-
-  it("dispatches to publishArticleToGroup with parsed fields and passes its result through", async () => {
-    vi.mocked(siteManifest.publishArticleToGroup).mockResolvedValue({
-      ok: true,
-      uri: articleUri,
-      groupSlug: "g1",
-      notification: null,
-    });
-
-    await expect(
-      callAction({
-        _intent: "publishArticle",
-        uri: articleUri,
-        groupSlug: "g1",
-        siteAssignments: JSON.stringify([
-          { rkey: "s1", domain: "d.com", basePath: "" },
-        ]),
-      }),
-    ).resolves.toEqual({
-      ok: true,
-      uri: articleUri,
-      groupSlug: "g1",
-      notification: null,
-    });
-
-    expect(siteManifest.publishArticleToGroup).toHaveBeenCalledWith(
-      AGENT_SENTINEL,
-      DID,
-      SITE_SLUG,
-      {
-        uri: articleUri,
-        groupSlug: "g1",
-        canonicalSiteRkey: SITE_SLUG,
-        siteAssignments: [{ rkey: "s1", domain: "d.com", basePath: "" }],
-      },
     );
   });
 });

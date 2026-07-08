@@ -396,3 +396,79 @@ describe("buildPlan — Code Assistants scenario end-to-end", () => {
     expect(plan.alreadyCorrect).toBe(1);
   });
 });
+
+describe("buildPlan — loose documents (ADR 0013) never resurrect a stale site assignment", () => {
+  it("treats a document with a loose reader-URL site field as having no canonical location, even if a site's manifest still stale-references it", () => {
+    const articleRkey = "a1";
+    // A stale manifest entry for this document still exists on "real-site" —
+    // the exact inconsistency repairLooseDocuments exists to clean up. This
+    // tool must not use it to resurrect a site assignment.
+    const sites = [
+      siteRecord("real-site", {
+        domain: "example.com",
+        basePath: "blog",
+        groups: [
+          {
+            slug: "g",
+            articles: [
+              { uri: `at://${DID}/site.standard.document/${articleRkey}`, slug: "a1" },
+            ],
+          },
+        ],
+        ungroupedArticles: [],
+      }),
+    ];
+
+    const documents = [
+      docRecord(articleRkey, {
+        title: "A",
+        path: "/a1",
+        site: `https://reader.scribe-atp.app/${DID}/site.standard.document/${articleRkey}`,
+      }),
+    ];
+
+    const locationMap = buildDocLocationMap(sites);
+    const plan = buildPlan(documents, locationMap);
+
+    expect(plan.toRepair).toEqual([]);
+    expect(plan.alreadyCorrect).toBe(0);
+  });
+
+  it("still repairs a genuinely published document (site is an at:// URI) normally", () => {
+    const articleRkey = "a1";
+    const sites = [
+      siteRecord("real-site", {
+        domain: "example.com",
+        basePath: "blog",
+        groups: [
+          {
+            slug: "g",
+            articles: [
+              { uri: `at://${DID}/site.standard.document/${articleRkey}`, slug: "a1" },
+            ],
+          },
+        ],
+        ungroupedArticles: [],
+      }),
+    ];
+
+    const documents = [
+      docRecord(articleRkey, {
+        title: "A",
+        path: "/wrong",
+        site: `at://${DID}/site.standard.publication/real-site`,
+      }),
+    ];
+
+    const locationMap = buildDocLocationMap(sites);
+    const plan = buildPlan(documents, locationMap);
+
+    expect(plan.toRepair).toEqual([
+      expect.objectContaining({
+        rkey: articleRkey,
+        expectedPath: "/blog/g/a1",
+        canonicalSiteRkey: "real-site",
+      }),
+    ]);
+  });
+});

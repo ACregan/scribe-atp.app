@@ -55,6 +55,14 @@ export default [
         "devtools/repair-document-paths",
         "./routes/devtools/repair-document-paths/repair-document-paths.tsx",
       ),
+      // One-time Phase 1 migration tool for ADR 0013 — resets site/
+      // publishedAt/scribe.canonicalUrl/scribe.domain to the loose state on
+      // every currently-unassigned document. Retire once the migration is
+      // complete (see docs/adr/0013-document-site-field-is-the-loose-vs-published-signal.md).
+      route(
+        "devtools/repair-loose-documents",
+        "./routes/devtools/repair-loose-documents/repair-loose-documents.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;

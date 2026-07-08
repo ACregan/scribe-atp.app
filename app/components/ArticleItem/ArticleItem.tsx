@@ -49,8 +49,8 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   const urlKey = slug ?? uri.split("/").pop();
   const deleteModal = useModal();
   const deleteFormRef = useRef<HTMLFormElement>(null);
-  const moveToDraftsModal = useModal();
-  const moveToDraftsFormRef = useRef<HTMLFormElement>(null);
+  const unpublishModal = useModal();
+  const unpublishFormRef = useRef<HTMLFormElement>(null);
 
   const {
     attributes,
@@ -77,14 +77,14 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
     deleteFormRef.current?.submit();
   };
 
-  const handleMoveToDraftsClick = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUnpublishClick = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    moveToDraftsModal.open();
+    unpublishModal.open();
   };
 
-  const handleConfirmMoveToDrafts = () => {
-    moveToDraftsModal.close();
-    moveToDraftsFormRef.current?.submit();
+  const handleConfirmUnpublish = () => {
+    unpublishModal.close();
+    unpublishFormRef.current?.submit();
   };
 
   const liveUrl =
@@ -190,15 +190,15 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
                 {bskyPostRef ? "Re-share" : "Share"}
               </Button>
               <Form
-                ref={moveToDraftsFormRef}
+                ref={unpublishFormRef}
                 method="post"
                 style={{ display: "inline" }}
-                onSubmit={handleMoveToDraftsClick}
+                onSubmit={handleUnpublishClick}
               >
                 <input type="hidden" name="_intent" value="moveToDraft" />
                 <input type="hidden" name="uri" value={uri} />
                 <Button type="submit" variant="danger">
-                  Move to Drafts
+                  Unpublish
                 </Button>
               </Form>
               {liveUrl && (
@@ -243,9 +243,9 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
 
       {isPublishedMode && (
         <Modal
-          isOpen={moveToDraftsModal.isOpen}
-          onClose={moveToDraftsModal.close}
-          title="Move to Drafts"
+          isOpen={unpublishModal.isOpen}
+          onClose={unpublishModal.close}
+          title="Unpublish Article"
           footer={
             <div
               style={{
@@ -254,10 +254,10 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
                 justifyContent: "flex-end",
               }}
             >
-              <Button onClick={moveToDraftsModal.close} variant="secondary">
+              <Button onClick={unpublishModal.close} variant="secondary">
                 Cancel
               </Button>
-              <Button onClick={handleConfirmMoveToDrafts} variant="success">
+              <Button onClick={handleConfirmUnpublish} variant="success">
                 Confirm
               </Button>
             </div>
@@ -266,7 +266,8 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
           <p>
             This article will no longer be published on{" "}
             <strong>{siteName}</strong> under the <strong>{groupTitle}</strong>{" "}
-            group. Are you sure you want to proceed?
+            group, and will return to an unpublished, unassigned state. Are
+            you sure you want to proceed?
           </p>
         </Modal>
       )}
