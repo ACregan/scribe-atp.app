@@ -40,6 +40,32 @@ typecheck:
         - "**/*.json"
         - ".gitlab-ci.yml"
 
+# Docs-only MRs (e.g. pure *.md changes) match none of the `changes:` globs
+# above, so typecheck/unit/e2e all skip and the pipeline has zero jobs —
+# with no job to succeed, GitLab's "pipeline must succeed" merge check can
+# never be satisfied and the MR is stuck unmergeable. This job is the
+# inverse: it runs only when none of the code-affecting globs matched,
+# giving every MR pipeline at least one job to pass.
+docs-only:
+  stage: typecheck
+  image: node:20
+  interruptible: true
+  tags:
+    - SERVER-docker-runner
+  script:
+    - echo "No code changes detected — skipping test stages."
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.js"
+        - "**/*.css"
+        - "**/*.json"
+        - ".gitlab-ci.yml"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
 unit:
   stage: unit
   image: node:20
