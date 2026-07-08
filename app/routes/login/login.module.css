@@ -15,6 +15,14 @@
   padding: 0 2rem;
 }
 
+.wipNotice {
+  margin-top: 1rem;
+  margin-bottom: 0;
+  text-align: center;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
 .loginForm {
 }
 .loginForm > button {
