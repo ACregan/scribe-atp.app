@@ -18,21 +18,3 @@ export function slugFromUri(uri: string): string {
 export function flattenArticles(site: Site): ArticleRef[] {
   return [...site.groups.flatMap((g) => g.articles), ...site.ungroupedArticles];
 }
-
-// ─── internal ────────────────────────────────────────────────────────────────
-
-export const PUBLIC_API = "https://public.api.bsky.app";
-
-export async function resolveIdentifier(handleOrDid: string): Promise<string> {
-  if (handleOrDid.startsWith("did:")) return handleOrDid;
-  const res = await fetch(
-    `${PUBLIC_API}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handleOrDid)}`,
-  );
-  if (!res.ok) {
-    throw new Error(
-      `Could not resolve handle "${handleOrDid}": ${res.statusText}`,
-    );
-  }
-  const data = await res.json();
-  return data.did as string;
-}

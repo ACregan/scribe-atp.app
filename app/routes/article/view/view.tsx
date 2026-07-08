@@ -106,11 +106,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return {
     title: String(value.title ?? "(untitled)"),
     content: DOMPurify.sanitize(html, { FORCE_BODY: true }),
-    splashImageUrl: String(
-      scribe.coverImageUrl ?? scribe.splashImageUrl ?? value.splashImageUrl ?? "",
-    ),
-    description: String(value.description ?? value.synopsis ?? ""),
-    createdAt: String(scribe.createdAt ?? value.createdAt ?? ""),
+    splashImageUrl: String(scribe.coverImageUrl ?? ""),
+    description: String(value.description ?? ""),
+    createdAt: String(scribe.createdAt ?? ""),
     publishedAt: String(value.publishedAt ?? ""),
     updatedAt: String(value.updatedAt ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],

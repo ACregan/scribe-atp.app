@@ -74,17 +74,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     title: String(value.title ?? ""),
     content,
     slug,
-    splashImageUrl: String(
-      scribe.coverImageUrl ??
-        scribe.splashImageUrl ??
-        value.splashImageUrl ??
-        "",
-    ),
+    splashImageUrl: String(scribe.coverImageUrl ?? ""),
     description: String(value.description ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
-    createdAt: String(
-      scribe.createdAt ?? value.createdAt ?? new Date().toISOString(),
-    ),
+    createdAt: String(scribe.createdAt ?? new Date().toISOString()),
     cid: found.cid ?? null,
     publishedSite: String(value.site ?? ""),
     publishedAt: String(value.publishedAt ?? ""),
@@ -134,11 +127,7 @@ export async function action({ request }: Route.ActionArgs) {
     const contributors = Array.isArray(existingDoc.contributors)
       ? existingDoc.contributors
       : [];
-    const existingCanonicalUrl = String(
-      (existingDoc.scribe as Record<string, unknown>)?.canonicalUrl ??
-        existingDoc.canonicalUrl ??
-        "",
-    );
+    const existingCanonicalUrl = String(existingScribe.canonicalUrl ?? "");
     const existingBskyPostRef = existingDoc.bskyPostRef as
       | { uri: string; cid: string }
       | undefined;
@@ -151,10 +140,7 @@ export async function action({ request }: Route.ActionArgs) {
       const existingScribeForBlob =
         (existingDoc.scribe as Record<string, unknown>) ?? {};
       const existingSplashImageUrl = String(
-        existingScribeForBlob.coverImageUrl ??
-          existingScribeForBlob.splashImageUrl ??
-          existingDoc.splashImageUrl ??
-          "",
+        existingScribeForBlob.coverImageUrl ?? "",
       );
       if (
         existingSplashImageUrl !== splashImageUrl ||

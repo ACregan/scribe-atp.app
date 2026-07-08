@@ -193,9 +193,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
         const doc = docResult.data.value as Record<string, unknown>;
         const docScribe = (doc.scribe as Record<string, unknown>) ?? {};
-        const canonicalUrl = String(
-          docScribe.canonicalUrl ?? doc.canonicalUrl ?? "",
-        );
+        const canonicalUrl = String(docScribe.canonicalUrl ?? "");
         const title = String(doc.title ?? "");
         const description = doc.description
           ? String(doc.description)
@@ -203,12 +201,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         const publicationUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
         const publicationCid = siteResult.data.cid;
 
-        const coverImageUrl = String(
-          docScribe.coverImageUrl ??
-            docScribe.splashImageUrl ??
-            doc.splashImageUrl ??
-            "",
-        );
+        const coverImageUrl = String(docScribe.coverImageUrl ?? "");
         let coverImageBlobRef: unknown;
         if (coverImageUrl) {
           try {

@@ -117,6 +117,10 @@ export default function Login({
     <div className={styles.loginWrapper}>
       <div className={styles.loginContainer}>
         <h1>Login</h1>
+        <p className={styles.wipNotice}>
+          This application is currently under active development, it is
+          subject to change and things might break.
+        </p>
         {loaderData.isBypass && (
           <p style={{ color: "orange" }}>
             Dev mode: OAuth is bypassed. Any handle will be accepted.
