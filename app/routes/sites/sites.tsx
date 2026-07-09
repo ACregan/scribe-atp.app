@@ -105,18 +105,14 @@ export async function action({ request }: Route.ActionArgs) {
         error: "Domain must be a valid hostname (e.g. myblog.com).",
       };
 
-    const rkey = url.replace(/\./g, "-").replace(/[^a-z0-9-]/g, "");
-    if (!rkey)
-      return {
-        ok: false,
-        error: "Domain must contain at least one letter or number.",
-      };
-
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
         const now = new Date().toISOString();
-        await createSiteRecord(agent, did, rkey, {
+        // rkey is not passed explicitly — the PDS generates a TID, per the
+        // site.standard.publication lexicon's "key": "tid" requirement (see
+        // the 2026-06-25 publication TID migration).
+        const result = await createSiteRecord(agent, did, {
           $type: SITE_COLLECTION,
           url: `https://${url}`,
           name: title,
@@ -135,15 +131,16 @@ export async function action({ request }: Route.ActionArgs) {
             updatedAt: now,
           },
         });
+        const rkey = result.uri.split("/").pop()!;
+        logger.info(
+          { event: "site.create", user_did: did, rkey, url },
+          "site.create",
+        );
       } catch (err) {
         return { ok: false, error: `Failed to create site: ${String(err)}` };
       }
     }
 
-    logger.info(
-      { event: "site.create", user_did: did, rkey, url },
-      "site.create",
-    );
     return { ok: true };
   }
 

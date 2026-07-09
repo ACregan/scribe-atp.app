@@ -178,8 +178,10 @@ describe("action — createSite", () => {
     });
   });
 
-  it("creates the record with the derived rkey and full scribe shape on success", async () => {
-    const createRecord = vi.fn().mockResolvedValue({ data: {} });
+  it("creates the record without an explicit rkey (PDS generates a TID) with full scribe shape on success", async () => {
+    const createRecord = vi.fn().mockResolvedValue({
+      data: { uri: `at://${DID}/site.standard.publication/3jxtctq7kqm2y`, cid: "cid-a" },
+    });
     vi.mocked(getAtpAgent).mockResolvedValue(makeAgent({ createRecord }));
 
     await expect(
@@ -198,7 +200,6 @@ describe("action — createSite", () => {
     expect(createRecord).toHaveBeenCalledWith({
       repo: DID,
       collection: "site.standard.publication",
-      rkey: "my-example-com",
       record: {
         $type: "site.standard.publication",
         url: "https://my.example.com",

@@ -129,12 +129,11 @@ describe("createSite", () => {
       });
     const agent = makeAgent({ createRecord });
 
-    const result = await createSite(agent, DID, "a", { title: "A" });
+    const result = await createSite(agent, DID, { title: "A" });
 
     expect(createRecord).toHaveBeenCalledWith({
       repo: DID,
       collection: "site.standard.publication",
-      rkey: "a",
       record: { title: "A" },
     });
     expect(result).toEqual({

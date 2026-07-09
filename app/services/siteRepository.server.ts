@@ -60,13 +60,11 @@ export async function getSite(
 export async function createSite(
   agent: Agent,
   did: string,
-  rkey: string,
   record: Record<string, unknown>,
 ): Promise<{ uri: string; cid: string }> {
   const result = await agent.com.atproto.repo.createRecord({
     repo: did,
     collection: SITE_COLLECTION,
-    rkey,
     record,
   });
   return { uri: result.data.uri, cid: result.data.cid };
