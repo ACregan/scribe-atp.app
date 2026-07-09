@@ -109,3 +109,37 @@ ANother option is to merge create and edit into one route but that could be mess
 ###### ACTION ITEM LIST
 
 - [ ] Draft New Article UX improvements **_THINK ABOUT HOW BEST TO GO ABOUT THIS_**
+
+---
+
+##### 09-07-26
+
+**Fresh-account onboarding audit.** Entry point into the Contributors work — before building an Owner/Contributor flow we need to know what a brand-new user actually sees. Plan:
+
+1. Delete NoRobots from the `anthonycregan.dev` Bluesky account (removes the existing `site.standard.publication` + its documents)
+2. Sign into the CMS as a genuinely new user — handle `norobots.blog`, blank account, no prior sites/articles/images
+3. Walk the full first-run flow with nothing pre-provisioned, logging every point of friction or missing guidance
+4. Create a new site (NoRobots.blog)
+5. Re-populate it with the content previously managed under `anthonycregan.dev`
+
+Working hypothesis going in: a first-login welcome modal may be worth building. Confirm or kill that once the walkthrough is done, don't build it pre-emptively.
+
+###### Observations
+
+_(log each as you hit it — screen, what's missing/confusing, what would fix it)_
+
+- [ ] `/login` — first impression, before any auth
+- [ ] Post-auth landing (`/`) — blank dashboard, no sites/articles/images yet
+- [ ] `/sites` — empty state (already flagged 27-05-26 as basic; revisit with truly fresh eyes)
+- [ ] Add New Site flow — anything unclear about required fields (domain, basePath, etc.)
+- [ ] `/groups` — empty state, first Add New Group
+- [ ] `/article/create` — first article with no site/group context yet
+- [ ] Publish flow (`/article/list`) — first time picking a site + group
+- [ ] `/images` — empty Image Library, first upload
+- [ ] Anywhere else the app assumes prior state that a new user won't have
+
+###### ACTION ITEM LIST
+
+- [ ] Complete fresh-account walkthrough end to end
+- [ ] Decide: first-time login welcome modal — build or drop
+- [ ] Re-populate NoRobots.blog content under the new account
