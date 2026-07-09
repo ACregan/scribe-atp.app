@@ -337,7 +337,13 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     if (isNewRoute && !openedByRouteRef.current) {
       openedByRouteRef.current = true;
-      open();
+      // No site to add a group to — redirect instead of opening a modal
+      // that has nothing to target (mirrors the topButtons guard below).
+      if (sites.length === 0) {
+        navigate("/groups", { replace: true });
+      } else {
+        open();
+      }
     }
     if (!isNewRoute) {
       openedByRouteRef.current = false;

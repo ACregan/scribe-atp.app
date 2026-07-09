@@ -510,11 +510,22 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   New Site
                 </Button>
               </Link>
-              <Link to="/groups/new">
-                <Button type="button" icon={SvgImageList.Folder} tabIndex={-1}>
+              {sites.length > 0 ? (
+                <Link to="/groups/new">
+                  <Button type="button" icon={SvgImageList.Folder} tabIndex={-1}>
+                    New Group
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  type="button"
+                  icon={SvgImageList.Folder}
+                  disabled
+                  title="Create a site first — groups belong to a site"
+                >
                   New Group
                 </Button>
-              </Link>
+              )}
               <Link to="/article/create">
                 <Button
                   type="button"

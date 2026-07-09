@@ -229,6 +229,10 @@
   color: var(--text-secondary);
 }
 
+.emptyState a {
+  color: var(--action-primary);
+}
+
 /* ── Site list (mirrors groups page) ─────────────────────────────────────────── */
 
 .siteList {

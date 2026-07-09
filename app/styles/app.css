@@ -87,18 +87,6 @@ body {
   /* overflow-y: auto; */
 }
 
-/* LINK STYLES */
-p a {
-  color: var(--white);
-  text-decoration-color: var(--action-danger);
-}
-
-p a:active,
-p a:hover {
-  color: var(--white);
-  text-decoration-color: var(--action-danger);
-}
-
 /* SELECTION */
 ::selection {
   color: var(--text-primary);
