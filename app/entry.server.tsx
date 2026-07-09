@@ -19,8 +19,9 @@ function buildCsp(nonce: string): string {
     `script-src 'self' 'nonce-${nonce}' https://analytics.perpetualsummer.ltd`,
     // Lexical editor and article HTML use inline style attributes — unsafe-inline required
     "style-src 'self' 'unsafe-inline'",
-    // 'self' for hosted images; https: for external images embedded in article HTML
-    "img-src 'self' data: https:",
+    // 'self' for hosted images; https: for external images embedded in article HTML;
+    // blob: for local file previews in the Image Library upload modal
+    "img-src 'self' data: https: blob:",
     "font-src 'self'",
     // image upload XHR, SSE progress stream, and Umami analytics beacon
     "connect-src 'self' https://analytics.perpetualsummer.ltd",

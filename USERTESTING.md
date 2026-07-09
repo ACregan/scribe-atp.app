@@ -140,6 +140,28 @@ _(log each as you hit it — screen, what's missing/confusing, what would fix it
 
 ###### ACTION ITEM LIST
 
+
 - [ ] Complete fresh-account walkthrough end to end
+
+Deleting records from AnthonyCregan.dev PDS:
+  - [ ] Delete Site action is too easy and could be done by accident - Perhaps Add an input that asks to enter the domain name to confirm they wish to delete it.
+
+  - [ ] Add New Site Modal - Still has image URL text inputs for both splash image and logo image URLs, these should be a image library picker for each one
+
+  - [ ] Once you have created a new site and gone to the relevant /article/list/**SITE** page, when you make your first group it still has "Drop articles here" and dotted line styles left over from the drag and drop feature we phases out here.  
+
+  - [x] `/images` — Upload Images modal: every pending-file preview showed a broken image icon with the filename as fallback alt text, for all files regardless of type. Root cause: CSP `img-src 'self' data: https:` didn't allow `blob:`, so the browser blocked every `URL.createObjectURL(file)` preview `<img>` before it could render. **FIXED** on `fix/csp-blob-image-preview` — added `blob:` to `img-src`.
+
+First Login as NoRobots.blog Bsky User:
+Dashboard:
+ - New Group button should be disabled when there are no sites to add them to.
+ - SITES column has "No sites yet. Create your first site" link (and that is white text on white background). This should be expanded massively. Maybe on first login the dashboard should be a welcome screen instead? Engagement and Recently Updated columns are totally redundant at this point. The only things a new user could be concerned about at this point is writing a new article or adding a new site.
+
+Image Library:
+ - First Impressions here are a little confusing. All I see is the User folder for my other login "Anthony Cregan Images". We should probably drop the "library is shared with all users" thing (as mentioned elsewhere). We should have a Image folder for the current user by default, even before they've uploaded an image. 
+
+ - Image upload previews are just broken image placeholders now
+
+ 
 - [ ] Decide: first-time login welcome modal — build or drop
 - [ ] Re-populate NoRobots.blog content under the new account
