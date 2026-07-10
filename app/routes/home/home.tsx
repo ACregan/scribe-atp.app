@@ -31,6 +31,7 @@ import {
   type EngagementCharts,
 } from "./engagementCharts.server";
 import { DashboardCharts } from "./DashboardCharts/DashboardCharts";
+import { SiteWelcome } from "./SiteWelcome/SiteWelcome";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -410,6 +411,45 @@ function GroupSiteItem({
   );
 }
 
+function RecentArticlesColumn({
+  recentArticles,
+}: {
+  recentArticles: RecentArticleItem[];
+}) {
+  return (
+    <>
+      <h2 className={styles.sectionTitle}>Recently Updated</h2>
+      {recentArticles.length === 0 ? (
+        <p className={styles.emptyState}>
+          No articles yet. Create your first one.
+        </p>
+      ) : (
+        <ul className={styles.recentList}>
+          {recentArticles.map((article) => (
+            <li key={article.uri} className={styles.recentItem}>
+              <IconBadge icon={SvgImageList.Document} />
+              <span className={styles.recentTitle}>{article.title}</span>
+              <Pill>
+                {formatArticleDate(article.updatedAt ?? article.createdAt)}
+              </Pill>
+              <Link to={`/article/view/${article.slug}`}>
+                <Button type="button" variant="secondary" tabIndex={-1}>
+                  View
+                </Button>
+              </Link>
+              <Link to={`/article/edit/${article.slug}`}>
+                <Button type="button" variant="primary" tabIndex={-1}>
+                  Edit
+                </Button>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
 export default function Home({ loaderData }: Route.ComponentProps) {
   const nukeModal = useModal();
   const devToolsModal = useModal();
@@ -477,11 +517,15 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   const {
     isDev,
+    userName,
     recentArticles,
     orphanedArticleCount,
     sites,
     engagementCharts,
   } = loaderData;
+
+  const hasSites = sites.length > 0;
+  const hasArticles = recentArticles.length > 0;
 
   function handleNukeConfirm() {
     nukeModal.close();
@@ -565,16 +609,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </PageSection>
         )}
         <PageSection fill>
-          <PageSectionColumns breakpoint="lg">
-            {/* Sites */}
-            <PageSectionColumn span={4} overflow>
-              <h2 className={styles.sectionTitle}>Sites</h2>
-              {sites.length === 0 ? (
-                <p className={styles.emptyState}>
-                  No sites yet.{" "}
-                  <Link to="/sites/new">Create your first site</Link>.
-                </p>
-              ) : (
+          {hasSites ? (
+            <PageSectionColumns breakpoint="lg">
+              {/* Sites */}
+              <PageSectionColumn span={4} overflow>
+                <h2 className={styles.sectionTitle}>Sites</h2>
                 <ul className={styles.siteList}>
                   {sites.map((site) => (
                     <GroupSiteItem
@@ -584,53 +623,36 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                     />
                   ))}
                 </ul>
-              )}
-            </PageSectionColumn>
+              </PageSectionColumn>
 
-            {/* Engagement charts */}
-            <PageSectionColumn span={4} overflow>
-              <h2 className={styles.sectionTitle}>ENGAGEMENT</h2>
-              {engagementCharts && (
-                <DashboardCharts charts={engagementCharts} />
-              )}
-            </PageSectionColumn>
+              {/* Engagement charts */}
+              <PageSectionColumn span={4} overflow>
+                <h2 className={styles.sectionTitle}>ENGAGEMENT</h2>
+                {engagementCharts && (
+                  <DashboardCharts charts={engagementCharts} />
+                )}
+              </PageSectionColumn>
 
-            {/* Recently Updated */}
-            <PageSectionColumn span={4} overflow>
-              <h2 className={styles.sectionTitle}>Recently Updated</h2>
-              {recentArticles.length === 0 ? (
-                <p className={styles.emptyState}>
-                  No articles yet. Create your first one.
-                </p>
-              ) : (
-                <ul className={styles.recentList}>
-                  {recentArticles.map((article) => (
-                    <li key={article.uri} className={styles.recentItem}>
-                      <IconBadge icon={SvgImageList.Document} />
-                      <span className={styles.recentTitle}>
-                        {article.title}
-                      </span>
-                      <Pill>
-                        {formatArticleDate(
-                          article.updatedAt ?? article.createdAt,
-                        )}
-                      </Pill>
-                      <Link to={`/article/view/${article.slug}`}>
-                        <Button type="button" variant="secondary" tabIndex={-1}>
-                          View
-                        </Button>
-                      </Link>
-                      <Link to={`/article/edit/${article.slug}`}>
-                        <Button type="button" variant="primary" tabIndex={-1}>
-                          Edit
-                        </Button>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </PageSectionColumn>
-          </PageSectionColumns>
+              {/* Recently Updated */}
+              <PageSectionColumn span={4} overflow>
+                <RecentArticlesColumn recentArticles={recentArticles} />
+              </PageSectionColumn>
+            </PageSectionColumns>
+          ) : hasArticles ? (
+            <PageSectionColumns breakpoint="lg">
+              {/* No Site yet, but articles exist — welcome takes the Sites +
+                  Engagement columns' place, Recently Updated stays put. */}
+              <PageSectionColumn span={8} overflow>
+                <SiteWelcome userName={userName} />
+              </PageSectionColumn>
+              <PageSectionColumn span={4} overflow>
+                <RecentArticlesColumn recentArticles={recentArticles} />
+              </PageSectionColumn>
+            </PageSectionColumns>
+          ) : (
+            /* Blank slate — no Site, no Article. Welcome replaces all three columns. */
+            <SiteWelcome userName={userName} />
+          )}
         </PageSection>
       </PageContainer>
 

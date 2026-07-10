@@ -1,0 +1,44 @@
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.2rem;
+  max-width: 64rem;
+  padding: 2.4rem;
+  background: var(--surface-page);
+  border: 0.1rem solid var(--border-subtle);
+  border-radius: 0.6rem;
+}
+
+.greeting {
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.heading {
+  font-size: 2.4rem;
+  margin: 0 0 0.4rem;
+  color: var(--text-primary);
+}
+
+.welcome p {
+  font-size: 1.5rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.actions {
+  margin-top: 0.8rem;
+}
+
+.secondaryText {
+  font-size: 1.3rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.secondaryText a {
+  color: var(--action-primary);
+}
