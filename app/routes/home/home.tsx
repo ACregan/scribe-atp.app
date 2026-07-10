@@ -608,52 +608,59 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Link>
           </PageSection>
         )}
-        <PageSection fill>
-          {hasSites ? (
-            <PageSectionColumns breakpoint="lg">
-              {/* Sites */}
-              <PageSectionColumn span={4} overflow>
-                <h2 className={styles.sectionTitle}>Sites</h2>
-                <ul className={styles.siteList}>
-                  {sites.map((site) => (
-                    <GroupSiteItem
-                      key={site.rkey}
-                      site={site}
-                      showGroups={false}
-                    />
-                  ))}
-                </ul>
-              </PageSectionColumn>
+        {hasSites || hasArticles ? (
+          <PageSection fill>
+            {hasSites ? (
+              <PageSectionColumns breakpoint="lg">
+                {/* Sites */}
+                <PageSectionColumn span={4} overflow>
+                  <h2 className={styles.sectionTitle}>Sites</h2>
+                  <ul className={styles.siteList}>
+                    {sites.map((site) => (
+                      <GroupSiteItem
+                        key={site.rkey}
+                        site={site}
+                        showGroups={false}
+                      />
+                    ))}
+                  </ul>
+                </PageSectionColumn>
 
-              {/* Engagement charts */}
-              <PageSectionColumn span={4} overflow>
-                <h2 className={styles.sectionTitle}>ENGAGEMENT</h2>
-                {engagementCharts && (
-                  <DashboardCharts charts={engagementCharts} />
-                )}
-              </PageSectionColumn>
+                {/* Engagement charts */}
+                <PageSectionColumn span={4} overflow>
+                  <h2 className={styles.sectionTitle}>ENGAGEMENT</h2>
+                  {engagementCharts && (
+                    <DashboardCharts charts={engagementCharts} />
+                  )}
+                </PageSectionColumn>
 
-              {/* Recently Updated */}
-              <PageSectionColumn span={4} overflow>
-                <RecentArticlesColumn recentArticles={recentArticles} />
-              </PageSectionColumn>
-            </PageSectionColumns>
-          ) : hasArticles ? (
-            <PageSectionColumns breakpoint="lg">
-              {/* No Site yet, but articles exist — welcome takes the Sites +
-                  Engagement columns' place, Recently Updated stays put. */}
-              <PageSectionColumn span={8} overflow>
-                <SiteWelcome userName={userName} />
-              </PageSectionColumn>
-              <PageSectionColumn span={4} overflow>
-                <RecentArticlesColumn recentArticles={recentArticles} />
-              </PageSectionColumn>
-            </PageSectionColumns>
-          ) : (
-            /* Blank slate — no Site, no Article. Welcome replaces all three columns. */
+                {/* Recently Updated */}
+                <PageSectionColumn span={4} overflow>
+                  <RecentArticlesColumn recentArticles={recentArticles} />
+                </PageSectionColumn>
+              </PageSectionColumns>
+            ) : (
+              <PageSectionColumns breakpoint="lg">
+                {/* No Site yet, but articles exist — welcome takes the Sites +
+                    Engagement columns' place, Recently Updated stays put. */}
+                <PageSectionColumn span={8} overflow>
+                  <SiteWelcome userName={userName} />
+                </PageSectionColumn>
+                <PageSectionColumn span={4} overflow>
+                  <RecentArticlesColumn recentArticles={recentArticles} />
+                </PageSectionColumn>
+              </PageSectionColumns>
+            )}
+          </PageSection>
+        ) : (
+          /* Blank slate — no Site, no Article. Welcome replaces all three
+             columns and isn't wrapped in a PageSectionColumn, so the
+             PageSection itself needs to own scrolling (fill deliberately
+             doesn't — see PageContainer's overflow/fill docs). */
+          <PageSection overflow>
             <SiteWelcome userName={userName} />
-          )}
-        </PageSection>
+          </PageSection>
+        )}
       </PageContainer>
 
       {isDev && (

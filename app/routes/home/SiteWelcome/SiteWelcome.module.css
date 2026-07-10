@@ -3,7 +3,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 1.2rem;
-  max-width: 64rem;
+  max-width: 80rem;
+  margin: 0 auto;
   padding: 2.4rem;
   background: var(--surface-page);
   border: 0.1rem solid var(--border-subtle);
