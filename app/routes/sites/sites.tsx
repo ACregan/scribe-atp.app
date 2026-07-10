@@ -7,6 +7,7 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import type { Route } from "./+types/sites";
 import { Input } from "~/components/Input/Input";
+import { ImagePicker } from "~/components/ImagePicker/ImagePicker";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -385,18 +386,8 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             label="Description"
             placeholder="What this site is about…"
           />
-          <Input
-            id="splashImageUrl"
-            name="splashImageUrl"
-            label="Splash Image URL"
-            placeholder="https://…"
-          />
-          <Input
-            id="logoImageUrl"
-            name="logoImageUrl"
-            label="Logo Image URL"
-            placeholder="https://…"
-          />
+          <ImagePicker name="splashImageUrl" label="Splash Image" />
+          <ImagePicker name="logoImageUrl" label="Logo Image" variant="square" />
           <label
             style={{
               display: "flex",
