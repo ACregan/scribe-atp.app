@@ -31,6 +31,7 @@ import {
   listSites,
 } from "~/services/siteRepository.server";
 import { deleteUmamiConfig } from "~/services/umami.server";
+import { registerSocialOrigin } from "~/services/socialOrigin.server";
 
 type ActionData = { ok: boolean; error?: string };
 
@@ -136,6 +137,7 @@ export async function action({ request }: Route.ActionArgs) {
           { event: "site.create", user_did: did, rkey, url },
           "site.create",
         );
+        await registerSocialOrigin(url, did);
       } catch (err) {
         return { ok: false, error: `Failed to create site: ${String(err)}` };
       }

@@ -28,6 +28,7 @@ import {
   putDocument,
 } from "~/services/documentRepository.server";
 import { resolveThumbUrl } from "~/services/article.server";
+import { registerSocialOrigin } from "~/services/socialOrigin.server";
 import {
   getUmamiConfig,
   saveUmamiConfig,
@@ -285,6 +286,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       const domainChanged = String(existingScribeBase.domain ?? "") !== url;
       const basePathChanged =
         String(existingScribeBase.basePath ?? "") !== urlPrefix;
+
+      if (domainChanged) {
+        await registerSocialOrigin(url, did);
+      }
 
       if (domainChanged || basePathChanged) {
         // Bug fix: previously a raw listRecords with limit:100 and no cursor,
