@@ -63,8 +63,8 @@ import { devSiteListLoader } from "~/services/devFixtures.server";
 import { logger } from "~/services/logger.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 
-export function meta({ data }: Route.MetaArgs) {
-  const title = data?.site?.title ?? "Site";
+export function meta({ loaderData }: Route.MetaArgs) {
+  const title = loaderData?.site?.title ?? "Site";
   return [{ title: `Scribe ATP – ${title}` }];
 }
 

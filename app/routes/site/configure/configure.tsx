@@ -374,8 +374,8 @@ type DisconnectUmamiActionData =
   | { ok: true; umamiDisconnected: true }
   | { ok: false; error: string };
 
-export function meta({ data }: Route.MetaArgs) {
-  const title = data?.site?.title ?? "Configure Site";
+export function meta({ loaderData }: Route.MetaArgs) {
+  const title = loaderData?.site?.title ?? "Configure Site";
   return [{ title: `Configure — ${title}` }];
 }
 

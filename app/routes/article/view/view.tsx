@@ -16,8 +16,8 @@ import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import styles from "./view.module.css";
 import "@scribe-atp/styles";
 
-export function meta({ data }: Route.MetaArgs) {
-  return [{ title: data?.title ? `${data.title} – Scribe ATP` : "Scribe ATP" }];
+export function meta({ loaderData }: Route.MetaArgs) {
+  return [{ title: loaderData?.title ? `${loaderData.title} – Scribe ATP` : "Scribe ATP" }];
 }
 
 export function HydrateFallback() {

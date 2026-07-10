@@ -17,7 +17,7 @@ variables:
 
 typecheck:
   stage: typecheck
-  image: node:20
+  image: node:22
   interruptible: true
   tags:
     - SERVER-docker-runner
@@ -48,7 +48,7 @@ typecheck:
 # giving every MR pipeline at least one job to pass.
 docs-only:
   stage: typecheck
-  image: node:20
+  image: node:22
   interruptible: true
   tags:
     - SERVER-docker-runner
@@ -68,7 +68,7 @@ docs-only:
 
 unit:
   stage: unit
-  image: node:20
+  image: node:22
   interruptible: true
   tags:
     - SERVER-docker-runner
@@ -101,7 +101,7 @@ unit:
 e2e:
   stage: e2e
   # Playwright image has Chromium pre-installed — no playwright install step needed
-  image: mcr.microsoft.com/playwright:v1.60.0-jammy
+  image: mcr.microsoft.com/playwright:v1.61.1-jammy
   interruptible: true
   tags:
     - SERVER-docker-runner
@@ -136,7 +136,7 @@ e2e:
 
 deploy:
   stage: deploy
-  image: node:20
+  image: node:22
   tags:
     - SERVER-docker-runner
   environment:
