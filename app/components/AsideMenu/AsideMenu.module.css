@@ -67,6 +67,23 @@
   fill: var(--aside-background);
 }
 
+/* ── Disabled nav item ── */
+.menuItemLinkDisabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.menuItemLinkDisabled:hover {
+  box-shadow: none;
+}
+
+.disabledReason {
+  margin-top: 0.4rem;
+  font-size: 1.1rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
 /* ── Icon wrapper — absolutely positioned so it never shifts ── */
 .menuItemIconWrapper {
   position: absolute;

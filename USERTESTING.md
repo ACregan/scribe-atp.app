@@ -164,6 +164,11 @@ Image Library:
 Configuring Site
  - [X] Umami connect was problematic. I got 500 error when I first set it up, I used the trailing slash on the url (https://analytics.perpetualsummer.ltd/) and the site Id, which I copied from notepad had a space/linebreak at the end (29e8b07a-5b06-47d2-a688-da9bb6bb5ce8 ). Investigated: `baseUrl`/`websiteId` are already `.trim()`'d and `apiUrl()` already strips a trailing slash, so this isn't reproducible from the current code — likely transient. Watching for a repeat before digging further.
 
+Further 'Blank User' Observations (this time as bsky handle: "perpetualsummer.ltd"):
+ - [X] Insights page just shows: No sites found. We might as well disable this entirely until a site has been added. **FIXED** on `feature/new-user-UX-improvements` — Insights is disabled in the side menu until a site exists, with a tooltip note ("Add a Site to enable").
+ - [X] Article List page - again no point if there are no articles, disable it in the side menu until at least one article. **FIXED** on `feature/new-user-UX-improvements` — disabled until an article exists, with a tooltip note ("Create an article to enable").
+ - [X] Groups page - again no point until at least one site is made. Disabling these routes will stop people wondering around useless routes and funnel them towards a place they might get some use out of (Making articles or adding sites). **FIXED** on `feature/new-user-UX-improvements` — disabled until a site exists, with a tooltip note ("Add a Site to enable").
+ - [ ] In short, a new user should only have access to the following side menu items: Dashboard (welcome screen for new users), Sites, New Article, Image Library. 
 
 - [ ] Decide: first-time login welcome modal — build or drop
 - [ ] Re-populate NoRobots.blog content under the new account
