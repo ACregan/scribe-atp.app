@@ -6,11 +6,14 @@ import styles from "./SiteWelcome.module.css";
 
 interface SiteWelcomeProps {
   userName: string | null;
+  hasArticles: boolean;
 }
 
-export function SiteWelcome({ userName }: SiteWelcomeProps) {
+export function SiteWelcome({ userName, hasArticles }: SiteWelcomeProps) {
   return (
-    <div className={styles.welcome}>
+    <div
+      className={`${styles.welcome}${hasArticles ? ` ${styles.fullWidth}` : ""}`}
+    >
       <IconBadge icon={SvgImageList.ScribeCMSLogo} size="large" />
 
       <p className={styles.greeting}>
@@ -27,24 +30,30 @@ export function SiteWelcome({ userName }: SiteWelcomeProps) {
 
       <p>
         You&apos;re now part of the ATProto blogging and content community.
-        Every article you write here is fully site.standard compliant —
-        ready to share on Bluesky, and discoverable through aggregation and
-        reader apps built for the open network, like Scribe Reader,
+        Every article you write here is fully site.standard compliant and ready
+        to share on Bluesky. Your content will be discoverable and readable
+        through aggregation and reader apps built for the open network, your
+        users will be able to find your content via site such as Scribe Reader,
         Standard-Reader.app, and Con.Vey.Dev.
       </p>
 
       <p>
-        Want your articles on your own website too? The Scribe SDK gives
+        Want your articles on your own website too? The Scribe SDK provides
         first-class support for Next.js, Nuxt, React, Vue, Angular, and React
-        Router — pull your Scribe content straight into any of them, so your
-        writing lives on your own site and stays discoverable across the
-        wider network.
+        Router. Integrate your Scribe content straight into any of them, so your
+        writing lives on your own site and stays discoverable across the wider
+        open ATproto network.
       </p>
 
       <div className={styles.actions}>
         <Link to="/article/create">
-          <Button type="button" icon={SvgImageList.Document} tabIndex={-1}>
-            Write your first article
+          <Button
+            className={styles.CTAbutton}
+            type="button"
+            icon={SvgImageList.Document}
+            tabIndex={-1}
+          >
+            {hasArticles ? "Write your next article" : "Write your first article"}
           </Button>
         </Link>
       </div>

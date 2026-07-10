@@ -644,7 +644,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 {/* No Site yet, but articles exist — welcome takes the Sites +
                     Engagement columns' place, Recently Updated stays put. */}
                 <PageSectionColumn span={8} overflow>
-                  <SiteWelcome userName={userName} />
+                  <SiteWelcome userName={userName} hasArticles={hasArticles} />
                 </PageSectionColumn>
                 <PageSectionColumn span={4} overflow>
                   <RecentArticlesColumn recentArticles={recentArticles} />
@@ -658,7 +658,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
              PageSection itself needs to own scrolling (fill deliberately
              doesn't — see PageContainer's overflow/fill docs). */
           <PageSection overflow>
-            <SiteWelcome userName={userName} />
+            <SiteWelcome userName={userName} hasArticles={hasArticles} />
           </PageSection>
         )}
       </PageContainer>

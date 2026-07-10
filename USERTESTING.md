@@ -168,7 +168,7 @@ Further 'Blank User' Observations (this time as bsky handle: "perpetualsummer.lt
  - [X] Insights page just shows: No sites found. We might as well disable this entirely until a site has been added. **FIXED** on `feature/new-user-UX-improvements` — Insights is disabled in the side menu until a site exists, with a tooltip note ("Add a Site to enable").
  - [X] Article List page - again no point if there are no articles, disable it in the side menu until at least one article. **FIXED** on `feature/new-user-UX-improvements` — disabled until an article exists, with a tooltip note ("Create an article to enable").
  - [X] Groups page - again no point until at least one site is made. Disabling these routes will stop people wondering around useless routes and funnel them towards a place they might get some use out of (Making articles or adding sites). **FIXED** on `feature/new-user-UX-improvements` — disabled until a site exists, with a tooltip note ("Add a Site to enable").
- - [ ] In short, a new user should only have access to the following side menu items: Dashboard (welcome screen for new users), Sites, New Article, Image Library. 
+ - [X] In short, a new user should only have access to the following side menu items: Dashboard (welcome screen for new users), Sites, New Article, Image Library. 
 
 - [ ] Decide: first-time login welcome modal — build or drop
 - [ ] Re-populate NoRobots.blog content under the new account
