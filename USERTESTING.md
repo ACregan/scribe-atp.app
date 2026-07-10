@@ -144,7 +144,7 @@ _(log each as you hit it — screen, what's missing/confusing, what would fix it
 - [ ] Complete fresh-account walkthrough end to end
 
 Deleting records from AnthonyCregan.dev PDS:
-  - [ ] Delete Site action is too easy and could be done by accident - Perhaps Add an input that asks to enter the domain name to confirm they wish to delete it.
+  - [X] Delete Site action is too easy and could be done by accident - Perhaps Add an input that asks to enter the domain name to confirm they wish to delete it. **FIXED** on `feature/add-site-delete-confirmation` — Delete Site button stays disabled until the typed value exactly matches the site's domain.
 
   - [X] Add New Site Modal - Still has image URL text inputs for both splash image and logo image URLs, these should be a image library picker for each one. **FIXED** on `feature/add-site-image-pickers` — both fields now use the same `ImagePicker` component already used on `/site/:slug/configure`.
 
