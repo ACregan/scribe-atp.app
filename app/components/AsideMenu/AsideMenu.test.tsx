@@ -75,12 +75,24 @@ vi.mock("../Button/Button", () => ({
   ),
 }));
 
-const renderMenu = (expanded = false, onToggle = vi.fn()) => {
+const renderMenu = (
+  expanded = false,
+  onToggle = vi.fn(),
+  hasSites = true,
+  hasArticles = true,
+) => {
   const router = createMemoryRouter(
     [
       {
         path: "/",
-        element: <AsideMenu expanded={expanded} onToggle={onToggle} />,
+        element: (
+          <AsideMenu
+            expanded={expanded}
+            onToggle={onToggle}
+            hasSites={hasSites}
+            hasArticles={hasArticles}
+          />
+        ),
       },
       { path: "/sites", element: null },
       { path: "/groups", element: null },
@@ -292,6 +304,59 @@ describe("AsideMenu", () => {
     it("should always show logout tooltip regardless of expanded state", () => {
       renderMenu(true);
       expect(screen.getByTestId("tooltip-logout-button")).toBeInTheDocument();
+    });
+  });
+
+  describe("Disabled state — no sites", () => {
+    it("should not render Groups or Insights as links when hasSites is false", () => {
+      renderMenu(false, vi.fn(), false, true);
+      expect(
+        screen.queryByRole("link", { name: "Groups" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: "Insights" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("should mark Groups and Insights aria-disabled with a reason", () => {
+      renderMenu(false, vi.fn(), false, true);
+      expect(
+        screen.getByLabelText("Groups — Add a Site to enable"),
+      ).toHaveAttribute("aria-disabled", "true");
+      expect(
+        screen.getByLabelText("Insights — Add a Site to enable"),
+      ).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("should still render Articles as an enabled link when hasSites is false but hasArticles is true", () => {
+      renderMenu(false, vi.fn(), false, true);
+      expect(
+        screen.getByRole("link", { name: "Articles" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("Disabled state — no articles", () => {
+    it("should not render Articles as a link when hasArticles is false", () => {
+      renderMenu(false, vi.fn(), true, false);
+      expect(
+        screen.queryByRole("link", { name: "Articles" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("should mark Articles aria-disabled with a reason", () => {
+      renderMenu(false, vi.fn(), true, false);
+      expect(
+        screen.getByLabelText("Articles — Create an article to enable"),
+      ).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("should still render Groups and Insights as enabled links when hasArticles is false but hasSites is true", () => {
+      renderMenu(false, vi.fn(), true, false);
+      expect(screen.getByRole("link", { name: "Groups" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Insights" }),
+      ).toBeInTheDocument();
     });
   });
 });

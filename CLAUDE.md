@@ -13,7 +13,7 @@ An AT Protocol-driven content management system. Authors write and store article
 
 ## Stack
 
-- **React Router v7** (framework mode, SSR enabled)
+- **React Router v8** (framework mode, SSR enabled)
 - **Vite** (dev server, default port 5173)
 - **TypeScript** (strict mode)
 - **@atproto/oauth-client-node** — Bluesky OAuth PKCE flow

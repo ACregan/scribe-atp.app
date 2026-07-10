@@ -1,8 +1,13 @@
 import type { Route } from "./+types/core";
 import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router";
-import { getAuthSession, useRealOAuth } from "~/services/auth.server";
+import {
+  getAtpAgent,
+  getAuthSession,
+  useRealOAuth,
+} from "~/services/auth.server";
 import { getTheme } from "~/services/theme.server";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
@@ -32,6 +37,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       displayName: null,
       avatar: null,
       theme,
+      hasSites: false,
+      hasArticles: false,
     };
   }
 
@@ -42,8 +49,26 @@ export async function loader({ request }: Route.LoaderArgs) {
       displayName: handle,
       avatar: null,
       theme,
+      hasSites: true,
+      hasArticles: true,
     };
   }
+
+  const agent = await getAtpAgent(did);
+  const [sitesResult, documentsResult] = await Promise.all([
+    agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: SITE_COLLECTION,
+      limit: 1,
+    }),
+    agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: DOCUMENT_COLLECTION,
+      limit: 1,
+    }),
+  ]);
+  const hasSites = sitesResult.data.records.length > 0;
+  const hasArticles = documentsResult.data.records.length > 0;
 
   try {
     const res = await fetch(
@@ -57,6 +82,8 @@ export async function loader({ request }: Route.LoaderArgs) {
         displayName: profile.displayName ?? profile.handle ?? handle,
         avatar: profile.avatar ?? null,
         theme,
+        hasSites,
+        hasArticles,
       };
     }
   } catch {
@@ -69,6 +96,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     displayName: handle,
     avatar: null,
     theme,
+    hasSites,
+    hasArticles,
   };
 }
 
@@ -86,7 +115,8 @@ const HeaderButton: React.FC<HeaderButtonProps> = ({ url, children }) => {
 };
 
 function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
-  const { isAuthenticated, displayName, avatar, handle } = loaderData;
+  const { isAuthenticated, displayName, avatar, handle, hasSites, hasArticles } =
+    loaderData;
   const location = useLocation();
   const navigation = useNavigation();
   const isNavigating = navigation.state !== "idle";
@@ -190,7 +220,12 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
           </div>
         </header>
         {isAuthenticated && (
-          <AsideMenu expanded={asideExpanded} onToggle={handleToggleAside} />
+          <AsideMenu
+            expanded={asideExpanded}
+            onToggle={handleToggleAside}
+            hasSites={hasSites}
+            hasArticles={hasArticles}
+          />
         )}
         <main id="main-content">
           {isNavigating && <Spinner overlay />}
