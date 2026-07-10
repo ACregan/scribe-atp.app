@@ -7,6 +7,7 @@ import {
 } from "~/components/PageContainer/PageContainer";
 import type { Route } from "./+types/sites";
 import { Input } from "~/components/Input/Input";
+import { ImagePicker } from "~/components/ImagePicker/ImagePicker";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -183,6 +184,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
   const addSiteModal = useModal();
   const deleteSiteModal = useModal();
   const [siteToDelete, setSiteToDelete] = useState<SiteCard | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const createFetcher = useFetcher<ActionData>();
   const deleteFetcher = useFetcher<ActionData>();
@@ -227,7 +229,19 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
     });
     deleteSiteModal.close();
     setSiteToDelete(null);
+    setDeleteConfirmText("");
   }, [deleteFetcher.data, deleteSiteModal.close]);
+
+  function handleOpenDeleteModal(site: SiteCard) {
+    setSiteToDelete(site);
+    setDeleteConfirmText("");
+    deleteSiteModal.open();
+  }
+
+  function handleCloseDeleteModal() {
+    deleteSiteModal.close();
+    setDeleteConfirmText("");
+  }
 
   const [viewType, setViewType] = useState<"list" | "tiles">("tiles");
 
@@ -305,10 +319,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
                 <SiteTile
                   key={site.rkey}
                   site={site}
-                  onDelete={(s) => {
-                    setSiteToDelete(s);
-                    deleteSiteModal.open();
-                  }}
+                  onDelete={handleOpenDeleteModal}
                   isDeleting={isDeleting}
                 />
               ))}
@@ -321,10 +332,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
                 <SiteListItem
                   key={site.rkey}
                   site={site}
-                  onDelete={(s) => {
-                    setSiteToDelete(s);
-                    deleteSiteModal.open();
-                  }}
+                  onDelete={handleOpenDeleteModal}
                   isDeleting={isDeleting}
                 />
               ))}
@@ -385,18 +393,8 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             label="Description"
             placeholder="What this site is about…"
           />
-          <Input
-            id="splashImageUrl"
-            name="splashImageUrl"
-            label="Splash Image URL"
-            placeholder="https://…"
-          />
-          <Input
-            id="logoImageUrl"
-            name="logoImageUrl"
-            label="Logo Image URL"
-            placeholder="https://…"
-          />
+          <ImagePicker name="splashImageUrl" label="Splash Image" />
+          <ImagePicker name="logoImageUrl" label="Logo Image" variant="square" />
           <label
             style={{
               display: "flex",
@@ -417,13 +415,13 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
       {/* ── Delete Site Modal ──────────────────────────────────────────────── */}
       <Modal
         isOpen={deleteSiteModal.isOpen}
-        onClose={deleteSiteModal.close}
+        onClose={handleCloseDeleteModal}
         title="Delete Site"
         footer={
           <div className={styles.modalFooter}>
             <Button
               variant="secondary"
-              onClick={deleteSiteModal.close}
+              onClick={handleCloseDeleteModal}
               disabled={isDeleting}
             >
               Cancel
@@ -432,7 +430,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
               type="submit"
               form="delete-site-form"
               variant="danger"
-              disabled={isDeleting}
+              disabled={isDeleting || deleteConfirmText !== siteToDelete?.url}
             >
               {isDeleting ? "Deleting…" : "Delete Site"}
             </Button>
@@ -451,6 +449,15 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
             This removes the site and its group structure. Articles are not
             deleted from your PDS.
           </p>
+          <Input
+            id="deleteConfirm"
+            name="deleteConfirm"
+            label={`Type "${siteToDelete?.url ?? ""}" to confirm`}
+            placeholder={siteToDelete?.url}
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            autoComplete="off"
+          />
           {deleteFetcher.data?.error && (
             <p className={styles.errorMessage}>{deleteFetcher.data.error}</p>
           )}
