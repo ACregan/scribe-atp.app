@@ -128,10 +128,10 @@ Working hypothesis going in: a first-login welcome modal may be worth building. 
 
 _(log each as you hit it — screen, what's missing/confusing, what would fix it)_
 
-- [ ] `/login` — first impression, before any auth
-- [ ] Post-auth landing (`/`) — blank dashboard, no sites/articles/images yet
+- [X] `/login` — first impression, before any auth
+- [X] Post-auth landing (`/`) — blank dashboard, no sites/articles/images yet
 - [ ] `/sites` — empty state (already flagged 27-05-26 as basic; revisit with truly fresh eyes)
-- [ ] Add New Site flow — anything unclear about required fields (domain, basePath, etc.)
+- [X] Add New Site flow — anything unclear about required fields (domain, basePath, etc.). **FIXED** on `feature/add-site-field-help` — each field now has a brief explanation in a column to the right (collapses to stacked below the input on narrow screens).
 - [ ] `/groups` — empty state, first Add New Group
 - [ ] `/article/create` — first article with no site/group context yet
 - [ ] Publish flow (`/article/list`) — first time picking a site + group

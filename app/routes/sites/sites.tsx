@@ -12,7 +12,7 @@ import { Spinner } from "~/components/Spinner/Spinner";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { Button } from "~/components/Button/Button";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useFetcher, useLocation, useNavigate } from "react-router";
 import { useToast } from "~/components/Toast/ToastContext";
 import styles from "./sites.module.css";
@@ -178,6 +178,21 @@ export function HydrateFallback() {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
+function FieldWithHelp({
+  children,
+  help,
+}: {
+  children: ReactNode;
+  help: string;
+}) {
+  return (
+    <div className={styles.fieldRow}>
+      {children}
+      <p className={styles.fieldHelp}>{help}</p>
+    </div>
+  );
+}
 
 export default function Sites({ loaderData }: Route.ComponentProps) {
   const { sites } = loaderData;
@@ -346,6 +361,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
         isOpen={addSiteModal.isOpen}
         onClose={handleCloseAddModal}
         title="Add New Site"
+        style={{ maxWidth: "84rem" }}
         footer={
           <div className={styles.modalFooter}>
             <Button
@@ -367,45 +383,63 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
           className={styles.siteForm}
         >
           <input type="hidden" name="_intent" value="createSite" />
-          <Input
-            id="title"
-            name="title"
-            label="Title"
-            placeholder="My Blog"
-            required
-          />
-          <Input
-            id="url"
-            name="url"
-            label="Domain"
-            placeholder="myblog.com"
-            required
-          />
-          <Input
-            id="urlPrefix"
-            name="urlPrefix"
-            label="URL Prefix"
-            placeholder="blog"
-          />
-          <Input
-            id="description"
-            name="description"
-            label="Description"
-            placeholder="What this site is about…"
-          />
-          <ImagePicker name="splashImageUrl" label="Splash Image" />
-          <ImagePicker name="logoImageUrl" label="Logo Image" variant="square" />
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.6rem",
-              fontSize: "1.4rem",
-            }}
-          >
-            <input type="checkbox" name="showInDiscover" defaultChecked />
-            Show in Discover
-          </label>
+          <FieldWithHelp help="The display name for your site — shown on the Sites page and used as the default page title.">
+            <Input
+              id="title"
+              name="title"
+              label="Title"
+              placeholder="My Blog"
+              required
+            />
+          </FieldWithHelp>
+          <FieldWithHelp help="Your site's domain name, exactly as visitors would type it — e.g. myblog.com. This should match where your site is actually hosted.">
+            <Input
+              id="url"
+              name="url"
+              label="Domain"
+              placeholder="myblog.com"
+              required
+            />
+          </FieldWithHelp>
+          <FieldWithHelp help="Only needed if your articles live under a subpath rather than the domain root — e.g. blog if your articles are at myblog.com/blog. Leave blank if they're at the root.">
+            <Input
+              id="urlPrefix"
+              name="urlPrefix"
+              label="URL Prefix"
+              placeholder="blog"
+            />
+          </FieldWithHelp>
+          <FieldWithHelp help="A short summary of your site, shown on the Sites page.">
+            <Input
+              id="description"
+              name="description"
+              label="Description"
+              placeholder="What this site is about…"
+            />
+          </FieldWithHelp>
+          <FieldWithHelp help="A wide banner image for your site, shown as the background of its tile on the Sites page.">
+            <ImagePicker name="splashImageUrl" label="Splash Image" />
+          </FieldWithHelp>
+          <FieldWithHelp help="A square logo or icon for your site, shown alongside the splash image.">
+            <ImagePicker
+              name="logoImageUrl"
+              label="Logo Image"
+              variant="square"
+            />
+          </FieldWithHelp>
+          <FieldWithHelp help="Marks your site as discoverable by other Scribe tools.">
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.6rem",
+                fontSize: "1.4rem",
+              }}
+            >
+              <input type="checkbox" name="showInDiscover" defaultChecked />
+              Show in Discover
+            </label>
+          </FieldWithHelp>
           {createFetcher.data?.error && (
             <p className={styles.errorMessage}>{createFetcher.data.error}</p>
           )}
