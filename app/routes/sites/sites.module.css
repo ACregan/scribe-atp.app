@@ -59,6 +59,33 @@
   gap: 1.2rem;
 }
 
+/* Each field paired with an explanation to its right — collapses to a
+   stacked layout (description below the input) on narrower viewports. */
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 0.4rem 2rem;
+}
+
+.fieldHelp {
+  font-size: 1.3rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+  padding-top: 2.6rem;
+}
+
+@media (max-width: 640px) {
+  .fieldRow {
+    grid-template-columns: 1fr;
+  }
+
+  .fieldHelp {
+    padding-top: 0;
+  }
+}
+
 .modalFooter {
   display: flex;
   gap: 0.8rem;

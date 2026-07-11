@@ -1,20 +1,20 @@
 import { test, expect } from "@playwright/test";
 
-test("article list shows published articles and orphaned drafts", async ({
+test("article list shows published articles and standalone articles", async ({
   page,
 }) => {
   await page.goto("/article/list");
   await expect(page.getByText("My First Post")).toBeVisible();
-  await expect(page.getByText("Dev Orphan Draft")).toBeVisible();
+  await expect(page.getByText("Dev Standalone Article")).toBeVisible();
 });
 
-test("delete button on orphaned draft opens confirmation modal", async ({
+test("delete button on a standalone article opens confirmation modal", async ({
   page,
 }) => {
   await page.goto("/article/list");
   await page.getByRole("button", { name: "Delete" }).click();
   await expect(
-    page.getByRole("heading", { name: "Delete Draft" }),
+    page.getByRole("heading", { name: "Delete Article" }),
   ).toBeVisible();
 });
 
@@ -22,16 +22,16 @@ test("confirming delete closes the modal", async ({ page }) => {
   await page.goto("/article/list");
   await page.getByRole("button", { name: "Delete" }).click();
   await expect(
-    page.getByRole("heading", { name: "Delete Draft" }),
+    page.getByRole("heading", { name: "Delete Article" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Delete" }).last().click();
   await expect(
-    page.getByRole("heading", { name: "Delete Draft" }),
+    page.getByRole("heading", { name: "Delete Article" }),
   ).not.toBeVisible();
 });
 
-test("edit link on an orphaned draft navigates to the edit page", async ({
+test("edit link on a standalone article navigates to the edit page", async ({
   page,
 }) => {
   await page.goto("/article/list");

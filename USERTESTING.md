@@ -128,27 +128,27 @@ Working hypothesis going in: a first-login welcome modal may be worth building. 
 
 _(log each as you hit it — screen, what's missing/confusing, what would fix it)_
 
-- [ ] `/login` — first impression, before any auth
-- [ ] Post-auth landing (`/`) — blank dashboard, no sites/articles/images yet
-- [ ] `/sites` — empty state (already flagged 27-05-26 as basic; revisit with truly fresh eyes)
-- [ ] Add New Site flow — anything unclear about required fields (domain, basePath, etc.)
-- [ ] `/groups` — empty state, first Add New Group
-- [ ] `/article/create` — first article with no site/group context yet
-- [ ] Publish flow (`/article/list`) — first time picking a site + group
-- [ ] `/images` — empty Image Library, first upload
-- [ ] Anywhere else the app assumes prior state that a new user won't have
+- [X] `/login` — first impression, before any auth
+- [X] Post-auth landing (`/`) — blank dashboard, no sites/articles/images yet
+- [X] `/sites` — empty state (already flagged 27-05-26 as basic; revisit with truly fresh eyes)
+- [X] Add New Site flow — anything unclear about required fields (domain, basePath, etc.). **FIXED** on `feature/add-site-field-help` — each field now has a brief explanation in a column to the right (collapses to stacked below the input on narrow screens).
+- [X] `/groups` — empty state, first Add New Group (Hidden unless A site is created)
+- [X] `/article/create` — first article with no site/group context yet
+- [X] Publish flow (`/article/list`) — first time picking a site + group
+- [X] `/images` — empty Image Library, first upload (Deal with this as part of contributors work)
+- [X] Anywhere else the app assumes prior state that a new user won't have
 
 ###### ACTION ITEM LIST
 
 
-- [ ] Complete fresh-account walkthrough end to end
+- [X] Complete fresh-account walkthrough end to end
 
 Deleting records from AnthonyCregan.dev PDS:
   - [X] Delete Site action is too easy and could be done by accident - Perhaps Add an input that asks to enter the domain name to confirm they wish to delete it. **FIXED** on `feature/add-site-delete-confirmation` — Delete Site button stays disabled until the typed value exactly matches the site's domain.
 
   - [X] Add New Site Modal - Still has image URL text inputs for both splash image and logo image URLs, these should be a image library picker for each one. **FIXED** on `feature/add-site-image-pickers` — both fields now use the same `ImagePicker` component already used on `/site/:slug/configure`.
 
-  - [ ] Once you have created a new site and gone to the relevant /article/list/**SITE** page, when you make your first group it still has "Drop articles here" and dotted line styles left over from the drag and drop feature we phases out here. Perhaps instaead this should read "Click here to add an article to this 'group name' group" which opens a modal with all available articles, if there are no articles it should just read "Write your first article"  
+  - [X] Once you have created a new site and gone to the relevant /article/list/**SITE** page, when you make your first group it still has "Drop articles here" and dotted line styles left over from the drag and drop feature we phases out here. Perhaps instaead this should read "Click here to add an article to this 'group name' group" which opens a modal with all available articles, if there are no articles it should just read "Write your first article"  **FIXED** on `feature/group-empty-state-messages` — the dashed drag-and-drop hint now only shows for an empty group when another group on the same site actually has articles to drag from; otherwise it reads "Your published articles will appear here" + Write New Article, or "Assign an article to this group from the Article List" if unpublished articles exist elsewhere in the account.
 
   - [X] `/images` — Upload Images modal: every pending-file preview showed a broken image icon with the filename as fallback alt text, for all files regardless of type. Root cause: CSP `img-src 'self' data: https:` didn't allow `blob:`, so the browser blocked every `URL.createObjectURL(file)` preview `<img>` before it could render. **FIXED** on `fix/csp-blob-image-preview` — added `blob:` to `img-src`.
 
@@ -171,5 +171,5 @@ Further 'Blank User' Observations (this time as bsky handle: "perpetualsummer.lt
  - [X] In short, a new user should only have access to the following side menu items: Dashboard (welcome screen for new users), Sites, New Article, Image Library. 
 
 
-- [ ] Decide: first-time login welcome modal — build or drop
-- [ ] Re-populate NoRobots.blog content under the new account
+- [X] Decide: first-time login welcome modal — build or drop
+- [X] Re-populate NoRobots.blog content under the new account

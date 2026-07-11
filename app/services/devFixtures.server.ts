@@ -176,12 +176,12 @@ export function devArticleListLoader() {
         ],
       },
     ],
-    orphanedDrafts: [
+    standaloneArticles: [
       {
-        rkey: "dev-orphan",
-        uri: `at://${DEV_DID}/site.standard.document/dev-orphan`,
-        title: "Dev Orphan Draft",
-        slug: "dev-orphan",
+        rkey: "dev-standalone",
+        uri: `at://${DEV_DID}/site.standard.document/dev-standalone`,
+        title: "Dev Standalone Article",
+        slug: "dev-standalone",
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
       },
@@ -249,10 +249,15 @@ export function devEditLoader(articleUrl: string): {
 
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
+  hasUnassignedArticles: boolean;
   site: SiteManifest;
 } {
   return {
     devMode: true,
+    // Dev fixture exercises the "other group has articles" empty-state case
+    // below (getting-started is empty, engineering isn't) — the classic
+    // "Drop articles here" DnD hint.
+    hasUnassignedArticles: false,
     site: {
       rkey: siteSlug,
       cid: "dev-cid-site",
@@ -272,6 +277,11 @@ export function devSiteListLoader(siteSlug: string): {
               createdAt: "2025-01-01T00:00:00.000Z",
             },
           ],
+        },
+        {
+          slug: "getting-started",
+          title: "Getting Started",
+          articles: [],
         },
       ],
       // Since ADR 0013, no UI path can populate ungroupedArticles anymore —

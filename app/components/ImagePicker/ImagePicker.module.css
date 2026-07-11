@@ -22,7 +22,7 @@
   background: var(--surface-input);
   cursor: pointer;
   transition: border-color 0.15s;
-  padding: 2rem;
+  padding: 1rem;
 }
 
 .emptyPicker:hover {
@@ -69,7 +69,7 @@
 
 .wide {
   width: 100%;
-  aspect-ratio: 4 / 1;
+  aspect-ratio: 5 / 1;
   min-height: 8rem;
 }
 

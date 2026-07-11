@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 // Since ADR 0013, Publish is a single consolidated action (site -> group,
 // with inline create-group) that lives only on /article/list, applied to
-// Unassigned Drafts. It no longer lives on the per-site view. Unpublish
+// Standalone Articles. It no longer lives on the per-site view. Unpublish
 // (still labelled "moveToDraft" internally) stays on the per-site view,
 // fully detaching an article back to loose rather than moving it within
 // the site.
@@ -12,9 +12,11 @@ const SITE_LIST_URL = "/article/list/norobots-blog";
 
 // ── Publish flow (/article/list) ──────────────────────────────────────────────
 
-test("Unassigned Drafts show a Publish button", async ({ page }) => {
+test("Standalone Articles show a Publish button", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
-  await expect(page.getByText("Dev Orphan Draft", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Dev Standalone Article", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
 });
 
@@ -25,7 +27,7 @@ test("clicking Publish opens the Publish Article modal", async ({ page }) => {
     page.getByRole("heading", { name: "Publish Article" }),
   ).toBeVisible();
   await expect(
-    page.locator("dialog[open]").getByText("Dev Orphan Draft"),
+    page.locator("dialog[open]").getByText("Dev Standalone Article"),
   ).toBeVisible();
 });
 

@@ -40,7 +40,13 @@ import { useState, useRef, useEffect } from "react";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
-import { DOCUMENT_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import {
+  DOCUMENT_COLLECTION,
+  READER_BASE_URL,
+  SITE_COLLECTION,
+  SLUG_RE,
+} from "~/constants";
+import { listDocuments } from "~/services/documentRepository.server";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
   type SiteManifest,
@@ -75,17 +81,27 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   try {
     const { agent, did } = await requireAtpAgent(request);
-    const record = await agent.com.atproto.repo.getRecord({
-      repo: did,
-      collection: SITE_COLLECTION,
-      rkey: siteSlug,
-    });
+    const [record, documents] = await Promise.all([
+      agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteSlug,
+      }),
+      listDocuments(agent, did),
+    ]);
 
     const value = record.data.value as Record<string, unknown>;
     const scribeVal = (value.scribe as Record<string, unknown>) ?? {};
 
+    // ADR 0013: a document's own `site` field is the sole loose-vs-published
+    // signal — a loose document's `site` is a reader URL, not an at:// URI.
+    const hasUnassignedArticles = documents.some((d) =>
+      String(d.value.site ?? "").startsWith(READER_BASE_URL),
+    );
+
     return {
       devMode: false,
+      hasUnassignedArticles,
       site: {
         rkey: siteSlug,
         cid: record.data.cid,
@@ -461,7 +477,7 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode } = loaderData;
+  const { site, devMode, hasUnassignedArticles } = loaderData;
   const { isOpen, open, close } = useModal();
 
   const navigate = useNavigate();
@@ -505,6 +521,15 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     onDragOver,
     onDragEnd,
   } = useSiteListDnD(tree, setTree);
+
+  // Does at least one *other* group on this site already have articles? If
+  // so, an empty group is a legitimate drag-and-drop target (move an
+  // article here from that other group) — show the "Drop articles here"
+  // hint. If not, dragging isn't a real option yet, so point the user at
+  // writing or assigning an article instead (see GroupItem).
+  const siteHasAnyArticles = tree.some(
+    (group) => group.id !== "g:root" && group.children.length > 0,
+  );
 
   const saveFetcher = useFetcher<{ ok?: boolean; error?: string }>();
   const isSaving = saveFetcher.state !== "idle";
@@ -675,6 +700,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                     isDeleting={
                       isDeleting && deletingSlugRef.current === group.slug
                     }
+                    siteHasAnyArticles={siteHasAnyArticles}
+                    hasUnassignedArticles={hasUnassignedArticles}
                   />
                 ))}
             </GroupList>
