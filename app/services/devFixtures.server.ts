@@ -176,12 +176,12 @@ export function devArticleListLoader() {
         ],
       },
     ],
-    orphanedDrafts: [
+    standaloneArticles: [
       {
-        rkey: "dev-orphan",
-        uri: `at://${DEV_DID}/site.standard.document/dev-orphan`,
-        title: "Dev Orphan Draft",
-        slug: "dev-orphan",
+        rkey: "dev-standalone",
+        uri: `at://${DEV_DID}/site.standard.document/dev-standalone`,
+        title: "Dev Standalone Article",
+        slug: "dev-standalone",
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
       },

@@ -130,18 +130,18 @@ _(log each as you hit it — screen, what's missing/confusing, what would fix it
 
 - [X] `/login` — first impression, before any auth
 - [X] Post-auth landing (`/`) — blank dashboard, no sites/articles/images yet
-- [ ] `/sites` — empty state (already flagged 27-05-26 as basic; revisit with truly fresh eyes)
+- [X] `/sites` — empty state (already flagged 27-05-26 as basic; revisit with truly fresh eyes)
 - [X] Add New Site flow — anything unclear about required fields (domain, basePath, etc.). **FIXED** on `feature/add-site-field-help` — each field now has a brief explanation in a column to the right (collapses to stacked below the input on narrow screens).
-- [ ] `/groups` — empty state, first Add New Group
-- [ ] `/article/create` — first article with no site/group context yet
-- [ ] Publish flow (`/article/list`) — first time picking a site + group
-- [ ] `/images` — empty Image Library, first upload
-- [ ] Anywhere else the app assumes prior state that a new user won't have
+- [X] `/groups` — empty state, first Add New Group (Hidden unless A site is created)
+- [X] `/article/create` — first article with no site/group context yet
+- [X] Publish flow (`/article/list`) — first time picking a site + group
+- [X] `/images` — empty Image Library, first upload (Deal with this as part of contributors work)
+- [X] Anywhere else the app assumes prior state that a new user won't have
 
 ###### ACTION ITEM LIST
 
 
-- [ ] Complete fresh-account walkthrough end to end
+- [X] Complete fresh-account walkthrough end to end
 
 Deleting records from AnthonyCregan.dev PDS:
   - [X] Delete Site action is too easy and could be done by accident - Perhaps Add an input that asks to enter the domain name to confirm they wish to delete it. **FIXED** on `feature/add-site-delete-confirmation` — Delete Site button stays disabled until the typed value exactly matches the site's domain.
@@ -171,5 +171,5 @@ Further 'Blank User' Observations (this time as bsky handle: "perpetualsummer.lt
  - [X] In short, a new user should only have access to the following side menu items: Dashboard (welcome screen for new users), Sites, New Article, Image Library. 
 
 
-- [ ] Decide: first-time login welcome modal — build or drop
-- [ ] Re-populate NoRobots.blog content under the new account
+- [X] Decide: first-time login welcome modal — build or drop
+- [X] Re-populate NoRobots.blog content under the new account
