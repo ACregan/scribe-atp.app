@@ -533,13 +533,13 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         </PageSection>
       )}
 
-      {publishedArticles.length > 0 ? (
-        <PageSection>
-          <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
-          <p className={styles.sectionNote}>
-            These articles have been assigned to a site and may or may not be
-            published.
-          </p>
+      <PageSection>
+        <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
+        <p className={styles.sectionNote}>
+          These articles have been assigned to a site and may or may not be
+          published.
+        </p>
+        {publishedArticles.length > 0 ? (
           <ul className={styles.articleList}>
             {publishedArticles.map((article) => {
               return (
@@ -587,33 +587,30 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
               );
             })}
           </ul>
-        </PageSection>
-      ) : standaloneArticles.length > 0 ? (
-        <PageSection>
+        ) : publishTargets.length === 0 ? (
           <div className={styles.emptyState}>
-            <p>
-              No articles have been published to a site yet — publish one of
-              your standalone articles above whenever you're ready.
-            </p>
-          </div>
-        </PageSection>
-      ) : (
-        <PageSection>
-          <div className={styles.emptyState}>
-            <p>Your articles will be listed here.</p>
-            <Link to="/article/create">
+            <p>No Configured Site. To publish your articles to a website:</p>
+            <Link to="/sites/new">
               <Button
                 className={styles.CTAbutton}
                 type="button"
-                icon={SvgImageList.Document}
+                icon={SvgImageList.Website}
                 tabIndex={-1}
               >
-                Write your first article
+                Create New Site
               </Button>
             </Link>
           </div>
-        </PageSection>
-      )}
+        ) : (
+          <div className={styles.emptyState}>
+            <p>
+              If you want to display your articles on your website, assign
+              it to the site by clicking the &ldquo;Publish&rdquo; button on
+              the article above.
+            </p>
+          </div>
+        )}
+      </PageSection>
 
       {detailsData.length > 0 && (
         <Modal
