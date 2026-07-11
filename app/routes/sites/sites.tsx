@@ -22,6 +22,7 @@ import { SiteTile } from "~/components/SiteTile/SiteTile";
 import { type SiteCard } from "~/components/types";
 
 import { DOMAIN_RE, SITE_COLLECTION } from "~/constants";
+import { resolveThumbUrl } from "~/services/article.server";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import SiteListItem from "~/components/SiteListItem/SiteListItem";
 import { useTheme } from "~/context/ThemeContext";
@@ -34,7 +35,7 @@ import {
 import { deleteUmamiConfig } from "~/services/umami.server";
 import { registerSocialOrigin } from "~/services/socialOrigin.server";
 
-type ActionData = { ok: boolean; error?: string };
+type ActionData = { ok: boolean; error?: string; iconWarning?: string };
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP - Sites" }];
@@ -107,10 +108,50 @@ export async function action({ request }: Route.ActionArgs) {
         error: "Domain must be a valid hostname (e.g. myblog.com).",
       };
 
+    let iconUploadFailed = false;
+
     if (useRealOAuth) {
       try {
         const agent = await getAtpAgent(did);
         const now = new Date().toISOString();
+
+        // Upload the logo as a blob for the top-level `icon` field — mirrors
+        // the same logic in configure.tsx so a site's icon blob is set from
+        // the instant it's created, not only after a later Configure save.
+        let iconBlobRef: unknown;
+        if (logoImageUrl) {
+          try {
+            const thumbSrc = resolveThumbUrl(logoImageUrl);
+            let imgRes = await fetch(thumbSrc);
+            if (!imgRes.ok && thumbSrc !== logoImageUrl) {
+              imgRes = await fetch(logoImageUrl);
+            }
+            if (imgRes.ok) {
+              const imgBuffer = await imgRes.arrayBuffer();
+              const mimeType =
+                imgRes.headers.get("content-type") ?? "image/webp";
+              const uploadRes = await agent.uploadBlob(
+                new Uint8Array(imgBuffer),
+                {
+                  encoding: mimeType,
+                },
+              );
+              iconBlobRef = uploadRes.data.blob;
+            } else {
+              iconUploadFailed = true;
+            }
+          } catch (blobErr) {
+            logger.warn(
+              {
+                event: "site.create.icon_blob_error",
+                error: String(blobErr),
+              },
+              "icon blob upload error — save will proceed without icon",
+            );
+            iconUploadFailed = true;
+          }
+        }
+
         // rkey is not passed explicitly — the PDS generates a TID, per the
         // site.standard.publication lexicon's "key": "tid" requirement (see
         // the 2026-06-25 publication TID migration).
@@ -119,6 +160,7 @@ export async function action({ request }: Route.ActionArgs) {
           url: `https://${url}`,
           name: title,
           preferences: { showInDiscover },
+          ...(iconBlobRef !== undefined && { icon: iconBlobRef }),
           scribe: {
             domain: url,
             basePath: urlPrefix,
@@ -126,6 +168,7 @@ export async function action({ request }: Route.ActionArgs) {
             ...(description && { description }),
             ...(splashImageUrl && { splashImageUrl }),
             ...(logoImageUrl && { logoImageUrl }),
+            ...(iconBlobRef !== undefined && { logoImageBlob: iconBlobRef }),
             contributors: [],
             groups: [],
             ungroupedArticles: [],
@@ -144,7 +187,15 @@ export async function action({ request }: Route.ActionArgs) {
       }
     }
 
-    return { ok: true };
+    return {
+      ok: true,
+      ...(iconUploadFailed
+        ? {
+            iconWarning:
+              "Icon could not be uploaded — it will be set on the next Configure save.",
+          }
+        : {}),
+    };
   }
 
   if (intent === "deleteSite") {
@@ -233,6 +284,14 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
     if (!createFetcher.data?.ok) return;
     handleCloseAddModal();
     addToast({ heading: "Site created", variant: "success" });
+    if (createFetcher.data.iconWarning) {
+      addToast({
+        heading: "Icon not uploaded",
+        content: createFetcher.data.iconWarning,
+        variant: "primary",
+        autoExpire: false,
+      });
+    }
   }, [createFetcher.data]);
 
   useEffect(() => {
