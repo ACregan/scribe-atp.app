@@ -193,7 +193,9 @@ export async function action({ request }: Route.ActionArgs) {
     const uri = formData.get("uri") as string;
     const siteRkey = formData.get("siteRkey") as string;
     const groupSlugRaw = formData.get("groupSlug") as string;
-    const newGroupTitle = ((formData.get("newGroupTitle") as string) ?? "").trim();
+    const newGroupTitle = (
+      (formData.get("newGroupTitle") as string) ?? ""
+    ).trim();
     if (!uri || !siteRkey) {
       return { ok: false, error: "An article and a site are required." };
     }
@@ -312,8 +314,13 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
-  const { publishedArticles, orphanedDrafts, publishTargets, authorDid, authorHandle } =
-    loaderData;
+  const {
+    publishedArticles,
+    orphanedDrafts,
+    publishTargets,
+    authorDid,
+    authorHandle,
+  } = loaderData;
   const deleteModal = useModal();
   const [deleteTarget, setDeleteTarget] = useState<OrphanedDraft | null>(null);
   const deleteFormRef = useRef<HTMLFormElement>(null);
@@ -327,7 +334,8 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   };
 
   const publishModal = useModal();
-  const [publishingArticle, setPublishingArticle] = useState<OrphanedDraft | null>(null);
+  const [publishingArticle, setPublishingArticle] =
+    useState<OrphanedDraft | null>(null);
   const [publishSiteRkey, setPublishSiteRkey] = useState("");
   const [publishGroupSlug, setPublishGroupSlug] = useState("");
   const [newGroupTitle, setNewGroupTitle] = useState("");
@@ -514,13 +522,28 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
             })}
           </ul>
         </PageSection>
-      ) : (
+      ) : orphanedDrafts.length > 0 ? (
         <PageSection>
           <div className={styles.emptyState}>
             <p>
-              No published articles yet. Assign a draft to a site and publish
-              it.
+              No published articles yet. Publish an article from the list below.
             </p>
+          </div>
+        </PageSection>
+      ) : (
+        <PageSection>
+          <div className={styles.emptyState}>
+            <p>Your articles will be listed here.</p>
+            <Link to="/article/create">
+              <Button
+                className={styles.CTAbutton}
+                type="button"
+                icon={SvgImageList.Document}
+                tabIndex={-1}
+              >
+                Write your first article
+              </Button>
+            </Link>
           </div>
         </PageSection>
       )}
@@ -650,7 +673,11 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         title="Publish Article"
         footer={
           <div
-            style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              justifyContent: "flex-end",
+            }}
           >
             <Button variant="secondary" onClick={closePublishModal}>
               Cancel
@@ -684,7 +711,9 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         }
       >
         {publishingArticle && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}
+          >
             <p style={{ margin: 0, fontSize: "1.3rem" }}>
               Publish <strong>{publishingArticle.title}</strong> to:
             </p>
@@ -726,7 +755,13 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
               />
             )}
             {publishFetcher.data?.error && (
-              <p style={{ margin: 0, fontSize: "1.3rem", color: "var(--action-danger)" }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "1.3rem",
+                  color: "var(--action-danger)",
+                }}
+              >
                 {publishFetcher.data.error}
               </p>
             )}
@@ -743,7 +778,11 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         title="Notify subscribers?"
         footer={
           <div
-            style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              justifyContent: "flex-end",
+            }}
           >
             <Button
               variant="secondary"
