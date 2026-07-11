@@ -427,7 +427,7 @@ export default function Sites({ loaderData }: Route.ComponentProps) {
               variant="square"
             />
           </FieldWithHelp>
-          <FieldWithHelp help="Marks your site as discoverable by other Scribe tools.">
+          <FieldWithHelp help="Marks your site as discoverable by other apps on the open ATproto network.">
             <label
               style={{
                 display: "flex",
