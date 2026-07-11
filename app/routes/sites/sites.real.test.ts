@@ -25,6 +25,7 @@ function makeAgent(
     listRecords?: ReturnType<typeof vi.fn>;
     createRecord?: ReturnType<typeof vi.fn>;
     deleteRecord?: ReturnType<typeof vi.fn>;
+    uploadBlob?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
   return {
@@ -41,6 +42,7 @@ function makeAgent(
         },
       },
     },
+    uploadBlob: overrides.uploadBlob ?? vi.fn(),
   } as unknown as Agent;
 }
 
@@ -192,7 +194,6 @@ describe("action — createSite", () => {
         urlPrefix: "blog",
         description: "A description",
         splashImageUrl: "https://x.com/s.png",
-        logoImageUrl: "https://x.com/l.png",
         showInDiscover: "on",
       }),
     ).resolves.toEqual({ ok: true });
@@ -211,7 +212,6 @@ describe("action — createSite", () => {
           title: "My Site",
           description: "A description",
           splashImageUrl: "https://x.com/s.png",
-          logoImageUrl: "https://x.com/l.png",
           contributors: [],
           groups: [],
           ungroupedArticles: [],
@@ -220,6 +220,77 @@ describe("action — createSite", () => {
         },
       },
     });
+  });
+
+  it("uploads the logo as a blob and sets the top-level icon field when a logoImageUrl is provided", async () => {
+    const createRecord = vi.fn().mockResolvedValue({
+      data: { uri: `at://${DID}/site.standard.publication/3jxtctq7kqm2y`, cid: "cid-a" },
+    });
+    const blob = { $type: "blob", ref: "bafkfake", mimeType: "image/webp", size: 123 };
+    const uploadBlob = vi.fn().mockResolvedValue({ data: { blob } });
+    vi.mocked(getAtpAgent).mockResolvedValue(
+      makeAgent({ createRecord, uploadBlob }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ "content-type": "image/webp" }),
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+      }),
+    );
+
+    await expect(
+      callAction({
+        _intent: "createSite",
+        title: "My Site",
+        url: "my.example.com",
+        logoImageUrl: "https://x.com/l.png",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(uploadBlob).toHaveBeenCalled();
+    expect(createRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        record: expect.objectContaining({
+          icon: blob,
+          scribe: expect.objectContaining({
+            logoImageUrl: "https://x.com/l.png",
+            logoImageBlob: blob,
+          }),
+        }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("returns iconWarning and omits the icon field when the blob upload fails", async () => {
+    const createRecord = vi.fn().mockResolvedValue({
+      data: { uri: `at://${DID}/site.standard.publication/3jxtctq7kqm2y`, cid: "cid-a" },
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(makeAgent({ createRecord }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+
+    const result = await callAction({
+      _intent: "createSite",
+      title: "My Site",
+      url: "my.example.com",
+      logoImageUrl: "https://x.com/l.png",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      iconWarning:
+        "Icon could not be uploaded — it will be set on the next Configure save.",
+    });
+    expect(createRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        record: expect.not.objectContaining({ icon: expect.anything() }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
   });
 
   it("returns an error when the PDS call fails", async () => {
