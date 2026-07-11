@@ -249,10 +249,15 @@ export function devEditLoader(articleUrl: string): {
 
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
+  hasUnassignedArticles: boolean;
   site: SiteManifest;
 } {
   return {
     devMode: true,
+    // Dev fixture exercises the "other group has articles" empty-state case
+    // below (getting-started is empty, engineering isn't) — the classic
+    // "Drop articles here" DnD hint.
+    hasUnassignedArticles: false,
     site: {
       rkey: siteSlug,
       cid: "dev-cid-site",
@@ -272,6 +277,11 @@ export function devSiteListLoader(siteSlug: string): {
               createdAt: "2025-01-01T00:00:00.000Z",
             },
           ],
+        },
+        {
+          slug: "getting-started",
+          title: "Getting Started",
+          articles: [],
         },
       ],
       // Since ADR 0013, no UI path can populate ungroupedArticles anymore —
