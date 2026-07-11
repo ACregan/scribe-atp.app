@@ -459,20 +459,13 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         </ButtonGroupContainer>
       }
     >
-      <PageSection>
-        <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
-        <p className={styles.sectionNote}>
-          These articles have been assigned to a site and may or may not be
-          published.
-        </p>
-        {publishedArticles.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p>
-              No published articles yet. Assign a draft to a site and publish
-              it.
-            </p>
-          </div>
-        ) : (
+      {publishedArticles.length > 0 ? (
+        <PageSection>
+          <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
+          <p className={styles.sectionNote}>
+            These articles have been assigned to a site and may or may not be
+            published.
+          </p>
           <ul className={styles.articleList}>
             {publishedArticles.map((article) => {
               return (
@@ -520,8 +513,17 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
               );
             })}
           </ul>
-        )}
-      </PageSection>
+        </PageSection>
+      ) : (
+        <PageSection>
+          <div className={styles.emptyState}>
+            <p>
+              No published articles yet. Assign a draft to a site and publish
+              it.
+            </p>
+          </div>
+        </PageSection>
+      )}
 
       {orphanedDrafts.length > 0 && (
         <PageSection>
