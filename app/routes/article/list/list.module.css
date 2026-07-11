@@ -79,3 +79,7 @@
   text-align: center;
   color: var(--text-secondary);
 }
+
+.CTAbutton {
+  padding: 0.3rem 1rem;
+}

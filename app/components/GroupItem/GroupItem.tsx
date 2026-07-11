@@ -38,6 +38,10 @@ interface GroupItemProps {
     bskyPostRef: { uri: string; cid: string } | null | undefined,
   ) => void;
   isDeleting?: boolean;
+  /** Does at least one other group on this site already have articles? */
+  siteHasAnyArticles?: boolean;
+  /** Are there any loose (unpublished-anywhere) articles in the account? */
+  hasUnassignedArticles?: boolean;
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
@@ -55,6 +59,8 @@ const GroupItem: React.FC<GroupItemProps> = ({
   onPublishClick,
   onShareClick,
   isDeleting = false,
+  siteHasAnyArticles = false,
+  hasUnassignedArticles = false,
 }) => {
   const {
     attributes,
@@ -241,13 +247,32 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   bskyPostRef={article.bskyPostRef}
                 />
               ))}
-              {articleChildren.length === 0 && (
-                <li
-                  className={`${styles.dropZone} ${isOver ? styles.dropZoneOver : ""}`}
-                >
-                  Drop articles here
-                </li>
-              )}
+              {articleChildren.length === 0 &&
+                (siteHasAnyArticles ? (
+                  <li
+                    className={`${styles.dropZone} ${isOver ? styles.dropZoneOver : ""}`}
+                  >
+                    Drop articles here
+                  </li>
+                ) : hasUnassignedArticles ? (
+                  <li className={styles.emptyGroupMessage}>
+                    <span>Assign an article to this group from the</span>
+                    <Link to="/article/list">
+                      <Button type="button" variant="secondary" tabIndex={-1}>
+                        Article List
+                      </Button>
+                    </Link>
+                  </li>
+                ) : (
+                  <li className={styles.emptyGroupMessage}>
+                    <span>Your published articles will appear here.</span>
+                    <Link to="/article/create">
+                      <Button type="button" variant="primary" tabIndex={-1}>
+                        Write New Article
+                      </Button>
+                    </Link>
+                  </li>
+                ))}
             </ul>
           </SortableContext>
         </div>

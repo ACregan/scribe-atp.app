@@ -159,3 +159,19 @@
   background: var(--text-secondary);
   color: var(--text-on-dark);
 }
+
+/* Empty group, but dragging isn't a real option yet (no other group on this
+   site has articles to drag from) — a plain message, not a drop-zone hint. */
+.emptyGroupMessage {
+  list-style-type: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  min-height: 6rem;
+  padding: 1.6rem 1.2rem;
+  color: var(--text-secondary);
+  font-size: 1.4rem;
+  text-align: center;
+}

@@ -148,6 +148,10 @@ const defaultProps = {
   slug: "test-group",
   articleChildren: [] as TreeArticle[],
   urlAndPrefix: "example.com/blog",
+  // Matches pre-existing test assumptions below (single "Drop articles
+  // here" empty state, one button = delete). Tests for the other two empty
+  // states override this explicitly.
+  siteHasAnyArticles: true,
 };
 
 // ─── tests ───────────────────────────────────────────────────────────────────
@@ -244,6 +248,87 @@ describe("GroupItem", () => {
     it("hides drop zone when articles are present", () => {
       render(<GroupItem {...defaultProps} articleChildren={sampleArticles} />);
       expect(screen.queryByText("Drop articles here")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("empty group message states", () => {
+    it("shows the drag-and-drop hint when another group on the site has articles", () => {
+      render(
+        <GroupItem
+          {...defaultProps}
+          articleChildren={[]}
+          siteHasAnyArticles
+          hasUnassignedArticles={false}
+        />,
+      );
+      expect(screen.getByText("Drop articles here")).toBeInTheDocument();
+      expect(
+        screen.queryByText(/Write New Article|Article List/),
+      ).not.toBeInTheDocument();
+    });
+
+    it("points at the Article List when the site has no articles but loose ones exist", () => {
+      render(
+        <GroupItem
+          {...defaultProps}
+          articleChildren={[]}
+          siteHasAnyArticles={false}
+          hasUnassignedArticles
+        />,
+      );
+      expect(screen.queryByText("Drop articles here")).not.toBeInTheDocument();
+      expect(
+        screen.getByText("Assign an article to this group from the"),
+      ).toBeInTheDocument();
+      const link = screen.getByRole("link", { name: "Article List" });
+      expect(link).toHaveAttribute("href", "/article/list");
+    });
+
+    it("points at Write New Article when the account has no articles at all", () => {
+      render(
+        <GroupItem
+          {...defaultProps}
+          articleChildren={[]}
+          siteHasAnyArticles={false}
+          hasUnassignedArticles={false}
+        />,
+      );
+      expect(screen.queryByText("Drop articles here")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Assign an article to this group from the"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText("Your published articles will appear here."),
+      ).toBeInTheDocument();
+      const link = screen.getByRole("link", { name: "Write New Article" });
+      expect(link).toHaveAttribute("href", "/article/create");
+    });
+
+    it("shows the drag-and-drop hint over the fallback messages when a group has articles elsewhere on the site, even if loose articles also exist", () => {
+      render(
+        <GroupItem
+          {...defaultProps}
+          articleChildren={[]}
+          siteHasAnyArticles
+          hasUnassignedArticles
+        />,
+      );
+      expect(screen.getByText("Drop articles here")).toBeInTheDocument();
+    });
+
+    it("does not show any empty-state message when the group has articles", () => {
+      render(
+        <GroupItem
+          {...defaultProps}
+          articleChildren={sampleArticles}
+          siteHasAnyArticles={false}
+          hasUnassignedArticles={false}
+        />,
+      );
+      expect(screen.queryByText("Drop articles here")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Your published articles will appear here."),
+      ).not.toBeInTheDocument();
     });
   });
 
