@@ -53,7 +53,9 @@ describe("loader — dev bypass", () => {
     expect(result.publishedArticles).toHaveLength(
       fixture.publishedArticles.length,
     );
-    expect(result.orphanedDrafts).toHaveLength(fixture.orphanedDrafts.length);
+    expect(result.standaloneArticles).toHaveLength(
+      fixture.standaloneArticles.length,
+    );
     expect(requireAtpAgent).not.toHaveBeenCalled();
   });
 });

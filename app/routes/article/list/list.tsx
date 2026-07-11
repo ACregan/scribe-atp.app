@@ -54,7 +54,7 @@ type PublishedArticle = {
   assignments: ArticleAssignment[];
 };
 
-type OrphanedDraft = {
+type StandaloneArticle = {
   rkey: string;
   uri: string;
   title: string;
@@ -139,8 +139,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       })
       .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
 
-    // Orphaned = DOCUMENT_COLLECTION records not referenced in any site manifest
-    const orphanedDrafts: OrphanedDraft[] = documentRecords
+    // Standalone = DOCUMENT_COLLECTION records not referenced in any site
+    // manifest — ADR 0013's Loose Article state. Not "unfinished": a Site is
+    // optional, so these can be deliberately, permanently standalone.
+    const standaloneArticles: StandaloneArticle[] = documentRecords
       .filter((r) => !assignmentMap.has(r.uri))
       .map((record) => {
         const value = record.value;
@@ -174,7 +176,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
     return {
       publishedArticles,
-      orphanedDrafts,
+      standaloneArticles,
       publishTargets,
       authorDid: did,
       authorHandle: handle,
@@ -289,7 +291,7 @@ export async function action({ request }: Route.ActionArgs) {
     await deleteDocument(agent, did, rkey, cid ?? undefined);
 
     // Bug fix: an ArticleRef for this uri may still be cached in a site's
-    // ungroupedArticles/groups even though it's orphaned on this screen
+    // ungroupedArticles/groups even though it's standalone on this screen
     // (e.g. it was removed from its owning site but still referenced
     // elsewhere) — clean those up too so deleting doesn't leave dangling refs.
     const uri = `at://${did}/${DOCUMENT_COLLECTION}/${rkey}`;
@@ -312,12 +314,19 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
-  const { publishedArticles, orphanedDrafts, publishTargets, authorDid, authorHandle } =
-    loaderData;
+  const {
+    publishedArticles,
+    standaloneArticles,
+    publishTargets,
+    authorDid,
+    authorHandle,
+  } = loaderData;
   const deleteModal = useModal();
-  const [deleteTarget, setDeleteTarget] = useState<OrphanedDraft | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StandaloneArticle | null>(
+    null,
+  );
   const deleteFormRef = useRef<HTMLFormElement>(null);
-  const handleDeleteClick = (article: OrphanedDraft) => {
+  const handleDeleteClick = (article: StandaloneArticle) => {
     setDeleteTarget(article);
     deleteModal.open();
   };
@@ -327,7 +336,8 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   };
 
   const publishModal = useModal();
-  const [publishingArticle, setPublishingArticle] = useState<OrphanedDraft | null>(null);
+  const [publishingArticle, setPublishingArticle] =
+    useState<StandaloneArticle | null>(null);
   const [publishSiteRkey, setPublishSiteRkey] = useState("");
   const [publishGroupSlug, setPublishGroupSlug] = useState("");
   const [newGroupTitle, setNewGroupTitle] = useState("");
@@ -358,7 +368,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
     canonicalUrl: string;
   } | null>(null);
 
-  const handlePublishClick = (article: OrphanedDraft) => {
+  const handlePublishClick = (article: StandaloneArticle) => {
     setPublishingArticle(article);
     const firstSite = publishTargets[0];
     setPublishSiteRkey(firstSite?.rkey ?? "");
@@ -459,79 +469,16 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         </ButtonGroupContainer>
       }
     >
-      <PageSection>
-        <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
-        <p className={styles.sectionNote}>
-          These articles have been assigned to a site and may or may not be
-          published.
-        </p>
-        {publishedArticles.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p>
-              No published articles yet. Assign a draft to a site and publish
-              it.
-            </p>
-          </div>
-        ) : (
-          <ul className={styles.articleList}>
-            {publishedArticles.map((article) => {
-              return (
-                <li key={article.rkey} className={styles.articleItem}>
-                  <div className={styles.articleTitle}>
-                    <strong>{article.title}</strong>
-                    {article.publishedAt && (
-                      <span>
-                        {new Date(article.publishedAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                  <div className={styles.articleInfo}>
-                    {/* {article.assignments.length > 0 ? (
-                      article.assignments.map((a, i) => (
-                        <Pill key={i}>
-                          {a.siteTitle}
-                          {a.groupTitle ? ` / ${a.groupTitle}` : ""}
-                        </Pill>
-                      ))
-                    ) : (
-                      <Pill variant="danger">Not in any site manifest</Pill>
-                    )} */}
-                  </div>
-                  <div className={styles.articleButtons}>
-                    <AllArticleSitesIcons
-                      openDetailsModal={openDetailsModal}
-                      assignments={article.assignments}
-                      articleTitle={article.title}
-                      articleSlug={article.slug}
-                    />
-
-                    <Link to={`/article/view/${article.slug}`}>
-                      <Button type="button" variant="secondary" tabIndex={-1}>
-                        View
-                      </Button>
-                    </Link>
-                    <Link to={`/article/edit/${article.slug}`}>
-                      <Button type="button" variant="primary" tabIndex={-1}>
-                        Edit
-                      </Button>
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </PageSection>
-
-      {orphanedDrafts.length > 0 && (
+      {standaloneArticles.length > 0 && (
         <PageSection>
-          <h6 className={styles.sectionHeading}>Unassigned Drafts</h6>
+          <h6 className={styles.sectionHeading}>Standalone Articles</h6>
           <p className={styles.sectionNote}>
-            These drafts exist in your PDS but haven't been assigned to any
-            site. Edit an article to assign it.
+            These articles aren't tied to a Site — they're already live on
+            the open network and can stay that way, or be published to a
+            Site whenever you like.
           </p>
           <ul className={styles.articleList}>
-            {orphanedDrafts.map((article) => (
+            {standaloneArticles.map((article) => (
               <li key={article.rkey} className={styles.articleItem}>
                 <div className={styles.articleTitle}>
                   <strong>{article.title}</strong>
@@ -586,6 +533,88 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         </PageSection>
       )}
 
+      {publishedArticles.length > 0 ? (
+        <PageSection>
+          <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
+          <p className={styles.sectionNote}>
+            These articles have been assigned to a site and may or may not be
+            published.
+          </p>
+          <ul className={styles.articleList}>
+            {publishedArticles.map((article) => {
+              return (
+                <li key={article.rkey} className={styles.articleItem}>
+                  <div className={styles.articleTitle}>
+                    <strong>{article.title}</strong>
+                    {article.publishedAt && (
+                      <span>
+                        {new Date(article.publishedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.articleInfo}>
+                    {/* {article.assignments.length > 0 ? (
+                      article.assignments.map((a, i) => (
+                        <Pill key={i}>
+                          {a.siteTitle}
+                          {a.groupTitle ? ` / ${a.groupTitle}` : ""}
+                        </Pill>
+                      ))
+                    ) : (
+                      <Pill variant="danger">Not in any site manifest</Pill>
+                    )} */}
+                  </div>
+                  <div className={styles.articleButtons}>
+                    <AllArticleSitesIcons
+                      openDetailsModal={openDetailsModal}
+                      assignments={article.assignments}
+                      articleTitle={article.title}
+                      articleSlug={article.slug}
+                    />
+
+                    <Link to={`/article/view/${article.slug}`}>
+                      <Button type="button" variant="secondary" tabIndex={-1}>
+                        View
+                      </Button>
+                    </Link>
+                    <Link to={`/article/edit/${article.slug}`}>
+                      <Button type="button" variant="primary" tabIndex={-1}>
+                        Edit
+                      </Button>
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </PageSection>
+      ) : standaloneArticles.length > 0 ? (
+        <PageSection>
+          <div className={styles.emptyState}>
+            <p>
+              No articles have been published to a site yet — publish one of
+              your standalone articles above whenever you're ready.
+            </p>
+          </div>
+        </PageSection>
+      ) : (
+        <PageSection>
+          <div className={styles.emptyState}>
+            <p>Your articles will be listed here.</p>
+            <Link to="/article/create">
+              <Button
+                className={styles.CTAbutton}
+                type="button"
+                icon={SvgImageList.Document}
+                tabIndex={-1}
+              >
+                Write your first article
+              </Button>
+            </Link>
+          </div>
+        </PageSection>
+      )}
+
       {detailsData.length > 0 && (
         <Modal
           isOpen={detailsModal.isOpen}
@@ -623,7 +652,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       <Modal
         isOpen={deleteModal.isOpen}
         onClose={deleteModal.close}
-        title="Delete Draft"
+        title="Delete Article"
         footer={
           <div
             style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}

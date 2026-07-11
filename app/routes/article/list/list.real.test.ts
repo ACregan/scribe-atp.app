@@ -93,7 +93,7 @@ function docListRecord(
 }
 
 describe("loader", () => {
-  it("splits documents into published (site-assigned) vs orphaned, sorted by publishedAt desc", async () => {
+  it("splits documents into published (site-assigned) vs standalone, sorted by publishedAt desc", async () => {
     const groupedUri = `at://${DID}/site.standard.document/grouped1`;
     const ungroupedUri = `at://${DID}/site.standard.document/ungrouped1`;
     const orphanUri = `at://${DID}/site.standard.document/orphan1`;
@@ -180,7 +180,7 @@ describe("loader", () => {
         splashImageUrl: undefined,
       },
     ]);
-    expect(result.orphanedDrafts).toEqual([
+    expect(result.standaloneArticles).toEqual([
       expect.objectContaining({
         rkey: "orphan1",
         title: "Orphan",
