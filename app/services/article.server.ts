@@ -5,6 +5,7 @@ import {
   IMAGE_URL_RE,
 } from "~/constants";
 import type { ArticleRef } from "~/hooks/types";
+import type { Contributor } from "~/components/types";
 
 export function validateArticleFields(
   title: string,
@@ -18,6 +19,45 @@ export function validateArticleFields(
   if (splashImageUrl?.trim() && !IMAGE_URL_RE.test(splashImageUrl.trim()))
     return "Splash Image URL must start with https://.";
   return null;
+}
+
+// Parses the `contributors` hidden-input values submitted from ArticleForm
+// (one JSON-stringified Contributor per input). Guards against both a
+// malformed value (invalid JSON) and a well-formed-but-wrong-shaped one
+// (e.g. missing `did`) — either is reachable by any authenticated user
+// editing the hidden form fields before submit, not just through the UI.
+export function parseContributors(
+  formData: FormData,
+): { contributors: Contributor[]; error: string | null } {
+  const raw = formData.getAll("contributors") as string[];
+  const contributors: Contributor[] = [];
+  for (const value of raw) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return { contributors: [], error: "Invalid contributor data." };
+    }
+    const candidate = parsed as Partial<Contributor> | null;
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      typeof candidate.did !== "string" ||
+      !candidate.did.trim() ||
+      typeof candidate.role !== "string" ||
+      !candidate.role.trim() ||
+      typeof candidate.displayName !== "string" ||
+      !candidate.displayName.trim()
+    ) {
+      return { contributors: [], error: "Invalid contributor data." };
+    }
+    contributors.push({
+      did: candidate.did,
+      role: candidate.role,
+      displayName: candidate.displayName,
+    });
+  }
+  return { contributors, error: null };
 }
 
 export function resolveThumbUrl(imageUrl: string): string {
@@ -62,6 +102,7 @@ export function buildArticleRef(fields: {
   splashImageUrl?: string;
   description?: string;
   tags?: string[];
+  contributors?: { did: string; role?: string; displayName?: string }[];
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -73,6 +114,7 @@ export function buildArticleRef(fields: {
     splashImageUrl: fields.splashImageUrl?.trim() || null,
     description: fields.description?.trim() || null,
     tags: fields.tags?.length ? fields.tags : undefined,
+    contributors: fields.contributors?.length ? fields.contributors : undefined,
     publishedAt: fields.publishedAt,
     createdAt: fields.createdAt,
     updatedAt: fields.updatedAt,

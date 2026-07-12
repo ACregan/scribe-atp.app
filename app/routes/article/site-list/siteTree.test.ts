@@ -113,6 +113,7 @@ describe("nodeFromRef", () => {
       slug: "my-post",
       description: "A summary",
       splashImageUrl: "https://example.com/img.jpg",
+      contributors: [{ did: "did:plc:abc", role: "Editor", displayName: "A" }],
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-06-01T00:00:00.000Z",
     });
@@ -124,6 +125,9 @@ describe("nodeFromRef", () => {
     expect(node.slug).toBe("my-post");
     expect(node.description).toBe("A summary");
     expect(node.splashImageUrl).toBe("https://example.com/img.jpg");
+    expect(node.contributors).toEqual([
+      { did: "did:plc:abc", role: "Editor", displayName: "A" },
+    ]);
     expect(node.createdAt).toBe("2025-01-01T00:00:00.000Z");
     expect(node.updatedAt).toBe("2025-06-01T00:00:00.000Z");
   });
@@ -149,6 +153,7 @@ describe("articleRefFromNode", () => {
       slug: "my-post",
       description: "A summary",
       splashImageUrl: "https://example.com/img.jpg",
+      contributors: [{ did: "did:plc:abc", role: "Editor", displayName: "A" }],
       createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-06-01T00:00:00.000Z",
     });

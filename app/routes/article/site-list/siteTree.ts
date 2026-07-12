@@ -25,6 +25,7 @@ export type TreeArticleNode = {
   splashImageUrl: string | null;
   description?: string | null;
   tags?: string[];
+  contributors?: { did: string; role?: string; displayName?: string }[];
   createdAt: string;
   publishedAt?: string;
   updatedAt?: string;
@@ -120,6 +121,7 @@ export function nodeFromRef(ref: ArticleRef): TreeArticleNode {
     splashImageUrl: ref.splashImageUrl,
     description: ref.description,
     tags: ref.tags,
+    contributors: ref.contributors,
     createdAt: ref.createdAt,
     publishedAt: ref.publishedAt,
     updatedAt: ref.updatedAt,
@@ -135,6 +137,7 @@ export function articleRefFromNode(node: TreeArticleNode): ArticleRef {
     splashImageUrl: node.splashImageUrl,
     description: node.description,
     tags: node.tags,
+    contributors: node.contributors,
     createdAt: node.createdAt,
     publishedAt: node.publishedAt,
     updatedAt: node.updatedAt,
