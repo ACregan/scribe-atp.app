@@ -1,0 +1,58 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  min-width: 32rem;
+}
+
+.lookupRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.8rem;
+}
+
+.lookupRow > *:first-child {
+  flex: 1;
+}
+
+.lookupButton {
+  margin-bottom: 0.1rem;
+  white-space: nowrap;
+  align-self: center;
+  margin-top: 0.4rem;
+}
+
+.resolvedProfile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem 1.2rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.6rem;
+  background: var(--surface-page);
+}
+
+.resolvedAvatar {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.resolvedName {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.resolvedHandle {
+  color: var(--text-secondary);
+  font-size: 1.3rem;
+}
+
+.error {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--action-danger);
+}

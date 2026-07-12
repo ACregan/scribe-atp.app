@@ -1,0 +1,78 @@
+.contributorsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem 0.8rem;
+  margin-bottom: 1.6rem;
+}
+
+.label {
+  height: 2rem;
+  font-weight: 600;
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  display: block;
+  margin: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0 0.5rem 0 0;
+  padding: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.6rem;
+  padding: 0.6rem;
+
+  background: var(--surface-input);
+}
+/* --- Contributor --------------------------*/
+
+.contributor {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border: 0.1rem solid var(--border-color);
+  background: var(--surface-muted);
+  border-radius: 0.4rem;
+}
+
+.role {
+  color: var(--text-secondary);
+  font-size: 1.3rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+}
+
+.avatar {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 0.3rem solid var(--action-primary);
+}
+
+.displayName {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.removeButton {
+  display: inline-flex;
+  height: 1.4rem;
+  width: 1.4rem;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.removeButton:hover svg {
+  fill: white;
+}

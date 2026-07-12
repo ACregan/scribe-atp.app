@@ -5,6 +5,7 @@ export interface ArticleRef {
   splashImageUrl: string | null;
   description?: string | null;
   tags?: string[];
+  contributors?: { did: string; role?: string; displayName?: string }[];
   createdAt: string;
   publishedAt?: string;
   updatedAt?: string;

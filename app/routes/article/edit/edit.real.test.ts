@@ -147,6 +147,7 @@ describe("loader", () => {
       splashImageUrl: "https://x.com/s.png",
       description: "A description",
       tags: ["a", "b"],
+      contributors: [],
       createdAt: "2025-12-01T00:00:00Z",
       cid: "my-article-cid",
       publishedSite: "https://example.com",
@@ -297,13 +298,12 @@ describe("action — save", () => {
     );
   });
 
-  it("preserves existing contributors and bskyPostRef fetched from the current record", async () => {
+  it("preserves bskyPostRef fetched from the current record", async () => {
     const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
     const agent = makeAgent({
       getRecord: vi.fn().mockResolvedValue({
         data: {
           value: {
-            contributors: [{ did: "did:plc:other", role: "editor" }],
             bskyPostRef: {
               uri: "at://x/app.bsky.feed.post/1",
               cid: "post-cid",
@@ -324,11 +324,71 @@ describe("action — save", () => {
     expect(putRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         record: expect.objectContaining({
-          contributors: [{ did: "did:plc:other", role: "editor" }],
           bskyPostRef: { uri: "at://x/app.bsky.feed.post/1", cid: "post-cid" },
         }),
       }),
     );
+  });
+
+  it("writes contributors from the submitted form, not the previously stored record", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      // The stored record has a different contributor than what's being
+      // submitted — proves the write is form-driven, not a preserve-on-save
+      // copy of whatever was already on the PDS.
+      getRecord: vi.fn().mockResolvedValue({
+        data: {
+          value: {
+            contributors: [{ did: "did:plc:stale", role: "editor" }],
+          },
+        },
+      }),
+      putRecord,
+    });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: DID,
+    });
+
+    await callAction(
+      baseFields({
+        contributors: [
+          JSON.stringify({
+            did: "did:plc:contributor",
+            role: "Editor",
+            displayName: "A Contributor",
+          }),
+        ],
+      }),
+    );
+
+    expect(putRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        record: expect.objectContaining({
+          contributors: [
+            {
+              did: "did:plc:contributor",
+              role: "Editor",
+              displayName: "A Contributor",
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("rejects malformed contributor JSON gracefully instead of throwing, without touching the agent", async () => {
+    await expect(
+      callAction(baseFields({ contributors: "not json" })),
+    ).resolves.toEqual({ ok: false, error: "Invalid contributor data." });
+    expect(requireAtpAgent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a well-formed but incomplete contributor object", async () => {
+    await expect(
+      callAction(baseFields({ contributors: JSON.stringify({ role: "Editor" }) })),
+    ).resolves.toEqual({ ok: false, error: "Invalid contributor data." });
   });
 
   it("proceeds without existing data when the pre-fetch getRecord fails (non-fatal)", async () => {
@@ -349,7 +409,7 @@ describe("action — save", () => {
     );
     expect(putRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        record: expect.objectContaining({ contributors: [] }),
+        record: expect.objectContaining({ contributors: undefined }),
       }),
     );
   });

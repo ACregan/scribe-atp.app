@@ -14,6 +14,10 @@ export default [
     route("logout", "./routes/auth/logout.tsx"),
     layout("./layout/protected/protected.tsx", [
       route("article/create", "./routes/article/create/create.tsx"),
+      route(
+        "article/resolve-contributor",
+        "./routes/article/resolve-contributor/resolve-contributor.tsx",
+      ),
       route("article/list", "./routes/article/list/list.tsx"),
       route(
         "article/list/:siteSlug",

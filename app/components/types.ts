@@ -25,6 +25,8 @@ export type ArticleAssignment = {
   groupSlug?: string;
 };
 
+export type Contributor = { did: string; role: string; displayName: string };
+
 export interface TreeArticle {
   id: string;
   uri: string;
