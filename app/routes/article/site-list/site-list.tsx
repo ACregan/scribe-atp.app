@@ -47,6 +47,7 @@ import {
   SLUG_RE,
 } from "~/constants";
 import { listDocuments } from "~/services/documentRepository.server";
+import { crossPostToBluesky } from "@scribe-atp/core";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
 import {
   type SiteManifest,
@@ -249,40 +250,18 @@ export async function action({ request, params }: Route.ActionArgs) {
           }
         }
 
-        const external: Record<string, unknown> = {
-          uri: canonicalUrl,
+        const bskyPostRef = await crossPostToBluesky(agent, {
+          did,
+          documentUri: uri,
+          documentCid: docResult.data.cid!,
+          publicationUri,
+          publicationCid: publicationCid!,
+          canonicalUrl,
           title,
-          description: description ?? "",
-          associatedRefs: [
-            {
-              $type: "com.atproto.repo.strongRef",
-              uri,
-              cid: docResult.data.cid,
-            },
-            {
-              $type: "com.atproto.repo.strongRef",
-              uri: publicationUri,
-              cid: publicationCid,
-            },
-          ],
-        };
-        if (coverImageBlobRef !== undefined) external.thumb = coverImageBlobRef;
-
-        const postResult = await agent.com.atproto.repo.createRecord({
-          repo: did,
-          collection: "app.bsky.feed.post",
-          record: {
-            $type: "app.bsky.feed.post",
-            text,
-            embed: { $type: "app.bsky.embed.external", external },
-            createdAt: new Date().toISOString(),
-          },
+          text,
+          description,
+          thumbBlob: coverImageBlobRef,
         });
-
-        const bskyPostRef = {
-          uri: postResult.data.uri,
-          cid: postResult.data.cid,
-        };
 
         await agent.com.atproto.repo.putRecord({
           repo: did,
