@@ -10,6 +10,7 @@ import {
   validateArticleFields,
   buildArticleRef,
   resolveThumbUrl,
+  parseContributors,
 } from "~/services/article.server";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import { updateArticleRef } from "~/routes/article/site-list/siteTree";
@@ -34,6 +35,7 @@ import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { SaveChecklist } from "~/components/SaveChecklist/SaveChecklist";
 import { ArticleForm } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import type { Contributor } from "~/components/types";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Edit Article" }];
@@ -77,6 +79,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     splashImageUrl: String(scribe.coverImageUrl ?? ""),
     description: String(value.description ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
+    contributors: Array.isArray(value.contributors)
+      ? (value.contributors as Contributor[])
+      : [],
     createdAt: String(scribe.createdAt ?? new Date().toISOString()),
     cid: found.cid ?? null,
     publishedSite: String(value.site ?? ""),
@@ -104,6 +109,11 @@ export async function action({ request }: Route.ActionArgs) {
   const validationError = validateArticleFields(title, newSlug, splashImageUrl);
   if (validationError) return { ok: false as const, error: validationError };
 
+  const contributorsResult = parseContributors(formData);
+  if (contributorsResult.error)
+    return { ok: false as const, error: contributorsResult.error };
+  const contributors = contributorsResult.contributors;
+
   if (!useRealOAuth) return { ok: true as const, title };
 
   const currentSlug = publishedPath.split("/").pop()!;
@@ -124,9 +134,6 @@ export async function action({ request }: Route.ActionArgs) {
 
     const existingScribe =
       (existingDoc.scribe as Record<string, unknown>) ?? {};
-    const contributors = Array.isArray(existingDoc.contributors)
-      ? existingDoc.contributors
-      : [];
     const existingCanonicalUrl = String(existingScribe.canonicalUrl ?? "");
     const existingBskyPostRef = existingDoc.bskyPostRef as
       | { uri: string; cid: string }
@@ -208,7 +215,7 @@ export async function action({ request }: Route.ActionArgs) {
         : {}),
       description: description?.trim() || undefined,
       tags: tags.length ? tags : undefined,
-      contributors,
+      contributors: contributors.length ? contributors : undefined,
       site: publishedSite,
       publishedAt,
       updatedAt: now,
@@ -247,6 +254,7 @@ export async function action({ request }: Route.ActionArgs) {
         splashImageUrl,
         description,
         tags: tags.length ? tags : undefined,
+        contributors: contributors.length ? contributors : undefined,
         publishedAt,
         createdAt,
         updatedAt: now,
@@ -300,6 +308,7 @@ export default function EditArticle({
     splashImageUrl,
     description,
     tags,
+    contributors,
     createdAt,
     cid,
     publishedSite,
@@ -349,6 +358,10 @@ export default function EditArticle({
   }
 
   function handleTagsChange(_tags: string[]) {
+    setIsDirty(true);
+  }
+
+  function handleContributorsChange() {
     setIsDirty(true);
   }
 
@@ -402,8 +415,10 @@ export default function EditArticle({
           defaultSplashImageUrl={splashImageUrl}
           defaultDescription={description}
           defaultTags={tags}
+          defaultContributors={contributors}
           defaultContent={content}
           onTagsChange={handleTagsChange}
+          onContributorsChange={handleContributorsChange}
           onSplashImageUrlChange={handleSplashImageChange}
           onContentChange={handleContentChange}
           error={actionData?.error}

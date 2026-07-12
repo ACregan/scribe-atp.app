@@ -100,6 +100,29 @@ describe("action", () => {
     });
   });
 
+  it("rejects malformed contributor JSON gracefully instead of throwing", async () => {
+    await expect(
+      callAction({
+        title: "My Article",
+        url: "my-article",
+        content: "<p>hi</p>",
+        contributors: "not json",
+      }),
+    ).resolves.toEqual({ error: "Invalid contributor data." });
+    expect(requireAtpAgent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a well-formed but incomplete contributor object", async () => {
+    await expect(
+      callAction({
+        title: "My Article",
+        url: "my-article",
+        content: "<p>hi</p>",
+        contributors: JSON.stringify({ role: "Editor" }),
+      }),
+    ).resolves.toEqual({ error: "Invalid contributor data." });
+  });
+
   it("creates the document loose, then patches `site` to the reader URL using the newly-assigned rkey", async () => {
     const createRecord = vi.fn().mockResolvedValue({
       data: {

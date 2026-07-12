@@ -13,6 +13,7 @@ import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import {
   validateArticleFields,
   buildLooseSiteUrl,
+  parseContributors,
 } from "~/services/article.server";
 import {
   createDocument,
@@ -48,6 +49,10 @@ export async function action({ request }: Route.ActionArgs) {
   const validationError = validateArticleFields(title, slug, splashImageUrl);
   if (validationError) return { error: validationError };
 
+  const contributorsResult = parseContributors(formData);
+  if (contributorsResult.error) return { error: contributorsResult.error };
+  const contributors = contributorsResult.contributors;
+
   if (!useRealOAuth) {
     return { slug, devMode: true as const, title };
   }
@@ -70,6 +75,7 @@ export async function action({ request }: Route.ActionArgs) {
       textContent: textContent || undefined,
       description: description?.trim() || undefined,
       tags: tags.length ? tags : undefined,
+      contributors: contributors.length ? contributors : undefined,
       path: `/${slug}`,
       updatedAt: now,
       scribe: {
@@ -155,6 +161,10 @@ export default function Create({ actionData }: Route.ComponentProps) {
     setIsDirty(true);
   }
 
+  function handleContributorsChange() {
+    setIsDirty(true);
+  }
+
   function handleSplashImageChange(_url: string) {
     setIsDirty(true);
   }
@@ -187,6 +197,7 @@ export default function Create({ actionData }: Route.ComponentProps) {
           onTitleChange={handleTitleChange}
           onUrlChange={handleUrlChange}
           onTagsChange={handleTagsChange}
+          onContributorsChange={handleContributorsChange}
           onSplashImageUrlChange={handleSplashImageChange}
           onContentChange={handleContentChange}
           error={actionData?.error}

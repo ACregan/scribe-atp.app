@@ -10,9 +10,10 @@ import {
   PageSectionColumn,
 } from "~/components/PageContainer/PageContainer";
 
-import { type SiteOption } from "~/components/types";
+import { type SiteOption, type Contributor } from "~/components/types";
 export type { SiteOption };
 import styles from "./ArticleForm.module.css";
+import ArticleContributors from "../ArticleContributors/ArticleContributors";
 
 type ArticleFormProps = {
   defaultTitle?: string;
@@ -20,6 +21,7 @@ type ArticleFormProps = {
   defaultSplashImageUrl?: string;
   defaultDescription?: string;
   defaultTags?: string[];
+  defaultContributors?: Contributor[];
   defaultContent?: string;
   // When provided the title/url inputs become controlled — used by the create
   // route to drive slug auto-fill. Edit leaves these undefined (uncontrolled).
@@ -28,6 +30,7 @@ type ArticleFormProps = {
   onTitleChange?: (value: string) => void;
   onUrlChange?: (value: string) => void;
   onTagsChange?: (tags: string[]) => void;
+  onContributorsChange?: (contributors: Contributor[]) => void;
   onSplashImageUrlChange?: (url: string) => void;
   onContentChange?: (html: string) => void;
   error?: string;
@@ -41,12 +44,14 @@ export function ArticleForm({
   defaultSplashImageUrl,
   defaultDescription,
   defaultTags,
+  defaultContributors,
   defaultContent,
   titleValue,
   urlValue,
   onTitleChange,
   onUrlChange,
   onTagsChange,
+  onContributorsChange,
   onSplashImageUrlChange,
   onContentChange,
   error,
@@ -54,6 +59,39 @@ export function ArticleForm({
   columnar = false,
 }: ArticleFormProps) {
   const [tags, setTags] = useState<string[]>(defaultTags ?? []);
+  const [contributors, setContributors] = useState<Contributor[]>(
+    defaultContributors ?? [],
+  );
+
+  function handleAddContributor(contributor: Contributor) {
+    const next = [...contributors, contributor];
+    setContributors(next);
+    onContributorsChange?.(next);
+  }
+
+  function handleRemoveContributor(did: string) {
+    const next = contributors.filter((c) => c.did !== did);
+    setContributors(next);
+    onContributorsChange?.(next);
+  }
+
+  const contributorsInput = (
+    <>
+      {contributors.map((contributor) => (
+        <input
+          key={contributor.did}
+          type="hidden"
+          name="contributors"
+          value={JSON.stringify(contributor)}
+        />
+      ))}
+      <ArticleContributors
+        contributors={contributors}
+        onAdd={handleAddContributor}
+        onRemove={handleRemoveContributor}
+      />
+    </>
+  );
 
   function handleSetTags(value: string[] | ((prev: string[]) => string[])) {
     setTags((prev) => {
@@ -108,13 +146,7 @@ export function ArticleForm({
               required
               {...urlProps}
             />
-            {urlWarning && (
-              <p
-                className={styles.urlWarning}
-              >
-                {urlWarning}
-              </p>
-            )}
+            {urlWarning && <p className={styles.urlWarning}>{urlWarning}</p>}
             <ImagePicker
               name="splashImageUrl"
               label="Splash image"
@@ -130,6 +162,7 @@ export function ArticleForm({
               defaultValue={defaultDescription}
             />
             {tagsInput}
+            {contributorsInput}
             {error && <p className={styles.error}>{error}</p>}
           </PageSectionColumn>
           <PageSectionColumn span={8} overflow>
@@ -158,11 +191,7 @@ export function ArticleForm({
           required
           {...urlProps}
         />
-        {urlWarning && (
-          <p className={styles.urlWarning}>
-            {urlWarning}
-          </p>
-        )}
+        {urlWarning && <p className={styles.urlWarning}>{urlWarning}</p>}
         <ImagePicker
           name="splashImageUrl"
           label="Splash image"
@@ -178,6 +207,8 @@ export function ArticleForm({
           defaultValue={defaultDescription}
         />
         {tagsInput}
+
+        {contributorsInput}
       </PageSection>
 
       <PageSection>

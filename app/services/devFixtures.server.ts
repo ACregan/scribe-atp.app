@@ -223,6 +223,7 @@ export function devEditLoader(articleUrl: string): {
   splashImageUrl: string;
   description: string;
   tags: string[];
+  contributors: { did: string; role: string; displayName: string }[];
   createdAt: string;
   cid: string;
   publishedSite: string;
@@ -237,6 +238,7 @@ export function devEditLoader(articleUrl: string): {
     splashImageUrl: "",
     description: "",
     tags: [],
+    contributors: [],
     createdAt: new Date().toISOString(),
     cid: "dev-cid",
     publishedSite: "",

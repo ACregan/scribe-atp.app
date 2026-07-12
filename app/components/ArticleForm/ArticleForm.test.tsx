@@ -50,6 +50,16 @@ vi.mock("~/components/ImagePicker/ImagePicker", () => ({
   ),
 }));
 
+vi.mock("~/components/ArticleContributors/ArticleContributors", () => ({
+  default: ({ contributors }: any) => (
+    <div data-testid="article-contributors">
+      {contributors.map((c: any) => (
+        <span key={c.did}>{c.displayName}</span>
+      ))}
+    </div>
+  ),
+}));
+
 vi.mock("~/components/TextArrayInput/TextArrayInput", () => ({
   default: ({ id, label, textArrayItems }: any) => (
     <div data-testid={`text-array-input-${id}`}>
