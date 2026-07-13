@@ -161,6 +161,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const recentArticles: RecentArticleItem[] = documentsResult.data.records
+    .slice(0, 8)
     .map((record) => {
       const value = record.value as Record<string, unknown>;
       const path = String(value.path ?? "");
@@ -433,7 +434,7 @@ function RecentArticlesColumn({
         </p>
       ) : (
         <ul className={styles.recentList}>
-          {recentArticles.slice(0, 8).map((article) => (
+          {recentArticles.map((article) => (
             <li key={article.uri} className={styles.recentItem}>
               <IconBadge icon={SvgImageList.Document} />
               <span className={styles.recentTitle}>{article.title}</span>
