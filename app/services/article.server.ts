@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import {
   DOCUMENT_COLLECTION,
   READER_BASE_URL,
@@ -6,6 +7,72 @@ import {
 } from "~/constants";
 import type { ArticleRef } from "~/hooks/types";
 import type { Contributor } from "~/components/types";
+
+// Class names @scribe-atp/styles actually consumes — its Prism-based syntax
+// highlighting CSS targets these (see scribe-atp-sdk's
+// packages/styles/src/index.css, "Syntax highlighting" section). Every other
+// class Lexical's exportDOM emits (headings, bold/italic, links, lists,
+// blockquotes, code blocks — see RichTextEditor.tsx's `theme` object) comes
+// straight out of RichTextEditor.module.css's CSS-Modules class map. Those
+// hashes are meaningless outside the CMS's own build, and since CSS Modules
+// rehashes them on every deploy, classes baked into a record today can go
+// stale and permanently orphaned the next time the CMS ships a CSS change.
+const ALLOWED_HTML_CLASSES = new Set([
+  "token",
+  "atrule",
+  "attr",
+  "boolean",
+  "builtin",
+  "cdata",
+  "char",
+  "class",
+  "class-name",
+  "comment",
+  "constant",
+  "deleted",
+  "doctype",
+  "entity",
+  "function",
+  "important",
+  "inserted",
+  "keyword",
+  "namespace",
+  "number",
+  "operator",
+  "prolog",
+  "property",
+  "punctuation",
+  "regex",
+  "selector",
+  "string",
+  "symbol",
+  "tag",
+  "url",
+  "variable",
+]);
+
+// Strips every `class` token not in ALLOWED_HTML_CLASSES from article HTML
+// before it's written to a site.standard.document record — the single choke
+// point both create and edit actions save through. The hook is added and
+// removed around this one synchronous call so it never leaks into the
+// DOMPurify singleton's behaviour for other callers (e.g. view.tsx's
+// read-time XSS sanitisation, which should keep classes exactly as stored).
+export function sanitizeArticleHtml(html: string): string {
+  if (!html) return html;
+  DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+    if (data.attrName !== "class") return;
+    data.attrValue = data.attrValue
+      .split(/\s+/)
+      .filter((token) => ALLOWED_HTML_CLASSES.has(token))
+      .join(" ");
+    if (!data.attrValue) data.keepAttr = false;
+  });
+  try {
+    return DOMPurify.sanitize(html, { FORCE_BODY: true });
+  } finally {
+    DOMPurify.removeHook("uponSanitizeAttribute");
+  }
+}
 
 export function validateArticleFields(
   title: string,

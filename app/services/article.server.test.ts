@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
+import DOMPurify from "isomorphic-dompurify";
 import {
   validateArticleFields,
   buildLooseSiteUrl,
   buildLooseDocumentFields,
   parseContributors,
+  sanitizeArticleHtml,
 } from "./article.server";
 
 const DID = "did:plc:e2lcgwxhymx3q6u7blziecdr";
@@ -152,5 +154,55 @@ describe("parseContributors", () => {
   it("rejects a JSON array or primitive instead of an object", () => {
     const result = parseContributors(formDataWith(JSON.stringify(["not", "an", "object"])));
     expect(result.error).toBe("Invalid contributor data.");
+  });
+});
+
+describe("sanitizeArticleHtml", () => {
+  it("returns empty/falsy input unchanged", () => {
+    expect(sanitizeArticleHtml("")).toBe("");
+  });
+
+  it("strips a CSS-Modules class emitted by Lexical's exportDOM", () => {
+    const result = sanitizeArticleHtml('<h1 class="_h1_v8vhs_415">Title</h1>');
+    expect(result).not.toContain("_h1_v8vhs_415");
+    expect(result).toContain("<h1>Title</h1>");
+  });
+
+  it("strips CSS-Modules classes from bold/italic/link/list/blockquote/code elements", () => {
+    const html = [
+      '<p><strong class="_bold_v8vhs_375">bold</strong></p>',
+      '<p><a class="_link_v8vhs_345" href="https://example.com">link</a></p>',
+      '<ul class="_ul_v8vhs_470"><li class="_listItem_v8vhs_480">item</li></ul>',
+      '<blockquote class="_blockquote_v8vhs_446">quote</blockquote>',
+      '<pre class="_codeBlock_v8vhs_454"><code>x</code></pre>',
+    ].join("");
+    const result = sanitizeArticleHtml(html);
+    expect(result).not.toMatch(/class="[^"]*_[a-z]+_[a-z0-9]+_\d+/);
+  });
+
+  it("keeps Prism token classes required by @scribe-atp/styles", () => {
+    const html =
+      '<pre class="_codeBlock_v8vhs_454"><code><span class="token keyword">const</span></code></pre>';
+    const result = sanitizeArticleHtml(html);
+    expect(result).toContain('class="token keyword"');
+    expect(result).not.toContain("_codeBlock_v8vhs_454");
+  });
+
+  it("drops the class attribute entirely when nothing survives the allowlist", () => {
+    const result = sanitizeArticleHtml('<h2 class="_h2_v8vhs_420">Heading</h2>');
+    expect(result).not.toContain("class=");
+  });
+
+  it("does not leak its class-filtering hook into unrelated DOMPurify calls", () => {
+    sanitizeArticleHtml('<p class="_bold_v8vhs_375">x</p>');
+    // A plain, unrelated DOMPurify.sanitize call (mirroring view.tsx's
+    // read-time XSS sanitisation) must not have the hook still attached —
+    // otherwise a live-editor CSS-Modules class would survive on read too,
+    // while any *other* class an author might legitimately want preserved
+    // would get silently stripped.
+    const result = DOMPurify.sanitize('<p class="some-class">x</p>', {
+      FORCE_BODY: true,
+    });
+    expect(result).toContain('class="some-class"');
   });
 });

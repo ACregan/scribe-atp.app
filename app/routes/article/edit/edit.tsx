@@ -11,6 +11,7 @@ import {
   buildArticleRef,
   resolveThumbUrl,
   parseContributors,
+  sanitizeArticleHtml,
 } from "~/services/article.server";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import { updateArticleRef } from "~/routes/article/site-list/siteTree";
@@ -93,7 +94,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const title = formData.get("title") as string;
-  const content = formData.get("content") as string;
+  const content = sanitizeArticleHtml((formData.get("content") as string) ?? "");
   const newSlug = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const description = formData.get("description") as string;
