@@ -14,6 +14,7 @@ import {
   validateArticleFields,
   buildLooseSiteUrl,
   parseContributors,
+  sanitizeArticleHtml,
 } from "~/services/article.server";
 import {
   createDocument,
@@ -40,7 +41,7 @@ export async function loader({}: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const title = formData.get("title") as string;
-  const content = formData.get("content") as string;
+  const content = sanitizeArticleHtml((formData.get("content") as string) ?? "");
   const slug = formData.get("url") as string;
   const splashImageUrl = formData.get("splashImageUrl") as string;
   const description = formData.get("description") as string;
