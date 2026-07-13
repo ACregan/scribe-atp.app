@@ -433,7 +433,7 @@ function RecentArticlesColumn({
         </p>
       ) : (
         <ul className={styles.recentList}>
-          {recentArticles.map((article) => (
+          {recentArticles.slice(0, 8).map((article) => (
             <li key={article.uri} className={styles.recentItem}>
               <IconBadge icon={SvgImageList.Document} />
               <span className={styles.recentTitle}>{article.title}</span>
@@ -564,7 +564,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               </Link>
               {sites.length > 0 ? (
                 <Link to="/groups/new">
-                  <Button type="button" icon={SvgImageList.Folder} tabIndex={-1}>
+                  <Button
+                    type="button"
+                    icon={SvgImageList.Folder}
+                    tabIndex={-1}
+                  >
                     New Group
                   </Button>
                 </Link>

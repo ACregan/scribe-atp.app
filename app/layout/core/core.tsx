@@ -115,8 +115,14 @@ const HeaderButton: React.FC<HeaderButtonProps> = ({ url, children }) => {
 };
 
 function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
-  const { isAuthenticated, displayName, avatar, handle, hasSites, hasArticles } =
-    loaderData;
+  const {
+    isAuthenticated,
+    displayName,
+    avatar,
+    handle,
+    hasSites,
+    hasArticles,
+  } = loaderData;
   const location = useLocation();
   const navigation = useNavigation();
   const isNavigating = navigation.state !== "idle";
@@ -163,7 +169,7 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
                   className={styles.headingLogo}
                   name={SvgImageList.ScribeCMSLogo}
                 />
-                <h6>
+                {/* <h6>
                   Powered By{" "}
                   <span>
                     <SvgIcon
@@ -171,7 +177,7 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
                       fill={"var(--text-secondary)"}
                     />
                   </span>
-                </h6>
+                </h6> */}
               </div>
             </Tooltip>
             <div className={styles.linkButtonContainer}>

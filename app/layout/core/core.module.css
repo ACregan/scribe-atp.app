@@ -19,7 +19,7 @@
 .coreLayout_container {
   display: grid;
   grid-template-columns: 0 1fr;
-  grid-template-rows: 8rem 1fr 6rem;
+  grid-template-rows: 6rem 1fr 5rem;
   grid-template-areas:
     "header header"
     "aside main"
@@ -91,23 +91,22 @@
   display: flex;
   height: 3rem;
   width: 19rem;
-  margin-bottom: 0.5rem;
   fill: var(--landing-page-logo-fill);
 }
-.logoContainer > h6 {
-  font-size: 1.4rem;
+/* .logoContainer > h6 {
+  font-size: 1rem;
   font-weight: 300;
   margin: 0;
   display: flex;
   align-items: center;
   user-select: none;
   letter-spacing: 0rem;
+  text-transform: uppercase;
 }
 .logoContainer > h6 > span > svg {
-  /* ATProto logo svg*/
-  height: 1.6rem;
+  height: 1rem;
   margin-left: 1.5rem;
-}
+} */
 
 .version {
   font-size: 1.2rem;
@@ -152,8 +151,8 @@
   color: var(--text-secondary);
 }
 .userProfile > img.userAvatar {
-  height: 5rem;
-  width: 5rem;
+  height: 4rem;
+  width: 4rem;
   border-radius: 50%;
 }
 .exitButton {
@@ -176,7 +175,7 @@
 
   height: auto;
   grid-area: main;
-  background: var(--surface-app);
+  background: var(--main-background);
   color: var(--text-on-dark);
 
   display: flex;
@@ -208,7 +207,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 1rem;
+  padding: 0 2rem;
   background: var(--surface-header);
 }
 .coreLayout_container > footer > a > button,
