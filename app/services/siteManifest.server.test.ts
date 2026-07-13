@@ -8,6 +8,7 @@ import {
   saveSiteOrder,
   removeArticleFromSite,
   unpublishArticle,
+  validateGroupFields,
 } from "./siteManifest.server";
 
 // Deep edge-case suite for siteManifest.server.ts — the long-term primary
@@ -197,6 +198,30 @@ describe("computeDocumentPathUpdates", () => {
     expect(updates[0].newCanonicalUrl).toBe(
       "https://anthonycregan.co.uk/blog/creative-writing/the-crows-of-shenton-way",
     );
+  });
+});
+
+describe("validateGroupFields", () => {
+  it("accepts a normal title/slug", () => {
+    expect(validateGroupFields("Engineering")).toEqual({
+      slug: "engineering",
+    });
+    expect(validateGroupFields("Engineering", "eng")).toEqual({
+      slug: "eng",
+    });
+  });
+
+  it("bug fix: rejects the reserved 'root' slug, which collides with the hardcoded g:root sentinel", () => {
+    expect(validateGroupFields("Root")).toEqual({
+      error: expect.stringContaining("reserved"),
+    });
+    expect(validateGroupFields("Anything", "root")).toEqual({
+      error: expect.stringContaining("reserved"),
+    });
+    // slugs are lowercased before the reserved check runs
+    expect(validateGroupFields("Anything", "ROOT")).toEqual({
+      error: expect.stringContaining("reserved"),
+    });
   });
 });
 
