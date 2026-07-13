@@ -53,7 +53,7 @@
 .linkButtonContainer {
   display: flex;
   align-items: center;
-  margin-left: 3rem;
+  margin-left: 1rem;
 }
 .headerButtonLink {
   text-decoration: none;
@@ -89,8 +89,8 @@
 /* ScribeCMS LOGO */
 .headingLogo {
   display: flex;
-  height: 3rem;
-  width: 19rem;
+  height: 2.4rem;
+  width: 15rem;
   fill: var(--landing-page-logo-fill);
 }
 /* .logoContainer > h6 {
@@ -109,9 +109,9 @@
 } */
 
 .version {
-  font-size: 1.2rem;
-  padding: 0 0.5rem;
-  transform: translateY(-2rem);
+  font-size: 1rem;
+  padding: 0 0 0 0.5rem;
+  transform: translateY(-1rem);
   display: flex;
   color: var(--text-secondary);
 }
