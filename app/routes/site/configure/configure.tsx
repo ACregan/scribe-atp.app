@@ -263,7 +263,6 @@ export async function action({ request, params }: Route.ActionArgs) {
           ...existingValue,
           url: `https://${url}`,
           name: title,
-          ...(description ? { description } : { description: undefined }),
           ...(iconBlobRef !== undefined
             ? { icon: iconBlobRef }
             : { icon: undefined }),
@@ -275,6 +274,13 @@ export async function action({ request, params }: Route.ActionArgs) {
             domain: url,
             basePath: urlPrefix,
             title,
+            // Bug fix: this was previously written to the record's top level
+            // instead of nested in scribe (while existingScribeBase above
+            // always strips the old scribe.description), silently deleting
+            // the description from every site on its first Configure save —
+            // sites.tsx's createSite writes it here, and its loader only
+            // ever reads it back from scribe.description.
+            ...(description ? { description } : { description: undefined }),
             ...(splashImageUrl
               ? { splashImageUrl }
               : { splashImageUrl: undefined }),

@@ -209,6 +209,34 @@ describe("action — save (no domain/basePath change)", () => {
     expect(listRecords).not.toHaveBeenCalled();
   });
 
+  it("bug fix: writes description into scribe, not the record top level, and preserves it across a save", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecordValue({
+          domain: "example.com",
+          basePath: "blog",
+          title: "Old Title",
+          description: "Original description",
+        }),
+      ),
+      putRecord,
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+    const result = await callAction({
+      title: "New Title",
+      url: "example.com",
+      urlPrefix: "blog",
+      description: "Original description",
+    });
+
+    expect(result).toEqual({ ok: true });
+    const savedRecord = putRecord.mock.calls[0][0].record;
+    expect(savedRecord).not.toHaveProperty("description");
+    expect(savedRecord.scribe.description).toBe("Original description");
+  });
+
   it("bug fix: passes the fetched cid as swapRecord on the site-record save", async () => {
     const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
     const agent = makeAgent({
