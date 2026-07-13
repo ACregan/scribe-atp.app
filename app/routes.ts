@@ -67,6 +67,14 @@ export default [
         "devtools/repair-loose-documents",
         "./routes/devtools/repair-loose-documents/repair-loose-documents.tsx",
       ),
+      // One-time backfill for records saved before sanitizeArticleHtml()
+      // (article.server.ts) started stripping the CMS's own CSS-Modules
+      // editor classes out of saved content.html. Retire once run against
+      // production.
+      route(
+        "devtools/repair-article-html-classes",
+        "./routes/devtools/repair-article-html-classes/repair-article-html-classes.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
