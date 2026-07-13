@@ -14,7 +14,7 @@
   --surface-muted: var(--wild-sand);
   /* Neutral badge / inactive state backgrounds (with --text-on-dark text) */
   --surface-neutral: var(--gray);
-  --surface-shadow-color: rgba(0, 0, 0, 0.5);
+  --surface-shadow-color: rgba(0, 0, 0, 0.1);
   --aside-background: var(--blue-ribbon);
   --aside-color: var(--white);
 
@@ -40,7 +40,7 @@
   /* Core Layout */
   --header-button-colour: var(--blue-ribbon);
   --header-button-colour_hover: var(--blue-ribbon_light);
-
+  --main-background: var(--white-off);
   /* Landing Page */
   --landing-page-logo-fill: var(--jacaranda);
   --landing-page-tagline-color: var(--charcoal);
@@ -171,6 +171,8 @@
   --action-danger: var(--cinnabar);
 
   /* -=-=-=- COMPONENT SPECIFIC =-=-=- */
+
+  --main-background: var(--jacaranda);
 
   /* Landing Page */
   --landing-page-logo-fill: var(--white);
