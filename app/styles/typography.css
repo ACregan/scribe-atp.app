@@ -12,31 +12,26 @@ h6 {
   line-height: 110%;
   margin: 1rem 0;
   color: var(--text-primary);
+  letter-spacing: -0.05em;
 }
 
 h1 {
   font-size: 6rem;
-  letter-spacing: -0.3rem;
 }
 h2 {
   font-size: 5.5rem;
-  letter-spacing: -0.3rem;
 }
 h3 {
   font-size: 5rem;
-  letter-spacing: -0.3rem;
 }
 h4 {
   font-size: 4.5rem;
-  letter-spacing: -0.2rem;
 }
 h5 {
   font-size: 4rem;
-  letter-spacing: -0.2rem;
 }
 h6 {
   font-size: 3.5rem;
-  letter-spacing: -0.2rem;
 }
 
 .semiBold {
