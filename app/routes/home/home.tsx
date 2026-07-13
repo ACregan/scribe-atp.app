@@ -4,6 +4,7 @@ import { Link, useFetcher } from "react-router";
 import {
   getAtpAgent,
   getAuthSession,
+  rethrowIfRedirect,
   useRealOAuth,
 } from "~/services/auth.server";
 import { devHomeLoader } from "~/services/devFixtures.server";
@@ -236,6 +237,7 @@ export async function action({ request }: Route.ActionArgs) {
       );
       return { ok: true, deleted, devMode: false };
     } catch (err) {
+      rethrowIfRedirect(err);
       return { ok: false, error: `Clear likes failed: ${String(err)}` };
     }
   }
@@ -274,6 +276,7 @@ export async function action({ request }: Route.ActionArgs) {
     );
     return { ok: true, deleted, devMode: false };
   } catch (err) {
+    rethrowIfRedirect(err);
     return { ok: false, error: `Nuke failed: ${String(err)}` };
   }
 }

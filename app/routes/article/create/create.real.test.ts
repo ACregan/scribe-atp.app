@@ -12,6 +12,9 @@ import { requireAtpAgent } from "~/services/auth.server";
 
 vi.mock("~/services/auth.server", () => ({
   requireAtpAgent: vi.fn(),
+  rethrowIfRedirect: (err: unknown) => {
+    if (err instanceof Response) throw err;
+  },
   useRealOAuth: true,
 }));
 
@@ -222,5 +225,21 @@ describe("action", () => {
       content: "<p>hi</p>",
     });
     expect(result).toEqual({ error: "patch failed" });
+  });
+
+  it("security fix: propagates a requireAtpAgent redirect instead of swallowing it as a generic error", async () => {
+    const redirectToLogin = new Response(null, {
+      status: 302,
+      headers: { Location: "/login" },
+    });
+    vi.mocked(requireAtpAgent).mockRejectedValue(redirectToLogin);
+
+    const thrown = await callAction({
+      title: "My Article",
+      url: "my-article",
+      content: "<p>hi</p>",
+    }).catch((err) => err);
+
+    expect(thrown).toBe(redirectToLogin);
   });
 });

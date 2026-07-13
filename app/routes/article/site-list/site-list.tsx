@@ -12,6 +12,7 @@ import {
   getAtpAgent,
   requireAuth,
   requireAtpAgent,
+  rethrowIfRedirect,
   useRealOAuth,
 } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
@@ -113,7 +114,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         ungroupedArticles: (scribeVal.ungroupedArticles as ArticleRef[]) ?? [],
       } as SiteManifest,
     };
-  } catch {
+  } catch (err) {
+    rethrowIfRedirect(err);
     throw redirect("/sites");
   }
 }
@@ -287,6 +289,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
         return { ok: true, uri, bskyPostRef };
       } catch (err) {
+        rethrowIfRedirect(err);
         logger.error(
           { event: "article.share.error", error: String(err) },
           "article.share.error",

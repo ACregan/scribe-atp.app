@@ -175,6 +175,18 @@ export async function requireAtpAgent(
   return { agent, did, handle };
 }
 
+// requireAuth/getAtpAgent/requireAtpAgent throw a redirect Response on auth
+// failure — getAtpAgent's redirect in particular carries a Set-Cookie header
+// that clears a stale session (see its comment above). A route's own
+// try/catch, written to turn PDS write failures into a friendly error
+// message, must not treat that Response as a generic error or the redirect
+// (and its cookie-clearing header) gets silently swallowed, reintroducing a
+// login redirect loop. Call this first in any catch block that wraps a call
+// to one of those three functions.
+export function rethrowIfRedirect(err: unknown): void {
+  if (err instanceof Response) throw err;
+}
+
 // Scribe CMS has open registration (any Bluesky account can log in — see
 // ADR 0010), so requireAtpAgent alone is not enough to gate the /devtools
 // repair tools: any authenticated user could reach them and run repair
