@@ -14,6 +14,9 @@ import { getAtpAgent, requireAuth } from "~/services/auth.server";
 vi.mock("~/services/auth.server", () => ({
   requireAuth: vi.fn(),
   getAtpAgent: vi.fn(),
+  rethrowIfRedirect: (err: unknown) => {
+    if (err instanceof Response) throw err;
+  },
   useRealOAuth: true,
 }));
 
@@ -204,6 +207,34 @@ describe("action — save (no domain/basePath change)", () => {
       }),
     );
     expect(listRecords).not.toHaveBeenCalled();
+  });
+
+  it("bug fix: writes description into scribe, not the record top level, and preserves it across a save", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecordValue({
+          domain: "example.com",
+          basePath: "blog",
+          title: "Old Title",
+          description: "Original description",
+        }),
+      ),
+      putRecord,
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+    const result = await callAction({
+      title: "New Title",
+      url: "example.com",
+      urlPrefix: "blog",
+      description: "Original description",
+    });
+
+    expect(result).toEqual({ ok: true });
+    const savedRecord = putRecord.mock.calls[0][0].record;
+    expect(savedRecord).not.toHaveProperty("description");
+    expect(savedRecord.scribe.description).toBe("Original description");
   });
 
   it("bug fix: passes the fetched cid as swapRecord on the site-record save", async () => {
@@ -454,5 +485,20 @@ describe("action — failure", () => {
       ok: false,
       error: expect.stringContaining("Failed to save"),
     });
+  });
+
+  it("security fix: propagates a getAtpAgent redirect instead of swallowing it as a generic error", async () => {
+    const redirectToLogin = new Response(null, {
+      status: 302,
+      headers: { Location: "/login" },
+    });
+    vi.mocked(getAtpAgent).mockRejectedValue(redirectToLogin);
+
+    const thrown = await callAction({
+      title: "My Site",
+      url: "example.com",
+    }).catch((err) => err);
+
+    expect(thrown).toBe(redirectToLogin);
   });
 });

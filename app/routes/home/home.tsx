@@ -4,6 +4,7 @@ import { Link, useFetcher } from "react-router";
 import {
   getAtpAgent,
   getAuthSession,
+  rethrowIfRedirect,
   useRealOAuth,
 } from "~/services/auth.server";
 import { devHomeLoader } from "~/services/devFixtures.server";
@@ -206,6 +207,11 @@ export async function action({ request }: Route.ActionArgs) {
   if (!did) return { ok: false, error: "Not authenticated." };
 
   if (intent === "clearLikes") {
+    // Bug fix: this is a dev-only tool (the button is gated behind isDev in
+    // the UI, same as Nuke below), but unlike Nuke it had no server-side
+    // IS_DEV gate — any authenticated user could reach it in production via
+    // a direct POST.
+    if (!IS_DEV) return { ok: false, error: "Not available." };
     if (!useRealOAuth) return { ok: true, deleted: 0, devMode: true };
     try {
       const agent = await getAtpAgent(did, request);
@@ -236,6 +242,7 @@ export async function action({ request }: Route.ActionArgs) {
       );
       return { ok: true, deleted, devMode: false };
     } catch (err) {
+      rethrowIfRedirect(err);
       return { ok: false, error: `Clear likes failed: ${String(err)}` };
     }
   }
@@ -274,6 +281,7 @@ export async function action({ request }: Route.ActionArgs) {
     );
     return { ok: true, deleted, devMode: false };
   } catch (err) {
+    rethrowIfRedirect(err);
     return { ok: false, error: `Nuke failed: ${String(err)}` };
   }
 }

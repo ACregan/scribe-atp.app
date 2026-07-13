@@ -1,7 +1,11 @@
 import type { Route } from "./+types/list";
 import { Form, Link, redirect, useFetcher } from "react-router";
 import { useEffect, useRef, useState } from "react";
-import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import {
+  requireAtpAgent,
+  requireAuth,
+  useRealOAuth,
+} from "~/services/auth.server";
 import { devArticleListLoader } from "~/services/devFixtures.server";
 import {
   listDocuments,
@@ -231,18 +235,31 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   if (intent === "notifySubscribers") {
+    if (!useRealOAuth) return { ok: true, sent: 0, skipped: 0 };
+
+    // Every other intent in this action gates on the caller's own PDS
+    // session before doing anything sensitive — this branch was missing
+    // that check entirely. requireAuth (not requireAtpAgent) is enough
+    // here since no PDS agent is needed, only the caller's did, which we
+    // also use below to confirm the publication being notified about is
+    // actually theirs.
+    const { did } = await requireAuth(request);
+
     const publicationUri = (formData.get("publicationUri") as string) ?? "";
     const siteTitle = (formData.get("siteTitle") as string) ?? "";
     const articleTitle = (formData.get("articleTitle") as string) ?? "";
     const canonicalUrl = (formData.get("canonicalUrl") as string) ?? "";
     const origin = (formData.get("origin") as string) ?? "";
 
+    if (!publicationUri.startsWith(`at://${did}/`)) {
+      return { ok: false, sent: 0, skipped: 0 };
+    }
+
     const socialServiceUrl =
       process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
     const notifySecret = process.env.NOTIFY_SECRET;
 
     if (
-      useRealOAuth &&
       notifySecret &&
       publicationUri &&
       articleTitle &&

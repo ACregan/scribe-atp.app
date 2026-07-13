@@ -16,7 +16,12 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useFetcher, useLocation, useNavigate } from "react-router";
 import { useToast } from "~/components/Toast/ToastContext";
 import styles from "./sites.module.css";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import {
+  getAtpAgent,
+  requireAuth,
+  rethrowIfRedirect,
+  useRealOAuth,
+} from "~/services/auth.server";
 import { devSitesLoader } from "~/services/devFixtures.server";
 import { SiteTile } from "~/components/SiteTile/SiteTile";
 import { type SiteCard } from "~/components/types";
@@ -183,6 +188,7 @@ export async function action({ request }: Route.ActionArgs) {
         );
         await registerSocialOrigin(url, did);
       } catch (err) {
+        rethrowIfRedirect(err);
         return { ok: false, error: `Failed to create site: ${String(err)}` };
       }
     }
@@ -209,6 +215,7 @@ export async function action({ request }: Route.ActionArgs) {
         const agent = await getAtpAgent(did, request);
         await deleteSiteRecord(agent, did, rkey, cid);
       } catch (err) {
+        rethrowIfRedirect(err);
         return { ok: false, error: `Failed to delete site: ${String(err)}` };
       }
     }

@@ -15,3 +15,10 @@ export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 // Image URLs must use https:// — rejects http://, javascript:, data:, relative paths
 export const IMAGE_URL_RE = /^https:\/\//i;
+
+// "root" is reserved as a group slug — it collides with the hardcoded
+// synthetic id ("g:root") that app/routes/article/site-list/siteTree.ts
+// uses for the Ungrouped pseudo-node. A real group with this slug would get
+// silently merged into ungroupedArticles and lose its title/metadata on the
+// next Save Order.
+export const RESERVED_GROUP_SLUG = "root";

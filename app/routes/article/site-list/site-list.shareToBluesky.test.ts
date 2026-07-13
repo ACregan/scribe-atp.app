@@ -14,6 +14,9 @@ import { requireAuth, getAtpAgent } from "~/services/auth.server";
 vi.mock("~/services/auth.server", () => ({
   requireAuth: vi.fn(),
   getAtpAgent: vi.fn(),
+  rethrowIfRedirect: (err: unknown) => {
+    if (err instanceof Response) throw err;
+  },
   useRealOAuth: true,
 }));
 
@@ -184,5 +187,20 @@ describe("action — shareToBluesky", () => {
       ok: false,
       error: "Share failed: PDS unavailable",
     });
+  });
+
+  it("security fix: propagates a getAtpAgent redirect instead of swallowing it as a generic error", async () => {
+    const redirectToLogin = new Response(null, {
+      status: 302,
+      headers: { Location: "/login" },
+    });
+    vi.mocked(getAtpAgent).mockRejectedValue(redirectToLogin);
+
+    const thrown = await callAction({
+      uri: DOCUMENT_URI,
+      text: "Check this out",
+    }).catch((err) => err);
+
+    expect(thrown).toBe(redirectToLogin);
   });
 });

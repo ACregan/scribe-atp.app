@@ -14,7 +14,12 @@ import { Input } from "~/components/Input/Input";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
-import { getAtpAgent, requireAuth, useRealOAuth } from "~/services/auth.server";
+import {
+  getAtpAgent,
+  requireAuth,
+  rethrowIfRedirect,
+  useRealOAuth,
+} from "~/services/auth.server";
 import { devConfigureLoader } from "~/services/devFixtures.server";
 import type { Route } from "./+types/configure";
 import styles from "./configure.module.css";
@@ -258,7 +263,6 @@ export async function action({ request, params }: Route.ActionArgs) {
           ...existingValue,
           url: `https://${url}`,
           name: title,
-          ...(description ? { description } : { description: undefined }),
           ...(iconBlobRef !== undefined
             ? { icon: iconBlobRef }
             : { icon: undefined }),
@@ -270,6 +274,13 @@ export async function action({ request, params }: Route.ActionArgs) {
             domain: url,
             basePath: urlPrefix,
             title,
+            // Bug fix: this was previously written to the record's top level
+            // instead of nested in scribe (while existingScribeBase above
+            // always strips the old scribe.description), silently deleting
+            // the description from every site on its first Configure save —
+            // sites.tsx's createSite writes it here, and its loader only
+            // ever reads it back from scribe.description.
+            ...(description ? { description } : { description: undefined }),
             ...(splashImageUrl
               ? { splashImageUrl }
               : { splashImageUrl: undefined }),
@@ -347,6 +358,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         }
       }
     } catch (err) {
+      rethrowIfRedirect(err);
       return { ok: false, error: `Failed to save: ${String(err)}` };
     }
   }

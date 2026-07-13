@@ -9,7 +9,11 @@ import {
   PageContainer,
   PageContainerHeading,
 } from "~/components/PageContainer/PageContainer";
-import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import {
+  requireAtpAgent,
+  rethrowIfRedirect,
+  useRealOAuth,
+} from "~/services/auth.server";
 import {
   validateArticleFields,
   buildLooseSiteUrl,
@@ -105,6 +109,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     return { slug, devMode: false as const, title };
   } catch (err) {
+    rethrowIfRedirect(err);
     console.error("Failed to write article to PDS:", err);
     return {
       error:

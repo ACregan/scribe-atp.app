@@ -11,6 +11,9 @@ import { requireAuth, getAtpAgent } from "~/services/auth.server";
 vi.mock("~/services/auth.server", () => ({
   requireAuth: vi.fn(),
   getAtpAgent: vi.fn(),
+  rethrowIfRedirect: (err: unknown) => {
+    if (err instanceof Response) throw err;
+  },
   useRealOAuth: true,
 }));
 
@@ -310,6 +313,22 @@ describe("action — createSite", () => {
       error: expect.stringContaining("Failed to create site"),
     });
   });
+
+  it("security fix: propagates a getAtpAgent redirect instead of swallowing it as a generic error", async () => {
+    const redirectToLogin = new Response(null, {
+      status: 302,
+      headers: { Location: "/login" },
+    });
+    vi.mocked(getAtpAgent).mockRejectedValue(redirectToLogin);
+
+    const thrown = await callAction({
+      _intent: "createSite",
+      title: "My Site",
+      url: "my.example.com",
+    }).catch((err) => err);
+
+    expect(thrown).toBe(redirectToLogin);
+  });
 });
 
 describe("action — deleteSite", () => {
@@ -347,6 +366,21 @@ describe("action — deleteSite", () => {
       ok: false,
       error: expect.stringContaining("Failed to delete site"),
     });
+  });
+
+  it("security fix: propagates a getAtpAgent redirect instead of swallowing it as a generic error", async () => {
+    const redirectToLogin = new Response(null, {
+      status: 302,
+      headers: { Location: "/login" },
+    });
+    vi.mocked(getAtpAgent).mockRejectedValue(redirectToLogin);
+
+    const thrown = await callAction({
+      _intent: "deleteSite",
+      rkey: "my-site",
+    }).catch((err) => err);
+
+    expect(thrown).toBe(redirectToLogin);
   });
 });
 

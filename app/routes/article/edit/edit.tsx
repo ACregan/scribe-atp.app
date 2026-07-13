@@ -5,7 +5,11 @@ import {
   useBlocker,
   type BlockerFunction,
 } from "react-router";
-import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import {
+  requireAtpAgent,
+  rethrowIfRedirect,
+  useRealOAuth,
+} from "~/services/auth.server";
 import {
   validateArticleFields,
   buildArticleRef,
@@ -286,6 +290,7 @@ export async function action({ request }: Route.ActionArgs) {
       coverImageWarning,
     };
   } catch (err) {
+    rethrowIfRedirect(err);
     console.error("Failed to update article:", err);
     return {
       ok: false as const,

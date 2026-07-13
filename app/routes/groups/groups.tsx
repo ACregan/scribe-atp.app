@@ -14,7 +14,7 @@ import {
   PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
-import { SITE_COLLECTION, SLUG_RE } from "~/constants";
+import { SITE_COLLECTION, SLUG_RE, RESERVED_GROUP_SLUG } from "~/constants";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { Pill } from "~/components/Pill/Pill";
@@ -108,6 +108,8 @@ export async function action({ request }: Route.ActionArgs) {
       return {
         error: "URL path must be lowercase letters, numbers and hyphens only.",
       };
+    if (slug === RESERVED_GROUP_SLUG)
+      return { error: '"root" is a reserved URL path — please choose another.' };
 
     if (useRealOAuth) {
       const agent = await getAtpAgent(did, request);

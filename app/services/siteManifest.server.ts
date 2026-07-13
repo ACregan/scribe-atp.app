@@ -15,7 +15,12 @@ import type {
   SiteRecordValue,
 } from "~/routes/article/site-list/siteTree";
 import type { ArticleRef, SiteGroup } from "~/hooks/types";
-import { DOCUMENT_COLLECTION, SITE_COLLECTION, SLUG_RE } from "~/constants";
+import {
+  DOCUMENT_COLLECTION,
+  SITE_COLLECTION,
+  SLUG_RE,
+  RESERVED_GROUP_SLUG,
+} from "~/constants";
 
 // Business logic for site-manifest mutations (groups, article placement,
 // publish/draft transitions) extracted from the site-list route's action.
@@ -59,6 +64,9 @@ export function validateGroupFields(
     return {
       error: "URL path must be lowercase letters, numbers and hyphens only.",
     };
+  }
+  if (slug === RESERVED_GROUP_SLUG) {
+    return { error: "\"root\" is a reserved URL path — please choose another." };
   }
   return { slug };
 }
