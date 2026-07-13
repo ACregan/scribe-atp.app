@@ -15,7 +15,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       return Response.json({ profiles: [] });
     }
     try {
-      const profiles = await fetchBskyProfiles(dids);
+      const profiles = await fetchBskyProfiles(dids, request.signal);
       return Response.json({ profiles });
     } catch {
       return Response.json({ profiles: [] });
@@ -37,7 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
-    const profile = await fetchBskyProfile(handle);
+    const profile = await fetchBskyProfile(handle, request.signal);
     if (!profile) {
       return Response.json(
         { error: "Bluesky account not found" },

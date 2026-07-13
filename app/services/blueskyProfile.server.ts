@@ -1,40 +1,43 @@
-// Shared server-side helpers for fetching Bluesky profile data from the
-// public, unauthenticated API. Scoped to the Contributors feature's own
-// route (resolve-contributor.tsx) for now — images.tsx, core.tsx, and
-// auth/callback.tsx each have their own long-standing inline copies of
-// similar fetches; consolidating those is a separate, higher-risk change
-// (auth/session-critical paths) left out of scope here.
+// Shared server-side helpers for fetching Bluesky profile data. Scoped to
+// the Contributors feature's own route (resolve-contributor.tsx) for now —
+// images.tsx, core.tsx, and auth/callback.tsx each have their own
+// long-standing inline copies of similar fetches; consolidating those is a
+// separate, higher-risk change (auth/session-critical paths) left out of
+// scope here.
 
-export type BskyProfile = {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-};
+import { fetchProfile, type Profile } from "@scribe-atp/core";
+
+export type BskyProfile = Profile;
 
 // `actor` may be a handle or a DID — Bluesky's API accepts either.
 export async function fetchBskyProfile(
   actor: string,
+  signal?: AbortSignal,
 ): Promise<BskyProfile | null> {
-  const res = await fetch(
-    `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`,
-  );
-  if (!res.ok) return null;
-  return (await res.json()) as BskyProfile;
+  try {
+    return await fetchProfile(actor, signal);
+  } catch {
+    return null;
+  }
 }
 
+// The SDK only exposes a single-identifier fetchProfile — there is no bulk
+// equivalent of app.bsky.actor.getProfiles. Contributor lists are small (a
+// handful of people per article), so resolving each independently via
+// Promise.allSettled is cheap and, unlike the old single bulk call, one
+// failed lookup no longer blanks out every other contributor's avatar.
 export async function fetchBskyProfiles(
   dids: string[],
+  signal?: AbortSignal,
 ): Promise<Array<{ did: string; avatar?: string }>> {
   if (dids.length === 0) return [];
-  const params = new URLSearchParams();
-  dids.forEach((did) => params.append("actors", did));
-  const res = await fetch(
-    `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfiles?${params}`,
+  const results = await Promise.allSettled(
+    dids.map((did) => fetchProfile(did, signal)),
   );
-  if (!res.ok) return [];
-  const { profiles } = (await res.json()) as {
-    profiles: Array<{ did: string; avatar?: string }>;
-  };
-  return profiles.map((p) => ({ did: p.did, avatar: p.avatar }));
+  return results
+    .filter(
+      (result): result is PromiseFulfilledResult<Profile> =>
+        result.status === "fulfilled",
+    )
+    .map((result) => ({ did: result.value.did, avatar: result.value.avatar }));
 }
