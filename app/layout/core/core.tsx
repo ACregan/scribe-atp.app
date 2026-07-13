@@ -54,7 +54,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   }
 
-  const agent = await getAtpAgent(did);
+  const agent = await getAtpAgent(did, request);
   const [sitesResult, documentsResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
       repo: did,

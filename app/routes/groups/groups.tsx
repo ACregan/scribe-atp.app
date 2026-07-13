@@ -51,7 +51,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   if (!useRealOAuth) return devGroupsLoader();
 
-  const agent = await getAtpAgent(did);
+  const agent = await getAtpAgent(did, request);
   const result = await agent.com.atproto.repo.listRecords({
     repo: did,
     collection: SITE_COLLECTION,
@@ -110,7 +110,7 @@ export async function action({ request }: Route.ActionArgs) {
       };
 
     if (useRealOAuth) {
-      const agent = await getAtpAgent(did);
+      const agent = await getAtpAgent(did, request);
       const rec = await agent.com.atproto.repo.getRecord({
         repo: did,
         collection: SITE_COLLECTION,

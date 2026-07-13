@@ -46,7 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   if (!useRealOAuth) return devSitesLoader();
 
-  const agent = await getAtpAgent(did);
+  const agent = await getAtpAgent(did, request);
   const records = await listSites(agent, did);
 
   const sites: SiteCard[] = records
@@ -112,7 +112,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     if (useRealOAuth) {
       try {
-        const agent = await getAtpAgent(did);
+        const agent = await getAtpAgent(did, request);
         const now = new Date().toISOString();
 
         // Upload the logo as a blob for the top-level `icon` field — mirrors
@@ -206,7 +206,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     if (useRealOAuth) {
       try {
-        const agent = await getAtpAgent(did);
+        const agent = await getAtpAgent(did, request);
         await deleteSiteRecord(agent, did, rkey, cid);
       } catch (err) {
         return { ok: false, error: `Failed to delete site: ${String(err)}` };

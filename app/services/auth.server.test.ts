@@ -9,6 +9,7 @@ import {
   requireAdminAtpAgent,
   oauthClient,
 } from "./auth.server";
+import { oauthSessionStore } from "~/services/db.server";
 
 // This is the only test file that imports the real (non-mocked)
 // auth.server.ts — every route test mocks it wholesale. See test.setup.ts
@@ -98,14 +99,39 @@ describe("createAuthSession / destroyAuthSession", () => {
 describe("getAtpAgent", () => {
   it("returns an Agent when the OAuth session restores successfully", async () => {
     vi.spyOn(oauthClient, "restore").mockResolvedValue({ did: DID } as never);
-    const agent = await getAtpAgent(DID);
+    const agent = await getAtpAgent(DID, new Request("http://x/"));
     expect(agent).toBeDefined();
   });
 
   it("throws a redirect to /login when the OAuth session cannot be restored", async () => {
     vi.spyOn(oauthClient, "restore").mockRejectedValue(new Error("session lost"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(getAtpAgent(DID)).rejects.toMatchObject({ status: 302 });
+    const request = new Request("http://x/");
+    await expect(getAtpAgent(DID, request)).rejects.toMatchObject({ status: 302 });
+  });
+
+  // Regression coverage: a validly-signed __session cookie whose underlying
+  // OAuth session is unrestorable (revoked authorization, expired refresh
+  // token, etc.) used to redirect to /login without clearing the cookie.
+  // Since /login sits under the same core.tsx layout that also calls
+  // getAtpAgent, the very next request re-read the same broken cookie and
+  // hit this same failure again — a permanent redirect-to-self loop
+  // ("scribe-cms.app redirected you too many times") for the affected
+  // browser, only fixable by manually clearing cookies.
+  it("clears the session cookie and the SQLite oauth_session row so the login redirect doesn't loop", async () => {
+    vi.spyOn(oauthClient, "restore").mockRejectedValue(new Error("session lost"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const delSpy = vi
+      .spyOn(oauthSessionStore, "del")
+      .mockImplementation(() => Promise.resolve());
+    const request = await makeAuthedRequest();
+
+    const rejection = await getAtpAgent(DID, request).catch((e) => e);
+
+    expect(rejection).toMatchObject({ status: 302 });
+    expect(rejection.headers.get("location")).toBe("/login");
+    expect(rejection.headers.get("set-cookie")).toMatch(/__session=;|Max-Age=0/);
+    expect(delSpy).toHaveBeenCalledWith(DID);
   });
 });
 

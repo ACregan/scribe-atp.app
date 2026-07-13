@@ -54,7 +54,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   if (!useRealOAuth) return devConfigureLoader(siteSlug);
 
-  const agent = await getAtpAgent(did);
+  const agent = await getAtpAgent(did, request);
   const record = await getSite(agent, did, siteSlug);
 
   const v = record.value;
@@ -196,7 +196,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (useRealOAuth) {
     try {
-      const agent = await getAtpAgent(did);
+      const agent = await getAtpAgent(did, request);
 
       // Fetch existing record to preserve fields we don't manage here
       // (articles, groups, contributors, createdAt, etc.)
