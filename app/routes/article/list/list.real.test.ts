@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Agent } from "@atproto/api";
 import { loader, action } from "./list";
-import { requireAtpAgent } from "~/services/auth.server";
+import { requireAtpAgent, requireAuth } from "~/services/auth.server";
 
 // Characterization tests for the article-list route's real-OAuth path
 // (useRealOAuth: true), written before extracting onto
@@ -14,6 +14,7 @@ import { requireAtpAgent } from "~/services/auth.server";
 
 vi.mock("~/services/auth.server", () => ({
   requireAtpAgent: vi.fn(),
+  requireAuth: vi.fn(),
   useRealOAuth: true,
 }));
 
@@ -74,6 +75,7 @@ function callLoader() {
 
 beforeEach(() => {
   vi.mocked(requireAtpAgent).mockReset();
+  vi.mocked(requireAuth).mockReset();
 });
 
 function siteListRecord(rkey: string, scribe: Record<string, unknown>) {
@@ -286,5 +288,70 @@ describe("action", () => {
 
     const result = await callAction({ rkey: "orphan1", cid: "orphan1-cid" });
     expect(result).toEqual({ ok: false, error: expect.any(String) });
+  });
+
+  describe("notifySubscribers", () => {
+    const originalFetch = global.fetch;
+
+    beforeEach(() => {
+      global.fetch = vi.fn();
+      process.env.NOTIFY_SECRET = "test-secret";
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+      delete process.env.NOTIFY_SECRET;
+    });
+
+    it("security fix: requires authentication before calling the social service", async () => {
+      const redirectToLogin = new Response(null, {
+        status: 302,
+        headers: { Location: "/login" },
+      });
+      vi.mocked(requireAuth).mockRejectedValue(redirectToLogin);
+
+      const thrown = await callAction({
+        _intent: "notifySubscribers",
+        publicationUri: `at://${DID}/site.standard.publication/site-a`,
+        articleTitle: "Title",
+        canonicalUrl: "https://example.com/a",
+      }).catch((err) => err);
+
+      expect(thrown).toBe(redirectToLogin);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("security fix: rejects a publicationUri that does not belong to the caller", async () => {
+      vi.mocked(requireAuth).mockResolvedValue({ did: DID, handle: HANDLE });
+
+      const result = await callAction({
+        _intent: "notifySubscribers",
+        publicationUri: "at://did:plc:someoneelse/site.standard.publication/site-a",
+        articleTitle: "Title",
+        canonicalUrl: "https://example.com/a",
+      });
+
+      expect(result).toEqual({ ok: false, sent: 0, skipped: 0 });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("calls the social service when authenticated and the publication belongs to the caller", async () => {
+      vi.mocked(requireAuth).mockResolvedValue({ did: DID, handle: HANDLE });
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, sent: 3, skipped: 1 }), {
+          status: 200,
+        }),
+      );
+
+      const result = await callAction({
+        _intent: "notifySubscribers",
+        publicationUri: `at://${DID}/site.standard.publication/site-a`,
+        articleTitle: "Title",
+        canonicalUrl: "https://example.com/a",
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ ok: true, sent: 3, skipped: 1 });
+    });
   });
 });
