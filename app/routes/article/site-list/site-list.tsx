@@ -132,7 +132,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if ("error" in validated) return validated;
     if (!useRealOAuth) return { ok: true };
 
-    const agent = await getAtpAgent(did);
+    const agent = await getAtpAgent(did, request);
     return createGroupManifest(agent, did, siteSlug, {
       title,
       slug: validated.slug,
@@ -144,7 +144,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!rkey) return { ok: false, error: "Missing group ID." };
     if (!useRealOAuth) return { ok: true, deletedSlug: rkey };
 
-    const agent = await getAtpAgent(did);
+    const agent = await getAtpAgent(did, request);
     return deleteGroupManifest(agent, did, siteSlug, rkey);
   }
 
@@ -153,7 +153,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!siteDataJson) return { error: "No data." };
     if (!useRealOAuth) return { ok: true };
 
-    const agent = await getAtpAgent(did);
+    const agent = await getAtpAgent(did, request);
     const { groups, ungroupedArticles } = JSON.parse(siteDataJson) as {
       groups: SiteGroup[];
       ungroupedArticles: ArticleRef[];
@@ -166,7 +166,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!uri) return redirect(`/article/list/${siteSlug}`);
 
     if (useRealOAuth) {
-      const agent = await getAtpAgent(did);
+      const agent = await getAtpAgent(did, request);
       await removeArticleFromSiteManifest(agent, did, siteSlug, uri);
     }
 
@@ -178,7 +178,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!uri) return redirect(`/article/list/${siteSlug}`);
 
     if (useRealOAuth) {
-      const agent = await getAtpAgent(did);
+      const agent = await getAtpAgent(did, request);
       await unpublishArticle(agent, did, siteSlug, uri);
     }
 
@@ -192,7 +192,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
     if (useRealOAuth) {
       try {
-        const agent = await getAtpAgent(did);
+        const agent = await getAtpAgent(did, request);
         const rkey = uri.split("/").pop()!;
 
         const [docResult, siteResult] = await Promise.all([

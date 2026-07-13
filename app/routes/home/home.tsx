@@ -95,7 +95,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   }
 
-  const agent = await getAtpAgent(did);
+  const agent = await getAtpAgent(did, request);
   const [documentsResult, sitesResult] = await Promise.all([
     agent.com.atproto.repo.listRecords({
       repo: did,
@@ -208,7 +208,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "clearLikes") {
     if (!useRealOAuth) return { ok: true, deleted: 0, devMode: true };
     try {
-      const agent = await getAtpAgent(did);
+      const agent = await getAtpAgent(did, request);
       let deleted = 0;
       let cursor: string | undefined;
       do {
@@ -244,7 +244,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (!IS_DEV) return { ok: false, error: "Not available." };
   if (!useRealOAuth) return { ok: true, deleted: 0, devMode: true };
   try {
-    const agent = await getAtpAgent(did);
+    const agent = await getAtpAgent(did, request);
     let deleted = 0;
     for (const collection of SCRIBE_COLLECTIONS) {
       let cursor: string | undefined;

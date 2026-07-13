@@ -139,15 +139,31 @@ export async function createAuthSession(
   });
 }
 
-export async function getAtpAgent(did: string) {
+export async function getAtpAgent(did: string, request: Request) {
   try {
     const session = await oauthClient.restore(did);
     return new Agent(session);
   } catch (err) {
-    // OAuth session lost (process restart, stale in-memory store, etc.)
-    // Throw a redirect so the user re-authenticates rather than seeing an error.
+    // OAuth session lost (process restart, stale in-memory store, revoked
+    // authorization, expired refresh token, etc.) — the __session cookie
+    // itself is still validly signed (getAuthSession/requireAuth pass), so
+    // without clearing it here every subsequent request, including the
+    // /login redirect target below, re-reads the same broken did and hits
+    // this exact catch block again. Since core.tsx's layout loader calls
+    // getAtpAgent unconditionally whenever a session cookie parses with a
+    // did, and /login sits under that same layout, an uncleared cookie
+    // turns this into a permanent redirect-to-self loop for the affected
+    // browser ("scribe-cms.app redirected you too many times") rather than
+    // a one-time bounce to the login page. Destroying the session (both the
+    // cookie and the SQLite oauth_session row, mirroring destroyAuthSession)
+    // guarantees the /login request that follows sees isAuthenticated:
+    // false instead of retrying the same failing restore.
     console.error("ATP session lost for", did, "— redirecting to login:", err);
-    throw redirect("/login");
+    oauthSessionStore.del(did);
+    const session = await getSession(request.headers.get("Cookie"));
+    throw redirect("/login", {
+      headers: { "Set-Cookie": await destroySession(session) },
+    });
   }
 }
 
@@ -155,7 +171,7 @@ export async function requireAtpAgent(
   request: Request,
 ): Promise<{ agent: Agent; did: string; handle: string }> {
   const { did, handle } = await requireAuth(request);
-  const agent = await getAtpAgent(did);
+  const agent = await getAtpAgent(did, request);
   return { agent, did, handle };
 }
 

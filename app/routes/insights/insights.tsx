@@ -164,7 +164,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { sites: mockSites, umamiWarnings: [] as string[] };
   }
 
-  const agent = await getAtpAgent(did);
+  const agent = await getAtpAgent(did, request);
   const sitesResult = await agent.com.atproto.repo.listRecords({
     repo: did,
     collection: SITE_COLLECTION,
