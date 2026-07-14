@@ -6,7 +6,6 @@ import {
   destroyAuthSession,
   getAtpAgent,
   requireAtpAgent,
-  requireAdminAtpAgent,
   oauthClient,
 } from "./auth.server";
 import { oauthSessionStore } from "~/services/db.server";
@@ -27,7 +26,6 @@ async function makeAuthedRequest(did = DID, handle = HANDLE): Promise<Request> {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  delete process.env.ADMIN_DID;
 });
 
 describe("getAuthSession", () => {
@@ -149,28 +147,5 @@ describe("requireAtpAgent", () => {
     const restoreSpy = vi.spyOn(oauthClient, "restore");
     await expect(requireAtpAgent(new Request("http://x/"))).rejects.toMatchObject({ status: 302 });
     expect(restoreSpy).not.toHaveBeenCalled();
-  });
-});
-
-describe("requireAdminAtpAgent", () => {
-  it("404s when ADMIN_DID is not configured at all", async () => {
-    vi.spyOn(oauthClient, "restore").mockResolvedValue({ did: DID } as never);
-    const request = await makeAuthedRequest();
-    await expect(requireAdminAtpAgent(request)).rejects.toMatchObject({ status: 404 });
-  });
-
-  it("404s when the authenticated did does not match ADMIN_DID", async () => {
-    process.env.ADMIN_DID = "did:plc:someone-else";
-    vi.spyOn(oauthClient, "restore").mockResolvedValue({ did: DID } as never);
-    const request = await makeAuthedRequest();
-    await expect(requireAdminAtpAgent(request)).rejects.toMatchObject({ status: 404 });
-  });
-
-  it("succeeds when the authenticated did matches ADMIN_DID", async () => {
-    process.env.ADMIN_DID = DID;
-    vi.spyOn(oauthClient, "restore").mockResolvedValue({ did: DID } as never);
-    const request = await makeAuthedRequest();
-    const result = await requireAdminAtpAgent(request);
-    expect(result.did).toBe(DID);
   });
 });

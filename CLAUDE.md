@@ -735,7 +735,7 @@ Shared server logic for article create and edit operations. Server-only — neve
 | `validateArticleFields(title, slug, splashImageUrl?)`                  | Validates title, URL slug, and splash image URL — returns an error string or `null`                                                              |
 | `resolveThumbUrl(imageUrl)`                                            | Rewrites a size-variant image URL to its `thumb.webp` variant                                                                                    |
 | `buildLooseSiteUrl(did, rkey)`                                         | ADR 0013 — the loose-document `site` field shape: `https://reader.scribe-atp.app/<did>/site.standard.document/<rkey>`                            |
-| `buildLooseDocumentFields(did, rkey, currentPath, existingScribe)`     | Single source of truth for "what does loose mean" — returns `{ site, path, scribe }` with `domain`/`canonicalUrl` stripped. Shared by article creation, `unpublishArticle`, and the `repair-loose-documents` devtool so all three can't drift apart. |
+| `buildLooseDocumentFields(did, rkey, currentPath, existingScribe)`     | Single source of truth for "what does loose mean" — returns `{ site, path, scribe }` with `domain`/`canonicalUrl` stripped. Shared by article creation and `unpublishArticle` so the two can't drift apart. |
 | `buildArticleRef(fields)`                                              | Constructs an `ArticleRef` (cached snapshot) from article fields — return type is `ArticleRef` from `~/hooks/types`                              |
 
 `buildArticleRef` is the single construction point for `ArticleRef` values. Always use it when creating or refreshing article refs to ensure all fields are correctly populated.
