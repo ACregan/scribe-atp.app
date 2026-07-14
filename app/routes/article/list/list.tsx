@@ -56,6 +56,7 @@ type PublishedArticle = {
   title: string;
   slug: string;
   publishedAt?: string;
+  canonicalUrl?: string;
   assignments: ArticleAssignment[];
 };
 
@@ -127,6 +128,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       .filter((record) => assignmentMap.has(record.uri))
       .map((record) => {
         const value = record.value;
+        const scribe = value.scribe as Record<string, unknown> | undefined;
         return {
           rkey: record.rkey,
           uri: record.uri,
@@ -138,6 +140,9 @@ export async function loader({ request }: Route.LoaderArgs) {
               .pop() ?? "",
           publishedAt: value.publishedAt
             ? String(value.publishedAt)
+            : undefined,
+          canonicalUrl: scribe?.canonicalUrl
+            ? String(scribe.canonicalUrl)
             : undefined,
           assignments: assignmentMap.get(record.uri) ?? [],
         };
@@ -260,12 +265,7 @@ export async function action({ request }: Route.ActionArgs) {
       process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
     const notifySecret = process.env.NOTIFY_SECRET;
 
-    if (
-      notifySecret &&
-      publicationUri &&
-      articleTitle &&
-      canonicalUrl
-    ) {
+    if (notifySecret && publicationUri && articleTitle && canonicalUrl) {
       try {
         const res = await fetch(`${socialServiceUrl}/notify`, {
           method: "POST",
@@ -497,9 +497,9 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         <PageSection>
           <h6 className={styles.sectionHeading}>Standalone Articles</h6>
           <p className={styles.sectionNote}>
-            These articles aren't tied to a Site — they're already live on
-            the open network and can stay that way, or be published to a
-            Site whenever you like.
+            These articles aren't tied to a Site — they're already live on the
+            open network and can stay that way, or be published to a Site
+            whenever you like.
           </p>
           <ul className={styles.articleList}>
             {standaloneArticles.map((article) => (
@@ -560,8 +560,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       <PageSection>
         <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
         <p className={styles.sectionNote}>
-          These articles have been assigned to a site and may or may not be
-          published.
+          These articles have been published on a Site.
         </p>
         {publishedArticles.length > 0 ? (
           <ul className={styles.articleList}>
@@ -577,16 +576,17 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                     )}
                   </div>
                   <div className={styles.articleInfo}>
-                    {/* {article.assignments.length > 0 ? (
-                      article.assignments.map((a, i) => (
-                        <Pill key={i}>
-                          {a.siteTitle}
-                          {a.groupTitle ? ` / ${a.groupTitle}` : ""}
-                        </Pill>
-                      ))
-                    ) : (
-                      <Pill variant="danger">Not in any site manifest</Pill>
-                    )} */}
+                    {article.canonicalUrl && (
+                      <Link
+                        to={article.canonicalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <small style={{ fontFamily: "monospace" }}>
+                          {article.canonicalUrl}
+                        </small>
+                      </Link>
+                    )}
                   </div>
                   <div className={styles.articleButtons}>
                     <AllArticleSitesIcons
@@ -628,9 +628,9 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         ) : (
           <div className={styles.emptyState}>
             <p>
-              If you want to display your articles on your website, assign
-              it to the site by clicking the &ldquo;Publish&rdquo; button on
-              the article above.
+              If you want to display your articles on your website, assign it to
+              the site by clicking the &ldquo;Publish&rdquo; button on the
+              article above.
             </p>
           </div>
         )}
