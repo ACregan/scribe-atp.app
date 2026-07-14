@@ -260,6 +260,7 @@ export async function action({ request }: Route.ActionArgs) {
         description,
         tags: tags.length ? tags : undefined,
         contributors: contributors.length ? contributors : undefined,
+        bskyPostRef: existingBskyPostRef,
         publishedAt,
         createdAt,
         updatedAt: now,

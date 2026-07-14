@@ -457,6 +457,55 @@ describe("publishArticleToGroup — ArticleRef splashImageUrl", () => {
 
     vi.unstubAllGlobals();
   });
+
+  it("bug fix: mirrors contributors and bskyPostRef from the document onto the ArticleRef", async () => {
+    const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.document") {
+          return Promise.resolve(
+            docRecord("a1", {
+              path: "/a1",
+              title: "A",
+              contributors: [{ did: "did:plc:writer", role: "Writer" }],
+              bskyPostRef: { uri: "at://did/app.bsky.feed.post/xyz", cid: "post-cid" },
+              scribe: {},
+            }),
+          );
+        }
+        return Promise.resolve(
+          siteRecord({
+            domain: "example.com",
+            basePath: "",
+            title: "My Site",
+            groups: [{ slug: "g1", title: "G1", articles: [] }],
+            ungroupedArticles: [{ uri: articleUri, title: "A", slug: "a1" }],
+          }),
+        );
+      }),
+      putRecord,
+    });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("no network in test")));
+
+    await publishArticleToGroup(agent, DID, SITE_SLUG, {
+      uri: articleUri,
+      groupSlug: "g1",
+      canonicalSiteRkey: SITE_SLUG,
+      siteAssignments: [],
+    });
+
+    const siteCall = putRecord.mock.calls.find(
+      ([args]) => args.collection === "site.standard.publication",
+    )!;
+    const ref = siteCall[0].record.scribe.groups[0].articles[0];
+    expect(ref.contributors).toEqual([{ did: "did:plc:writer", role: "Writer" }]);
+    expect(ref.bskyPostRef).toEqual({
+      uri: "at://did/app.bsky.feed.post/xyz",
+      cid: "post-cid",
+    });
+
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("publishArticleToGroup — new article placement within the group", () => {
