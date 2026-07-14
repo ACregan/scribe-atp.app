@@ -130,6 +130,7 @@ export function devArticleListLoader() {
         title: "My First Post",
         slug: "my-first-post",
         publishedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+        canonicalUrl: "https://norobots.blog/getting-started/my-first-post",
         assignments: [
           {
             siteTitle: "NoRobots.blog",
@@ -150,6 +151,7 @@ export function devArticleListLoader() {
         title: "Second Post",
         slug: "second-post",
         publishedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        canonicalUrl: "https://norobots.blog/second-post",
         assignments: [
           {
             siteTitle: "NoRobots.blog",
@@ -184,6 +186,7 @@ export function devArticleListLoader() {
         slug: "dev-standalone",
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
+        readerUrl: `https://reader.scribe-atp.app/${DEV_DID}/site.standard.document/dev-standalone`,
       },
     ],
     publishTargets: [

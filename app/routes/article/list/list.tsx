@@ -7,6 +7,7 @@ import {
   useRealOAuth,
 } from "~/services/auth.server";
 import { devArticleListLoader } from "~/services/devFixtures.server";
+import { buildLooseSiteUrl } from "~/services/article.server";
 import {
   listDocuments,
   deleteDocument,
@@ -34,7 +35,7 @@ import { DOCUMENT_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-import AllArticleSitesIcons from "~/components/ArticleSiteIcon/ArticleSiteIcon";
+import ArticleSiteIcon from "~/components/ArticleSiteIcon/ArticleSiteIcon";
 import type { ArticleAssignment } from "~/components/types";
 import ArticleSiteDetailsModalItem from "~/components/ArticleSiteDetailsModalItem/ArticleSiteDetailsModalItem";
 import { useToast } from "~/components/Toast/ToastContext";
@@ -56,6 +57,7 @@ type PublishedArticle = {
   title: string;
   slug: string;
   publishedAt?: string;
+  canonicalUrl?: string;
   assignments: ArticleAssignment[];
 };
 
@@ -66,6 +68,7 @@ type StandaloneArticle = {
   slug: string;
   cid: string;
   createdAt: string;
+  readerUrl: string;
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -127,6 +130,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       .filter((record) => assignmentMap.has(record.uri))
       .map((record) => {
         const value = record.value;
+        const scribe = value.scribe as Record<string, unknown> | undefined;
         return {
           rkey: record.rkey,
           uri: record.uri,
@@ -138,6 +142,9 @@ export async function loader({ request }: Route.LoaderArgs) {
               .pop() ?? "",
           publishedAt: value.publishedAt
             ? String(value.publishedAt)
+            : undefined,
+          canonicalUrl: scribe?.canonicalUrl
+            ? String(scribe.canonicalUrl)
             : undefined,
           assignments: assignmentMap.get(record.uri) ?? [],
         };
@@ -159,6 +166,7 @@ export async function loader({ request }: Route.LoaderArgs) {
           slug: path.split("/").pop() || record.rkey,
           cid: record.cid ?? "",
           createdAt: String(value.createdAt ?? ""),
+          readerUrl: buildLooseSiteUrl(did, record.rkey),
         };
       });
 
@@ -260,12 +268,7 @@ export async function action({ request }: Route.ActionArgs) {
       process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
     const notifySecret = process.env.NOTIFY_SECRET;
 
-    if (
-      notifySecret &&
-      publicationUri &&
-      articleTitle &&
-      canonicalUrl
-    ) {
+    if (notifySecret && publicationUri && articleTitle && canonicalUrl) {
       try {
         const res = await fetch(`${socialServiceUrl}/notify`, {
           method: "POST",
@@ -457,21 +460,23 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   }, [notifyFetcher.state, notifyFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailsModal = useModal();
-  const [detailsData, setDetailsData] = useState<ArticleAssignment[]>([]);
+  const [detailsData, setDetailsData] = useState<ArticleAssignment | null>(
+    null,
+  );
   const [detailsTitle, setDetailsTitle] = useState("");
   const [detailsSlug, setDetailsSlug] = useState("");
   const openDetailsModal = (
-    data: ArticleAssignment[],
+    assignment: ArticleAssignment,
     title: string,
     slug: string,
   ) => {
-    setDetailsData(data);
+    setDetailsData(assignment);
     setDetailsTitle(title);
     setDetailsSlug(slug);
     detailsModal.open();
   };
   const closeDetailsModal = () => {
-    setDetailsData([]);
+    setDetailsData(null);
     setDetailsTitle("");
     detailsModal.close();
   };
@@ -497,9 +502,9 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         <PageSection>
           <h6 className={styles.sectionHeading}>Standalone Articles</h6>
           <p className={styles.sectionNote}>
-            These articles aren't tied to a Site — they're already live on
-            the open network and can stay that way, or be published to a
-            Site whenever you like.
+            These articles aren't tied to a Site — they're already live on the
+            open network and can stay that way, or be published to a Site
+            whenever you like.
           </p>
           <ul className={styles.articleList}>
             {standaloneArticles.map((article) => (
@@ -513,9 +518,14 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                   )}
                 </div>
                 <div className={styles.articleInfo}>
-                  <small style={{ fontFamily: "monospace" }}>
-                    {article.uri}
-                  </small>
+                  <Link
+                    className={styles.canonicalUrlLink}
+                    to={article.readerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <small className={styles.monoInfo}>{article.uri}</small>
+                  </Link>
                 </div>
                 <div className={styles.articleButtons}>
                   <Link to={`/article/view/${article.slug}`}>
@@ -560,8 +570,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       <PageSection>
         <h6 className={styles.sectionHeading}>Site-Assigned Articles</h6>
         <p className={styles.sectionNote}>
-          These articles have been assigned to a site and may or may not be
-          published.
+          These articles have been published on a Site.
         </p>
         {publishedArticles.length > 0 ? (
           <ul className={styles.articleList}>
@@ -577,24 +586,28 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                     )}
                   </div>
                   <div className={styles.articleInfo}>
-                    {/* {article.assignments.length > 0 ? (
-                      article.assignments.map((a, i) => (
-                        <Pill key={i}>
-                          {a.siteTitle}
-                          {a.groupTitle ? ` / ${a.groupTitle}` : ""}
-                        </Pill>
-                      ))
-                    ) : (
-                      <Pill variant="danger">Not in any site manifest</Pill>
-                    )} */}
+                    {article.canonicalUrl && (
+                      <Link
+                        className={styles.canonicalUrlLink}
+                        to={article.canonicalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <small className={styles.monoInfo}>
+                          {article.canonicalUrl}
+                        </small>
+                      </Link>
+                    )}
                   </div>
                   <div className={styles.articleButtons}>
-                    <AllArticleSitesIcons
-                      openDetailsModal={openDetailsModal}
-                      assignments={article.assignments}
-                      articleTitle={article.title}
-                      articleSlug={article.slug}
-                    />
+                    {article.assignments[0] && (
+                      <ArticleSiteIcon
+                        openDetailsModal={openDetailsModal}
+                        assignment={article.assignments[0]}
+                        articleTitle={article.title}
+                        articleSlug={article.slug}
+                      />
+                    )}
 
                     <Link to={`/article/view/${article.slug}`}>
                       <Button type="button" variant="secondary" tabIndex={-1}>
@@ -628,15 +641,15 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         ) : (
           <div className={styles.emptyState}>
             <p>
-              If you want to display your articles on your website, assign
-              it to the site by clicking the &ldquo;Publish&rdquo; button on
-              the article above.
+              If you want to display your articles on your website, assign it to
+              the site by clicking the &ldquo;Publish&rdquo; button on the
+              article above.
             </p>
           </div>
         )}
       </PageSection>
 
-      {detailsData.length > 0 && (
+      {detailsData && (
         <Modal
           isOpen={detailsModal.isOpen}
           onClose={closeDetailsModal}
@@ -655,18 +668,10 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
             </div>
           }
         >
-          <div>
-            {detailsData.map((site, i) => {
-              return (
-                <ArticleSiteDetailsModalItem
-                  isOpen={i === 0}
-                  key={site.siteRkey}
-                  site={site}
-                  articleSlug={detailsSlug}
-                />
-              );
-            })}
-          </div>
+          <ArticleSiteDetailsModalItem
+            site={detailsData}
+            articleSlug={detailsSlug}
+          />
         </Modal>
       )}
 

@@ -5,8 +5,12 @@ type AtUriProps = {
   uri: string;
 };
 
+export function atUriToBrowserUrl(uri: string): string {
+  return `https://www.atproto-browser.dev/at/${uri.replace("at://", "")}`;
+}
+
 const AtUri = ({ uri }: AtUriProps) => {
-  const href = `https://www.atproto-browser.dev/at/${uri.replace("at://", "")}`;
+  const href = atUriToBrowserUrl(uri);
   return (
     <a
       href={href}

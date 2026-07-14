@@ -1,23 +1,20 @@
 import React from "react";
 import styles from "./ArticleSiteDetailsModalItem.module.css";
 import type { ArticleAssignment } from "../types";
-import Collapsible from "../Collapsible/Collapsible";
 import Table, { type ColumnDef } from "../Table/Table";
 import AtUri from "../AtUri/AtUri";
 import { composedArticleUrl, composedArticleDisplayPath } from "../utils";
 import { Link } from "react-router";
 import { Button } from "../Button/Button";
-import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 
 interface ArticleSiteDetailsModalItemProps {
   site: ArticleAssignment;
   articleSlug: string;
-  isOpen?: boolean;
 }
 
 const ArticleSiteDetailsModalItem: React.FC<
   ArticleSiteDetailsModalItemProps
-> = ({ site, articleSlug, isOpen }) => {
+> = ({ site, articleSlug }) => {
   const columns: ColumnDef<ArticleAssignment>[] = [
     {
       header: "Article URL",
@@ -71,29 +68,26 @@ const ArticleSiteDetailsModalItem: React.FC<
   ];
   return (
     <div className={styles.siteContainer}>
-      <Collapsible
-        open={isOpen}
-        summary={
-          <div className={styles.siteSummary}>
-            <img className={styles.siteSplash} src={site.splashImageUrl} />
-            <img className={styles.siteLogo} src={site.logoImageUrl} />
-            <div className={styles.siteNameContainer}>
-              <strong>{site.siteTitle}</strong>
-            </div>
-            <div className={styles.collapsedIndicator}>
-              <SvgIcon name={SvgImageList.ChevronDown} />
-            </div>
-          </div>
-        }
-      >
-        <Table data={[site]} columns={columns} layout="rows" />
-
-        <div className={styles.buttonsContainer}>
-          <Link to={`/article/list/${site.siteRkey}`}>
-            <Button>Manage Groups & Articles</Button>
-          </Link>
+      <div className={styles.siteSummary}>
+        <img className={styles.siteSplash} src={site.splashImageUrl} />
+        <img className={styles.siteLogo} src={site.logoImageUrl} />
+        <div className={styles.siteNameContainer}>
+          <strong>{site.siteTitle}</strong>
         </div>
-      </Collapsible>
+      </div>
+
+      <Table
+        className={styles.siteDetailsTable}
+        data={[site]}
+        columns={columns}
+        layout="rows"
+      />
+
+      <div className={styles.buttonsContainer}>
+        <Link to={`/article/list/${site.siteRkey}`}>
+          <Button>Manage Groups & Articles</Button>
+        </Link>
+      </div>
     </div>
   );
 };

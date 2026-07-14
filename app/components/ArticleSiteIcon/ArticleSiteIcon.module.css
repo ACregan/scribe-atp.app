@@ -1,9 +1,6 @@
-/* --- AllArticleSiteIcon -------------------*/
-.allSitesContainer {
+.iconWrapper {
   display: flex;
 }
-
-/* --- ArticleSiteIcon -------------------*/
 
 .siteIconContainer {
   height: 3.5rem;
@@ -12,9 +9,5 @@
   border: 0.2rem solid var(--black, black);
   box-sizing: border-box;
   overflow: hidden;
-  margin-left: -1.5rem;
   cursor: pointer;
-}
-.siteIconContainer:first-child {
-  margin-left: 0;
 }
