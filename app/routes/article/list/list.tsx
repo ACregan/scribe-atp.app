@@ -37,6 +37,7 @@ import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import ArticleSiteIcon from "~/components/ArticleSiteIcon/ArticleSiteIcon";
 import type { ArticleAssignment } from "~/components/types";
 import ArticleSiteDetailsModalItem from "~/components/ArticleSiteDetailsModalItem/ArticleSiteDetailsModalItem";
+import { atUriToBrowserUrl } from "~/components/AtUri/AtUri";
 import { useToast } from "~/components/Toast/ToastContext";
 import { Spinner } from "~/components/Spinner/Spinner";
 
@@ -515,7 +516,13 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                   )}
                 </div>
                 <div className={styles.articleInfo}>
-                  <small className={styles.monoInfo}>{article.uri}</small>
+                  <Link
+                    to={atUriToBrowserUrl(article.uri)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <small className={styles.monoInfo}>{article.uri}</small>
+                  </Link>
                 </div>
                 <div className={styles.articleButtons}>
                   <Link to={`/article/view/${article.slug}`}>
@@ -578,6 +585,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                   <div className={styles.articleInfo}>
                     {article.canonicalUrl && (
                       <Link
+                        className={styles.canonicalUrlLink}
                         to={article.canonicalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
