@@ -26,7 +26,9 @@ const ArticleSiteIcon: React.FC<ArticleSiteIconProps> = ({
       anchorPosition="top"
       anchorContent={
         <TooltipBubble pointerLocation="bottom" variant="primary">
-          {assignment.siteUrl}
+          Article Assigned To
+          <br />
+          <strong>{assignment.siteUrl}</strong>
           <br />
           Click For Details
         </TooltipBubble>
