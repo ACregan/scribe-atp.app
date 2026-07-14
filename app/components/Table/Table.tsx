@@ -1,4 +1,5 @@
 import React from "react";
+import cn from "classnames";
 import styles from "./Table.module.css";
 
 export type ColumnDef<T> = {
@@ -10,12 +11,18 @@ interface TableProps<T> {
   data: T[];
   columns: ColumnDef<T>[];
   layout?: "columns" | "rows";
+  className?: string;
 }
 
-function Table<T>({ data, columns, layout = "columns" }: TableProps<T>) {
+function Table<T>({
+  data,
+  columns,
+  layout = "columns",
+  className,
+}: TableProps<T>) {
   if (layout === "rows") {
     return (
-      <table className={styles.table}>
+      <table className={cn(styles.table, className)}>
         <tbody>
           {columns.map((col) => (
             <tr key={col.header} className={styles.tr}>
@@ -33,7 +40,7 @@ function Table<T>({ data, columns, layout = "columns" }: TableProps<T>) {
   }
 
   return (
-    <table className={styles.table}>
+    <table className={cn(styles.table, className)}>
       <thead>
         <tr>
           {columns.map((col) => (
