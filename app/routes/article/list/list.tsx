@@ -34,7 +34,7 @@ import { DOCUMENT_COLLECTION } from "~/constants";
 import { logger } from "~/services/logger.server";
 import styles from "./list.module.css";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
-import AllArticleSitesIcons from "~/components/ArticleSiteIcon/ArticleSiteIcon";
+import ArticleSiteIcon from "~/components/ArticleSiteIcon/ArticleSiteIcon";
 import type { ArticleAssignment } from "~/components/types";
 import ArticleSiteDetailsModalItem from "~/components/ArticleSiteDetailsModalItem/ArticleSiteDetailsModalItem";
 import { useToast } from "~/components/Toast/ToastContext";
@@ -457,21 +457,23 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   }, [notifyFetcher.state, notifyFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailsModal = useModal();
-  const [detailsData, setDetailsData] = useState<ArticleAssignment[]>([]);
+  const [detailsData, setDetailsData] = useState<ArticleAssignment | null>(
+    null,
+  );
   const [detailsTitle, setDetailsTitle] = useState("");
   const [detailsSlug, setDetailsSlug] = useState("");
   const openDetailsModal = (
-    data: ArticleAssignment[],
+    assignment: ArticleAssignment,
     title: string,
     slug: string,
   ) => {
-    setDetailsData(data);
+    setDetailsData(assignment);
     setDetailsTitle(title);
     setDetailsSlug(slug);
     detailsModal.open();
   };
   const closeDetailsModal = () => {
-    setDetailsData([]);
+    setDetailsData(null);
     setDetailsTitle("");
     detailsModal.close();
   };
@@ -587,12 +589,14 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                     )}
                   </div>
                   <div className={styles.articleButtons}>
-                    <AllArticleSitesIcons
-                      openDetailsModal={openDetailsModal}
-                      assignments={article.assignments}
-                      articleTitle={article.title}
-                      articleSlug={article.slug}
-                    />
+                    {article.assignments[0] && (
+                      <ArticleSiteIcon
+                        openDetailsModal={openDetailsModal}
+                        assignment={article.assignments[0]}
+                        articleTitle={article.title}
+                        articleSlug={article.slug}
+                      />
+                    )}
 
                     <Link to={`/article/view/${article.slug}`}>
                       <Button type="button" variant="secondary" tabIndex={-1}>
@@ -634,7 +638,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
         )}
       </PageSection>
 
-      {detailsData.length > 0 && (
+      {detailsData && (
         <Modal
           isOpen={detailsModal.isOpen}
           onClose={closeDetailsModal}
@@ -653,18 +657,10 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
             </div>
           }
         >
-          <div>
-            {detailsData.map((site, i) => {
-              return (
-                <ArticleSiteDetailsModalItem
-                  isOpen={i === 0}
-                  key={site.siteRkey}
-                  site={site}
-                  articleSlug={detailsSlug}
-                />
-              );
-            })}
-          </div>
+          <ArticleSiteDetailsModalItem
+            site={detailsData}
+            articleSlug={detailsSlug}
+          />
         </Modal>
       )}
 

@@ -4,31 +4,18 @@ import type { ArticleAssignment } from "~/components/types";
 import Tooltip, { TooltipBubble } from "../Tooltip/Tooltip";
 
 interface ArticleSiteIconProps {
-  logoImageUrl?: string;
-}
-
-const ArticleSiteIcon: React.FC<ArticleSiteIconProps> = ({ logoImageUrl }) => {
-  if (!logoImageUrl) return null;
-  return (
-    <div className={styles.siteIconContainer}>
-      <img src={logoImageUrl} alt="" />
-    </div>
-  );
-};
-
-interface AllArticleSitesIconsProps {
-  assignments: ArticleAssignment[];
+  assignment: ArticleAssignment;
   articleTitle: string;
   articleSlug: string;
   openDetailsModal: (
-    data: ArticleAssignment[],
+    assignment: ArticleAssignment,
     title: string,
     slug: string,
   ) => void;
 }
 
-const AllArticleSitesIcons: React.FC<AllArticleSitesIconsProps> = ({
-  assignments,
+const ArticleSiteIcon: React.FC<ArticleSiteIconProps> = ({
+  assignment,
   articleTitle,
   articleSlug,
   openDetailsModal,
@@ -39,25 +26,24 @@ const AllArticleSitesIcons: React.FC<AllArticleSitesIconsProps> = ({
       anchorPosition="top"
       anchorContent={
         <TooltipBubble pointerLocation="bottom" variant="primary">
-          {`${assignments.length} Site Assignment${assignments.length > 1 ? "s" : ""}`}
+          {assignment.siteUrl}
           <br />
           Click For Details
         </TooltipBubble>
       }
     >
       <div
-        className={styles.allSitesContainer}
-        onClick={() => openDetailsModal(assignments, articleTitle, articleSlug)}
+        className={styles.iconWrapper}
+        onClick={() => openDetailsModal(assignment, articleTitle, articleSlug)}
       >
-        {assignments.map((site) => (
-          <ArticleSiteIcon
-            key={site.siteRkey}
-            logoImageUrl={site.logoImageUrl}
-          />
-        ))}
+        {assignment.logoImageUrl && (
+          <div className={styles.siteIconContainer}>
+            <img src={assignment.logoImageUrl} alt="" />
+          </div>
+        )}
       </div>
     </Tooltip>
   );
 };
 
-export default AllArticleSitesIcons;
+export default ArticleSiteIcon;
