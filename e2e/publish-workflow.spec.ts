@@ -17,12 +17,12 @@ test("Standalone Articles show a Publish button", async ({ page }) => {
   await expect(
     page.getByText("Dev Standalone Article", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
 });
 
 test("clicking Publish opens the Publish Article modal", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Publish Article" }),
   ).toBeVisible();
@@ -33,7 +33,7 @@ test("clicking Publish opens the Publish Article modal", async ({ page }) => {
 
 test("Publish modal shows site and group selectors", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   const siteSelect = page.locator('dialog[open] select[name="siteRkey"]');
   await expect(siteSelect).toBeVisible();
   await expect(siteSelect).toContainText("NoRobots.blog");
@@ -46,7 +46,7 @@ test("Publish modal shows site and group selectors", async ({ page }) => {
 
 test("switching site updates the available groups", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   await page
     .locator('dialog[open] select[name="siteRkey"]')
     .selectOption("perpetualsummer-ltd");
@@ -57,7 +57,7 @@ test("switching site updates the available groups", async ({ page }) => {
 
 test("selecting create-new-group reveals a title field", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   await page
     .locator('dialog[open] select[name="groupSlug"]')
     .selectOption({ label: "+ Create new group" });
@@ -68,7 +68,7 @@ test("selecting create-new-group reveals a title field", async ({ page }) => {
 
 test("Publish modal Cancel button closes the modal", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Publish Article" }),
   ).toBeVisible();
@@ -85,10 +85,10 @@ test("publishing an article shows a success toast and closes the modal", async (
   page,
 }) => {
   await page.goto(ARTICLE_LIST_URL);
-  await page.getByRole("button", { name: "Publish" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   await page
     .locator("dialog[open]")
-    .getByRole("button", { name: "Publish" })
+    .getByRole("button", { name: "Publish", exact: true })
     .click();
   await expect(page.getByText("Article published")).toBeVisible();
   await expect(
