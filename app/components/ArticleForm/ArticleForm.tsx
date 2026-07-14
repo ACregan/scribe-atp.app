@@ -131,39 +131,41 @@ export function ArticleForm({
       <PageSection fill>
         <PageSectionColumns breakpoint="lg">
           <PageSectionColumn span={4} overflow>
-            <Input
-              id="title"
-              name="title"
-              label="Title"
-              required
-              {...titleProps}
-            />
-            <Input
-              id="url"
-              name="url"
-              label="URL slug"
-              placeholder="my-article-title"
-              required
-              {...urlProps}
-            />
-            {urlWarning && <p className={styles.urlWarning}>{urlWarning}</p>}
-            <ImagePicker
-              name="splashImageUrl"
-              label="Splash image"
-              defaultValue={defaultSplashImageUrl}
-              onChange={onSplashImageUrlChange}
-            />
-            <Textarea
-              id="description"
-              name="description"
-              label="Description"
-              rows={3}
-              placeholder="Brief description of the article..."
-              defaultValue={defaultDescription}
-            />
-            {tagsInput}
-            {contributorsInput}
-            {error && <p className={styles.error}>{error}</p>}
+            <div className={styles.formColumnWrapper}>
+              <Input
+                id="title"
+                name="title"
+                label="Title"
+                required
+                {...titleProps}
+              />
+              <Input
+                id="url"
+                name="url"
+                label="URL slug"
+                placeholder="my-article-title"
+                required
+                {...urlProps}
+              />
+              {urlWarning && <p className={styles.urlWarning}>{urlWarning}</p>}
+              <ImagePicker
+                name="splashImageUrl"
+                label="Splash image"
+                defaultValue={defaultSplashImageUrl}
+                onChange={onSplashImageUrlChange}
+              />
+              <Textarea
+                id="description"
+                name="description"
+                label="Description"
+                rows={3}
+                placeholder="Brief description of the article..."
+                defaultValue={defaultDescription}
+              />
+              {tagsInput}
+              {contributorsInput}
+              {error && <p className={styles.error}>{error}</p>}
+            </div>
           </PageSectionColumn>
           <PageSectionColumn span={8} overflow>
             <RichTextEditor
