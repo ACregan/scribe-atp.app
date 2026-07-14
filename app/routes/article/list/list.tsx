@@ -18,6 +18,7 @@ import {
   removeArticleFromSite,
   createGroup as createGroupManifest,
   publishArticleToGroup,
+  unpublishArticle,
   validateGroupFields,
 } from "~/services/siteManifest.server";
 import { Button } from "~/components/Button/Button";
@@ -243,6 +244,24 @@ export async function action({ request }: Route.ActionArgs) {
     });
   }
 
+  if (intent === "unpublishArticle") {
+    const uri = formData.get("uri") as string;
+    const siteRkey = formData.get("siteRkey") as string;
+    if (!uri || !siteRkey) {
+      return { ok: false, error: "An article and a site are required." };
+    }
+
+    if (!useRealOAuth) return { ok: true };
+
+    const { agent, did } = await requireAtpAgent(request);
+    const result = await unpublishArticle(agent, did, siteRkey, uri);
+    if (!result.ok) {
+      return { ok: false, error: "Failed to unpublish article." };
+    }
+
+    return { ok: true };
+  }
+
   if (intent === "notifySubscribers") {
     if (!useRealOAuth) return { ok: true, sent: 0, skipped: 0 };
 
@@ -381,6 +400,22 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   }>();
   const isPublishing = publishFetcher.state !== "idle";
 
+  const unpublishModal = useModal();
+  const [unpublishingArticle, setUnpublishingArticle] =
+    useState<PublishedArticle | null>(null);
+  const unpublishFetcher = useFetcher<{ ok?: boolean; error?: string }>();
+  const isUnpublishing = unpublishFetcher.state !== "idle";
+
+  const handleUnpublishClick = (article: PublishedArticle) => {
+    setUnpublishingArticle(article);
+    unpublishModal.open();
+  };
+  const closeUnpublishModal = () => {
+    unpublishModal.close();
+    setUnpublishingArticle(null);
+  };
+  const unpublishingAssignment = unpublishingArticle?.assignments[0];
+
   const notifyModal = useModal();
   const notifyFetcher = useFetcher<{
     ok?: boolean;
@@ -458,6 +493,25 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
       });
     }
   }, [notifyFetcher.state, notifyFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (unpublishFetcher.state !== "idle" || !unpublishFetcher.data) return;
+    if (unpublishFetcher.data.ok) {
+      closeUnpublishModal();
+      addToast({
+        heading: "Article unpublished",
+        content: "It's back in Standalone Articles.",
+        variant: "success",
+      });
+    } else if (unpublishFetcher.data.error) {
+      addToast({
+        heading: "Unpublish error",
+        content: unpublishFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }, [unpublishFetcher.state, unpublishFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailsModal = useModal();
   const [detailsData, setDetailsData] = useState<ArticleAssignment | null>(
@@ -619,6 +673,15 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                         Edit
                       </Button>
                     </Link>
+                    {article.assignments[0] && (
+                      <Button
+                        type="button"
+                        variant="danger"
+                        onClick={() => handleUnpublishClick(article)}
+                      >
+                        Unpublish
+                      </Button>
+                    )}
                   </div>
                 </li>
               );
@@ -795,6 +858,67 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                 {publishFetcher.data.error}
               </p>
             )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={unpublishModal.isOpen}
+        onClose={closeUnpublishModal}
+        title="Unpublish Article"
+        footer={
+          <div
+            style={{
+              display: "flex",
+              gap: "0.8rem",
+              justifyContent: "flex-end",
+            }}
+          >
+            <Button variant="secondary" onClick={closeUnpublishModal}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={isUnpublishing}
+              onClick={() => {
+                if (!unpublishingArticle || !unpublishingAssignment) return;
+                const fd = new FormData();
+                fd.set("_intent", "unpublishArticle");
+                fd.set("uri", unpublishingArticle.uri);
+                fd.set("siteRkey", unpublishingAssignment.siteRkey);
+                unpublishFetcher.submit(fd, { method: "post" });
+              }}
+            >
+              {isUnpublishing ? "Unpublishing…" : "Unpublish"}
+            </Button>
+          </div>
+        }
+      >
+        {unpublishingArticle && unpublishingAssignment && (
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}
+          >
+            <p style={{ margin: 0, fontSize: "1.3rem" }}>
+              Unpublish <strong>{unpublishingArticle.title}</strong> from{" "}
+              <strong>{unpublishingAssignment.siteTitle}</strong>
+              {unpublishingAssignment.groupTitle
+                ? ` (${unpublishingAssignment.groupTitle})`
+                : ""}
+              ?
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "1.2rem",
+                color: "var(--text-secondary)",
+              }}
+            >
+              It will immediately stop appearing on the live site, and its
+              published URL will no longer resolve. The article itself won't
+              be deleted — it moves back to Standalone Articles, where you can
+              keep editing it or publish it again at any time.
+            </p>
           </div>
         )}
       </Modal>

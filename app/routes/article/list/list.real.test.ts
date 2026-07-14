@@ -290,6 +290,119 @@ describe("action", () => {
     expect(result).toEqual({ ok: false, error: expect.any(String) });
   });
 
+  describe("unpublishArticle", () => {
+    const articleUri = `at://${DID}/site.standard.document/grouped1`;
+
+    function makeUnpublishAgent(getRecordOverrides?: {
+      site?: Record<string, unknown>;
+      document?: Record<string, unknown>;
+    }) {
+      const putRecord = vi.fn().mockResolvedValue({ data: {} });
+      const getRecord = vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.publication") {
+          return Promise.resolve({
+            data: {
+              cid: "site-a-cid",
+              value: {
+                scribe: {
+                  groups: [
+                    {
+                      slug: "g1",
+                      title: "Group 1",
+                      articles: [{ uri: articleUri }],
+                    },
+                  ],
+                  ...getRecordOverrides?.site,
+                },
+              },
+            },
+          });
+        }
+        return Promise.resolve({
+          data: {
+            cid: "grouped1-cid",
+            value: {
+              title: "Grouped",
+              path: "/g1/grouped1",
+              publishedAt: "2026-01-02T00:00:00Z",
+              site: `at://${DID}/site.standard.publication/site-a`,
+              scribe: { domain: "a.com" },
+              ...getRecordOverrides?.document,
+            },
+          },
+        });
+      });
+      const agent = makeAgent({ getRecord, putRecord });
+      return { agent, getRecord, putRecord };
+    }
+
+    it("requires both uri and siteRkey", async () => {
+      await expect(
+        callAction({ _intent: "unpublishArticle", uri: articleUri }),
+      ).resolves.toEqual({
+        ok: false,
+        error: "An article and a site are required.",
+      });
+      expect(requireAtpAgent).not.toHaveBeenCalled();
+    });
+
+    it("clears the ArticleRef from the site and resets the document to loose", async () => {
+      const { agent, putRecord } = makeUnpublishAgent();
+      vi.mocked(requireAtpAgent).mockResolvedValue({
+        agent,
+        did: DID,
+        handle: HANDLE,
+      });
+
+      await expect(
+        callAction({
+          _intent: "unpublishArticle",
+          uri: articleUri,
+          siteRkey: "site-a",
+        }),
+      ).resolves.toEqual({ ok: true });
+
+      expect(putRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collection: "site.standard.publication",
+          rkey: "site-a",
+          record: expect.objectContaining({
+            scribe: expect.objectContaining({ groups: [expect.objectContaining({ articles: [] })] }),
+          }),
+        }),
+      );
+      expect(putRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collection: "site.standard.document",
+          rkey: "grouped1",
+          record: expect.objectContaining({
+            site: expect.stringContaining("reader.scribe-atp.app"),
+          }),
+        }),
+      );
+    });
+
+    it("returns an error when the underlying unpublish fails", async () => {
+      const { agent } = makeUnpublishAgent();
+      vi.mocked(agent.com.atproto.repo.putRecord).mockRejectedValue(
+        new Error("PDS down"),
+      );
+      vi.mocked(requireAtpAgent).mockResolvedValue({
+        agent,
+        did: DID,
+        handle: HANDLE,
+      });
+
+      await expect(
+        callAction({
+          _intent: "unpublishArticle",
+          uri: articleUri,
+          siteRkey: "site-a",
+        }),
+      ).resolves.toEqual({ ok: false, error: "Failed to unpublish article." });
+    });
+  });
+
   describe("notifySubscribers", () => {
     const originalFetch = global.fetch;
 
