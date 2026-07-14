@@ -41,6 +41,7 @@ import { SaveChecklist } from "~/components/SaveChecklist/SaveChecklist";
 import { ArticleForm } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import type { Contributor } from "~/components/types";
+import { Spinner } from "~/components/Spinner/Spinner";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Scribe ATP – Edit Article" }];
@@ -301,6 +302,10 @@ export async function action({ request }: Route.ActionArgs) {
           : "Failed to save. Please try again.",
     };
   }
+}
+
+export function HydrateFallback() {
+  return <Spinner size="large" />;
 }
 
 export default function EditArticle({

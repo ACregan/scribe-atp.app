@@ -36,6 +36,7 @@ import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { ArticleForm } from "~/components/ArticleForm/ArticleForm";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import { Spinner } from "~/components/Spinner/Spinner";
 
 export async function loader({}: Route.LoaderArgs) {
   if (!useRealOAuth) return devCreateLoader();
@@ -118,6 +119,10 @@ export async function action({ request }: Route.ActionArgs) {
           : "Failed to save article. Please try again.",
     };
   }
+}
+
+export function HydrateFallback() {
+  return <Spinner size="large" />;
 }
 
 export default function Create({ actionData }: Route.ComponentProps) {
