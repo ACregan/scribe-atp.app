@@ -60,6 +60,15 @@
   align-items: flex-start;
   padding-left: 1.2rem;
 }
+.canonicalUrlLink {
+  color: var(--white);
+  text-decoration: none;
+  display: flex;
+}
+.canonicalUrlLink:hover {
+  color: var(--white);
+  text-decoration: underline;
+}
 
 .monoInfo {
   font-family: monospace;

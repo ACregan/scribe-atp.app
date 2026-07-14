@@ -7,6 +7,7 @@ import {
   useRealOAuth,
 } from "~/services/auth.server";
 import { devArticleListLoader } from "~/services/devFixtures.server";
+import { buildLooseSiteUrl } from "~/services/article.server";
 import {
   listDocuments,
   deleteDocument,
@@ -37,7 +38,6 @@ import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import ArticleSiteIcon from "~/components/ArticleSiteIcon/ArticleSiteIcon";
 import type { ArticleAssignment } from "~/components/types";
 import ArticleSiteDetailsModalItem from "~/components/ArticleSiteDetailsModalItem/ArticleSiteDetailsModalItem";
-import { atUriToBrowserUrl } from "~/components/AtUri/AtUri";
 import { useToast } from "~/components/Toast/ToastContext";
 import { Spinner } from "~/components/Spinner/Spinner";
 
@@ -68,6 +68,7 @@ type StandaloneArticle = {
   slug: string;
   cid: string;
   createdAt: string;
+  readerUrl: string;
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -165,6 +166,7 @@ export async function loader({ request }: Route.LoaderArgs) {
           slug: path.split("/").pop() || record.rkey,
           cid: record.cid ?? "",
           createdAt: String(value.createdAt ?? ""),
+          readerUrl: buildLooseSiteUrl(did, record.rkey),
         };
       });
 
@@ -517,7 +519,8 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                 </div>
                 <div className={styles.articleInfo}>
                   <Link
-                    to={atUriToBrowserUrl(article.uri)}
+                    className={styles.canonicalUrlLink}
+                    to={article.readerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

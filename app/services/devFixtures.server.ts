@@ -186,6 +186,7 @@ export function devArticleListLoader() {
         slug: "dev-standalone",
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
+        readerUrl: `https://reader.scribe-atp.app/${DEV_DID}/site.standard.document/dev-standalone`,
       },
     ],
     publishTargets: [
