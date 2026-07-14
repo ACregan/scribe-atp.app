@@ -4,14 +4,28 @@ import path from "path";
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+// Exported for unit testing — pure, no I/O.
+export function isPathWithinRoot(filePath: string, root: string): boolean {
+  const resolvedRoot = path.resolve(root);
+  const resolvedFilePath = path.resolve(filePath);
+  return (
+    resolvedFilePath === resolvedRoot ||
+    resolvedFilePath.startsWith(resolvedRoot + path.sep)
+  );
+}
+
 // Dev only: serves IMAGE_STORAGE_ROOT at /image-storage/* — replaces nginx static serving in production.
 // Run `npm run dev:image-service` alongside `npm run dev` and set IMAGE_STORAGE_ROOT in .env.
 function imageStorageMiddleware(root: string) {
   return (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     const url = req.url || "/";
     const filePath = path.join(root, decodeURIComponent(url));
-    // Guard against path traversal outside IMAGE_STORAGE_ROOT
-    if (!filePath.startsWith(root)) {
+    // Guard against path traversal outside IMAGE_STORAGE_ROOT — a bare
+    // string-prefix check is insufficient: a request resolving to
+    // "/var/scribe/images-secret/x" would incorrectly pass a check against
+    // root="/var/scribe/images", since that's a valid string prefix of a
+    // sibling directory's name.
+    if (!isPathWithinRoot(filePath, root)) {
       next();
       return;
     }

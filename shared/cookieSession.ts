@@ -50,15 +50,30 @@ function parseCookies(header: string): Record<string, string> {
   return result;
 }
 
+// Bug fix: this used to be plain `atob(value)`, matching a header comment
+// that claimed React Router serialises the session as
+// `btoa(JSON.stringify(data))`. The actual algorithm (confirmed against
+// node_modules/react-router's own decodeData/encodeData) is UTF-8-safe:
+// `btoa(unescape(encodeURIComponent(JSON.stringify(value))))`, reversed
+// here as `JSON.parse(decodeURIComponent(escape(atob(value))))`. Plain
+// atob() happened to work only because session payloads (did, handle) are
+// always ASCII — encodeURIComponent/unescape are no-ops on pure ASCII
+// input, so the simplified and real encodings coincided by luck. Any
+// future session field containing non-ASCII characters would have
+// corrupted or failed to decode under the old version.
+function decodeSessionValue(value: string): unknown {
+  return JSON.parse(decodeURIComponent(escape(atob(value))));
+}
+
 /**
  * Verifies a Scribe ATP `__session` cookie and returns the authenticated DID,
  * or null if the cookie is absent, tampered, or malformed.
  *
- * React Router serialises the session as `btoa(JSON.stringify(data))` before
- * signing — the base64 encoding happens before the HMAC, not after. After
- * `unsign()` verifies the HMAC and returns the raw value, `atob()` must be
- * called before `JSON.parse()`. This is the first thing to check when debugging
- * 401s from the Image Service despite a correct SESSION_SECRET.
+ * React Router serialises the session as
+ * `btoa(unescape(encodeURIComponent(JSON.stringify(data))))` before signing
+ * — the encoding happens before the HMAC, not after. This is the first
+ * thing to check when debugging 401s from the Image Service despite a
+ * correct SESSION_SECRET.
  */
 export async function verifyScribeSession(
   cookieHeader: string | undefined,
@@ -74,7 +89,7 @@ export async function verifyScribeSession(
   if (!unsigned) return null;
 
   try {
-    const data = JSON.parse(atob(unsigned)) as Record<string, unknown>;
+    const data = decodeSessionValue(unsigned) as Record<string, unknown>;
     return typeof data.did === "string" ? data.did : null;
   } catch {
     return null;

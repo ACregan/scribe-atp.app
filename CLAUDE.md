@@ -1057,7 +1057,7 @@ Browser
 
 The Image Service reads the `__session` cookie and verifies it using `SESSION_SECRET` — the same secret used by the main app. No separate token exchange. The Image Service rejects requests with a missing or invalid cookie with 401.
 
-**Cookie format:** React Router serialises the session as `btoa(JSON.stringify(data)).hmacSignature` — the JSON is base64-encoded _before_ signing, not stored as raw JSON. After `unsign()` verifies the HMAC and returns the raw value, `atob()` must be called before `JSON.parse()`. If you see persistent 401s from the Image Service despite a correct `SESSION_SECRET`, this encoding step is the first thing to check.
+**Cookie format:** React Router serialises the session as `btoa(unescape(encodeURIComponent(JSON.stringify(data)))).hmacSignature` — a UTF-8-safe encoding, base64-encoded _before_ signing, not stored as raw JSON. After `unsign()` verifies the HMAC and returns the raw value, decoding it requires `JSON.parse(decodeURIComponent(escape(atob(value))))`, not plain `atob()` + `JSON.parse()` — the latter only coincidentally works for ASCII-only payloads. If you see persistent 401s from the Image Service despite a correct `SESSION_SECRET`, this encoding step is the first thing to check.
 
 **Shared verification module:** The signing algorithm is implemented once in `shared/cookieSession.ts` and exports `verifyScribeSession(cookieHeader, secret)`. `image-service/src/auth.ts` is a thin adapter that reads `SESSION_SECRET` from `process.env` and delegates to it. The main app does not use this module — it goes through React Router's opaque `createCookieSessionStorage`. Tests live in `shared/cookieSession.test.ts`.
 

@@ -658,6 +658,84 @@ describe("action — save", () => {
     );
   });
 
+  it("bug fix: mirrors bskyPostRef into the cached site-manifest ArticleRef too, not just the document", async () => {
+    const articleUri = `at://${DID}/site.standard.document/the-rkey`;
+    const sitePutRecord = vi
+      .fn()
+      .mockResolvedValue({ data: { cid: "site-new-cid" } });
+    const putRecord = vi
+      .fn()
+      .mockImplementation((args) =>
+        args.collection === "site.standard.document"
+          ? Promise.resolve({ data: { cid: "new-cid" } })
+          : sitePutRecord(args),
+      );
+    const getRecord = vi.fn().mockImplementation((args) => {
+      if (args.collection === "site.standard.document") {
+        return Promise.resolve({
+          data: {
+            value: {
+              bskyPostRef: {
+                uri: "at://x/app.bsky.feed.post/1",
+                cid: "post-cid",
+              },
+            },
+          },
+        });
+      }
+      return Promise.resolve({
+        data: {
+          cid: "site-a-cid",
+          value: {
+            scribe: {
+              ungroupedArticles: [],
+              groups: [
+                {
+                  slug: "engineering",
+                  articles: [{ uri: articleUri, title: "Old Title" }],
+                },
+              ],
+            },
+          },
+        },
+      });
+    });
+    const agent = makeAgent({ getRecord, putRecord });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: DID,
+    });
+
+    await callAction(
+      baseFields({
+        rkey: "the-rkey",
+        publishedSite: `at://${DID}/site.standard.publication/site-a`,
+      }),
+    );
+
+    expect(sitePutRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        record: expect.objectContaining({
+          scribe: expect.objectContaining({
+            groups: [
+              expect.objectContaining({
+                articles: [
+                  expect.objectContaining({
+                    bskyPostRef: {
+                      uri: "at://x/app.bsky.feed.post/1",
+                      cid: "post-cid",
+                    },
+                  }),
+                ],
+              }),
+            ],
+          }),
+        }),
+      }),
+    );
+  });
+
   it("never touches any site manifest when the article is currently loose", async () => {
     const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
     const getRecord = vi.fn().mockResolvedValue({ data: { value: {} } });

@@ -38,6 +38,7 @@ import AllArticleSitesIcons from "~/components/ArticleSiteIcon/ArticleSiteIcon";
 import type { ArticleAssignment } from "~/components/types";
 import ArticleSiteDetailsModalItem from "~/components/ArticleSiteDetailsModalItem/ArticleSiteDetailsModalItem";
 import { useToast } from "~/components/Toast/ToastContext";
+import { Spinner } from "~/components/Spinner/Spinner";
 
 const NEW_GROUP_VALUE = "__new__";
 
@@ -330,6 +331,10 @@ export async function action({ request }: Route.ActionArgs) {
     "article.delete",
   );
   return { ok: true };
+}
+
+export function HydrateFallback() {
+  return <Spinner size="large" />;
 }
 
 export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {

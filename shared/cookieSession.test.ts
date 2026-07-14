@@ -7,7 +7,7 @@ async function signSession(
   data: Record<string, unknown>,
   secret: string,
 ): Promise<string> {
-  const value = btoa(JSON.stringify(data));
+  const value = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -85,5 +85,19 @@ describe("verifyScribeSession", () => {
     const signed = await signSession({ did: DID }, SECRET);
     const header = `other=abc; __session=${encodeURIComponent(signed)}; more=xyz`;
     expect(await verifyScribeSession(header, SECRET)).toBe(DID);
+  });
+
+  it("bug fix: decodes correctly when the payload contains non-ASCII characters", async () => {
+    // Plain atob()/btoa() only ever worked here because real session
+    // payloads happen to be ASCII-only — this test puts a non-ASCII
+    // character directly in the checked `did` field so a decode that
+    // silently mangles UTF-8 (the old atob()-only path did this, rather
+    // than throwing) actually fails the assertion instead of passing
+    // coincidentally.
+    const nonAsciiDid = "did:plc:tëst日本語";
+    const signed = await signSession({ did: nonAsciiDid }, SECRET);
+    expect(
+      await verifyScribeSession(cookieHeader("__session", signed), SECRET),
+    ).toBe(nonAsciiDid);
   });
 });

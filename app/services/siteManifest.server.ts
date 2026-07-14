@@ -480,6 +480,10 @@ export async function publishArticleToGroup(
     const docTags = Array.isArray(doc.tags)
       ? (doc.tags as string[])
       : undefined;
+    const docContributors = Array.isArray(doc.contributors)
+      ? (doc.contributors as ArticleRef["contributors"])
+      : undefined;
+    const docBskyPostRef = doc.bskyPostRef as ArticleRef["bskyPostRef"];
 
     // Update the existing document (same TID rkey) with published fields
     await agent.com.atproto.repo.putRecord({
@@ -512,6 +516,8 @@ export async function publishArticleToGroup(
       splashImageUrl: docCoverImageUrl || null,
       description: doc.description ? String(doc.description) : null,
       tags: docTags,
+      contributors: docContributors,
+      bskyPostRef: docBskyPostRef,
       createdAt: String(doc.createdAt ?? publishedAt),
       publishedAt,
       updatedAt: publishedAt,

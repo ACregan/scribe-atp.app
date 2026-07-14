@@ -46,35 +46,40 @@ export default [
       // migrate-records-v2) have all completed their migrations and were
       // removed entirely — see backlog-test-coverage-gaps memory. The
       // remaining ongoing repair tools below are admin-only
-      // (requireAdminAtpAgent, gated on ADMIN_DID).
-      route(
-        "devtools/repair-publication-refs",
-        "./routes/devtools/repair-publication-refs/repair-publication-refs.tsx",
-      ),
-      route(
-        "devtools/repair-document-site-uris",
-        "./routes/devtools/repair-document-site-uris/repair-document-site-uris.tsx",
-      ),
-      route(
-        "devtools/repair-document-paths",
-        "./routes/devtools/repair-document-paths/repair-document-paths.tsx",
-      ),
-      // One-time Phase 1 migration tool for ADR 0013 — resets site/
-      // publishedAt/scribe.canonicalUrl/scribe.domain to the loose state on
-      // every currently-unassigned document. Retire once the migration is
-      // complete (see docs/adr/0013-document-site-field-is-the-loose-vs-published-signal.md).
-      route(
-        "devtools/repair-loose-documents",
-        "./routes/devtools/repair-loose-documents/repair-loose-documents.tsx",
-      ),
-      // One-time backfill for records saved before sanitizeArticleHtml()
-      // (article.server.ts) started stripping the CMS's own CSS-Modules
-      // editor classes out of saved content.html. Retire once run against
-      // production.
-      route(
-        "devtools/repair-article-html-classes",
-        "./routes/devtools/repair-article-html-classes/repair-article-html-classes.tsx",
-      ),
+      // (requireAdminAtpAgent, gated on ADMIN_DID) — also structurally
+      // gated by layout/admin/admin.tsx's middleware, so a future route
+      // added under this layout is covered even if its own author forgets
+      // the per-route call.
+      layout("./layout/admin/admin.tsx", [
+        route(
+          "devtools/repair-publication-refs",
+          "./routes/devtools/repair-publication-refs/repair-publication-refs.tsx",
+        ),
+        route(
+          "devtools/repair-document-site-uris",
+          "./routes/devtools/repair-document-site-uris/repair-document-site-uris.tsx",
+        ),
+        route(
+          "devtools/repair-document-paths",
+          "./routes/devtools/repair-document-paths/repair-document-paths.tsx",
+        ),
+        // One-time Phase 1 migration tool for ADR 0013 — resets site/
+        // publishedAt/scribe.canonicalUrl/scribe.domain to the loose state on
+        // every currently-unassigned document. Retire once the migration is
+        // complete (see docs/adr/0013-document-site-field-is-the-loose-vs-published-signal.md).
+        route(
+          "devtools/repair-loose-documents",
+          "./routes/devtools/repair-loose-documents/repair-loose-documents.tsx",
+        ),
+        // One-time backfill for records saved before sanitizeArticleHtml()
+        // (article.server.ts) started stripping the CMS's own CSS-Modules
+        // editor classes out of saved content.html. Retire once run against
+        // production.
+        route(
+          "devtools/repair-article-html-classes",
+          "./routes/devtools/repair-article-html-classes/repair-article-html-classes.tsx",
+        ),
+      ]),
     ]),
   ]),
 ] satisfies RouteConfig;

@@ -13,6 +13,7 @@ import { loginAttempts } from "~/services/db.server";
 import { logger } from "~/services/logger.server";
 import styles from "./login.module.css";
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import { Spinner } from "~/components/Spinner/Spinner";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -100,6 +101,10 @@ export async function action({ request }: Route.ActionArgs) {
           : "Failed to start login. Please try again.",
     };
   }
+}
+
+export function HydrateFallback() {
+  return <Spinner size="large" />;
 }
 
 export default function Login({

@@ -170,6 +170,7 @@ export function buildArticleRef(fields: {
   description?: string;
   tags?: string[];
   contributors?: { did: string; role?: string; displayName?: string }[];
+  bskyPostRef?: { uri: string; cid: string } | null;
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -182,6 +183,7 @@ export function buildArticleRef(fields: {
     description: fields.description?.trim() || null,
     tags: fields.tags?.length ? fields.tags : undefined,
     contributors: fields.contributors?.length ? fields.contributors : undefined,
+    bskyPostRef: fields.bskyPostRef ?? undefined,
     publishedAt: fields.publishedAt,
     createdAt: fields.createdAt,
     updatedAt: fields.updatedAt,

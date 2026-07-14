@@ -6,9 +6,46 @@ import {
   buildLooseDocumentFields,
   parseContributors,
   sanitizeArticleHtml,
+  buildArticleRef,
 } from "./article.server";
 
 const DID = "did:plc:e2lcgwxhymx3q6u7blziecdr";
+
+describe("buildArticleRef", () => {
+  const baseFields = {
+    uri: `at://${DID}/site.standard.document/abc123`,
+    title: "My Article",
+    slug: "my-article",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+  };
+
+  it("bug fix: mirrors bskyPostRef when provided", () => {
+    const ref = buildArticleRef({
+      ...baseFields,
+      bskyPostRef: { uri: "at://did/app.bsky.feed.post/xyz", cid: "post-cid" },
+    });
+    expect(ref.bskyPostRef).toEqual({
+      uri: "at://did/app.bsky.feed.post/xyz",
+      cid: "post-cid",
+    });
+  });
+
+  it("omits bskyPostRef when not provided", () => {
+    const ref = buildArticleRef(baseFields);
+    expect(ref.bskyPostRef).toBeUndefined();
+  });
+
+  it("mirrors contributors when provided", () => {
+    const ref = buildArticleRef({
+      ...baseFields,
+      contributors: [{ did: "did:plc:writer", role: "Writer" }],
+    });
+    expect(ref.contributors).toEqual([
+      { did: "did:plc:writer", role: "Writer" },
+    ]);
+  });
+});
 
 describe("validateArticleFields", () => {
   it("requires a title", () => {

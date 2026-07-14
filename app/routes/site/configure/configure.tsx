@@ -40,6 +40,7 @@ import {
   deleteUmamiConfig,
   testUmamiConnection,
 } from "~/services/umami.server";
+import { Spinner } from "~/components/Spinner/Spinner";
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -394,6 +395,10 @@ type DisconnectUmamiActionData =
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.site?.title ?? "Configure Site";
   return [{ title: `Configure — ${title}` }];
+}
+
+export function HydrateFallback() {
+  return <Spinner size="large" />;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
