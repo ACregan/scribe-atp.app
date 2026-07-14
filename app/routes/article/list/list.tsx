@@ -513,9 +513,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                   )}
                 </div>
                 <div className={styles.articleInfo}>
-                  <small style={{ fontFamily: "monospace" }}>
-                    {article.uri}
-                  </small>
+                  <small className={styles.monoInfo}>{article.uri}</small>
                 </div>
                 <div className={styles.articleButtons}>
                   <Link to={`/article/view/${article.slug}`}>
@@ -582,7 +580,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <small style={{ fontFamily: "monospace" }}>
+                        <small className={styles.monoInfo}>
                           {article.canonicalUrl}
                         </small>
                       </Link>
