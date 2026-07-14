@@ -83,6 +83,35 @@ describe("action — createGroup", () => {
     );
   });
 
+  it("bug fix: rejects a duplicate slug with the same message the shared createGroup helper uses, not a hand-rolled one", async () => {
+    // Regression for the reuse finding: this action used to hand-roll its
+    // own getRecord/putRecord + duplicate-slug check with its own error
+    // text ("...already exists on this site."), independently of
+    // siteManifest.server.ts's createGroup ("...already exists.") — two
+    // implementations of the same invariant, silently diverging. Now
+    // delegates to the shared helper, so the message can't drift again.
+    const getRecord = vi.fn().mockResolvedValue({
+      data: {
+        cid: "site-cid",
+        value: {
+          $type: "site.standard.publication",
+          scribe: { groups: [{ slug: "engineering", title: "Engineering" }] },
+        },
+      },
+    });
+    const putRecord = vi.fn();
+    vi.mocked(getAtpAgent).mockResolvedValue(makeAgent({ getRecord, putRecord }));
+
+    const result = await callAction({
+      _intent: "createGroup",
+      siteRkey: SITE_SLUG,
+      title: "Engineering",
+    });
+
+    expect(result).toEqual({ error: "A group with this name already exists." });
+    expect(putRecord).not.toHaveBeenCalled();
+  });
+
   it("bug fix: rejects the reserved 'root' slug before ever touching the PDS", async () => {
     const getRecord = vi.fn();
     const putRecord = vi.fn();

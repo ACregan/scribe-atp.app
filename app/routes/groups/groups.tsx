@@ -3,6 +3,10 @@ import { Link, useFetcher, useNavigate, useLocation } from "react-router";
 import { useState, useRef, useEffect } from "react";
 import { requireAuth, getAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { devGroupsLoader } from "~/services/devFixtures.server";
+import {
+  validateGroupFields,
+  createGroup as createGroupManifest,
+} from "~/services/siteManifest.server";
 import { Button } from "~/components/Button/Button";
 import { Input } from "~/components/Input/Input";
 import { Select } from "~/components/Select/Select";
@@ -14,7 +18,7 @@ import {
   PageContainerHeading,
   PageSection,
 } from "~/components/PageContainer/PageContainer";
-import { SITE_COLLECTION, SLUG_RE, RESERVED_GROUP_SLUG } from "~/constants";
+import { SITE_COLLECTION, SLUG_RE } from "~/constants";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { Pill } from "~/components/Pill/Pill";
@@ -101,46 +105,16 @@ export async function action({ request }: Route.ActionArgs) {
     if (!siteRkey) return { error: "Please select a site." };
     if (!title) return { error: "Group title is required." };
     const slugInput = (formData.get("slug") as string)?.trim().toLowerCase();
-    const slug = slugInput || toSlug(title);
-    if (!slug)
-      return { error: "Title must contain at least one letter or number." };
-    if (!SLUG_RE.test(slug))
-      return {
-        error: "URL path must be lowercase letters, numbers and hyphens only.",
-      };
-    if (slug === RESERVED_GROUP_SLUG)
-      return { error: '"root" is a reserved URL path — please choose another.' };
+    const validated = validateGroupFields(title, slugInput);
+    if ("error" in validated) return validated;
 
     if (useRealOAuth) {
       const agent = await getAtpAgent(did, request);
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
+      const created = await createGroupManifest(agent, did, siteRkey, {
+        title,
+        slug: validated.slug,
       });
-      const val = rec.data.value as Record<string, unknown>;
-      const scribe = val.scribe as Record<string, unknown> & {
-        groups?: Array<{ slug: string }>;
-      };
-      if ((scribe.groups ?? []).some((g) => g.slug === slug)) {
-        return {
-          error: "A group with this URL path already exists on this site.",
-        };
-      }
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteRkey,
-        record: {
-          ...val,
-          scribe: {
-            ...scribe,
-            groups: [...(scribe.groups ?? []), { slug, title, articles: [] }],
-            updatedAt: new Date().toISOString(),
-          },
-        },
-        swapRecord: rec.data.cid,
-      });
+      if ("error" in created) return created;
     }
 
     return { ok: true };
