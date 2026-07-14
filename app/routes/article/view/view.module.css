@@ -44,6 +44,20 @@
   color: var(--text-primary);
 }
 
+/* @scribe-atp/styles' .scribe-content declares --scribe-code-* custom
+   properties on itself (not just consumes them), so an ancestor-level
+   override is silently shadowed — must target :global(.scribe-content)
+   directly with a selector at least as specific. Its hardcoded light-tuned
+   defaults (#f5f5f5 background) never adapt to the CMS's own dark mode,
+   leaving code-block text unreadable against an unchanged light background.
+   Reuses the same tokens the Lexical editor's own .codeBlock uses, so the
+   read view matches what was actually authored. */
+.content:global(.scribe-content) {
+  --scribe-code-bg: var(--surface-muted);
+  --scribe-code-border: var(--border-color);
+  --scribe-inline-code-bg: var(--inline-code-background-color);
+}
+
 .statsBar {
   display: flex;
   flex-wrap: wrap;
