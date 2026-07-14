@@ -50,7 +50,7 @@
 - A **Site** has zero or more **Groups**; Group order within a Site is significant.
 - A **Group** holds zero or more **ArticleRefs**; Article order within a Group is significant.
 - A **Site** record still has an `ungroupedArticles` field for backwards compatibility, but it is vestigial (ADR 0013) — no current UI path can populate it, since Publish places an Article directly into a Group.
-- An **Article** may be referenced by **at most one** Site at a time via **ArticleRef** (ADR 0013) — never zero-or-many. Older data predating this rule has been repaired; see the `repair-loose-documents` devtool.
+- An **Article** may be referenced by **at most one** Site at a time via **ArticleRef** (ADR 0013) — never zero-or-many. Older data predating this rule has been repaired.
 - An **Article** is authored by the user whose PDS holds the record; no explicit author field is needed.
 - An uploaded image produces exactly one set of **Variants** (at least thumb and max; intermediate sizes skipped if source is too small to avoid upscaling).
 - Every user has exactly one **User Image Folder** at the top level of the **Image Library**; it is created automatically on first upload.

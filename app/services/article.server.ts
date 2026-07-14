@@ -140,9 +140,9 @@ export function buildLooseSiteUrl(did: string, rkey: string): string {
 }
 
 // Single source of truth for what "loose" means on a document record —
-// shared by article creation (always loose), the unpublish action, and the
-// one-off repair-loose-documents devtool, so all three can never drift from
-// each other the way the pre-ADR-0013 code paths did.
+// shared by article creation (always loose) and the unpublish action, so
+// the two can never drift from each other the way the pre-ADR-0013 code
+// paths did.
 export function buildLooseDocumentFields(
   did: string,
   rkey: string,
