@@ -555,8 +555,22 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     }
   }, [saveFetcher.state, saveFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (deleteFetcher.state !== "idle" || !deleteFetcher.data) return;
+  // Bug fix: useEffect keyed on useFetcher().data doesn't reliably re-fire
+  // in this app's React Router version (see
+  // feedback-usefetcher-data-effect-unreliable memory) — a missed re-fire
+  // here left the deleted group in the local tree, and the next Save Order
+  // would write it straight back to the PDS via a full-overwrite. Deriving
+  // during render (React's documented "adjusting state" pattern) instead of
+  // an effect avoids depending on the effect actually re-running.
+  const [processedDeleteData, setProcessedDeleteData] = useState(
+    deleteFetcher.data,
+  );
+  if (
+    deleteFetcher.state === "idle" &&
+    deleteFetcher.data &&
+    deleteFetcher.data !== processedDeleteData
+  ) {
+    setProcessedDeleteData(deleteFetcher.data);
     if (deleteFetcher.data.ok && deleteFetcher.data.deletedSlug) {
       deletingSlugRef.current = null;
       removeGroup(deleteFetcher.data.deletedSlug);
@@ -568,7 +582,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         autoExpire: false,
       });
     }
-  }, [deleteFetcher.state, deleteFetcher.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   useEffect(() => {
     if (shareFetcher.state !== "idle" || !shareFetcher.data) return;
