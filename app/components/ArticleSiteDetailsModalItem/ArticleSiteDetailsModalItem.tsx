@@ -76,7 +76,12 @@ const ArticleSiteDetailsModalItem: React.FC<
         </div>
       </div>
 
-      <Table data={[site]} columns={columns} layout="rows" />
+      <Table
+        className={styles.siteDetailsTable}
+        data={[site]}
+        columns={columns}
+        layout="rows"
+      />
 
       <div className={styles.buttonsContainer}>
         <Link to={`/article/list/${site.siteRkey}`}>
