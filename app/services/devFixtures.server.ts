@@ -313,6 +313,8 @@ export function devViewLoader(articleUrl: string) {
     readMinutes: 2,
     bskyPostRef: null,
     siteDomain: "norobots.blog",
+    canonicalUrl: `https://norobots.blog/${articleUrl}`,
+    readerUrl: `https://reader.scribe-atp.app/${DEV_DID}/site.standard.document/${articleUrl}`,
     slug: articleUrl,
     likes: 7,
     shares: 2,

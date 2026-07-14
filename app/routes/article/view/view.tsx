@@ -1,6 +1,7 @@
 import type { Route } from "./+types/view";
 import { Link } from "react-router";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
+import { buildLooseSiteUrl } from "~/services/article.server";
 import { devViewLoader } from "~/services/devFixtures.server";
 import DOMPurify from "isomorphic-dompurify";
 import { Button } from "~/components/Button/Button";
@@ -17,7 +18,13 @@ import styles from "./view.module.css";
 import "@scribe-atp/styles";
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [{ title: loaderData?.title ? `${loaderData.title} – Scribe ATP` : "Scribe ATP" }];
+  return [
+    {
+      title: loaderData?.title
+        ? `${loaderData.title} – Scribe ATP`
+        : "Scribe ATP",
+    },
+  ];
 }
 
 export function HydrateFallback() {
@@ -80,6 +87,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   if (!found) throw new Response("Article not found", { status: 404 });
 
+  const rkey = found.uri.split("/").pop()!;
   const value = found.value as Record<string, unknown>;
   const rawContent = value.content;
   const html =
@@ -93,8 +101,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const textContent = String(value.textContent ?? "");
 
   const bskyPostRefRaw = value.bskyPostRef as
-    | { uri: string; cid: string }
-    | undefined;
+    { uri: string; cid: string } | undefined;
 
   const socialServiceUrl =
     process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
@@ -115,6 +122,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     readMinutes: textContent ? computeReadMinutes(textContent) : null,
     bskyPostRef: bskyPostRefRaw ?? null,
     siteDomain: String(scribe.domain ?? ""),
+    canonicalUrl: scribe.canonicalUrl ? String(scribe.canonicalUrl) : undefined,
+    readerUrl: buildLooseSiteUrl(did, rkey),
     slug,
     likes,
     shares,
@@ -142,6 +151,8 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
     readMinutes,
     bskyPostRef,
     siteDomain,
+    canonicalUrl,
+    readerUrl,
     slug,
     likes,
     shares,
@@ -159,7 +170,8 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
           {displayDate && (
             <>
               <span>
-                {publishedAt ? "Published" : "Created"} {formatDate(displayDate)}
+                {publishedAt ? "Published" : "Created"}{" "}
+                {formatDate(displayDate)}
               </span>
             </>
           )}
@@ -198,9 +210,7 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
         )}
 
         {/* Description */}
-        {description && (
-          <p className={styles.description}>{description}</p>
-        )}
+        {description && <p className={styles.description}>{description}</p>}
 
         {/* Content */}
         <div
@@ -245,6 +255,15 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
         <Link to="/article/list">
           <Button variant="secondary" tabIndex={-1}>
             Back to articles
+          </Button>
+        </Link>
+        <Link
+          to={canonicalUrl ?? readerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button variant="success" tabIndex={-1}>
+            {canonicalUrl ? "View Published" : "View in Reader"}
           </Button>
         </Link>
         <Link to={`/article/edit/${slug}`}>
