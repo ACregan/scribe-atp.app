@@ -10,6 +10,8 @@ import { devArticleListLoader } from "~/services/devFixtures.server";
 import { buildLooseSiteUrl } from "~/services/article.server";
 import {
   listDocuments,
+  getDocument,
+  putDocument,
   deleteDocument,
 } from "~/services/documentRepository.server";
 import { listSites } from "~/services/siteRepository.server";
@@ -21,11 +23,17 @@ import {
   unpublishArticle,
   validateGroupFields,
 } from "~/services/siteManifest.server";
+import {
+  listContributorSites,
+  parseSiteUri,
+} from "~/services/contributorRoster.server";
+import { pendingSubmissions } from "~/services/db.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import { Select } from "~/components/Select/Select";
 import { Input } from "~/components/Input/Input";
+import { Pill } from "~/components/Pill/Pill";
 import {
   ButtonGroupContainer,
   PageContainer,
@@ -70,6 +78,7 @@ type StandaloneArticle = {
   cid: string;
   createdAt: string;
   readerUrl: string;
+  pendingPublish?: { siteUri: string; submittedAt: string };
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -82,10 +91,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { agent, did, handle } = await requireAtpAgent(request);
 
   try {
-    const [documentRecords, siteRecords] = await Promise.all([
-      listDocuments(agent, did),
-      listSites(agent, did),
-    ]);
+    const [documentRecords, siteRecords, contributorSites] =
+      await Promise.all([
+        listDocuments(agent, did),
+        listSites(agent, did),
+        listContributorSites(did),
+      ]);
 
     const assignmentMap = new Map<string, ArticleAssignment[]>();
 
@@ -160,6 +171,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       .map((record) => {
         const value = record.value;
         const path = String(value.path ?? "");
+        const scribe = value.scribe as Record<string, unknown> | undefined;
+        const pendingPublishRaw = scribe?.pendingPublish as
+          | { siteUri?: string; submittedAt?: string }
+          | undefined;
         return {
           rkey: record.rkey,
           uri: record.uri,
@@ -168,6 +183,12 @@ export async function loader({ request }: Route.LoaderArgs) {
           cid: record.cid ?? "",
           createdAt: String(value.createdAt ?? ""),
           readerUrl: buildLooseSiteUrl(did, record.rkey),
+          pendingPublish: pendingPublishRaw?.siteUri
+            ? {
+                siteUri: pendingPublishRaw.siteUri,
+                submittedAt: String(pendingPublishRaw.submittedAt ?? ""),
+              }
+            : undefined,
         };
       });
 
@@ -192,6 +213,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       publishedArticles,
       standaloneArticles,
       publishTargets,
+      contributorSites,
       authorDid: did,
       authorHandle: handle,
     };
@@ -205,14 +227,14 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = (formData.get("_intent") as string) || "deleteArticle";
 
-  if (intent === "publishArticle") {
+  if (intent === "publishOrSubmitArticle") {
     const uri = formData.get("uri") as string;
-    const siteRkey = formData.get("siteRkey") as string;
+    const siteUri = formData.get("siteUri") as string;
     const groupSlugRaw = formData.get("groupSlug") as string;
     const newGroupTitle = (
       (formData.get("newGroupTitle") as string) ?? ""
     ).trim();
-    if (!uri || !siteRkey) {
+    if (!uri || !siteUri) {
       return { ok: false, error: "An article and a site are required." };
     }
 
@@ -220,28 +242,78 @@ export async function action({ request }: Route.ActionArgs) {
 
     const { agent, did } = await requireAtpAgent(request);
 
-    let groupSlug = groupSlugRaw;
-    if (groupSlugRaw === NEW_GROUP_VALUE) {
-      if (!newGroupTitle) {
-        return { ok: false, error: "New group title is required." };
-      }
-      const validated = validateGroupFields(newGroupTitle);
-      if ("error" in validated) return { ok: false, error: validated.error };
-      const created = await createGroupManifest(agent, did, siteRkey, {
-        title: newGroupTitle,
-        slug: validated.slug,
-      });
-      if ("error" in created) return { ok: false, error: created.error };
-      groupSlug = validated.slug;
+    let ownerDid: string;
+    let siteRkey: string;
+    try {
+      ({ ownerDid, rkey: siteRkey } = parseSiteUri(siteUri));
+    } catch {
+      return { ok: false, error: "Invalid site." };
     }
-    if (!groupSlug) return { ok: false, error: "A group is required." };
 
-    return publishArticleToGroup(agent, did, siteRkey, {
-      uri,
-      groupSlug,
-      canonicalSiteRkey: siteRkey,
-      siteAssignments: [],
-    });
+    // ADR 0021 point 1 — publish vs. submit is derived from the site URI's
+    // owner DID, never trusted from a client-supplied flag.
+    if (ownerDid === did) {
+      let groupSlug = groupSlugRaw;
+      if (groupSlugRaw === NEW_GROUP_VALUE) {
+        if (!newGroupTitle) {
+          return { ok: false, error: "New group title is required." };
+        }
+        const validated = validateGroupFields(newGroupTitle);
+        if ("error" in validated) return { ok: false, error: validated.error };
+        const created = await createGroupManifest(agent, did, siteRkey, {
+          title: newGroupTitle,
+          slug: validated.slug,
+        });
+        if ("error" in created) return { ok: false, error: created.error };
+        groupSlug = validated.slug;
+      }
+      if (!groupSlug) return { ok: false, error: "A group is required." };
+
+      return publishArticleToGroup(agent, did, siteRkey, {
+        uri,
+        groupSlug,
+        canonicalSiteRkey: siteRkey,
+        siteAssignments: [],
+      });
+    }
+
+    // Submit branch (ADR 0014/0015/0021 point 5) — the article stays loose;
+    // a scribe.pendingPublish marker on the Contributor's own document is
+    // the only state written here, mirrored into pending_submissions so the
+    // Owner's review list (Phase 3b) can find it without a global index.
+    try {
+      const rkey = uri.split("/").pop() ?? "";
+      const { cid, value } = await getDocument(agent, did, rkey);
+
+      if (String(value.site ?? "").startsWith("at://")) {
+        return { ok: false, error: "This article is already published." };
+      }
+      const scribe = (value.scribe as Record<string, unknown>) ?? {};
+      if (scribe.pendingPublish) {
+        return {
+          ok: false,
+          error: "This article already has a pending submission.",
+        };
+      }
+
+      const submittedAt = new Date().toISOString();
+      await putDocument(
+        agent,
+        did,
+        rkey,
+        {
+          ...value,
+          scribe: { ...scribe, pendingPublish: { siteUri, submittedAt } },
+        },
+        cid,
+      );
+      pendingSubmissions.create(uri, did, siteUri, ownerDid, submittedAt);
+
+      return { ok: true };
+    } catch (err) {
+      console.error("Failed to submit article for review:", err);
+      return { ok: false, error: `Failed to submit article: ${String(err)}` };
+    }
   }
 
   if (intent === "unpublishArticle") {
@@ -364,6 +436,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
     publishedArticles,
     standaloneArticles,
     publishTargets,
+    contributorSites,
     authorDid,
     authorHandle,
   } = loaderData;
@@ -384,7 +457,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   const publishModal = useModal();
   const [publishingArticle, setPublishingArticle] =
     useState<StandaloneArticle | null>(null);
-  const [publishSiteRkey, setPublishSiteRkey] = useState("");
+  const [publishSiteUri, setPublishSiteUri] = useState("");
   const [publishGroupSlug, setPublishGroupSlug] = useState("");
   const [newGroupTitle, setNewGroupTitle] = useState("");
   const publishFetcher = useFetcher<{
@@ -432,9 +505,15 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
 
   const handlePublishClick = (article: StandaloneArticle) => {
     setPublishingArticle(article);
-    const firstSite = publishTargets[0];
-    setPublishSiteRkey(firstSite?.rkey ?? "");
-    setPublishGroupSlug(firstSite?.groups[0]?.slug ?? NEW_GROUP_VALUE);
+    const firstOwned = publishTargets[0];
+    const firstContributor = contributorSites[0];
+    if (firstOwned) {
+      setPublishSiteUri(firstOwned.publicationUri);
+      setPublishGroupSlug(firstOwned.groups[0]?.slug ?? NEW_GROUP_VALUE);
+    } else {
+      setPublishSiteUri(firstContributor?.siteUri ?? "");
+      setPublishGroupSlug("");
+    }
     setNewGroupTitle("");
     publishModal.open();
   };
@@ -442,8 +521,14 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
     publishModal.close();
     setPublishingArticle(null);
   };
-  const selectedPublishSite = publishTargets.find(
-    (s) => s.rkey === publishSiteRkey,
+  const selectedOwnedSite = publishTargets.find(
+    (s) => s.publicationUri === publishSiteUri,
+  );
+  // Presence in this list — not just a truthy check — is what flips the
+  // modal into the submit branch (ADR 0021: no group step, inline
+  // confirmation box, "Submit for Review" label).
+  const selectedContributorSite = contributorSites.find(
+    (s) => s.siteUri === publishSiteUri,
   );
 
   const { addToast } = useToast();
@@ -451,8 +536,14 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     if (publishFetcher.state !== "idle" || !publishFetcher.data) return;
     if (publishFetcher.data.ok) {
+      const wasSubmission = !!contributorSites.find(
+        (s) => s.siteUri === publishSiteUri,
+      );
       closePublishModal();
-      addToast({ heading: "Article published", variant: "success" });
+      addToast({
+        heading: wasSubmission ? "Submitted for review" : "Article published",
+        variant: "success",
+      });
       if (publishFetcher.data.warning) {
         addToast({
           heading: "Linked site update failed",
@@ -461,12 +552,14 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
           autoExpire: false,
         });
       }
-      const notifyEnabled = publishTargets.find(
-        (s) => s.rkey === publishSiteRkey,
-      )?.notifySubscribersEnabled;
-      if (notifyEnabled && publishFetcher.data.notification) {
-        setPendingNotification(publishFetcher.data.notification);
-        notifyModal.open();
+      if (!wasSubmission) {
+        const notifyEnabled = publishTargets.find(
+          (s) => s.publicationUri === publishSiteUri,
+        )?.notifySubscribersEnabled;
+        if (notifyEnabled && publishFetcher.data.notification) {
+          setPendingNotification(publishFetcher.data.notification);
+          notifyModal.open();
+        }
       }
     } else if (publishFetcher.data.error) {
       addToast({
@@ -592,14 +685,19 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                       Edit
                     </Button>
                   </Link>
-                  {publishTargets.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="success"
-                      onClick={() => handlePublishClick(article)}
-                    >
-                      Publish
-                    </Button>
+                  {article.pendingPublish ? (
+                    <Pill variant="secondary">Pending Review</Pill>
+                  ) : (
+                    (publishTargets.length > 0 ||
+                      contributorSites.length > 0) && (
+                      <Button
+                        type="button"
+                        variant="success"
+                        onClick={() => handlePublishClick(article)}
+                      >
+                        Publish
+                      </Button>
+                    )
                   )}
                   <Button
                     type="button"
@@ -780,25 +878,34 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
               variant="success"
               disabled={
                 isPublishing ||
-                !publishSiteRkey ||
-                (publishGroupSlug === NEW_GROUP_VALUE
-                  ? !newGroupTitle.trim()
-                  : !publishGroupSlug)
+                !publishSiteUri ||
+                (!selectedContributorSite &&
+                  (publishGroupSlug === NEW_GROUP_VALUE
+                    ? !newGroupTitle.trim()
+                    : !publishGroupSlug))
               }
               onClick={() => {
                 if (!publishingArticle) return;
                 const fd = new FormData();
-                fd.set("_intent", "publishArticle");
+                fd.set("_intent", "publishOrSubmitArticle");
                 fd.set("uri", publishingArticle.uri);
-                fd.set("siteRkey", publishSiteRkey);
-                fd.set("groupSlug", publishGroupSlug);
-                if (publishGroupSlug === NEW_GROUP_VALUE) {
-                  fd.set("newGroupTitle", newGroupTitle);
+                fd.set("siteUri", publishSiteUri);
+                if (!selectedContributorSite) {
+                  fd.set("groupSlug", publishGroupSlug);
+                  if (publishGroupSlug === NEW_GROUP_VALUE) {
+                    fd.set("newGroupTitle", newGroupTitle);
+                  }
                 }
                 publishFetcher.submit(fd, { method: "post" });
               }}
             >
-              {isPublishing ? "Publishing…" : "Publish"}
+              {isPublishing
+                ? selectedContributorSite
+                  ? "Submitting…"
+                  : "Publishing…"
+                : selectedContributorSite
+                  ? "Submit for Review"
+                  : "Publish"}
             </Button>
           </div>
         }
@@ -808,44 +915,79 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
             style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}
           >
             <p style={{ margin: 0, fontSize: "1.3rem" }}>
-              Publish <strong>{publishingArticle.title}</strong> to:
+              {selectedContributorSite ? "Submit" : "Publish"}{" "}
+              <strong>{publishingArticle.title}</strong> to:
             </p>
             <Select
-              name="siteRkey"
+              name="siteUri"
               label="Site"
-              value={publishSiteRkey}
+              value={publishSiteUri}
               onChange={(value) => {
-                setPublishSiteRkey(value);
-                const site = publishTargets.find((s) => s.rkey === value);
-                setPublishGroupSlug(site?.groups[0]?.slug ?? NEW_GROUP_VALUE);
+                setPublishSiteUri(value);
+                const owned = publishTargets.find(
+                  (s) => s.publicationUri === value,
+                );
+                setPublishGroupSlug(
+                  owned?.groups[0]?.slug ?? NEW_GROUP_VALUE,
+                );
               }}
-              options={publishTargets.map((s) => ({
-                value: s.rkey,
-                label: s.title,
-              }))}
+              groups={[
+                {
+                  label: "Owned Sites",
+                  options: publishTargets.map((s) => ({
+                    value: s.publicationUri,
+                    label: s.title,
+                  })),
+                },
+                {
+                  label: "Contributor Sites",
+                  options: contributorSites.map((s) => ({
+                    value: s.siteUri,
+                    label: s.siteTitle || s.siteDomain,
+                  })),
+                },
+              ].filter((g) => g.options.length > 0)}
             />
-            <Select
-              name="groupSlug"
-              label="Group"
-              value={publishGroupSlug}
-              onChange={setPublishGroupSlug}
-              options={[
-                ...(selectedPublishSite?.groups ?? []).map((g) => ({
-                  value: g.slug,
-                  label: g.title,
-                })),
-                { value: NEW_GROUP_VALUE, label: "+ Create new group" },
-              ]}
-            />
-            {publishGroupSlug === NEW_GROUP_VALUE && (
-              <Input
-                id="new-group-title"
-                name="newGroupTitle"
-                label="New group title"
-                placeholder="e.g. Engineering"
-                value={newGroupTitle}
-                onChange={(e) => setNewGroupTitle(e.target.value)}
-              />
+            {selectedContributorSite ? (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "1.2rem",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                This site is owned by{" "}
+                <strong>{selectedContributorSite.ownerDisplayName}</strong>.
+                Submitting sends this article to them for review — they'll
+                choose where it appears on their site, or decline it. You'll
+                see it's still pending until they decide.
+              </p>
+            ) : (
+              <>
+                <Select
+                  name="groupSlug"
+                  label="Group"
+                  value={publishGroupSlug}
+                  onChange={setPublishGroupSlug}
+                  options={[
+                    ...(selectedOwnedSite?.groups ?? []).map((g) => ({
+                      value: g.slug,
+                      label: g.title,
+                    })),
+                    { value: NEW_GROUP_VALUE, label: "+ Create new group" },
+                  ]}
+                />
+                {publishGroupSlug === NEW_GROUP_VALUE && (
+                  <Input
+                    id="new-group-title"
+                    name="newGroupTitle"
+                    label="New group title"
+                    placeholder="e.g. Engineering"
+                    value={newGroupTitle}
+                    onChange={(e) => setNewGroupTitle(e.target.value)}
+                  />
+                )}
+              </>
             )}
             {publishFetcher.data?.error && (
               <p

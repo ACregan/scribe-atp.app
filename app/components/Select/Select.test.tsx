@@ -51,6 +51,50 @@ describe("Select — single mode", () => {
   });
 });
 
+// ADR 0021 point 2 — additive `groups` prop, alternative to `options`.
+describe("Select — grouped options (<optgroup>)", () => {
+  const groups = [
+    {
+      label: "Owned Sites",
+      options: [{ value: "at://did:plc:me/site.standard.publication/a", label: "My Site" }],
+    },
+    {
+      label: "Contributor Sites",
+      options: [
+        { value: "at://did:plc:owner/site.standard.publication/b", label: "Their Site" },
+      ],
+    },
+  ];
+
+  it("renders each group as an <optgroup> with its own label", () => {
+    const { container } = render(<Select name="site" groups={groups} />);
+    const optgroups = container.querySelectorAll("optgroup");
+    expect(optgroups).toHaveLength(2);
+    expect(optgroups[0]).toHaveAttribute("label", "Owned Sites");
+    expect(optgroups[1]).toHaveAttribute("label", "Contributor Sites");
+  });
+
+  it("renders every group's options as real <option> elements, selectable by value", () => {
+    render(<Select name="site" groups={groups} />);
+    expect(screen.getByRole("option", { name: "My Site" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Their Site" })).toBeInTheDocument();
+  });
+
+  it("calls onChange with the full URI value regardless of which group the option came from", () => {
+    const onChange = vi.fn();
+    render(<Select name="site" groups={groups} onChange={onChange} />);
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "at://did:plc:owner/site.standard.publication/b" },
+    });
+    expect(onChange).toHaveBeenCalledWith("at://did:plc:owner/site.standard.publication/b");
+  });
+
+  it("reflects a controlled value from within a group", () => {
+    render(<Select name="site" groups={groups} value="at://did:plc:me/site.standard.publication/a" onChange={vi.fn()} />);
+    expect(screen.getByRole("combobox")).toHaveValue("at://did:plc:me/site.standard.publication/a");
+  });
+});
+
 describe("Select — multi mode", () => {
   const onChange = vi.fn();
 

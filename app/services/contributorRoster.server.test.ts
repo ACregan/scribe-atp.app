@@ -7,6 +7,7 @@ import {
   rejectInvitation,
   reconcileContributorStatuses,
   listPendingInvitations,
+  listContributorSites,
 } from "./contributorRoster.server";
 import { db, contributorMemberships } from "./db.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
@@ -530,6 +531,95 @@ describe("listPendingInvitations", () => {
     vi.stubGlobal("fetch", fetchMock);
     const result = await listPendingInvitations(CONTRIBUTOR_DID);
     expect(result).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+});
+
+// ADR 0021 point 3 — shares resolveMembershipSites with listPendingInvitations,
+// differing only in which contributor_memberships status it filters for.
+describe("listContributorSites", () => {
+  it("returns site title/domain/ownerDisplayName for each accepted-status membership", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    vi.mocked(fetchBskyProfile).mockResolvedValue({
+      did: DID,
+      handle: "owner.bsky.social",
+      displayName: "Site Owner",
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSites({
+        "my-site": { scribe: { title: "NoRobots Blog", domain: "norobots.blog" } },
+      }),
+    );
+
+    const result = await listContributorSites(CONTRIBUTOR_DID);
+
+    expect(result).toEqual([
+      {
+        siteUri: SITE_URI,
+        siteTitle: "NoRobots Blog",
+        siteDomain: "norobots.blog",
+        ownerDisplayName: "Site Owner",
+      },
+    ]);
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to handle, then DID, when the Owner has no displayName", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    vi.mocked(fetchBskyProfile).mockResolvedValue({
+      did: DID,
+      handle: "owner.bsky.social",
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSites({ "my-site": { scribe: { title: "NoRobots Blog", domain: "norobots.blog" } } }),
+    );
+
+    const result = await listContributorSites(CONTRIBUTOR_DID);
+
+    expect(result[0].ownerDisplayName).toBe("owner.bsky.social");
+    vi.unstubAllGlobals();
+  });
+
+  it("excludes invited and rejected memberships — only accepted counts as real Contributor access", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "invited");
+    contributorMemberships.upsert(
+      CONTRIBUTOR_DID,
+      "at://did:plc:otherowner/site.standard.publication/other-site",
+      "2026-01-01T00:00:00.000Z",
+      "rejected",
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listContributorSites(CONTRIBUTOR_DID);
+
+    expect(result).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("drops a site that fails to resolve instead of failing the whole list", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    contributorMemberships.upsert(
+      CONTRIBUTOR_DID,
+      "at://did:plc:otherowner/site.standard.publication/other-site",
+      "2026-01-01T00:00:00.000Z",
+      "accepted",
+    );
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSites({
+        "my-site": { scribe: { title: "NoRobots Blog", domain: "norobots.blog" } },
+        "other-site": "reject",
+      }),
+    );
+
+    const result = await listContributorSites(CONTRIBUTOR_DID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].siteUri).toBe(SITE_URI);
     vi.unstubAllGlobals();
   });
 });

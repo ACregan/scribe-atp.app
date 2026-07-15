@@ -56,6 +56,7 @@ describe("loader — dev bypass", () => {
     expect(result.standaloneArticles).toHaveLength(
       fixture.standaloneArticles.length,
     );
+    expect(result.contributorSites).toEqual(fixture.contributorSites);
     expect(requireAtpAgent).not.toHaveBeenCalled();
   });
 });
@@ -65,6 +66,18 @@ describe("action — dev bypass", () => {
     await expect(callAction({ rkey: "a", cid: "b" })).resolves.toEqual({
       ok: true,
     });
+    expect(requireAtpAgent).not.toHaveBeenCalled();
+  });
+
+  it("publishOrSubmitArticle returns ok without touching the agent", async () => {
+    await expect(
+      callAction({
+        _intent: "publishOrSubmitArticle",
+        uri: "at://did:dev:test/site.standard.document/a",
+        siteUri: "at://did:dev:test/site.standard.publication/site-a",
+        groupSlug: "g1",
+      }),
+    ).resolves.toEqual({ ok: true });
     expect(requireAtpAgent).not.toHaveBeenCalled();
   });
 });

@@ -187,6 +187,9 @@ export function devArticleListLoader() {
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
         readerUrl: `https://reader.scribe-atp.app/${DEV_DID}/site.standard.document/dev-standalone`,
+        pendingPublish: undefined as
+          | { siteUri: string; submittedAt: string }
+          | undefined,
       },
     ],
     publishTargets: [
@@ -205,6 +208,7 @@ export function devArticleListLoader() {
         groups: [],
       },
     ],
+    contributorSites: [],
     authorDid: DEV_DID,
     authorHandle: "dev.user",
   };
