@@ -57,9 +57,11 @@ import {
   removeContributor,
   reconcileContributorStatuses,
 } from "~/services/contributorRoster.server";
+import { pendingSubmissions } from "~/services/db.server";
 import {
   type SiteManifest,
   type RosterEntry,
+  type SubmissionListEntry,
   toSlug,
   treeToSiteData,
 } from "./siteTree";
@@ -122,8 +124,25 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       String(d.value.site ?? "").startsWith(READER_BASE_URL),
     );
 
+    // Phase 3 sub-pass 2 (ADR 0022 point 6) — read straight from the local
+    // pending_submissions cache, no cross-repo read needed just to render a
+    // title on this page. Filtered to this site and to still-pending rows —
+    // a rejected row lingers locally until the Contributor's own
+    // reconciliation (Phase 3c) acknowledges it, and isn't this Owner's to
+    // act on again.
+    const siteUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
+    const submissions = pendingSubmissions
+      .listForOwner(did)
+      .filter((s) => s.siteUri === siteUri && s.status === "pending");
+
     const rosterEntries = (scribeVal.contributors as SiteContributor[]) ?? [];
-    const profiles = await fetchBskyProfiles(rosterEntries.map((c) => c.did));
+    const profileDids = [
+      ...new Set([
+        ...rosterEntries.map((c) => c.did),
+        ...submissions.map((s) => s.contributorDid),
+      ]),
+    ];
+    const profiles = await fetchBskyProfiles(profileDids);
     const profileByDid = new Map(profiles.map((p) => [p.did, p]));
     const contributors: RosterEntry[] = rosterEntries.map((c) => ({
       ...c,
@@ -132,10 +151,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       avatar: profileByDid.get(c.did)?.avatar,
     }));
 
+    const submissionRows: SubmissionListEntry[] = submissions.map((s) => ({
+      contributorDid: s.contributorDid,
+      rkey: s.documentUri.split("/").pop() ?? "",
+      documentTitle: s.documentTitle,
+      submittedAt: s.submittedAt,
+      contributorHandle: profileByDid.get(s.contributorDid)?.handle ?? s.contributorDid,
+      contributorDisplayName: profileByDid.get(s.contributorDid)?.displayName,
+    }));
+
     return {
       devMode: false,
       hasUnassignedArticles,
       contributors,
+      submissions: submissionRows,
       site: {
         rkey: siteSlug,
         cid: record.data.cid,
@@ -677,6 +706,61 @@ const STATUS_VARIANT: Record<RosterEntry["status"], "success" | "secondary" | "d
   rejected: "danger",
 };
 
+// Plain, un-decorated per Phase 3's own explicit scope (ADR 0022) — no
+// toast, no badge, no chat post. Those are Phase 4/5, layered on top of the
+// same pending_submissions data this section reads.
+function SubmissionsSection({
+  submissions,
+}: {
+  submissions: SubmissionListEntry[];
+}) {
+  return (
+    <div
+      style={{
+        borderTop: "0.1rem solid var(--border-color)",
+        marginTop: "1rem",
+        paddingTop: "1rem",
+      }}
+    >
+      <h6 style={{ margin: 0 }}>New Article Submissions</h6>
+
+      {submissions.length === 0 ? (
+        <p style={{ color: "var(--text-secondary)" }}>
+          No pending submissions right now.
+        </p>
+      ) : (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {submissions.map((s) => (
+            <li
+              key={`${s.contributorDid}:${s.rkey}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.8rem",
+                padding: "0.8rem 0",
+                borderTop: "0.1rem solid var(--border-subtle)",
+              }}
+            >
+              <span>{s.documentTitle}</span>
+              <span style={{ color: "var(--text-secondary)" }}>
+                from {s.contributorDisplayName ?? s.contributorHandle}
+              </span>
+              <span style={{ color: "var(--text-secondary)", marginLeft: "auto" }}>
+                {new Date(s.submittedAt).toLocaleDateString()}
+              </span>
+              <Link to={`/article/review/${s.contributorDid}/${s.rkey}`}>
+                <Button type="button" variant="primary" tabIndex={-1}>
+                  Review
+                </Button>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ContributorsSection({
   contributors,
   onRemove,
@@ -750,7 +834,7 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, hasUnassignedArticles, contributors } = loaderData;
+  const { site, devMode, hasUnassignedArticles, contributors, submissions } = loaderData;
   const { isOpen, open, close } = useModal();
   const inviteModal = useModal();
 
@@ -1041,6 +1125,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                 ))}
             </GroupList>
           </SortableContext>
+
+          <SubmissionsSection submissions={submissions} />
 
           <ContributorsSection
             contributors={contributors}

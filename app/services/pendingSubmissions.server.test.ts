@@ -5,6 +5,7 @@ const DOCUMENT_URI = "at://did:plc:contributor/site.standard.document/abc123";
 const CONTRIBUTOR_DID = "did:plc:contributor";
 const SITE_URI = "at://did:plc:owner/site.standard.publication/my-site";
 const OWNER_DID = "did:plc:owner";
+const DOCUMENT_TITLE = "My Article";
 
 beforeEach(() => {
   db.exec("DELETE FROM pending_submissions");
@@ -21,6 +22,7 @@ describe("pendingSubmissions", () => {
       CONTRIBUTOR_DID,
       SITE_URI,
       OWNER_DID,
+      DOCUMENT_TITLE,
       "2026-07-16T00:00:00.000Z",
     );
     expect(pendingSubmissions.get(DOCUMENT_URI)).toEqual({
@@ -28,6 +30,7 @@ describe("pendingSubmissions", () => {
       contributorDid: CONTRIBUTOR_DID,
       siteUri: SITE_URI,
       ownerDid: OWNER_DID,
+      documentTitle: DOCUMENT_TITLE,
       submittedAt: "2026-07-16T00:00:00.000Z",
       status: "pending",
       rejectionReason: null,
@@ -40,6 +43,7 @@ describe("pendingSubmissions", () => {
       CONTRIBUTOR_DID,
       SITE_URI,
       OWNER_DID,
+      DOCUMENT_TITLE,
       "2026-07-16T00:00:00.000Z",
     );
     pendingSubmissions.reject(DOCUMENT_URI, "Not a good fit for this site.");
@@ -48,6 +52,7 @@ describe("pendingSubmissions", () => {
       contributorDid: CONTRIBUTOR_DID,
       siteUri: SITE_URI,
       ownerDid: OWNER_DID,
+      documentTitle: DOCUMENT_TITLE,
       submittedAt: "2026-07-16T00:00:00.000Z",
       status: "rejected",
       rejectionReason: "Not a good fit for this site.",
@@ -60,6 +65,7 @@ describe("pendingSubmissions", () => {
       CONTRIBUTOR_DID,
       SITE_URI,
       OWNER_DID,
+      DOCUMENT_TITLE,
       "2026-07-16T00:00:00.000Z",
     );
     pendingSubmissions.remove(DOCUMENT_URI);
@@ -72,6 +78,7 @@ describe("pendingSubmissions", () => {
       CONTRIBUTOR_DID,
       SITE_URI,
       OWNER_DID,
+      DOCUMENT_TITLE,
       "2026-07-16T00:00:00.000Z",
     );
     expect(() =>
@@ -80,6 +87,7 @@ describe("pendingSubmissions", () => {
         CONTRIBUTOR_DID,
         "at://did:plc:otherowner/site.standard.publication/other-site",
         "did:plc:otherowner",
+        DOCUMENT_TITLE,
         "2026-07-16T01:00:00.000Z",
       ),
     ).toThrow();
@@ -91,6 +99,7 @@ describe("pendingSubmissions", () => {
       CONTRIBUTOR_DID,
       SITE_URI,
       OWNER_DID,
+      DOCUMENT_TITLE,
       "2026-07-16T00:00:00.000Z",
     );
     pendingSubmissions.create(
@@ -98,6 +107,7 @@ describe("pendingSubmissions", () => {
       "did:plc:othercontributor",
       SITE_URI,
       OWNER_DID,
+      "Another Article",
       "2026-07-16T00:00:00.000Z",
     );
     pendingSubmissions.create(
@@ -105,6 +115,7 @@ describe("pendingSubmissions", () => {
       CONTRIBUTOR_DID,
       "at://did:plc:differentowner/site.standard.publication/different-site",
       "did:plc:differentowner",
+      "Unrelated Article",
       "2026-07-16T00:00:00.000Z",
     );
 

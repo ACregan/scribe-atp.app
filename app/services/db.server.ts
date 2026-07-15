@@ -115,11 +115,17 @@ function migrate(db: Database.Database) {
     -- persist until the Contributor's own reconciliation check acknowledges
     -- them — that local status is the only signal available, since rejection
     -- leaves no public artifact on the Owner's site the way approval does.
+    -- document_title (ADR 0022 point 6) is cached from the Contributor's own
+    -- document at submission time — the submit action already has it in hand
+    -- from the getDocument call it does for its own guards — so the Owner's
+    -- plain submissions list (site-list.tsx) can render a title without a
+    -- cross-repo read on every page visit.
     CREATE TABLE IF NOT EXISTS pending_submissions (
       document_uri     TEXT NOT NULL UNIQUE,
       contributor_did  TEXT NOT NULL,
       site_uri         TEXT NOT NULL,
       owner_did        TEXT NOT NULL,
+      document_title   TEXT NOT NULL,
       submitted_at     TEXT NOT NULL,
       status           TEXT NOT NULL,
       rejection_reason TEXT
@@ -388,6 +394,7 @@ export type PendingSubmission = {
   contributorDid: string;
   siteUri: string;
   ownerDid: string;
+  documentTitle: string;
   submittedAt: string;
   status: PendingSubmissionStatus;
   rejectionReason: string | null;
@@ -398,10 +405,14 @@ type PendingSubmissionRow = {
   contributor_did: string;
   site_uri: string;
   owner_did: string;
+  document_title: string;
   submitted_at: string;
   status: PendingSubmissionStatus;
   rejection_reason: string | null;
 };
+
+const PENDING_SUBMISSION_COLUMNS =
+  "document_uri, contributor_did, site_uri, owner_did, document_title, submitted_at, status, rejection_reason";
 
 function fromSubmissionRow(row: PendingSubmissionRow): PendingSubmission {
   return {
@@ -409,6 +420,7 @@ function fromSubmissionRow(row: PendingSubmissionRow): PendingSubmission {
     contributorDid: row.contributor_did,
     siteUri: row.site_uri,
     ownerDid: row.owner_did,
+    documentTitle: row.document_title,
     submittedAt: row.submitted_at,
     status: row.status,
     rejectionReason: row.rejection_reason,
@@ -425,17 +437,18 @@ export const pendingSubmissions = {
     contributorDid: string,
     siteUri: string,
     ownerDid: string,
+    documentTitle: string,
     submittedAt: string,
   ) => {
     db.prepare(
-      `INSERT INTO pending_submissions (document_uri, contributor_did, site_uri, owner_did, submitted_at, status)
-       VALUES (?, ?, ?, ?, ?, 'pending')`,
-    ).run(documentUri, contributorDid, siteUri, ownerDid, submittedAt);
+      `INSERT INTO pending_submissions (document_uri, contributor_did, site_uri, owner_did, document_title, submitted_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+    ).run(documentUri, contributorDid, siteUri, ownerDid, documentTitle, submittedAt);
   },
   get: (documentUri: string): PendingSubmission | undefined => {
     const row = db
       .prepare<[string], PendingSubmissionRow>(
-        "SELECT document_uri, contributor_did, site_uri, owner_did, submitted_at, status, rejection_reason FROM pending_submissions WHERE document_uri = ?",
+        `SELECT ${PENDING_SUBMISSION_COLUMNS} FROM pending_submissions WHERE document_uri = ?`,
       )
       .get(documentUri);
     return row ? fromSubmissionRow(row) : undefined;
@@ -461,7 +474,7 @@ export const pendingSubmissions = {
   listForOwner: (ownerDid: string): PendingSubmission[] => {
     const rows = db
       .prepare<[string], PendingSubmissionRow>(
-        "SELECT document_uri, contributor_did, site_uri, owner_did, submitted_at, status, rejection_reason FROM pending_submissions WHERE owner_did = ?",
+        `SELECT ${PENDING_SUBMISSION_COLUMNS} FROM pending_submissions WHERE owner_did = ?`,
       )
       .all(ownerDid);
     return rows.map(fromSubmissionRow);

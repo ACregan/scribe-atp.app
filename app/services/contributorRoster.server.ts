@@ -6,6 +6,7 @@ import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 import { publicUrl } from "~/services/auth.server";
 import { syncSiteRoster } from "~/services/imageServiceClient.server";
 import { logger } from "~/services/logger.server";
+import { parseSiteUri, resolveDidPdsUrl } from "~/services/pdsResolution.server";
 import type { SiteContributor } from "~/hooks/types";
 import type { SiteRecordValue } from "~/routes/article/site-list/siteTree";
 
@@ -217,48 +218,6 @@ export type PendingInvitation = {
   siteDomain: string;
 };
 
-// Exported for list.tsx's submit action (ADR 0021 point 1) — the action
-// derives publish-vs-submit for itself by parsing the owner DID out of the
-// submitted site URI, rather than trusting a client-supplied flag.
-export function parseSiteUri(siteUri: string): { ownerDid: string; rkey: string } {
-  const match = siteUri.match(/^at:\/\/([^/]+)\/[^/]+\/([^/]+)$/);
-  if (!match) throw new Error(`Malformed site URI: ${siteUri}`);
-  return { ownerDid: match[1], rkey: match[2] };
-}
-
-// Found live, 2026-07-15: an authenticated agent's com.atproto.repo.getRecord
-// queries the CALLER's own PDS, which cannot serve a record hosted on a
-// different PDS — most real accounts are, since bsky.social is sharded
-// across many PDS hosts (confirmed live: two real test accounts resolved to
-// oyster.us-east and rhizopogon.us-west, and the cross-host read returned
-// RecordNotFound). Every prior use of getRecord in this app's Contributors
-// code reads the CALLER's own record (their own repo, same PDS as their
-// agent, so this never surfaced there) — this is the first genuinely
-// cross-account read in the feature. Same resolution steps as
-// @scribe-atp/core's resolvePds (not imported directly — that helper isn't
-// part of the package's public API surface), reimplemented here rather than
-// reused across a package boundary for one small lookup.
-const pdsUrlCache = new Map<string, string>();
-
-async function resolveOwnerPdsUrl(did: string): Promise<string> {
-  const cached = pdsUrlCache.get(did);
-  if (cached) return cached;
-
-  const didDocUrl = did.startsWith("did:web:")
-    ? `https://${did.slice("did:web:".length)}/.well-known/did.json`
-    : `https://plc.directory/${encodeURIComponent(did)}`;
-  const res = await fetch(didDocUrl);
-  if (!res.ok) throw new Error(`Failed to resolve DID document for ${did}: ${res.statusText}`);
-  const doc = (await res.json()) as {
-    service?: Array<{ id: string; serviceEndpoint: string }>;
-  };
-  const pds = doc.service?.find((s) => s.id === "#atproto_pds");
-  if (!pds) throw new Error(`No PDS service found in DID document for ${did}`);
-
-  pdsUrlCache.set(did, pds.serviceEndpoint);
-  return pds.serviceEndpoint;
-}
-
 // Shared by listPendingInvitations (status: "invited") and listContributorSites
 // (status: "accepted", ADR 0021 point 3) — both need the identical resolution
 // work (site record + Owner profile, via the cross-repo PDS-read pattern
@@ -283,7 +242,7 @@ async function resolveMembershipSites(
   const results = await Promise.allSettled(
     memberships.map(async (m): Promise<ResolvedMembershipSite> => {
       const { ownerDid, rkey } = parseSiteUri(m.siteUri);
-      const pdsUrl = await resolveOwnerPdsUrl(ownerDid);
+      const pdsUrl = await resolveDidPdsUrl(ownerDid);
       const url = new URL(`${pdsUrl}/xrpc/com.atproto.repo.getRecord`);
       url.searchParams.set("repo", ownerDid);
       url.searchParams.set("collection", SITE_COLLECTION);

@@ -541,11 +541,11 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Depends on:** Phase 1. Does not depend on Phase 2.
 
-**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject**, **3c Contributor-side reconciliation** — 3b and 3c not yet grilled.
+**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled and implemented 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** — not yet grilled.
 
 **Explicitly out of scope for the whole phase:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
 
-**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape, ADR 0021 for sub-pass 3a's concrete build.
+**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape, ADR 0021 for sub-pass 3a's concrete build, ADR 0022 for sub-pass 3b's concrete build.
 
 #### Sub-pass 3a — Submit + unified Publish/Submit modal (grilled + built 2026-07-16)
 
@@ -558,12 +558,17 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Backlogged, not specced:** a Contributor rescinding their own pending submission before the Owner responds — a real gap surfaced during the grill session, explicitly deferred rather than designed now (ADR 0021 Consequences).
 
-#### Sub-pass 3b — Review screen + approve/reject (not yet grilled)
+#### Sub-pass 3b — Review screen + approve/reject (grilled + built 2026-07-16, see ADR 0022)
 
-**Scope (from ADR 0014, not yet stress-tested against the concrete code):**
-- The review screen — a new route, sibling to `/article/view` but reading a *specific* Contributor's document by public URI rather than the logged-in user's own repo (needs the same cross-repo PDS-resolution pattern as `listPendingInvitations`/`listContributorSites` — `agent.com.atproto.repo.getRecord` cannot serve a record on a different PDS host, already confirmed live in Phase 1).
-- Approve action: extends `publishArticleToGroup` (or a sibling) to build the `ArticleRef` snapshot from the externally-read document — the existing function assumes same-repo (`repo: did` hardcoded in both the document fetch and the write-back), a real extension not a small tweak; posts an outcome message to the site's chat (Phase 5, if built — treat as optional/no-op until then).
-- Reject action: asks for a reason, writes it onto the `pending_submissions` row (`status: 'rejected'`), same optional chat post.
+**Scope:**
+- New route `/article/review/:contributorDid/:rkey`, sibling to `/article/view` (not a variant of it). Loader reconstructs the document URI, looks up `pending_submissions.get(...)` for `siteUri`/`ownerDid` (the DB row is authoritative — no second URL segment needed for site context), guards `ownerDid === caller's own did`, then does the cross-repo public read. Reached via a link from the plain submissions list on `/article/list/:siteSlug`.
+- **Extract `pdsUrlCache`/`resolveOwnerPdsUrl` (renamed `resolveDidPdsUrl`)/`parseSiteUri` out of `contributorRoster.server.ts` into a new shared `app/services/pdsResolution.server.ts`** (ADR 0022 point 2) — third call site for the same cross-repo PDS-resolution primitive, crossing this codebase's own extraction threshold.
+- **Approve is a new, standalone `approveSubmission`** in a new `app/services/submissionReview.server.ts` — *not* an extension of `publishArticleToGroup` (ADR 0022 point 3): that function's document write-back half is cross-repo-impossible here (AT Protocol has no cross-repo write — that's the whole reason sub-pass 3c exists as a separate Contributor-side step). Approve only does the Owner-side half: public cross-repo read → `buildArticleRef(...)` (already field-only, no changes needed) → `mutateSiteRecord` inserting the `ArticleRef` into the Owner's chosen group → delete the `pending_submissions` row. Group picker has full parity with the Publish modal (existing groups + inline "+ Create new group"). Chat post: no-op until Phase 5.
+- **Reject** (`rejectSubmission`, same new file): confirmation modal with a **required, non-empty** reason `Textarea`; writes `pending_submissions.reject(documentUri, reason)` — the row persists (not deleted) for sub-pass 3c to read later.
+- **Idempotency guard** (ADR 0022 point 5): both actions re-check `pending_submissions.get(documentUri)` at the start, erroring if the row is missing or not `status: "pending"` — guards a double-click or two open tabs.
+- **`pending_submissions` gains a `document_title` column** (ADR 0022 point 6), written once at submit time in `list.tsx`'s existing action (free — it already has `value.title` from the guard-check `getDocument` call). `site-list.tsx`'s loader reads the plain submissions list straight from local SQLite — no cross-repo fetch needed just to render a title.
+- Site-deletion cleanup of orphaned `pending_submissions` rows: **backlogged**, matching ADR 0020's identical precedent. Contributor removed from the roster after submitting: **no special handling needed**, review still works regardless of current roster status.
+- Action pattern: return data + toast + `navigate`, the same pattern already used by `site/configure` — not a redirect.
 
 #### Sub-pass 3c — Contributor-side reconciliation (not yet grilled)
 

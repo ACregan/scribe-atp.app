@@ -696,6 +696,7 @@ describe("action", () => {
             contributorDid,
             siteUri: ownerSiteUri,
             ownerDid,
+            documentTitle: "Loose Article",
             status: "pending",
           }),
         );
