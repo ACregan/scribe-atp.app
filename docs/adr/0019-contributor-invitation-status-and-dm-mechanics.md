@@ -1,7 +1,7 @@
 # ADR 0019: Contributor Invitations Carry Status on the Roster; Invite DMs Bypass `scribe-atp-social`
 
 ## Status
-Accepted — design finalized 2026-07-15 (Phase 1 grill session), not yet implemented
+Accepted and implemented — design finalized 2026-07-15 (Phase 1 grill session); full flow (invite → DM → invitee Accept → Owner-side reconciliation showing `status: "accepted"`) verified live end-to-end against two real Bluesky accounts the same day, including two bugs this verification actually caught (see Consequences)
 
 ## Context
 

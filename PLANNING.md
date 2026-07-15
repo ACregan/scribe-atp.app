@@ -476,6 +476,8 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 ### Phase 1 — Foundational roster
 
+**Status: COMPLETE 2026-07-15 — verified live end-to-end** against two real Bluesky accounts on `feature/owner-contributor`: Owner invites → real DM arrives with a clickable link → invitee sees the global Accept/Reject modal → accepts → Owner's `/article/list/:siteSlug` shows the entry promoted to `status: "accepted"`. Two real bugs were caught and fixed by this live testing (not caught by unit tests alone): the invite DM's link needed an explicit rich-text facet to be clickable, and the invitee-side site lookup needed real PDS resolution per-DID rather than assuming the caller's own PDS could serve it (see ADR 0019's Consequences for both).
+
 **Depends on:** nothing; this is the prerequisite for every other phase.
 
 **Grilled 2026-07-15 — see ADR 0019 for everything that changed from the original ADR 0014/0015/0018 sketch.** The scope below is the settled result, not the original draft.
