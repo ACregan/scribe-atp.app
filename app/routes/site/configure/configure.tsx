@@ -34,6 +34,8 @@ import {
 } from "~/services/documentRepository.server";
 import { resolveThumbUrl } from "~/services/article.server";
 import { registerSocialOrigin } from "~/services/socialOrigin.server";
+import { syncSiteRoster } from "~/services/imageServiceClient.server";
+import type { SiteContributor } from "~/hooks/types";
 import {
   getUmamiConfig,
   saveUmamiConfig,
@@ -169,6 +171,36 @@ export async function action({ request, params }: Route.ActionArgs) {
       "site.umami_disconnect",
     );
     return { ok: true, error: undefined, umamiDisconnected: true as const };
+  }
+
+  if (intent === "resyncImageFolder") {
+    if (!useRealOAuth) return { ok: true, imageFolderSynced: true as const };
+    try {
+      const agent = await getAtpAgent(did, request);
+      const site = await getSite(agent, did, siteSlug);
+      const scribe = (site.value.scribe as Record<string, unknown>) ?? {};
+      const contributors = (scribe.contributors as SiteContributor[]) ?? [];
+      const acceptedDids = contributors
+        .filter((c) => c.status === "accepted")
+        .map((c) => c.did);
+      const siteUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
+      const siteDomain = String(scribe.domain ?? "");
+
+      await syncSiteRoster(
+        siteUri,
+        siteDomain,
+        acceptedDids,
+        request.headers.get("Cookie") ?? "",
+      );
+      logger.info(
+        { event: "site.image_folder_resync", user_did: did, rkey: siteSlug },
+        "site.image_folder_resync",
+      );
+      return { ok: true, imageFolderSynced: true as const };
+    } catch (err) {
+      rethrowIfRedirect(err);
+      return { ok: false, error: `Resync failed: ${String(err)}` };
+    }
   }
 
   const title = (formData.get("title") as string)?.trim();
@@ -384,6 +416,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   };
 }
 
+type ResyncImageFolderActionData =
+  | { ok: true; imageFolderSynced: true }
+  | { ok: false; error: string };
+
 type ConnectUmamiActionData =
   | { ok: true; umamiConnected: true; umamiWebsiteName: string }
   | { ok: false; error: string };
@@ -517,6 +553,24 @@ export default function ConfigureSite({
     addToast({ heading: "Umami disconnected", variant: "primary" });
     umamiDisconnectModal.close();
   }, [umamiDisconnectFetcher.data]);
+
+  // ── Image Library site folder resync (ADR 0020) ─────────────────────────
+  const resyncImageFolderFetcher = useFetcher<ResyncImageFolderActionData>();
+  const isResyncingImageFolder = resyncImageFolderFetcher.state !== "idle";
+
+  useEffect(() => {
+    if (!resyncImageFolderFetcher.data) return;
+    if (resyncImageFolderFetcher.data.ok) {
+      addToast({ heading: "Image folder synced", variant: "success" });
+    } else {
+      addToast({
+        heading: "Resync failed",
+        content: resyncImageFolderFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }, [resyncImageFolderFetcher.data]);
 
   return (
     <PageContainer
@@ -700,6 +754,31 @@ export default function ConfigureSite({
               Integrate with Umami
             </Button>
           )}
+        </fieldset>
+      </PageSection>
+
+      <PageSection>
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>Image Library</legend>
+          <p style={{ margin: "0 0 0.8rem", color: "var(--text-secondary)" }}>
+            This site has a shared Image Library folder, visible only to you
+            and your accepted Contributors. It's kept in sync automatically
+            whenever a Contributor is invited, removed, or accepts an
+            invitation — use this if you think it's out of sync (e.g. after
+            a temporary Image Service outage).
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isResyncingImageFolder}
+            onClick={() => {
+              const formData = new FormData();
+              formData.set("_intent", "resyncImageFolder");
+              resyncImageFolderFetcher.submit(formData, { method: "post" });
+            }}
+          >
+            {isResyncingImageFolder ? "Syncing…" : "Resync Image Folder"}
+          </Button>
         </fieldset>
       </PageSection>
 

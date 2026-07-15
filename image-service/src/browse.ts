@@ -1,13 +1,16 @@
 import type { Request, Response } from "express";
 import db from "./db.js";
+import { canAccessFolder, type FolderRow } from "./access.js";
 
-type FolderRow = {
-  id: number;
-  user_did: string;
-  name: string;
-  parent_id: number | null;
-  created_at: string;
-};
+// Read access is asymmetric with write access (ADR 0020 point 1): personal
+// folders stay openly readable by anyone, exactly as before this feature —
+// only site folders get a real read restriction. canAccessFolder alone would
+// wrongly block browsing someone else's personal folder, since it treats
+// user_did-owned folders as owner-only.
+function canReadFolder(did: string, folder: FolderRow): boolean {
+  return folder.user_did !== null || canAccessFolder(did, folder);
+}
+
 type ImageRow = {
   id: number;
   user_did: string;
@@ -28,11 +31,13 @@ function buildBreadcrumbs(
   while (currentId !== null) {
     const row = db
       .prepare(
-        "SELECT id, user_did, name, parent_id FROM image_folders WHERE id = ?",
+        "SELECT id, user_did, site_uri, name, parent_id FROM image_folders WHERE id = ?",
       )
       .get(currentId) as FolderRow | undefined;
     if (!row) break;
-    // Root folder names are DIDs — show "My Images" for the current user's own root
+    // Personal root folder names are DIDs — show "My Images" for the current
+    // user's own root. Site root folders already have a real display name
+    // ("{domain} Images", set at creation) so no override is needed there.
     const displayName =
       row.parent_id === null && row.user_did === did ? "My Images" : row.name;
     crumbs.unshift({ id: row.id, name: displayName });
@@ -56,24 +61,32 @@ export function handleBrowse(req: Request, res: Response): void {
     folder =
       (db
         .prepare(
-          "SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE id = ?",
+          "SELECT id, user_did, site_uri, name, parent_id, created_at FROM image_folders WHERE id = ?",
         )
         .get(id) as FolderRow | undefined) ?? null;
-    if (!folder) {
+    // 404, not 403 — a site folder the caller isn't on the roster for should
+    // not even confirm it exists (ADR 0020 point 1: "no other users should
+    // be able to see or access this folder").
+    if (!folder || !canReadFolder(did, folder)) {
       res.status(404).json({ error: "Folder not found" });
       return;
     }
   } else {
-    // No folderId: top-level shared view — return all users' root folders
+    // No folderId: top-level shared view. Personal root folders stay exactly
+    // as open as before (every user's own root is listed regardless of who's
+    // asking — ADR 0017/0020 deliberately leave that alone). Site root
+    // folders are the one case that needs filtering here: only shown to
+    // their Owner or accepted Contributors.
     const allRootFolders = db
       .prepare(
-        "SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE parent_id IS NULL ORDER BY name",
+        "SELECT id, user_did, site_uri, name, parent_id, created_at FROM image_folders WHERE parent_id IS NULL ORDER BY name",
       )
       .all() as FolderRow[];
+    const visibleRootFolders = allRootFolders.filter((f) => canReadFolder(did, f));
     res.json({
       folder: null,
       breadcrumbs: [],
-      subfolders: allRootFolders,
+      subfolders: visibleRootFolders,
       images: [],
     });
     return;
@@ -83,7 +96,7 @@ export function handleBrowse(req: Request, res: Response): void {
 
   const subfolders = db
     .prepare(
-      "SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE parent_id = ? ORDER BY name",
+      "SELECT id, user_did, site_uri, name, parent_id, created_at FROM image_folders WHERE parent_id = ? ORDER BY name",
     )
     .all(folder.id) as FolderRow[];
 

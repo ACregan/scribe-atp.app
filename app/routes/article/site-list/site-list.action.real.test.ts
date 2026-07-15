@@ -256,6 +256,7 @@ describe("action — removeContributor", () => {
       DID,
       SITE_SLUG,
       "did:plc:existingcontributor",
+      "",
     );
   });
 

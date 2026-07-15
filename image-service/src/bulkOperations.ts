@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import db from "./db.js";
+import { canAccessFolder, canAccessImage, getFolder } from "./access.js";
 
-type FolderRow = { id: number; user_did: string; parent_id: number | null };
-type ImageOwnerRow = { id: number; user_did: string };
+type ImageOwnerRow = { id: number; user_did: string; folder_id: number | null };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,26 +16,24 @@ function isArrayOfNumbers(value: unknown): value is number[] {
 }
 
 /**
- * Returns null when ownership is confirmed for all ids (or ids is empty).
- * Returns the first offending id as a number when any row is missing or
- * owned by a different user.
+ * Returns null when access is confirmed for all ids (or ids is empty).
+ * Returns the first offending id as a number when any row is missing or the
+ * caller isn't the owner/a roster member (access.ts's canAccessImage).
  */
-function checkImageOwnership(did: string, ids: number[]): number | null {
+function checkImageAccess(did: string, ids: number[]): number | null {
   for (const id of ids) {
     const row = db
-      .prepare("SELECT id, user_did FROM images WHERE id = ?")
+      .prepare("SELECT id, user_did, folder_id FROM images WHERE id = ?")
       .get(id) as ImageOwnerRow | undefined;
-    if (!row || row.user_did !== did) return id;
+    if (!row || !canAccessImage(did, row)) return id;
   }
   return null;
 }
 
-function checkFolderOwnership(did: string, ids: number[]): number | null {
+function checkFolderAccess(did: string, ids: number[]): number | null {
   for (const id of ids) {
-    const row = db
-      .prepare("SELECT id, user_did, parent_id FROM image_folders WHERE id = ?")
-      .get(id) as FolderRow | undefined;
-    if (!row || row.user_did !== did) return id;
+    const row = getFolder(id);
+    if (!row || !canAccessFolder(did, row)) return id;
   }
   return null;
 }
@@ -123,23 +121,21 @@ export function handleBulkMove(req: Request, res: Response): void {
     return;
   }
 
-  // Ownership checks
-  const badImage = checkImageOwnership(did, imageIds);
+  // Access checks
+  const badImage = checkImageAccess(did, imageIds);
   if (badImage !== null) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
-  const badFolder = checkFolderOwnership(did, folderIds);
+  const badFolder = checkFolderAccess(did, folderIds);
   if (badFolder !== null) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
-  const destRow = db
-    .prepare("SELECT id, user_did, parent_id FROM image_folders WHERE id = ?")
-    .get(destinationFolderId) as FolderRow | undefined;
-  if (!destRow || destRow.user_did !== did) {
+  const destRow = getFolder(destinationFolderId);
+  if (!destRow || !canAccessFolder(did, destRow)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -198,20 +194,20 @@ export function handleBulkDelete(req: Request, res: Response): void {
     return;
   }
 
-  // Ownership checks
-  const badImage = checkImageOwnership(did, imageIds);
+  // Access checks
+  const badImage = checkImageAccess(did, imageIds);
   if (badImage !== null) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
-  const badFolder = checkFolderOwnership(did, folderIds);
+  const badFolder = checkFolderAccess(did, folderIds);
   if (badFolder !== null) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
-  // Guard: root User Image Folder (parent_id IS NULL) cannot be deleted
+  // Guard: root folder (parent_id IS NULL) cannot be deleted
   for (const id of folderIds) {
     const row = db
       .prepare("SELECT parent_id FROM image_folders WHERE id = ?")

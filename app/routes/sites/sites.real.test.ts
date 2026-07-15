@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Agent } from "@atproto/api";
 import { loader, action } from "./sites";
 import { requireAuth, getAtpAgent } from "~/services/auth.server";
+import { syncSiteRoster } from "~/services/imageServiceClient.server";
 
 // Characterization tests for the sites route's real-OAuth path (useRealOAuth:
 // true), written against the untouched loader/action before extracting onto
@@ -19,6 +20,10 @@ vi.mock("~/services/auth.server", () => ({
 
 vi.mock("~/services/logger.server", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("~/services/imageServiceClient.server", () => ({
+  syncSiteRoster: vi.fn(),
 }));
 
 const DID = "did:plc:testuser";
@@ -73,6 +78,7 @@ function callLoader() {
 beforeEach(() => {
   vi.mocked(requireAuth).mockResolvedValue({ did: DID, handle: DID });
   vi.mocked(getAtpAgent).mockReset();
+  vi.mocked(syncSiteRoster).mockReset().mockResolvedValue(undefined);
 });
 
 describe("loader", () => {
@@ -223,6 +229,34 @@ describe("action — createSite", () => {
         },
       },
     });
+  });
+
+  it("syncs an empty-roster Image Service folder on creation (ADR 0020 point 6)", async () => {
+    const createRecord = vi.fn().mockResolvedValue({
+      data: { uri: `at://${DID}/site.standard.publication/3jxtctq7kqm2y`, cid: "cid-a" },
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(makeAgent({ createRecord }));
+
+    await callAction({ _intent: "createSite", title: "My Site", url: "my.example.com" });
+
+    expect(syncSiteRoster).toHaveBeenCalledWith(
+      `at://${DID}/site.standard.publication/3jxtctq7kqm2y`,
+      "my.example.com",
+      [],
+      "",
+    );
+  });
+
+  it("still creates the site successfully when the Image Service sync fails (best-effort)", async () => {
+    vi.mocked(syncSiteRoster).mockRejectedValue(new Error("Image Service down"));
+    const createRecord = vi.fn().mockResolvedValue({
+      data: { uri: `at://${DID}/site.standard.publication/3jxtctq7kqm2y`, cid: "cid-a" },
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(makeAgent({ createRecord }));
+
+    await expect(
+      callAction({ _intent: "createSite", title: "My Site", url: "my.example.com" }),
+    ).resolves.toEqual({ ok: true });
   });
 
   it("uploads the logo as a blob and sets the top-level icon field when a logoImageUrl is provided", async () => {

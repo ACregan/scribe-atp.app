@@ -42,6 +42,7 @@ function insertFolder(userDid: string, name: string, parentId: number | null): n
 beforeEach(() => {
   db.exec("DELETE FROM images");
   db.exec("DELETE FROM image_folders");
+  db.exec("DELETE FROM site_rosters");
 });
 
 describe("handleListFolders", () => {
@@ -209,5 +210,101 @@ describe("handleMoveImage", () => {
       folder_id: number;
     };
     expect(row.folder_id).toBe(sub);
+  });
+});
+
+// ADR 0020 point 2 — Contributors get full write parity with the Owner
+// inside a site folder: one access check, no tiers.
+describe("site-owned folders — full write parity for Contributors", () => {
+  const SITE_URI = `at://${DID}/site.standard.publication/my-site`;
+  const CONTRIBUTOR_A = "did:plc:contributor-a";
+  const CONTRIBUTOR_B = "did:plc:contributor-b";
+
+  function insertSiteFolder(name: string, parentId: number | null): number {
+    return db
+      .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, ?)")
+      .run(SITE_URI, name, parentId).lastInsertRowid as number;
+  }
+
+  beforeEach(() => {
+    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_A);
+    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_B);
+  });
+
+  it("a Contributor can create a subfolder inside the site folder", () => {
+    const siteRoot = insertSiteFolder("example.com Images", null);
+    const res = makeRes();
+    handleCreateFolder(
+      makeReq({ userDid: CONTRIBUTOR_A, body: { name: "Event Photos", parentId: siteRoot } }),
+      res,
+    );
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("a subfolder created by a Contributor inherits the site's ownership, not the Contributor's own", () => {
+    const siteRoot = insertSiteFolder("example.com Images", null);
+    handleCreateFolder(
+      makeReq({ userDid: CONTRIBUTOR_A, body: { name: "Event Photos", parentId: siteRoot } }),
+      makeRes(),
+    );
+    const subfolder = db
+      .prepare("SELECT user_did, site_uri FROM image_folders WHERE name = ?")
+      .get("Event Photos") as { user_did: string | null; site_uri: string | null };
+    expect(subfolder).toEqual({ user_did: null, site_uri: SITE_URI });
+  });
+
+  it("a different Contributor can delete a subfolder they didn't create", () => {
+    const siteRoot = insertSiteFolder("example.com Images", null);
+    handleCreateFolder(
+      makeReq({ userDid: CONTRIBUTOR_A, body: { name: "Event Photos", parentId: siteRoot } }),
+      makeRes(),
+    );
+    const subfolder = db
+      .prepare("SELECT id FROM image_folders WHERE name = ?")
+      .get("Event Photos") as { id: number };
+
+    const res = makeRes();
+    handleDeleteFolder(makeReq({ userDid: CONTRIBUTOR_B, params: { folderId: String(subfolder.id) } }), res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("a Contributor can move an image someone else uploaded within the site folder", () => {
+    const siteRoot = insertSiteFolder("example.com Images", null);
+    const targetSub = db
+      .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, ?)")
+      .run(SITE_URI, "Sub", siteRoot).lastInsertRowid as number;
+    const imgResult = db
+      .prepare(
+        "INSERT INTO images (user_did, folder_id, filename, original_name, width, height, sizes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(CONTRIBUTOR_A, siteRoot, "abc-uuid", "photo.jpg", 100, 100, "{}");
+
+    const res = makeRes();
+    handleMoveImage(
+      makeReq({
+        userDid: CONTRIBUTOR_B,
+        params: { imageId: String(imgResult.lastInsertRowid) },
+        body: { folderId: targetSub },
+      }),
+      res,
+    );
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("the Owner (not just Contributors) can also manage the site folder — owner DID is parsed from site_uri, no roster row needed", () => {
+    const siteRoot = insertSiteFolder("example.com Images", null);
+    const res = makeRes();
+    handleCreateFolder(makeReq({ userDid: DID, body: { name: "Owner's Subfolder", parentId: siteRoot } }), res);
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("someone not on the roster still cannot create a subfolder in the site folder", () => {
+    const siteRoot = insertSiteFolder("example.com Images", null);
+    const res = makeRes();
+    handleCreateFolder(
+      makeReq({ userDid: OTHER_DID, body: { name: "Intruder", parentId: siteRoot } }),
+      res,
+    );
+    expect(res.statusCode).toBe(403);
   });
 });

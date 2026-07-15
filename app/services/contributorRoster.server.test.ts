@@ -10,6 +10,7 @@ import {
 } from "./contributorRoster.server";
 import { db, contributorMemberships } from "./db.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
+import { syncSiteRoster } from "~/services/imageServiceClient.server";
 
 // Mirrors the makeAgent/siteRecord helpers in siteManifest.server.test.ts —
 // same mocking shape, kept local since this is a separate module.
@@ -19,6 +20,12 @@ vi.mock("~/services/auth.server", () => ({ publicUrl: "https://test.example" }))
 vi.mock("~/services/blueskyProfile.server", () => ({
   fetchBskyProfile: vi.fn(),
 }));
+
+vi.mock("~/services/imageServiceClient.server", () => ({
+  syncSiteRoster: vi.fn(),
+}));
+
+const COOKIE_HEADER = "__session=test";
 
 const DID = "did:plc:owner";
 const SITE_SLUG = "my-site";
@@ -75,6 +82,7 @@ beforeEach(() => {
     handle: "contributor.bsky.social",
     displayName: "Contributor Name",
   } as never);
+  vi.mocked(syncSiteRoster).mockReset().mockResolvedValue(undefined);
 });
 
 describe("inviteContributor", () => {
@@ -238,7 +246,7 @@ describe("removeContributor", () => {
       putRecord,
     });
 
-    const result = await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID);
+    const result = await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID, COOKIE_HEADER);
 
     expect(result).toEqual({ ok: true });
     expect(putRecord.mock.calls[0][0].record.scribe.contributors).toEqual([]);
@@ -251,9 +259,44 @@ describe("removeContributor", () => {
       putRecord: vi.fn().mockRejectedValue(new Error("InvalidSwap")),
     });
 
-    const result = await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID);
+    const result = await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID, COOKIE_HEADER);
 
     expect(result).toEqual({ ok: false, error: expect.any(Error) });
+  });
+
+  it("syncs the Image Service roster with the remaining accepted DIDs (ADR 0020) — the removed one gone, others kept", async () => {
+    const otherAccepted = "did:plc:otheraccepted";
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          domain: "norobots.blog",
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+            { did: otherAccepted, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+          ],
+        }),
+      ),
+    });
+
+    await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID, COOKIE_HEADER);
+
+    expect(syncSiteRoster).toHaveBeenCalledWith(
+      SITE_URI,
+      "norobots.blog",
+      [otherAccepted],
+      COOKIE_HEADER,
+    );
+  });
+
+  it("still returns ok:true when the Image Service sync fails — the roster write already succeeded", async () => {
+    vi.mocked(syncSiteRoster).mockRejectedValue(new Error("Image Service down"));
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(siteRecord({ contributors: [] })),
+    });
+
+    const result = await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID, COOKIE_HEADER);
+
+    expect(result).toEqual({ ok: true });
   });
 });
 
@@ -278,7 +321,7 @@ describe("reconcileContributorStatuses", () => {
     const putRecord = vi.fn();
     const agent = makeAgent({ getRecord, putRecord });
 
-    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG, COOKIE_HEADER);
 
     expect(getRecord).not.toHaveBeenCalled();
     expect(putRecord).not.toHaveBeenCalled();
@@ -298,7 +341,7 @@ describe("reconcileContributorStatuses", () => {
       putRecord,
     });
 
-    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG, COOKIE_HEADER);
 
     expect(putRecord.mock.calls[0][0].record.scribe.contributors).toEqual([
       { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
@@ -320,7 +363,7 @@ describe("reconcileContributorStatuses", () => {
       putRecord,
     });
 
-    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG, COOKIE_HEADER);
 
     expect(putRecord.mock.calls[0][0].record.scribe.contributors).toEqual([]);
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)).toBeUndefined();
@@ -343,13 +386,53 @@ describe("reconcileContributorStatuses", () => {
       putRecord,
     });
 
-    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG, COOKIE_HEADER);
 
     expect(putRecord.mock.calls[0][0].record.scribe.contributors).toEqual([
       { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
     ]);
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)?.status).toBe("accepted");
     expect(contributorMemberships.get(otherDid, SITE_URI)).toBeUndefined();
+  });
+
+  it("syncs the Image Service roster on an accepted promotion (ADR 0020)", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          domain: "norobots.blog",
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG, COOKIE_HEADER);
+
+    expect(syncSiteRoster).toHaveBeenCalledWith(
+      SITE_URI,
+      "norobots.blog",
+      [CONTRIBUTOR_DID],
+      COOKIE_HEADER,
+    );
+  });
+
+  it("does not sync the Image Service roster on a reject-only reconciliation — nothing to revoke", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "rejected");
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG, COOKIE_HEADER);
+
+    expect(syncSiteRoster).not.toHaveBeenCalled();
   });
 });
 
