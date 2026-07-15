@@ -464,6 +464,84 @@ Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to 
 
 ---
 
+## FEATURE: Contributors
+
+### Status: Planned — design complete (ADRs 0014–0018 in `docs/adr/`), phased implementation not yet started
+
+### Overview
+
+Lets a site Owner grant other Bluesky accounts ("Contributors") permission to write articles for their site. A Contributor writes and owns their article on their own PDS; the Owner reviews submissions and approves or rejects them into their site's manifest. Full reasoning, alternatives considered, and consequences for each decision below live in the ADRs — this document is the phased build plan, not a restatement of the design. Read the ADRs before starting any phase.
+
+Phases are ordered by hard dependency, not by size — each phase after the first requires the one(s) before it to exist. Within that constraint, run a `/grill-with-docs` session per phase before implementing it.
+
+### Phase 1 — Foundational roster
+
+**Depends on:** nothing; this is the prerequisite for every other phase.
+
+**Scope:**
+- `scribe.contributors: [{did, addedAt}]` array on `site.standard.publication`, in the `scribe` extension object (ADR 0014, ADR 0018 — no role field, both roles' worth of context needed before writing this).
+- Owner-facing UI to add/remove a Contributor from a site's roster (handle lookup + resolution, matching the existing `resolve-contributor` pattern already shipped for the document-level byline feature — reuse it rather than building a second lookup flow).
+- `contributor_memberships (contributor_did, site_uri, added_at)` local table (ADR 0015), written in the same add-contributor action.
+- DM sent to a newly-added Contributor (ADR 0015 — reuses the existing notification mechanism, not new infra).
+
+**Explicitly out of scope for this phase:** anything about submitting, reviewing, or publishing an article — this phase only makes someone a Contributor and lets them (and the Owner) discover that fact. There is nothing for a Contributor to *do* yet at the end of this phase.
+
+**Reference:** ADR 0014 (Context, for `scribe.contributors`'s shape and why it's per-site not a separate Team entity), ADR 0015 (for `contributor_memberships` and the DM), ADR 0018 (for why there's no role field at all).
+
+### Phase 2 — Image Library site-scoped folders
+
+**Depends on:** Phase 1 (needs the roster to exist and the add/remove action to sync from).
+
+**Scope:**
+- `image_folders.site_uri` new nullable owner column, alongside the existing `user_did`.
+- `site_rosters (site_uri, member_did)` table in the Image Service's own SQLite, wholesale-replaced by a new sync call.
+- New Image Service endpoint (e.g. `PUT /api/image-service/site-roster`), called from the same CMS action that writes `scribe.contributors` in Phase 1 — reuses the existing session-cookie-forwarding auth already used by `browseImages`, not a new shared secret.
+- Access-check changes to the Image Service's existing read/write endpoints: allow if caller is the folder's `user_did`, or — for a site-owned folder — the site's owner (parseable directly from `site_uri`, no lookup needed) or a row in `site_rosters`.
+
+**Explicitly out of scope:** any change to personal (`user_did`-owned) folder behavior, and the general Image Library read-access-control gap for personal folders (tracked separately, not part of Contributors).
+
+**Reference:** ADR 0017 in full.
+
+### Phase 3 — Submission core flow
+
+**Depends on:** Phase 1. Does not depend on Phase 2.
+
+**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Consider splitting the grill session itself into sub-passes (submit → review/approve/reject → Contributor-side reconciliation) rather than one pass over all of it, given how much subtlety is concentrated here (ADR 0014's Decision section documents all of it).
+
+**Scope:**
+- Contributor-side submit action: writes `scribe.pendingPublish: { siteUri, submittedAt }` on the Contributor's own document, and a `pending_submissions` row (ADR 0015's table).
+- The unified Publish/Submit modal (`<optgroup>`-grouped Site dropdown — Owned Sites vs. Contributor Sites; Group dropdown for an owned site, unchanged; an inline confirmation box in the same position for a Contributor site; the confirm button's label flipping between "Publish" and "Submit for Review"). Requires extending `Select` to support grouped options, and changing the confirm button's disabled-state logic to not require a group when a Contributor Site is selected.
+- The review screen — a new route, sibling to `/article/view` but reading a *specific* Contributor's document by public URI rather than the logged-in user's own repo.
+- Approve action: extends `publishArticleToGroup` (or a sibling) to build the `ArticleRef` snapshot from the externally-read document; posts an outcome message to the site's chat (Phase 5, if built — treat as optional/no-op until then).
+- Reject action: asks for a reason, writes it onto the `pending_submissions` row (`status: 'rejected'`), same optional chat post.
+- The Contributor-side reconciliation check: on the Contributor's own session, for each of their documents still carrying `scribe.pendingPublish`, a public read of the target site's manifest to detect approval (triggering the finalizing write — `site`/`path`/`scribe.domain`/`scribe.canonicalUrl`/`publishedAt`/the dedup-guarded `Publisher` contributor-array credit) or a persisted `pending_submissions` rejection row (triggering the reject-side cleanup).
+
+**Explicitly out of scope:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
+
+**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape.
+
+### Phase 4 — Discovery UX polish
+
+**Depends on:** Phase 3 (needs `pending_submissions` and `contributor_memberships` populated by real data to be meaningful).
+
+**Scope:**
+- Owner-side non-expiring toast per new submission (`autoExpire: false`), one per submission not aggregated, client-side dedup against re-showing the same one twice in a session, dismiss purely cosmetic.
+- The "requires attention" badge cascade: `AsideMenu`'s Sites icon, the `/sites` page, and the "New Article Submission" section on the per-site management page (hidden entirely when empty, matching the existing conditional-section pattern already used for Standalone Articles).
+- Contributor-side toast on the same reconciliation check from Phase 3 (approved / rejected-with-reason), linking to the per-site page.
+
+**Reference:** ADR 0015 in full.
+
+### Phase 5 — Team chat
+
+**Depends on:** Phase 1 only (needs a roster to resolve `getConvoForMembers` against). Independent of Phases 2–4; genuinely optional relative to the rest of the feature — the submission workflow (Phase 3) functions completely without this.
+
+**Scope:**
+- New `chat.bsky.convo.*` OAuth scope added to `OAUTH_SCOPE` — existing users need to re-authenticate before this works for them.
+- Inline chat panel on the per-site management page, always resolved fresh via `getConvoForMembers(currentRoster)` — explicitly not chaining old conversations together across roster changes (ADR 0016's central decision — re-read the Context/Decision before touching this).
+- Polling for new messages (interval TBD during implementation, with cleanup-on-unmount and ideally pause-when-unfocused), sender resolution (DID → displayName/avatar), timestamps, own-vs-others styling, send-failure states, pagination.
+
+**Reference:** ADR 0016 in full, including the two accepted limitations (history fragmentation on roster change, imperfect revocation) — these are decided, not open questions to re-litigate during the grill session for this phase.
+
 ## MIGRATION: standard.site Article Lexicon Adoption
 
 ### Status: In Progress — SDK published (v2.0.0); CMS write paths updated; CMS-09 through CMS-14 (publish flow, canonical site modal, path maintenance, migration tool) pending
