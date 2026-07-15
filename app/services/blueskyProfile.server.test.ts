@@ -72,8 +72,18 @@ describe("fetchBskyProfiles", () => {
     ]);
 
     expect(result).toEqual([
-      { did: "did:plc:writer1", avatar: "https://avatar.example/1" },
-      { did: "did:plc:writer2", avatar: "https://avatar.example/2" },
+      {
+        did: "did:plc:writer1",
+        handle: "did:plc:writer1.bsky.social",
+        displayName: undefined,
+        avatar: "https://avatar.example/1",
+      },
+      {
+        did: "did:plc:writer2",
+        handle: "did:plc:writer2.bsky.social",
+        displayName: undefined,
+        avatar: "https://avatar.example/2",
+      },
     ]);
   });
 
@@ -88,6 +98,13 @@ describe("fetchBskyProfiles", () => {
       "did:plc:deleted",
     ]);
 
-    expect(result).toEqual([{ did: "did:plc:writer1", avatar: undefined }]);
+    expect(result).toEqual([
+      {
+        did: "did:plc:writer1",
+        handle: "did:plc:writer1.bsky.social",
+        displayName: undefined,
+        avatar: undefined,
+      },
+    ]);
   });
 });

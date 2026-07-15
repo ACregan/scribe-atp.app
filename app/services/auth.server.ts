@@ -27,12 +27,26 @@ export const useRealOAuth =
   process.env.DEV_USE_REAL_OAUTH === "true";
 
 export const PUBLIC_URL_DEFAULT = "https://scribe-atp.app";
-const publicUrl = process.env.PUBLIC_URL ?? PUBLIC_URL_DEFAULT;
+// Exported for the Contributors invite DM (contributorRoster.server.ts),
+// which needs the app's own root URL for the invite link — same value,
+// single source of truth rather than re-reading process.env a second time.
+export const publicUrl = process.env.PUBLIC_URL ?? PUBLIC_URL_DEFAULT;
 const devPort = process.env.DEV_PORT ?? "5173";
 
 const clientId = useRealOAuth
   ? `${publicUrl}/client-metadata.json`
   : "http://localhost";
+
+// ADR 0019 — the two chat.bsky.convo RPC scopes needed to send the
+// Contributor invite DM directly from the Owner's own session (Phase 1),
+// rather than through scribe-atp-social. Bluesky's chat lexicons are
+// service-proxied to did:web:api.bsky.chat#bsky_chat (per
+// atproto.com/specs/permission's rpc: scope syntax — "rpc:<lxm>?aud=<did>"),
+// not covered by any repo:/blob: scope above. getMessages (for reading
+// replies) is deliberately not requested yet — that's Phase 5 (Team chat),
+// which will reuse these two scopes rather than trigger a second
+// re-authentication event.
+const CHAT_AUD = "did:web:api.bsky.chat#bsky_chat";
 
 export const OAUTH_SCOPE = [
   "atproto",
@@ -45,6 +59,8 @@ export const OAUTH_SCOPE = [
   "repo:site.standard.graph.recommend?action=delete",
   "repo:app.bsky.feed.post?action=create",
   "blob:image/webp",
+  `rpc:chat.bsky.convo.getConvoForMembers?aud=${CHAT_AUD}`,
+  `rpc:chat.bsky.convo.sendMessage?aud=${CHAT_AUD}`,
 ].join(" ");
 
 const redirectUri = useRealOAuth

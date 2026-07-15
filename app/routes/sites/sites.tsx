@@ -39,6 +39,7 @@ import {
 } from "~/services/siteRepository.server";
 import { deleteUmamiConfig } from "~/services/umami.server";
 import { registerSocialOrigin } from "~/services/socialOrigin.server";
+import { syncSiteRoster } from "~/services/imageServiceClient.server";
 
 type ActionData = { ok: boolean; error?: string; iconWarning?: string };
 
@@ -187,6 +188,30 @@ export async function action({ request }: Route.ActionArgs) {
           "site.create",
         );
         await registerSocialOrigin(url, did);
+
+        // ADR 0020 point 6 — creates the site's shared Image Library folder
+        // (empty roster; the Owner already has access via site_uri parsing
+        // alone). Best-effort: if the Image Service is unreachable, site
+        // creation still succeeds — self-corrects on the next sync call for
+        // this site (e.g. the first Contributor invite).
+        try {
+          await syncSiteRoster(
+            `at://${did}/${SITE_COLLECTION}/${rkey}`,
+            url,
+            [],
+            request.headers.get("Cookie") ?? "",
+          );
+        } catch (imageServiceErr) {
+          logger.warn(
+            {
+              event: "site.create.image_folder_sync_failed",
+              user_did: did,
+              rkey,
+              error: String(imageServiceErr),
+            },
+            "Image Service site-folder creation failed — will self-correct on next sync",
+          );
+        }
       } catch (err) {
         rethrowIfRedirect(err);
         return { ok: false, error: `Failed to create site: ${String(err)}` };

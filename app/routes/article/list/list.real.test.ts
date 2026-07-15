@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Agent } from "@atproto/api";
 import { loader, action } from "./list";
 import { requireAtpAgent, requireAuth } from "~/services/auth.server";
+import { db, contributorMemberships, pendingSubmissions } from "~/services/db.server";
+import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 
 // Characterization tests for the article-list route's real-OAuth path
 // (useRealOAuth: true), written before extracting onto
@@ -20,6 +22,10 @@ vi.mock("~/services/auth.server", () => ({
 
 vi.mock("~/services/logger.server", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("~/services/blueskyProfile.server", () => ({
+  fetchBskyProfile: vi.fn(),
 }));
 
 const DID = "did:plc:testuser";
@@ -76,7 +82,39 @@ function callLoader() {
 beforeEach(() => {
   vi.mocked(requireAtpAgent).mockReset();
   vi.mocked(requireAuth).mockReset();
+  vi.mocked(fetchBskyProfile).mockReset();
+  db.exec("DELETE FROM pending_submissions");
+  db.exec("DELETE FROM contributor_memberships");
 });
+
+// ADR 0021 point 3 — same DID-resolution + site-record fetch pattern
+// contributorRoster.server.test.ts uses for listPendingInvitations/
+// listContributorSites; list.tsx's loader wires directly into that code, so
+// its own tests need the same fetch stub shape.
+function mockFetchForSites(
+  bySiteRkey: Record<string, { scribe: Record<string, unknown> } | "reject">,
+) {
+  return vi.fn().mockImplementation((input: string | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.startsWith("https://plc.directory/")) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            service: [
+              { id: "#atproto_pds", serviceEndpoint: "https://owner-pds.example" },
+            ],
+          }),
+      });
+    }
+    const rkey = new URL(url).searchParams.get("rkey")!;
+    const outcome = bySiteRkey[rkey];
+    if (outcome === "reject" || outcome === undefined) {
+      return Promise.resolve({ ok: false, status: 400, statusText: "RecordNotFound" });
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ value: outcome }) });
+  });
+}
 
 function siteListRecord(rkey: string, scribe: Record<string, unknown>) {
   return {
@@ -204,6 +242,300 @@ describe("loader", () => {
     const thrown = await callLoader().catch((err) => err);
     expect(thrown).toBeInstanceOf(Response);
     expect((thrown as Response).status).toBe(302);
+  });
+
+  // ADR 0021 point 6 — the "Pending Review" pill depends on the loader
+  // surfacing scribe.pendingPublish off an otherwise-loose document.
+  it("surfaces scribe.pendingPublish on a standalone article", async () => {
+    const siteUri = "at://did:plc:owner/site.standard.publication/site-b";
+    const agent = makeAgent({
+      listRecords: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.publication") {
+          return Promise.resolve({ data: { records: [] } });
+        }
+        return Promise.resolve({
+          data: {
+            records: [
+              docListRecord("loose1", {
+                title: "Loose Article",
+                path: "/loose1",
+                createdAt: "2026-01-01T00:00:00Z",
+                scribe: {
+                  pendingPublish: {
+                    siteUri,
+                    submittedAt: "2026-01-02T00:00:00Z",
+                  },
+                },
+              }),
+            ],
+          },
+        });
+      }),
+    });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: HANDLE,
+    });
+
+    const result = await callLoader();
+
+    expect(result.standaloneArticles).toEqual([
+      expect.objectContaining({
+        rkey: "loose1",
+        pendingPublish: { siteUri, submittedAt: "2026-01-02T00:00:00Z" },
+      }),
+    ]);
+  });
+
+  it("omits pendingPublish when scribe.pendingPublish isn't set", async () => {
+    const agent = makeAgent({
+      listRecords: vi.fn().mockImplementation(({ collection }) => {
+        if (collection === "site.standard.publication") {
+          return Promise.resolve({ data: { records: [] } });
+        }
+        return Promise.resolve({
+          data: {
+            records: [
+              docListRecord("loose1", {
+                title: "Loose Article",
+                path: "/loose1",
+                createdAt: "2026-01-01T00:00:00Z",
+              }),
+            ],
+          },
+        });
+      }),
+    });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: HANDLE,
+    });
+
+    const result = await callLoader();
+
+    expect(result.standaloneArticles[0].pendingPublish).toBeUndefined();
+  });
+
+  // ADR 0021 point 3 — the loader wires listContributorSites in directly;
+  // this is the wiring test, not a re-test of resolveMembershipSites itself
+  // (already covered in contributorRoster.server.test.ts).
+  it("wires listContributorSites into contributorSites", async () => {
+    const contributorSiteUri =
+      "at://did:plc:owner/site.standard.publication/my-site";
+    contributorMemberships.upsert(
+      DID,
+      contributorSiteUri,
+      "2026-01-01T00:00:00.000Z",
+      "accepted",
+    );
+    vi.mocked(fetchBskyProfile).mockResolvedValue({
+      did: "did:plc:owner",
+      handle: "owner.bsky.social",
+      displayName: "Site Owner",
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSites({
+        "my-site": { scribe: { title: "My Site", domain: "example.com" } },
+      }),
+    );
+
+    const agent = makeAgent({
+      listRecords: vi.fn().mockResolvedValue({ data: { records: [] } }),
+    });
+    vi.mocked(requireAtpAgent).mockResolvedValue({
+      agent,
+      did: DID,
+      handle: HANDLE,
+    });
+
+    const result = await callLoader();
+
+    expect(result.contributorSites).toEqual([
+      {
+        siteUri: contributorSiteUri,
+        siteTitle: "My Site",
+        siteDomain: "example.com",
+        ownerDisplayName: "Site Owner",
+      },
+    ]);
+    vi.unstubAllGlobals();
+  });
+
+  // ADR 0023 — Contributor-side reconciliation runs inline in this loader.
+  // Full behavioral coverage of reconcilePendingSubmission itself lives in
+  // submissionReview.server.test.ts; this is the wiring test — does the
+  // loader call it per document and reflect the result in the same request.
+  describe("Contributor-side reconciliation (ADR 0023)", () => {
+    const looseUri = `at://${DID}/site.standard.document/loose1`;
+    const ownerSiteUri = "at://did:plc:owner/site.standard.publication/site-a";
+
+    it("detects an approval via the cross-repo manifest read and clears pendingPublish in the same request", async () => {
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord(
+                  "loose1",
+                  {
+                    title: "Loose Article",
+                    path: "/loose1",
+                    createdAt: "2026-01-01T00:00:00Z",
+                    site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                    scribe: {
+                      pendingPublish: {
+                        siteUri: ownerSiteUri,
+                        submittedAt: "2026-07-15T00:00:00.000Z",
+                      },
+                    },
+                  },
+                  "loose1-cid",
+                ),
+              ],
+            },
+          });
+        }),
+        putRecord: vi.fn().mockResolvedValue({ data: {} }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+      vi.mocked(fetchBskyProfile).mockResolvedValue({
+        did: "did:plc:owner",
+        handle: "owner.bsky.social",
+        displayName: "Site Owner",
+      } as never);
+      vi.stubGlobal(
+        "fetch",
+        mockFetchForSites({
+          "site-a": {
+            scribe: {
+              domain: "example.com",
+              basePath: "",
+              groups: [{ slug: "g1", title: "Group 1", articles: [{ uri: looseUri }] }],
+            },
+          },
+        }),
+      );
+
+      const result = await callLoader();
+
+      expect(agent.com.atproto.repo.putRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repo: DID,
+          collection: "site.standard.document",
+          rkey: "loose1",
+          record: expect.objectContaining({ site: ownerSiteUri }),
+          swapRecord: "loose1-cid",
+        }),
+      );
+      // Backlogged known gap (ADR 0023 Consequences): the loader's
+      // Standalone/Site-Assigned split is keyed off the caller's own
+      // assignmentMap, which never includes a document published to
+      // someone else's site — so it still surfaces here, just without
+      // pendingPublish set (the pill is gone; the finalizing write happened).
+      expect(result.standaloneArticles[0]).toEqual(
+        expect.objectContaining({ rkey: "loose1", pendingPublish: undefined }),
+      );
+      vi.unstubAllGlobals();
+    });
+
+    it("does not touch the PDS when the local pending_submissions row is still status: pending", async () => {
+      pendingSubmissions.create(
+        looseUri,
+        DID,
+        ownerSiteUri,
+        "did:plc:owner",
+        "Loose Article",
+        "2026-07-15T00:00:00.000Z",
+      );
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord(
+                  "loose1",
+                  {
+                    title: "Loose Article",
+                    path: "/loose1",
+                    createdAt: "2026-01-01T00:00:00Z",
+                    site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                    scribe: {
+                      pendingPublish: {
+                        siteUri: ownerSiteUri,
+                        submittedAt: "2026-07-15T00:00:00.000Z",
+                      },
+                    },
+                  },
+                  "loose1-cid",
+                ),
+              ],
+            },
+          });
+        }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+
+      const result = await callLoader();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(agent.com.atproto.repo.putRecord).not.toHaveBeenCalled();
+      expect(result.standaloneArticles[0].pendingPublish).toEqual({
+        siteUri: ownerSiteUri,
+        submittedAt: "2026-07-15T00:00:00.000Z",
+      });
+    });
+
+    it("a reconciliation failure for one document doesn't break the page load", async () => {
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord(
+                  "loose1",
+                  {
+                    title: "Loose Article",
+                    path: "/loose1",
+                    createdAt: "2026-01-01T00:00:00Z",
+                    site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                    scribe: {
+                      pendingPublish: {
+                        siteUri: ownerSiteUri,
+                        submittedAt: "2026-07-15T00:00:00.000Z",
+                      },
+                    },
+                  },
+                  "loose1-cid",
+                ),
+              ],
+            },
+          });
+        }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+
+      const result = await callLoader();
+
+      expect(result.standaloneArticles[0]).toEqual(
+        expect.objectContaining({ rkey: "loose1" }),
+      );
+      vi.unstubAllGlobals();
+    });
   });
 });
 
@@ -400,6 +732,200 @@ describe("action", () => {
           siteRkey: "site-a",
         }),
       ).resolves.toEqual({ ok: false, error: "Failed to unpublish article." });
+    });
+  });
+
+  // ADR 0021 — publish and submit share one intent; the action derives which
+  // branch applies from the submitted site URI's owner DID (point 1).
+  describe("publishOrSubmitArticle", () => {
+    it("requires both uri and siteUri", async () => {
+      await expect(
+        callAction({ _intent: "publishOrSubmitArticle", uri: "at://x" }),
+      ).resolves.toEqual({
+        ok: false,
+        error: "An article and a site are required.",
+      });
+      expect(requireAtpAgent).not.toHaveBeenCalled();
+    });
+
+    describe("owned site (publish branch)", () => {
+      const articleUri = `at://${DID}/site.standard.document/loose1`;
+      const siteUri = `at://${DID}/site.standard.publication/site-a`;
+
+      function makePublishAgent() {
+        const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+        const getRecord = vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({
+              data: {
+                cid: "site-a-cid",
+                value: {
+                  scribe: {
+                    title: "Site A",
+                    domain: "a.com",
+                    basePath: "",
+                    groups: [{ slug: "g1", title: "Group 1", articles: [] }],
+                    ungroupedArticles: [],
+                  },
+                },
+              },
+            });
+          }
+          return Promise.resolve({
+            data: {
+              cid: "loose1-cid",
+              value: {
+                title: "Loose Article",
+                path: "/loose1",
+                createdAt: "2026-01-01T00:00:00Z",
+                site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+              },
+            },
+          });
+        });
+        const listRecords = vi.fn().mockResolvedValue({ data: { records: [] } });
+        return { agent: makeAgent({ getRecord, putRecord, listRecords }), putRecord };
+      }
+
+      it("derives siteRkey from the owned siteUri and publishes into the chosen group", async () => {
+        const { agent, putRecord } = makePublishAgent();
+        vi.mocked(requireAtpAgent).mockResolvedValue({
+          agent,
+          did: DID,
+          handle: HANDLE,
+        });
+
+        const result = await callAction({
+          _intent: "publishOrSubmitArticle",
+          uri: articleUri,
+          siteUri,
+          groupSlug: "g1",
+        });
+
+        expect(result).toEqual(expect.objectContaining({ ok: true }));
+        expect(putRecord).toHaveBeenCalledWith(
+          expect.objectContaining({
+            collection: "site.standard.document",
+            rkey: "loose1",
+            record: expect.objectContaining({ site: siteUri }),
+          }),
+        );
+      });
+    });
+
+    describe("Contributor site (submit branch)", () => {
+      const contributorDid = "did:plc:contributor";
+      const ownerDid = "did:plc:owner";
+      const articleUri = `at://${contributorDid}/site.standard.document/loose1`;
+      const ownerSiteUri = `at://${ownerDid}/site.standard.publication/site-b`;
+
+      function makeSubmitAgent(docOverrides?: Record<string, unknown>) {
+        const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
+        const getRecord = vi.fn().mockResolvedValue({
+          data: {
+            cid: "loose1-cid",
+            value: {
+              title: "Loose Article",
+              path: "/loose1",
+              createdAt: "2026-01-01T00:00:00Z",
+              site: `https://reader.scribe-atp.app/${contributorDid}/site.standard.document/loose1`,
+              ...docOverrides,
+            },
+          },
+        });
+        return { agent: makeAgent({ getRecord, putRecord }), putRecord };
+      }
+
+      it("writes scribe.pendingPublish on the Contributor's own document and records a pending_submissions row", async () => {
+        const { agent, putRecord } = makeSubmitAgent();
+        vi.mocked(requireAtpAgent).mockResolvedValue({
+          agent,
+          did: contributorDid,
+          handle: "contributor.bsky.social",
+        });
+
+        const result = await callAction({
+          _intent: "publishOrSubmitArticle",
+          uri: articleUri,
+          siteUri: ownerSiteUri,
+        });
+
+        expect(result).toEqual({ ok: true });
+        expect(putRecord).toHaveBeenCalledWith(
+          expect.objectContaining({
+            collection: "site.standard.document",
+            rkey: "loose1",
+            record: expect.objectContaining({
+              scribe: expect.objectContaining({
+                pendingPublish: expect.objectContaining({ siteUri: ownerSiteUri }),
+              }),
+            }),
+            swapRecord: "loose1-cid",
+          }),
+        );
+
+        expect(pendingSubmissions.get(articleUri)).toEqual(
+          expect.objectContaining({
+            documentUri: articleUri,
+            contributorDid,
+            siteUri: ownerSiteUri,
+            ownerDid,
+            documentTitle: "Loose Article",
+            status: "pending",
+          }),
+        );
+      });
+
+      it("guard: rejects submitting a document that's already published", async () => {
+        const { agent, putRecord } = makeSubmitAgent({
+          site: `at://${contributorDid}/site.standard.publication/own-site`,
+        });
+        vi.mocked(requireAtpAgent).mockResolvedValue({
+          agent,
+          did: contributorDid,
+          handle: "contributor.bsky.social",
+        });
+
+        const result = await callAction({
+          _intent: "publishOrSubmitArticle",
+          uri: articleUri,
+          siteUri: ownerSiteUri,
+        });
+
+        expect(result).toEqual({
+          ok: false,
+          error: "This article is already published.",
+        });
+        expect(putRecord).not.toHaveBeenCalled();
+      });
+
+      it("guard: rejects submitting a document that already has a pending submission", async () => {
+        const { agent, putRecord } = makeSubmitAgent({
+          scribe: {
+            pendingPublish: {
+              siteUri: "at://did:plc:otherowner/site.standard.publication/other-site",
+              submittedAt: "2026-01-01T00:00:00.000Z",
+            },
+          },
+        });
+        vi.mocked(requireAtpAgent).mockResolvedValue({
+          agent,
+          did: contributorDid,
+          handle: "contributor.bsky.social",
+        });
+
+        const result = await callAction({
+          _intent: "publishOrSubmitArticle",
+          uri: articleUri,
+          siteUri: ownerSiteUri,
+        });
+
+        expect(result).toEqual({
+          ok: false,
+          error: "This article already has a pending submission.",
+        });
+        expect(putRecord).not.toHaveBeenCalled();
+      });
     });
   });
 

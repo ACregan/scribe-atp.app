@@ -13,6 +13,10 @@ export default [
     route("auth/callback", "./routes/auth/callback.tsx"),
     route("logout", "./routes/auth/logout.tsx"),
     layout("./layout/protected/protected.tsx", [
+      route(
+        "contributor-invitations/respond",
+        "./routes/contributor-invitations/respond.tsx",
+      ),
       route("article/create", "./routes/article/create/create.tsx"),
       route(
         "article/resolve-contributor",
@@ -30,6 +34,10 @@ export default [
       ),
       route("article/edit/:articleUrl", "./routes/article/edit/edit.tsx"),
       route("article/view/:articleUrl", "./routes/article/view/view.tsx"),
+      route(
+        "article/review/:contributorDid/:rkey",
+        "./routes/article/review/review.tsx",
+      ),
       route("groups", "./routes/groups/groups.tsx"),
       route("groups/new", "./routes/groups/groups.tsx", { id: "groups-new" }),
       route("sites", "./routes/sites/sites.tsx"),

@@ -464,6 +464,147 @@ Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to 
 
 ---
 
+## FEATURE: Contributors
+
+### Status: Phases 1–3 complete (foundational roster, Image Library site-scoped folders, full submission core flow — submit/review/approve/reject/reconciliation). Phases 4 (discovery UX polish) and 5 (team chat) remain, both optional relative to the core workflow.
+
+### Overview
+
+Lets a site Owner grant other Bluesky accounts ("Contributors") permission to write articles for their site. A Contributor writes and owns their article on their own PDS; the Owner reviews submissions and approves or rejects them into their site's manifest. Full reasoning, alternatives considered, and consequences for each decision below live in the ADRs — this document is the phased build plan, not a restatement of the design. Read the ADRs before starting any phase.
+
+Phases are ordered by hard dependency, not by size — each phase after the first requires the one(s) before it to exist. Within that constraint, run a `/grill-with-docs` session per phase before implementing it.
+
+### Phase 1 — Foundational roster
+
+**Status: COMPLETE 2026-07-15 — verified live end-to-end** against two real Bluesky accounts on `feature/owner-contributor`: Owner invites → real DM arrives with a clickable link → invitee sees the global Accept/Reject modal → accepts → Owner's `/article/list/:siteSlug` shows the entry promoted to `status: "accepted"`. Two real bugs were caught and fixed by this live testing (not caught by unit tests alone): the invite DM's link needed an explicit rich-text facet to be clickable, and the invitee-side site lookup needed real PDS resolution per-DID rather than assuming the caller's own PDS could serve it (see ADR 0019's Consequences for both).
+
+**Depends on:** nothing; this is the prerequisite for every other phase.
+
+**Grilled 2026-07-15 — see ADR 0019 for everything that changed from the original ADR 0014/0015/0018 sketch.** The scope below is the settled result, not the original draft.
+
+**Scope:**
+
+*Schema:*
+- `scribe.contributors: [{did, addedAt, status}]` array on `site.standard.publication`, in the `scribe` extension object — `status: "invited" | "accepted" | "rejected"` (ADR 0019, amending ADR 0018's flat-list sketch; the "no role field" decision in ADR 0018 was about permission tiers, not this lifecycle field — still no permission-scoped role anywhere in the roster).
+- `contributor_memberships (contributor_did, site_uri, added_at, status)` local table (ADR 0015 + ADR 0019) — `status` mirrors the roster entry, kept in lock-step at all three transitions (invite / accept / reject) so a Contributor's own login can answer "what's pending for me?" without re-reading the actual site record.
+
+*Owner-side UI — lives on `/article/list/:siteSlug`, not `configure` (keeps all per-site people-and-content management on one page; this is also where Phase 5's chat panel will land):*
+- Route's `PageContainer` gains the `fixed` prop to enlarge the page. The existing two `PageSection`s (site title, group list) get consolidated so exactly one of them (the group list) uses `overflow`, since `fixedPageContainer` clips (`overflow: hidden`) rather than scrolling by default — without this, the page just clips instead of scrolling once the new Contributors section pushes it past viewport height. Single scrolling column for Phase 1 — no `PageSectionColumns` split yet; that's a Phase 5 concern when the chat panel actually exists.
+- A new Contributors section listing the roster (handle, avatar, status Pill, Remove button per entry).
+- `topButtons` gains a second sibling alongside the existing `ButtonGroupContainer` (Draft New Article / Add New Group) — a right-aligned "Invite Contributor" button. `topButtonPanel` already lays out with `justify-content: space-between`, so this falls out for free once there are two top-level children instead of one.
+- "Invite Contributor" opens a modal: handle input resolves to a DID via the existing `/article/resolve-contributor` route (same lookup already shipped for the document-level byline feature, `AddContributorModal` — reuse the pattern, not a second lookup flow). "Send Invite" is disabled until a profile resolves and is not already on the roster; submitting writes the `scribe.contributors` entry (`status: "invited"`) and the `contributor_memberships` row in one action, then sends the invite DM.
+- Rejected-entry cleanup runs in this route's own loader: on every load, any roster entry with `status: "rejected"` gets removed from `scribe.contributors` (and its `contributor_memberships` row deleted) — the concrete instantiation of "next Owner login" from ADR 0014's reconciliation pattern, made specific to the one page that displays roster state.
+
+*Invite DM (ADR 0019 — does not route through `scribe-atp-social`):*
+- Sent directly from the Owner's own CMS OAuth session via `chat.bsky.convo.getConvoForMembers` + `sendMessage` (same two calls `scribe-atp-social`'s `notify.ts` already makes for subscriber alerts, just executed in-process against the Owner's own agent instead of that service's fixed bot identity) — keeps `scribe-atp-social` scoped to anonymous engagement events only, per ADR 0015.
+- Message: "Hi {displayName}, I'd like to invite you to contribute to {site URL}. Please click here ({app root URL}) and login to accept the invite." Link carries no identifying parameter — see next point for why.
+- Requires adding two scopes to `OAUTH_SCOPE` **in this phase**, not Phase 5 as ADR 0016 originally scoped it (ADR 0019) — every existing user must re-authenticate before Phase 1 ships. Implemented as `rpc:chat.bsky.convo.getConvoForMembers?aud=did:web:api.bsky.chat#bsky_chat` and the `sendMessage` equivalent, per atproto.com's service-proxied-lexicon scope syntax (not the legacy `transition:chat.bsky`, which doesn't fit this app's existing fine-grained `repo:` scope style). **Verified 2026-07-15 against a real Bluesky account** — full re-auth → invite → DM chain confirmed working end to end (see ADR 0019's Consequences); the invite link also needed an explicit `app.bsky.richtext.facet#link` facet to render as clickable rather than plain text, since chat messages have no auto-linkification.
+
+*Invitee-side Accept/Reject (ADR 0019):*
+- A global, on-any-authenticated-page check (not a dedicated route) reads `contributor_memberships` for `status: "invited"` rows against the logged-in DID and surfaces an Accept/Reject modal — "You have been invited to contribute articles to {Site URL}." This works whether the invitee arrives via the DM link or logs in organically later, since no state needs to travel through the link itself.
+- Accept/Reject is recorded by the invitee's own session in the local `contributor_memberships` row only (their session cannot write the Owner's `site.standard.publication` record directly — the same cross-repo asymmetry ADR 0014 established for submissions). Reject is what the Owner-side loader cleanup (above) later reconciles away.
+
+**Explicitly out of scope for this phase:** anything about submitting, reviewing, or publishing an article — this phase only makes someone a Contributor and lets them (and the Owner) discover that fact. There is nothing for a Contributor to *do* yet at the end of this phase. Self-service "leave a site" (Contributor-initiated removal) is also out of scope — Phase 1 removal is Owner-only.
+
+**Reference:** ADR 0014 (Context, for `scribe.contributors`'s shape and why it's per-site not a separate Team entity), ADR 0015 (for `contributor_memberships` and the general discovery-index rationale), ADR 0018 (for why there's no permission-tiered role field), **ADR 0019 (for the status field, the DM mechanics, and the OAuth scope timing — read this one first, it supersedes specifics in the other three).**
+
+### Phase 2 — Image Library site-scoped folders
+
+**Depends on:** Phase 1 (needs the roster to exist and `contributorRoster.server.ts`'s functions to sync from).
+
+**Grilled 2026-07-15 — see ADR 0020 for everything resolved beyond ADR 0017's original sketch.** The scope below is the settled result.
+
+**Scope:**
+
+*Schema:*
+- `image_folders.user_did` becomes **nullable** (today `NOT NULL`) alongside a new nullable `site_uri` column — a folder is owned by exactly one of the two. SQLite has no direct `ALTER COLUMN ... DROP NOT NULL`; needs the standard create-new-table/copy-data/drop/rename procedure, not a bare `ALTER TABLE ADD COLUMN`.
+- `site_rosters (site_uri, member_did)` table in the Image Service's own SQLite, with a composite uniqueness constraint on `(site_uri, member_did)` so repeated wholesale-replace syncs don't accumulate duplicates.
+- New shared module `image-service/src/access.ts` (ADR 0020 point 8) — `canAccessFolder(did, folder)` / `canAccessImage(did, image)`, replacing the per-file `!row || row.user_did !== did` idiom currently duplicated across `folders.ts` (×3), `deleteImage.ts`, and `bulkOperations.ts` (×2 + a destination-folder check). Logic: allowed if caller is the `user_did` owner, or — for a site-owned folder/image — the caller is the site owner (parsed from `site_uri`, no lookup needed) or appears in `site_rosters` for that `site_uri`.
+
+*Access restriction (ADR 0020 point 1 — the one place this phase deviates from "no change to existing behavior"):*
+- Site-owned folders get **both** read and write restriction — owner or roster member only. Personal folders are explicitly unaffected and keep today's open-read behavior (a separately tracked gap, not part of this feature).
+- `browse.ts`'s top-level "all root folders" listing must exclude a site-owned folder unless the caller is authorized for it via `access.ts`. Fetching a specific `folderId` (which today does zero ownership comparison for *any* folder) needs a check added — this is the first read-side restriction this service has ever had.
+- Contributors get full write parity with the Owner inside a site folder (upload/delete/create-subfolder/move) — one check, no tiers, consistent with ADR 0018.
+
+*Sync endpoint and trigger points (ADR 0020 points 3–6):*
+- `PUT /api/image-service/site-roster`, body `{ siteUri, siteName, memberDids }`, wholesale replace. Auth: caller's session DID must equal the owner DID parsed from `siteUri`, 403 otherwise.
+- **Access is granted only once status is `"accepted"`, not from `"invited"`.** Synced from two places: `removeContributor` (revoke immediately, any prior status) and the accepted-promotion branch of `reconcileContributorStatuses` (grant access) — both in `contributorRoster.server.ts`, both gain a `cookieHeader: string` parameter threaded from `site-list.tsx`'s `request.headers.get("Cookie")`, and both call the new `syncSiteRoster` (in `imageServiceClient.server.ts`) as an internal side-effect of their own write, mirroring how `inviteContributor` already calls `sendInviteDm`. The rejected-promotion branch needs no sync call.
+- **The folder is created at site-creation time**, not lazily on first accepted Contributor (ADR 0020 point 6, reversed from the initial recommendation) — useful to the Owner as "this site's images" independent of Contributors existing at all. `sites.tsx`'s create action calls the same `syncSiteRoster(siteUri, siteName, [])` (empty roster) right after writing the site record, reusing the sync endpoint's auto-create-if-missing behavior. Best-effort — if the Image Service is unreachable, site creation still succeeds, logged, self-correcting on the next sync.
+- **Backfilling the 3 pre-existing sites uses a permanent feature, not a throwaway script** (resolved during implementation — a true one-shot script risked wholesale-wiping a real roster if ever re-run). A "Resync Image Folder" button on `/site/:siteName/configure` reads the site's actual current accepted contributors and syncs exactly that — safe to run anytime, doubles as manual recovery from a failed sync, and each Owner uses it once per pre-existing site to backfill.
+- Folder display name: `"{domain} Images"` (e.g. "anthonycregan.co.uk Images"), using `scribe.domain` — set once at creation from the `siteName` sync payload field, **not** kept in sync with a later domain change via `/site/:siteName/configure` (accepted cosmetic limitation).
+
+**Explicitly out of scope:** any change to personal (`user_did`-owned) folder behavior; the general Image Library read-access-control gap for personal folders (tracked separately); site-deletion cleanup of the shared folder — **backlogged explicitly**, not solved here, per ADR 0020's Consequences.
+
+**Reference:** ADR 0017 (Context, for why the CMS pushes the roster rather than the Image Service resolving it live), **ADR 0020 (for every concrete decision above — read this one first, it supersedes ADR 0017's unspecified behavior, not its architecture).**
+
+### Phase 3 — Submission core flow
+
+**Depends on:** Phase 1. Does not depend on Phase 2.
+
+**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled and implemented 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** (grilled and implemented 2026-07-16, see ADR 0023). **Phase 3 is now complete end-to-end** — submit → review/approve/reject → reconciliation all shipped, verified via unit/integration tests (no live cross-account pass done for 3c specifically; Phases 1–2 and 3a/3b were each verified live).
+
+**Explicitly out of scope for the whole phase:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
+
+**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape, ADR 0021 for sub-pass 3a's concrete build, ADR 0022 for sub-pass 3b's concrete build, ADR 0023 for sub-pass 3c's concrete build.
+
+#### Sub-pass 3a — Submit + unified Publish/Submit modal (grilled + built 2026-07-16)
+
+**Scope:**
+- Contributor-side submit action (renamed `_intent`: `publishArticle` → `publishOrSubmitArticle`, ADR 0021 point 7 — one intent, the action re-derives publish-vs-submit itself): writes `scribe.pendingPublish: { siteUri, submittedAt }` on the Contributor's own document, and a `pending_submissions` row (ADR 0015's table). Server-side guards (ADR 0021 point 5): rejects an already-published document, and rejects a document that already has `scribe.pendingPublish` set — one pending submission at a time, no resubmitting elsewhere until it resolves.
+- The unified Publish/Submit modal: `<optgroup>`-grouped Site dropdown (Owned Sites vs. Contributor Sites), every option keyed by the **full `at://` site URI** regardless of group (ADR 0021 point 1 — not the bare `rkey` the old owned-only dropdown used, since that's ambiguous once options span accounts). Group dropdown unchanged for an owned site; an inline confirmation box in the same position for a Contributor site ("Submit article '{title}' for publication on '{domain}'. This will require approval from {Owner's display name}. You will be notified when the article has been approved or rejected."); confirm button label flips "Publish" / "Submit for Review"; disabled-state logic drops the group requirement entirely for a Contributor-site selection.
+- `Select` gains a new, additive `groups: SelectOptionGroup[]` prop (ADR 0021 point 2) — existing `options: SelectOption[]` untouched, every other call site needs no changes.
+- New `listContributorSites(contributorDid)` alongside the existing `listPendingInvitations`, sharing a new internal `resolveMembershipSites` helper (ADR 0021 point 3) rather than duplicating the cross-repo-read/profile-resolution logic. Resolves the Owner's display name eagerly, bundled into the same per-membership step (ADR 0021 point 4), not lazily on selection.
+- `/article/list` shows a "Pending Review" pill in place of the Publish button for any standalone article carrying `scribe.pendingPublish` (ADR 0021 point 6) — the list loader already reads the full record per article, so this is a cheap addition, not a new fetch.
+
+**Backlogged, not specced:** a Contributor rescinding their own pending submission before the Owner responds — a real gap surfaced during the grill session, explicitly deferred rather than designed now (ADR 0021 Consequences).
+
+#### Sub-pass 3b — Review screen + approve/reject (grilled + built 2026-07-16, see ADR 0022)
+
+**Scope:**
+- New route `/article/review/:contributorDid/:rkey`, sibling to `/article/view` (not a variant of it). Loader reconstructs the document URI, looks up `pending_submissions.get(...)` for `siteUri`/`ownerDid` (the DB row is authoritative — no second URL segment needed for site context), guards `ownerDid === caller's own did`, then does the cross-repo public read. Reached via a link from the plain submissions list on `/article/list/:siteSlug`.
+- **Extract `pdsUrlCache`/`resolveOwnerPdsUrl` (renamed `resolveDidPdsUrl`)/`parseSiteUri` out of `contributorRoster.server.ts` into a new shared `app/services/pdsResolution.server.ts`** (ADR 0022 point 2) — third call site for the same cross-repo PDS-resolution primitive, crossing this codebase's own extraction threshold.
+- **Approve is a new, standalone `approveSubmission`** in a new `app/services/submissionReview.server.ts` — *not* an extension of `publishArticleToGroup` (ADR 0022 point 3): that function's document write-back half is cross-repo-impossible here (AT Protocol has no cross-repo write — that's the whole reason sub-pass 3c exists as a separate Contributor-side step). Approve only does the Owner-side half: public cross-repo read → `buildArticleRef(...)` (already field-only, no changes needed) → `mutateSiteRecord` inserting the `ArticleRef` into the Owner's chosen group → delete the `pending_submissions` row. Group picker has full parity with the Publish modal (existing groups + inline "+ Create new group"). Chat post: no-op until Phase 5.
+- **Reject** (`rejectSubmission`, same new file): confirmation modal with a **required, non-empty** reason `Textarea`; writes `pending_submissions.reject(documentUri, reason)` — the row persists (not deleted) for sub-pass 3c to read later.
+- **Idempotency guard** (ADR 0022 point 5): both actions re-check `pending_submissions.get(documentUri)` at the start, erroring if the row is missing or not `status: "pending"` — guards a double-click or two open tabs.
+- **`pending_submissions` gains a `document_title` column** (ADR 0022 point 6), written once at submit time in `list.tsx`'s existing action (free — it already has `value.title` from the guard-check `getDocument` call). `site-list.tsx`'s loader reads the plain submissions list straight from local SQLite — no cross-repo fetch needed just to render a title.
+- Site-deletion cleanup of orphaned `pending_submissions` rows: **backlogged**, matching ADR 0020's identical precedent. Contributor removed from the roster after submitting: **no special handling needed**, review still works regardless of current roster status.
+- Action pattern: return data + toast + `navigate`, the same pattern already used by `site/configure` — not a redirect.
+
+#### Sub-pass 3c — Contributor-side reconciliation (grilled + built 2026-07-16, see ADR 0023)
+
+**Scope:**
+- Runs inline in `list.tsx`'s own loader (ADR 0023 point 1), over the same document set already fetched via `listDocuments` — mirrors the Owner-side `reconcileContributorStatuses` precedent (site-list.tsx), not a global check, not a button.
+- **Per-document check order — local row first, cross-repo read only when ambiguous** (ADR 0023 point 2): `pending_submissions` row `status: "pending"` → no-op, no network; `status: "rejected"` → clear `scribe.pendingPublish` + `pendingSubmissions.remove(documentUri)`, no network needed either; row **missing** → the only case needing a cross-repo public read of the target site's manifest — found in a group → approved (finalizing write); not found → ambiguous, no-op, self-correcting next visit.
+- **Not blocking in the common case** — zero pending documents, or all still genuinely `"pending"`, costs nothing. When a cross-repo read is needed, every pending document's check runs in parallel via `Promise.allSettled` with a 5-second fetch timeout per check (ADR 0023 point 3), matching the Image Service browse fetch's existing timeout precedent.
+- **Approved-group identification:** scan the read manifest's `scribe.groups` for one whose `articles` contains the document's URI; reuse `buildDocumentPathAndUrl(domain, basePath, groupSlug, slug)` (already in `siteManifest.server.ts`) for the new `path`/`canonicalUrl` (ADR 0023 point 4).
+- **Finalizing write:** `site` flips to the Owner's `at://` URI, `path`/`scribe.domain`/`scribe.canonicalUrl` set to match, `publishedAt` stamped, `scribe.pendingPublish` cleared, and a dedup-guarded `{did: ownerDid, role: "Publisher", displayName}` credit appended to `contributors` (ADR 0023 point 5) — `displayName` resolved via `fetchBskyProfile(ownerDid)`.
+- **Error handling:** per-document try/catch, best-effort, log and continue (ADR 0023 point 6) — one document's failure never blocks the page or any other document's check.
+- **Idempotency:** relies entirely on the finalizing write's existing `swapRecord`/`cid` optimistic-concurrency check plus the try/catch above — no new guard needed (ADR 0023 point 7).
+
+**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table. Also backlogged: `list.tsx`'s Standalone-vs-Site-Assigned classification (keyed off the caller's own `assignmentMap`) doesn't recognize a document now published to the **Owner's** site as "assigned" — it keeps showing under Standalone Articles minus the pill, harmless (the submit guard already blocks re-submitting it) but misleading; deferred to Phase 4 (ADR 0023 Consequences).
+
+### Phase 4 — Discovery UX polish
+
+**Depends on:** Phase 3 (needs `pending_submissions` and `contributor_memberships` populated by real data to be meaningful).
+
+**Scope:**
+- Owner-side non-expiring toast per new submission (`autoExpire: false`), one per submission not aggregated, client-side dedup against re-showing the same one twice in a session, dismiss purely cosmetic.
+- The "requires attention" badge cascade: `AsideMenu`'s Sites icon, the `/sites` page, and the "New Article Submission" section on the per-site management page (hidden entirely when empty, matching the existing conditional-section pattern already used for Standalone Articles).
+- Contributor-side toast on the same reconciliation check from Phase 3 (approved / rejected-with-reason), linking to the per-site page.
+
+**Reference:** ADR 0015 in full.
+
+### Phase 5 — Team chat
+
+**Depends on:** Phase 1 only (needs a roster to resolve `getConvoForMembers` against). Independent of Phases 2–4; genuinely optional relative to the rest of the feature — the submission workflow (Phase 3) functions completely without this.
+
+**Scope:**
+- ~~New `chat.bsky.convo.*` OAuth scope added to `OAUTH_SCOPE`~~ — **already added in Phase 1** (ADR 0019, for the invite DM) — no second re-authentication event needed here, Phase 5 just reuses the scope Phase 1 already forced.
+- Inline chat panel on the per-site management page, always resolved fresh via `getConvoForMembers(currentRoster)` — explicitly not chaining old conversations together across roster changes (ADR 0016's central decision — re-read the Context/Decision before touching this).
+- Polling for new messages (interval TBD during implementation, with cleanup-on-unmount and ideally pause-when-unfocused), sender resolution (DID → displayName/avatar), timestamps, own-vs-others styling, send-failure states, pagination.
+
+**Reference:** ADR 0016 in full, including the two accepted limitations (history fragmentation on roster change, imperfect revocation) — these are decided, not open questions to re-litigate during the grill session for this phase. ADR 0019 supersedes ADR 0016's OAuth-scope-timing consequence specifically.
+
 ## MIGRATION: standard.site Article Lexicon Adoption
 
 ### Status: In Progress — SDK published (v2.0.0); CMS write paths updated; CMS-09 through CMS-14 (publish flow, canonical site modal, path maintenance, migration tool) pending

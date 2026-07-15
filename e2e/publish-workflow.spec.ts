@@ -34,7 +34,7 @@ test("clicking Publish opens the Publish Article modal", async ({ page }) => {
 test("Publish modal shows site and group selectors", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
   await page.getByRole("button", { name: "Publish", exact: true }).click();
-  const siteSelect = page.locator('dialog[open] select[name="siteRkey"]');
+  const siteSelect = page.locator('dialog[open] select[name="siteUri"]');
   await expect(siteSelect).toBeVisible();
   await expect(siteSelect).toContainText("NoRobots.blog");
   await expect(siteSelect).toContainText("Perpetual Summer LTD");
@@ -48,8 +48,8 @@ test("switching site updates the available groups", async ({ page }) => {
   await page.goto(ARTICLE_LIST_URL);
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   await page
-    .locator('dialog[open] select[name="siteRkey"]')
-    .selectOption("perpetualsummer-ltd");
+    .locator('dialog[open] select[name="siteUri"]')
+    .selectOption({ label: "Perpetual Summer LTD" });
   const groupSelect = page.locator('dialog[open] select[name="groupSlug"]');
   await expect(groupSelect).toContainText("Create new group");
   await expect(groupSelect).not.toContainText("Getting Started");

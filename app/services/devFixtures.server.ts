@@ -4,7 +4,11 @@
 // catch shape mismatches at call sites when the real loader changes.
 
 import type { SiteCard } from "~/components/types";
-import type { SiteManifest } from "~/routes/article/site-list/siteTree";
+import type {
+  SiteManifest,
+  RosterEntry,
+  SubmissionListEntry,
+} from "~/routes/article/site-list/siteTree";
 
 // ── Shared base data ──────────────────────────────────────────────────────────
 
@@ -187,6 +191,9 @@ export function devArticleListLoader() {
         cid: "dev-cid",
         createdAt: new Date().toISOString(),
         readerUrl: `https://reader.scribe-atp.app/${DEV_DID}/site.standard.document/dev-standalone`,
+        pendingPublish: undefined as
+          | { siteUri: string; submittedAt: string }
+          | undefined,
       },
     ],
     publishTargets: [
@@ -205,6 +212,7 @@ export function devArticleListLoader() {
         groups: [],
       },
     ],
+    contributorSites: [],
     authorDid: DEV_DID,
     authorHandle: "dev.user",
   };
@@ -255,6 +263,8 @@ export function devEditLoader(articleUrl: string): {
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
   hasUnassignedArticles: boolean;
+  contributors: RosterEntry[];
+  submissions: SubmissionListEntry[];
   site: SiteManifest;
 } {
   return {
@@ -263,6 +273,36 @@ export function devSiteListLoader(siteSlug: string): {
     // below (getting-started is empty, engineering isn't) — the classic
     // "Drop articles here" DnD hint.
     hasUnassignedArticles: false,
+    // Exercises both roster states the Contributors UI can show post-
+    // reconciliation (rejected never reaches the loader's return value).
+    contributors: [
+      {
+        did: `${DEV_DID}:contributor-1`,
+        addedAt: "2026-07-01T00:00:00.000Z",
+        status: "accepted",
+        handle: "alice.bsky.social",
+        displayName: "Alice",
+        avatar: undefined,
+      },
+      {
+        did: `${DEV_DID}:contributor-2`,
+        addedAt: "2026-07-10T00:00:00.000Z",
+        status: "invited",
+        handle: "bob.bsky.social",
+        displayName: "Bob",
+        avatar: undefined,
+      },
+    ],
+    submissions: [
+      {
+        contributorDid: `${DEV_DID}:contributor-1`,
+        rkey: "dev-submitted-article",
+        documentTitle: "A Contributor's Dev Submission",
+        submittedAt: "2026-07-15T00:00:00.000Z",
+        contributorHandle: "alice.bsky.social",
+        contributorDisplayName: "Alice",
+      },
+    ],
     site: {
       rkey: siteSlug,
       cid: "dev-cid-site",
@@ -318,6 +358,31 @@ export function devViewLoader(articleUrl: string) {
     slug: articleUrl,
     likes: 7,
     shares: 2,
+  };
+}
+
+// ── /article/review/:contributorDid/:rkey ─────────────────────────────────────
+
+export function devReviewLoader(contributorDid: string, rkey: string) {
+  return {
+    documentUri: `at://${contributorDid}/site.standard.document/${rkey}`,
+    contributorDid,
+    siteUri: `at://${DEV_DID}/site.standard.publication/dev-site`,
+    ownerDid: DEV_DID,
+    submittedAt: new Date(Date.now() - 86400 * 1000).toISOString(),
+    siteSlug: "dev-site",
+    siteTitle: "NoRobots.blog (Dev)",
+    groups: [{ slug: "getting-started", title: "Getting Started" }],
+    contributorHandle: "alice.bsky.social",
+    contributorDisplayName: "Alice",
+    document: {
+      title: "A Contributor's Dev Article",
+      content: "<p>This is placeholder content for dev mode, standing in for a Contributor's submitted article.</p>",
+      description: "A short description of the submitted article.",
+      splashImageUrl: "",
+      tags: ["dev", "example"],
+      createdAt: new Date(Date.now() - 2 * 86400 * 1000).toISOString(),
+    },
   };
 }
 

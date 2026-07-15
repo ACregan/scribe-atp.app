@@ -26,16 +26,33 @@ function makeRes() {
   return res as unknown as Response & typeof res;
 }
 
+// Every real image row has a folder_id pointing at a real folder — queue.ts
+// always assigns one (ensureUserFolder), it's never NULL in production —
+// so access checks (which resolve through the image's folder) need a real
+// folder row here too, not a NULL shortcut.
+function ensurePersonalFolder(userDid: string): number {
+  const existing = db
+    .prepare("SELECT id FROM image_folders WHERE user_did = ? AND parent_id IS NULL")
+    .get(userDid) as { id: number } | undefined;
+  if (existing) return existing.id;
+  return db
+    .prepare("INSERT INTO image_folders (user_did, name, parent_id) VALUES (?, ?, NULL)")
+    .run(userDid, userDid).lastInsertRowid as number;
+}
+
 function insertImage(userDid: string, filename: string): number {
+  const folderId = ensurePersonalFolder(userDid);
   return db
     .prepare(
-      "INSERT INTO images (user_did, folder_id, filename, original_name, width, height, sizes) VALUES (?, NULL, ?, ?, ?, ?, ?)",
+      "INSERT INTO images (user_did, folder_id, filename, original_name, width, height, sizes) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
-    .run(userDid, filename, `${filename}.jpg`, 800, 600, "{}").lastInsertRowid as number;
+    .run(userDid, folderId, filename, `${filename}.jpg`, 800, 600, "{}").lastInsertRowid as number;
 }
 
 beforeEach(() => {
   db.exec("DELETE FROM images");
+  db.exec("DELETE FROM image_folders");
+  db.exec("DELETE FROM site_rosters");
 });
 
 afterEach(() => {
@@ -80,5 +97,47 @@ describe("handleDeleteImage", () => {
     // row deletion + response still succeed either way.
     expect(() => handleDeleteImage(makeReq({ params: { imageId: String(id) } }), res)).not.toThrow();
     expect(res.statusCode).toBe(200);
+  });
+});
+
+describe("handleDeleteImage — site-owned folders (ADR 0020 full write parity)", () => {
+  const SITE_URI = `at://${DID}/site.standard.publication/my-site`;
+  const CONTRIBUTOR_A = "did:plc:contributor-a";
+  const CONTRIBUTOR_B = "did:plc:contributor-b";
+
+  it("a Contributor can delete an image a different Contributor uploaded into the site folder", () => {
+    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_A);
+    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_B);
+    const siteFolderId = db
+      .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, NULL)")
+      .run(SITE_URI, "example.com Images").lastInsertRowid as number;
+    const imgResult = db
+      .prepare(
+        "INSERT INTO images (user_did, folder_id, filename, original_name, width, height, sizes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(CONTRIBUTOR_A, siteFolderId, "shared-photo", "photo.jpg", 100, 100, "{}");
+
+    const res = makeRes();
+    handleDeleteImage(
+      makeReq({ userDid: CONTRIBUTOR_B, params: { imageId: String(imgResult.lastInsertRowid) } }),
+      res,
+    );
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("someone not on the roster cannot delete an image in the site folder", () => {
+    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_A);
+    const siteFolderId = db
+      .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, NULL)")
+      .run(SITE_URI, "example.com Images").lastInsertRowid as number;
+    const imgResult = db
+      .prepare(
+        "INSERT INTO images (user_did, folder_id, filename, original_name, width, height, sizes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(CONTRIBUTOR_A, siteFolderId, "shared-photo", "photo.jpg", 100, 100, "{}");
+
+    const res = makeRes();
+    handleDeleteImage(makeReq({ userDid: OTHER_DID, params: { imageId: String(imgResult.lastInsertRowid) } }), res);
+    expect(res.statusCode).toBe(403);
   });
 });

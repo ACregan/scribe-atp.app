@@ -85,4 +85,27 @@ describe("action — dev-bypass path", () => {
     expect(getAtpAgent).not.toHaveBeenCalled();
   });
 
+  it("inviteContributor: validates unconditionally, then returns the optimistic literal without touching the agent", async () => {
+    await expect(
+      callAction({ _intent: "inviteContributor", contributorDid: "" }),
+    ).resolves.toEqual({ error: "No Bluesky account selected." });
+    await expect(
+      callAction({
+        _intent: "inviteContributor",
+        contributorDid: "did:plc:newcontributor",
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(getAtpAgent).not.toHaveBeenCalled();
+  });
+
+  it("removeContributor: returns the optimistic literal without touching the agent", async () => {
+    await expect(
+      callAction({
+        _intent: "removeContributor",
+        contributorDid: "did:plc:existingcontributor",
+      }),
+    ).resolves.toEqual({ ok: true, removedDid: "did:plc:existingcontributor" });
+    expect(getAtpAgent).not.toHaveBeenCalled();
+  });
+
 });

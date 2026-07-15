@@ -7,7 +7,9 @@
 | Term                   | Definition                                                                                                                                                         | Aliases to Avoid               |
 | :--------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------- |
 | **Owner**              | A user who holds a Site record on their PDS and has full management privileges over that Site — creating Groups, assigning Articles, and managing Contributors.    | Admin, Editor, Author          |
-| **Contributor**        | A user added by an Owner to a Site who can write Articles for that Site. Their Articles appear in the Owner's CMS for assignment to Groups.                        | Author, Writer, Member         |
+| **Contributor**        | A user granted permission by an Owner to submit Articles for inclusion in a Site. A Contributor's Articles are written and remain owned on the Contributor's own PDS — the Owner never gains write access to them (ADR 0014) — and are only linked into the Site's manifest once the Owner approves a submission. | Author, Writer, Member         |
+| **Invitation**         | The pending state of a roster entry between an Owner adding a Contributor and that Contributor accepting or rejecting. Lives as a `status` field on the same `scribe.contributors` entry it will become a full membership on — not a separate record (ADR 0014/0018 addendum, 2026-07-15 grill session). | Invite, Pending contributor    |
+| **Submission**         | A Contributor's Article offered for inclusion in someone else's Site, awaiting the Owner's **Approve** or **Reject** decision. Marked by `scribe.pendingPublish` on the Contributor's own (still-Loose) document; indexed locally in `pending_submissions` (ADR 0015) since neither party's PDS alone can answer "what's awaiting review across all my Sites/Articles." Distinct from an **Invitation** — a Submission concerns one Article, not roster membership. | Pending article, Draft submission, Pitch |
 | **Site**               | A managed website whose manifest (Groups, Article references, metadata) is stored as a single record on the Owner's PDS.                                           | Blog, Website, Publication     |
 | **Group**              | A named, ordered collection of Articles within a Site. A Site may have zero or more Groups. Order is significant and controlled by the Owner.                      | Category, Section, Tag, Folder |
 | **Article**            | A document (title, HTML content, slug, metadata) stored on the author's PDS. An Article belongs to at most one Site, ever (ADR 0013) — never zero-or-many.         | Post, Page, Entry              |
@@ -29,6 +31,7 @@
 | **thumb**                 | The smallest Variant; 300px Bounding Box.                                                                                                                                                                                                                                                                                                                                    | thumbnail (except colloquially)                                            |
 | **Image Storage**         | The URL namespace and filesystem location where Variants are served. Public URL prefix: `/image-storage/{user_did}/{uuid}/{variant}.webp`. Served directly by nginx from the filesystem — the Image Service is not involved in reads.                                                                                                                                        | image CDN, media storage, uploads folder                                   |
 | **User Image Folder**     | The top-level folder in the Image Library automatically created on a user's first upload. Contains all images and subfolders owned by that user. Browsable by all authenticated users; only the owning user can upload, delete, move, or create subfolders within it.                                                                                                        | User folder, personal folder, user directory                               |
+| **Site Image Folder**     | A top-level Image Library folder owned by a Site rather than a user (ADR 0017/0020, Phase 2 of Contributors) — named `"{domain} Images"`. Created automatically alongside the Site itself. Visible and usable *only* by that Site's Owner and its accepted Contributors — the one place in the Image Library with real read restriction; every User Image Folder stays openly browsable by design. | Shared folder, site folder, contributor folder                             |
 | **Image Tile**            | The grid card representing a single uploaded image in the Image Library browser. Displays a thumbnail preview, the filename, and Variant copy buttons (a Thumb button and a size split-button). Double-clicking opens the Image Preview Modal.                                                                                                                               | Image icon, image card, image item                                         |
 | **Folder Tile**           | The grid card representing a subfolder in the Image Library browser. Displays a folder icon (with avatar for top-level User Image Folders), the folder name, and a delete action. Clicking navigates into the folder; supports drag-and-drop for moving images or folders.                                                                                                   | Folder icon, folder card, folder item                                      |
 | **FullscreenImageViewer** | A browser-native fullscreen experience (Fullscreen API) entered from the Image Preview Modal. Displays the max Variant against a black background with fit-to-screen and 1:1 pixel toggle modes. Contains a collapsible info pane at the bottom (filename, metadata, prev/next/close). State is isolated from the Image Preview Modal — exiting returns the modal unchanged. | Fullscreen preview, fullscreen modal, fullscreen overlay                   |
@@ -56,6 +59,7 @@
 - Every user has exactly one **User Image Folder** at the top level of the **Image Library**; it is created automatically on first upload.
 - A **User Image Folder** may contain images and subfolders; subfolders may only be created, deleted, or moved by the owning user.
 - Any authenticated user may browse and copy **Variant** URLs from any **User Image Folder**.
+- Every Site has exactly one **Site Image Folder**, created automatically when the Site is created. Unlike a User Image Folder, it is invisible and inaccessible to anyone except that Site's Owner and accepted Contributors — not just restricted for write, restricted for read too.
 
 ## Publication States
 
@@ -67,6 +71,18 @@
 | **Published** | Referenced in a Group within a Site record; `site` holds that Site's `at://` URI; has a canonical URL | — |
 
 The old **Unpublished**/**Ungrouped Article** state (referenced in a Site's `ungroupedArticles` but not in any Group) no longer has any UI path that can produce it. `ungroupedArticles` remains in the schema for backwards compatibility but is vestigial going forward — treat any non-empty `ungroupedArticles` array as a data artifact predating ADR 0013, not a state new code should create or expect.
+
+## Contributor Invitation States
+
+**Introduced during the Phase 1 Contributors grill session (2026-07-15), amending ADR 0014/0018.** Each entry in a Site's `scribe.contributors` array carries a `status`, tracking where that person is in the invite handshake. Written immediately by the Owner's own session at invite time (no separate pre-invite record) — the entry always exists in the Site's public AT Protocol record from the moment the Owner acts, `status` is what changes over time.
+
+| State | Condition | Term |
+| :---- | :-------- | :--- |
+| **Invited** | Owner has added the entry; the invitee has not yet acted | Pending invitation |
+| **Accepted** | Invitee has confirmed — a full **Contributor** | Active, Member |
+| **Rejected** | Invitee declined — reconciled away by the Owner's next login (removed from `scribe.contributors`), same reconciliation pattern ADR 0014 uses for submission approval | Declined |
+
+Accept/Reject itself is recorded by the invitee's own session in a local, CMS-only table (not a second AT Protocol write) — the cross-repo write asymmetry that runs through this whole feature (ADR 0014) means the invitee can never flip a field inside the Owner's own record directly.
 
 ### Analytics
 

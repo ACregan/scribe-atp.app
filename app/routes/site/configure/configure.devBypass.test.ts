@@ -67,4 +67,11 @@ describe("action — dev bypass", () => {
     ).resolves.toEqual({ ok: true });
     expect(getAtpAgent).not.toHaveBeenCalled();
   });
+
+  it("resyncImageFolder: returns the optimistic literal without touching the agent", async () => {
+    await expect(
+      callAction({ _intent: "resyncImageFolder" }),
+    ).resolves.toEqual({ ok: true, imageFolderSynced: true });
+    expect(getAtpAgent).not.toHaveBeenCalled();
+  });
 });
