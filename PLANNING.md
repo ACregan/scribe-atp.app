@@ -466,7 +466,7 @@ Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to 
 
 ## FEATURE: Contributors
 
-### Status: Planned — design complete (ADRs 0014–0018 in `docs/adr/`), phased implementation not yet started
+### Status: Phases 1–3 complete (foundational roster, Image Library site-scoped folders, full submission core flow — submit/review/approve/reject/reconciliation). Phases 4 (discovery UX polish) and 5 (team chat) remain, both optional relative to the core workflow.
 
 ### Overview
 
@@ -541,7 +541,7 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Depends on:** Phase 1. Does not depend on Phase 2.
 
-**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled and implemented 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** (grilled 2026-07-16, see ADR 0023).
+**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled and implemented 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** (grilled and implemented 2026-07-16, see ADR 0023). **Phase 3 is now complete end-to-end** — submit → review/approve/reject → reconciliation all shipped, verified via unit/integration tests (no live cross-account pass done for 3c specifically; Phases 1–2 and 3a/3b were each verified live).
 
 **Explicitly out of scope for the whole phase:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
 
@@ -570,7 +570,7 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 - Site-deletion cleanup of orphaned `pending_submissions` rows: **backlogged**, matching ADR 0020's identical precedent. Contributor removed from the roster after submitting: **no special handling needed**, review still works regardless of current roster status.
 - Action pattern: return data + toast + `navigate`, the same pattern already used by `site/configure` — not a redirect.
 
-#### Sub-pass 3c — Contributor-side reconciliation (grilled + not yet built, see ADR 0023)
+#### Sub-pass 3c — Contributor-side reconciliation (grilled + built 2026-07-16, see ADR 0023)
 
 **Scope:**
 - Runs inline in `list.tsx`'s own loader (ADR 0023 point 1), over the same document set already fetched via `listDocuments` — mirrors the Owner-side `reconcileContributorStatuses` precedent (site-list.tsx), not a global check, not a button.
@@ -581,7 +581,7 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 - **Error handling:** per-document try/catch, best-effort, log and continue (ADR 0023 point 6) — one document's failure never blocks the page or any other document's check.
 - **Idempotency:** relies entirely on the finalizing write's existing `swapRecord`/`cid` optimistic-concurrency check plus the try/catch above — no new guard needed (ADR 0023 point 7).
 
-**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table (ADR 0023 Consequences).
+**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table. Also backlogged: `list.tsx`'s Standalone-vs-Site-Assigned classification (keyed off the caller's own `assignmentMap`) doesn't recognize a document now published to the **Owner's** site as "assigned" — it keeps showing under Standalone Articles minus the pill, harmless (the submit guard already blocks re-submitting it) but misleading; deferred to Phase 4 (ADR 0023 Consequences).
 
 ### Phase 4 — Discovery UX polish
 

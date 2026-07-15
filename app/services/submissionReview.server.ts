@@ -1,8 +1,11 @@
 import { Agent } from "@atproto/api";
-import { DOCUMENT_COLLECTION } from "~/constants";
+import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import { pendingSubmissions } from "~/services/db.server";
 import { buildArticleRef } from "~/services/article.server";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
+import { buildDocumentPathAndUrl } from "~/services/siteManifest.server";
+import { putDocument } from "~/services/documentRepository.server";
+import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 import { parseSiteUri, resolveDidPdsUrl } from "~/services/pdsResolution.server";
 import type { ArticleRef } from "~/hooks/types";
 
@@ -57,6 +60,25 @@ async function getPublicDocument(
   url.searchParams.set("collection", DOCUMENT_COLLECTION);
   url.searchParams.set("rkey", rkey);
   const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = (await res.json()) as { value: Record<string, unknown> };
+  return data.value;
+}
+
+// Public, unauthenticated read of a site.standard.publication record —
+// used by the Contributor-side reconciliation check (ADR 0023 point 2) to
+// look for the submitted document's URI in the Owner's manifest. Same
+// shape as getPublicDocument, different collection.
+async function getPublicSiteRecord(
+  ownerDid: string,
+  siteRkey: string,
+): Promise<Record<string, unknown> | null> {
+  const pdsUrl = await resolveDidPdsUrl(ownerDid);
+  const url = new URL(`${pdsUrl}/xrpc/com.atproto.repo.getRecord`);
+  url.searchParams.set("repo", ownerDid);
+  url.searchParams.set("collection", SITE_COLLECTION);
+  url.searchParams.set("rkey", siteRkey);
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) return null;
   const data = (await res.json()) as { value: Record<string, unknown> };
   return data.value;
@@ -177,4 +199,108 @@ export function rejectSubmission(
 
   pendingSubmissions.reject(documentUri, reason.trim());
   return { ok: true };
+}
+
+// Phase 3 sub-pass 3 (ADR 0023) — the Contributor-side counterpart to
+// approveSubmission/rejectSubmission above. Runs from the Contributor's own
+// /article/list loader, over documents that still carry
+// scribe.pendingPublish. Returns the document's updated `value` when
+// something was resolved (approved or rejected) so the caller can patch its
+// own in-memory copy without a second fetch; returns null for a genuine
+// no-op (nothing decided yet, or still ambiguous).
+function clearPendingPublishScribe(
+  scribe: Record<string, unknown>,
+): Record<string, unknown> {
+  const { pendingPublish: _drop, ...rest } = scribe;
+  return rest;
+}
+
+export async function reconcilePendingSubmission(
+  agent: Agent,
+  contributorDid: string,
+  record: { rkey: string; uri: string; cid: string; value: Record<string, unknown> },
+): Promise<Record<string, unknown> | null> {
+  const scribe = (record.value.scribe as Record<string, unknown>) ?? {};
+  const pendingPublish = scribe.pendingPublish as { siteUri?: string } | undefined;
+  if (!pendingPublish?.siteUri) return null;
+
+  const submission = pendingSubmissions.get(record.uri);
+
+  // Row still pending — nothing decided yet, no network call needed.
+  if (submission?.status === "pending") return null;
+
+  // Rejected — the local row IS the entire signal (a rejection leaves no
+  // public artifact on the Owner's site), no cross-repo read needed.
+  if (submission?.status === "rejected") {
+    const newValue = {
+      ...record.value,
+      scribe: clearPendingPublishScribe(scribe),
+    };
+    await putDocument(agent, contributorDid, record.rkey, newValue, record.cid);
+    pendingSubmissions.remove(record.uri);
+    return newValue;
+  }
+
+  // Row missing — ambiguous between "approved" (approveSubmission already
+  // deleted it) and "lost" (an accepted gap, ADR 0015's Consequences). Only
+  // this branch needs the cross-repo read, to disambiguate.
+  const { ownerDid, rkey: siteRkey } = parseSiteUri(pendingPublish.siteUri);
+  const siteValue = await getPublicSiteRecord(ownerDid, siteRkey);
+  if (!siteValue) return null;
+
+  const siteScribe = (siteValue.scribe as Record<string, unknown>) ?? {};
+  const groups =
+    (siteScribe.groups as Array<{
+      slug: string;
+      articles: Array<{ uri: string }>;
+    }>) ?? [];
+  const matchedGroup = groups.find((g) =>
+    (g.articles ?? []).some((a) => a.uri === record.uri),
+  );
+  if (!matchedGroup) return null; // not found anywhere — can't tell, no-op
+
+  // Approved — the one finalizing write only the Contributor's own session
+  // can make (ADR 0014 point 3).
+  const domain = String(siteScribe.domain ?? "");
+  const basePath = String(siteScribe.basePath ?? "");
+  const slug =
+    String(record.value.path ?? "")
+      .split("/")
+      .filter(Boolean)
+      .pop() || record.rkey;
+  const { path, canonicalUrl } = buildDocumentPathAndUrl(
+    domain,
+    basePath,
+    matchedGroup.slug,
+    slug,
+  );
+  const publishedAt = new Date().toISOString();
+
+  const ownerProfile = await fetchBskyProfile(ownerDid);
+  const ownerDisplayName =
+    ownerProfile?.displayName || ownerProfile?.handle || ownerDid;
+  const existingContributors = (record.value.contributors ??
+    []) as ArticleRef["contributors"];
+  const contributors = (existingContributors ?? []).some((c) => c.did === ownerDid)
+    ? existingContributors
+    : [
+        ...(existingContributors ?? []),
+        { did: ownerDid, role: "Publisher", displayName: ownerDisplayName },
+      ];
+
+  const newValue = {
+    ...record.value,
+    site: pendingPublish.siteUri,
+    path,
+    publishedAt,
+    contributors,
+    scribe: {
+      ...clearPendingPublishScribe(scribe),
+      domain,
+      canonicalUrl,
+    },
+  };
+
+  await putDocument(agent, contributorDid, record.rkey, newValue, record.cid);
+  return newValue;
 }
