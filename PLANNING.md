@@ -466,7 +466,7 @@ Replacing `OnChangePlugin` with bare `editor.registerUpdateListener` (needed to 
 
 ## FEATURE: Contributors
 
-### Status: Phases 1–3 complete (foundational roster, Image Library site-scoped folders, full submission core flow — submit/review/approve/reject/reconciliation). Phases 4 (discovery UX polish) and 5 (team chat) remain, both optional relative to the core workflow.
+### Status: Phases 1–4 complete (foundational roster, Image Library site-scoped folders, full submission core flow — submit/review/approve/reject/reconciliation, discovery UX polish — badges/toasts). All merged to `main`. A full manual cross-account test plan (covering all four phases) is pending before Phase 5 starts. Only Phase 5 (team chat) remains, optional relative to the core workflow.
 
 ### Overview
 
