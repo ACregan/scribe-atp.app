@@ -541,19 +541,34 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Depends on:** Phase 1. Does not depend on Phase 2.
 
-**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Consider splitting the grill session itself into sub-passes (submit → review/approve/reject → Contributor-side reconciliation) rather than one pass over all of it, given how much subtlety is concentrated here (ADR 0014's Decision section documents all of it).
+**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject**, **3c Contributor-side reconciliation** — 3b and 3c not yet grilled.
+
+**Explicitly out of scope for the whole phase:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
+
+**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape, ADR 0021 for sub-pass 3a's concrete build.
+
+#### Sub-pass 3a — Submit + unified Publish/Submit modal (grilled + built 2026-07-16)
 
 **Scope:**
-- Contributor-side submit action: writes `scribe.pendingPublish: { siteUri, submittedAt }` on the Contributor's own document, and a `pending_submissions` row (ADR 0015's table).
-- The unified Publish/Submit modal (`<optgroup>`-grouped Site dropdown — Owned Sites vs. Contributor Sites; Group dropdown for an owned site, unchanged; an inline confirmation box in the same position for a Contributor site; the confirm button's label flipping between "Publish" and "Submit for Review"). Requires extending `Select` to support grouped options, and changing the confirm button's disabled-state logic to not require a group when a Contributor Site is selected.
-- The review screen — a new route, sibling to `/article/view` but reading a *specific* Contributor's document by public URI rather than the logged-in user's own repo.
-- Approve action: extends `publishArticleToGroup` (or a sibling) to build the `ArticleRef` snapshot from the externally-read document; posts an outcome message to the site's chat (Phase 5, if built — treat as optional/no-op until then).
+- Contributor-side submit action (renamed `_intent`: `publishArticle` → `publishOrSubmitArticle`, ADR 0021 point 7 — one intent, the action re-derives publish-vs-submit itself): writes `scribe.pendingPublish: { siteUri, submittedAt }` on the Contributor's own document, and a `pending_submissions` row (ADR 0015's table). Server-side guards (ADR 0021 point 5): rejects an already-published document, and rejects a document that already has `scribe.pendingPublish` set — one pending submission at a time, no resubmitting elsewhere until it resolves.
+- The unified Publish/Submit modal: `<optgroup>`-grouped Site dropdown (Owned Sites vs. Contributor Sites), every option keyed by the **full `at://` site URI** regardless of group (ADR 0021 point 1 — not the bare `rkey` the old owned-only dropdown used, since that's ambiguous once options span accounts). Group dropdown unchanged for an owned site; an inline confirmation box in the same position for a Contributor site ("Submit article '{title}' for publication on '{domain}'. This will require approval from {Owner's display name}. You will be notified when the article has been approved or rejected."); confirm button label flips "Publish" / "Submit for Review"; disabled-state logic drops the group requirement entirely for a Contributor-site selection.
+- `Select` gains a new, additive `groups: SelectOptionGroup[]` prop (ADR 0021 point 2) — existing `options: SelectOption[]` untouched, every other call site needs no changes.
+- New `listContributorSites(contributorDid)` alongside the existing `listPendingInvitations`, sharing a new internal `resolveMembershipSites` helper (ADR 0021 point 3) rather than duplicating the cross-repo-read/profile-resolution logic. Resolves the Owner's display name eagerly, bundled into the same per-membership step (ADR 0021 point 4), not lazily on selection.
+- `/article/list` shows a "Pending Review" pill in place of the Publish button for any standalone article carrying `scribe.pendingPublish` (ADR 0021 point 6) — the list loader already reads the full record per article, so this is a cheap addition, not a new fetch.
+
+**Backlogged, not specced:** a Contributor rescinding their own pending submission before the Owner responds — a real gap surfaced during the grill session, explicitly deferred rather than designed now (ADR 0021 Consequences).
+
+#### Sub-pass 3b — Review screen + approve/reject (not yet grilled)
+
+**Scope (from ADR 0014, not yet stress-tested against the concrete code):**
+- The review screen — a new route, sibling to `/article/view` but reading a *specific* Contributor's document by public URI rather than the logged-in user's own repo (needs the same cross-repo PDS-resolution pattern as `listPendingInvitations`/`listContributorSites` — `agent.com.atproto.repo.getRecord` cannot serve a record on a different PDS host, already confirmed live in Phase 1).
+- Approve action: extends `publishArticleToGroup` (or a sibling) to build the `ArticleRef` snapshot from the externally-read document — the existing function assumes same-repo (`repo: did` hardcoded in both the document fetch and the write-back), a real extension not a small tweak; posts an outcome message to the site's chat (Phase 5, if built — treat as optional/no-op until then).
 - Reject action: asks for a reason, writes it onto the `pending_submissions` row (`status: 'rejected'`), same optional chat post.
-- The Contributor-side reconciliation check: on the Contributor's own session, for each of their documents still carrying `scribe.pendingPublish`, a public read of the target site's manifest to detect approval (triggering the finalizing write — `site`/`path`/`scribe.domain`/`scribe.canonicalUrl`/`publishedAt`/the dedup-guarded `Publisher` contributor-array credit) or a persisted `pending_submissions` rejection row (triggering the reject-side cleanup).
 
-**Explicitly out of scope:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
+#### Sub-pass 3c — Contributor-side reconciliation (not yet grilled)
 
-**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape.
+**Scope (from ADR 0014, not yet stress-tested):**
+- On the Contributor's own session, for each of their documents still carrying `scribe.pendingPublish`, a public read of the target site's manifest to detect approval (triggering the finalizing write — `site`/`path`/`scribe.domain`/`scribe.canonicalUrl`/`publishedAt`/the dedup-guarded `Publisher` contributor-array credit) or a persisted `pending_submissions` rejection row (triggering the reject-side cleanup).
 
 ### Phase 4 — Discovery UX polish
 
