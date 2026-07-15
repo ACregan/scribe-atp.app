@@ -541,11 +541,11 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Depends on:** Phase 1. Does not depend on Phase 2.
 
-**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled and implemented 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** — not yet grilled.
+**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled and implemented 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** (grilled 2026-07-16, see ADR 0023).
 
 **Explicitly out of scope for the whole phase:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
 
-**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape, ADR 0021 for sub-pass 3a's concrete build, ADR 0022 for sub-pass 3b's concrete build.
+**Reference:** ADR 0014 in full (this phase *is* ADR 0014's Decision section), ADR 0015 for the `pending_submissions` shape, ADR 0021 for sub-pass 3a's concrete build, ADR 0022 for sub-pass 3b's concrete build, ADR 0023 for sub-pass 3c's concrete build.
 
 #### Sub-pass 3a — Submit + unified Publish/Submit modal (grilled + built 2026-07-16)
 
@@ -570,10 +570,18 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 - Site-deletion cleanup of orphaned `pending_submissions` rows: **backlogged**, matching ADR 0020's identical precedent. Contributor removed from the roster after submitting: **no special handling needed**, review still works regardless of current roster status.
 - Action pattern: return data + toast + `navigate`, the same pattern already used by `site/configure` — not a redirect.
 
-#### Sub-pass 3c — Contributor-side reconciliation (not yet grilled)
+#### Sub-pass 3c — Contributor-side reconciliation (grilled + not yet built, see ADR 0023)
 
-**Scope (from ADR 0014, not yet stress-tested):**
-- On the Contributor's own session, for each of their documents still carrying `scribe.pendingPublish`, a public read of the target site's manifest to detect approval (triggering the finalizing write — `site`/`path`/`scribe.domain`/`scribe.canonicalUrl`/`publishedAt`/the dedup-guarded `Publisher` contributor-array credit) or a persisted `pending_submissions` rejection row (triggering the reject-side cleanup).
+**Scope:**
+- Runs inline in `list.tsx`'s own loader (ADR 0023 point 1), over the same document set already fetched via `listDocuments` — mirrors the Owner-side `reconcileContributorStatuses` precedent (site-list.tsx), not a global check, not a button.
+- **Per-document check order — local row first, cross-repo read only when ambiguous** (ADR 0023 point 2): `pending_submissions` row `status: "pending"` → no-op, no network; `status: "rejected"` → clear `scribe.pendingPublish` + `pendingSubmissions.remove(documentUri)`, no network needed either; row **missing** → the only case needing a cross-repo public read of the target site's manifest — found in a group → approved (finalizing write); not found → ambiguous, no-op, self-correcting next visit.
+- **Not blocking in the common case** — zero pending documents, or all still genuinely `"pending"`, costs nothing. When a cross-repo read is needed, every pending document's check runs in parallel via `Promise.allSettled` with a 5-second fetch timeout per check (ADR 0023 point 3), matching the Image Service browse fetch's existing timeout precedent.
+- **Approved-group identification:** scan the read manifest's `scribe.groups` for one whose `articles` contains the document's URI; reuse `buildDocumentPathAndUrl(domain, basePath, groupSlug, slug)` (already in `siteManifest.server.ts`) for the new `path`/`canonicalUrl` (ADR 0023 point 4).
+- **Finalizing write:** `site` flips to the Owner's `at://` URI, `path`/`scribe.domain`/`scribe.canonicalUrl` set to match, `publishedAt` stamped, `scribe.pendingPublish` cleared, and a dedup-guarded `{did: ownerDid, role: "Publisher", displayName}` credit appended to `contributors` (ADR 0023 point 5) — `displayName` resolved via `fetchBskyProfile(ownerDid)`.
+- **Error handling:** per-document try/catch, best-effort, log and continue (ADR 0023 point 6) — one document's failure never blocks the page or any other document's check.
+- **Idempotency:** relies entirely on the finalizing write's existing `swapRecord`/`cid` optimistic-concurrency check plus the try/catch above — no new guard needed (ADR 0023 point 7).
+
+**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table (ADR 0023 Consequences).
 
 ### Phase 4 — Discovery UX polish
 
