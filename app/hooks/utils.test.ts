@@ -34,6 +34,7 @@ const baseSite: Site = {
   urlPrefix: "blog",
   groups: [],
   ungroupedArticles: [],
+  contributors: [],
 };
 
 describe("flattenArticles", () => {

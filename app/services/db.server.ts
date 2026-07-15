@@ -90,6 +90,22 @@ function migrate(db: Database.Database) {
       updated_at     INTEGER NOT NULL DEFAULT (unixepoch()),
       PRIMARY KEY (user_did, site_rkey)
     );
+
+    -- Local mirror of scribe.contributors (ADR 0015/0019) — lets a
+    -- Contributor's own login discover pending/active roster entries across
+    -- every site without a global AT Protocol indexer. status is kept in
+    -- lock-step with the roster entry at all three transitions (invite by
+    -- the Owner; accept/reject by the invitee's own session, reconciled back
+    -- into scribe.contributors on the Owner's next visit to that site's
+    -- article-list page). added_at mirrors the roster entry's own addedAt
+    -- verbatim, not a locally-generated timestamp, so the two never drift.
+    CREATE TABLE IF NOT EXISTS contributor_memberships (
+      contributor_did TEXT NOT NULL,
+      site_uri         TEXT NOT NULL,
+      added_at         TEXT NOT NULL,
+      status           TEXT NOT NULL,
+      PRIMARY KEY (contributor_did, site_uri)
+    );
   `);
 }
 
@@ -250,6 +266,97 @@ export const umamiConfigStore = {
     db.prepare(
       "DELETE FROM umami_config WHERE user_did = ? AND site_rkey = ?",
     ).run(userDid, siteRkey);
+  },
+};
+
+export type ContributorMembershipStatus = "invited" | "accepted" | "rejected";
+
+export type ContributorMembership = {
+  contributorDid: string;
+  siteUri: string;
+  addedAt: string;
+  status: ContributorMembershipStatus;
+};
+
+type ContributorMembershipRow = {
+  contributor_did: string;
+  site_uri: string;
+  added_at: string;
+  status: ContributorMembershipStatus;
+};
+
+function fromRow(row: ContributorMembershipRow): ContributorMembership {
+  return {
+    contributorDid: row.contributor_did,
+    siteUri: row.site_uri,
+    addedAt: row.added_at,
+    status: row.status,
+  };
+}
+
+export const contributorMemberships = {
+  // Invite time — the only point a new row is created. addedAt should be the
+  // exact same ISO string written to scribe.contributors so the two never
+  // disagree about when the invite happened.
+  upsert: (
+    contributorDid: string,
+    siteUri: string,
+    addedAt: string,
+    status: ContributorMembershipStatus,
+  ) => {
+    db.prepare(
+      `INSERT INTO contributor_memberships (contributor_did, site_uri, added_at, status)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(contributor_did, site_uri) DO UPDATE SET
+         added_at = excluded.added_at,
+         status = excluded.status`,
+    ).run(contributorDid, siteUri, addedAt, status);
+  },
+  // Accept/reject — the invitee's own session flipping their own local row.
+  setStatus: (
+    contributorDid: string,
+    siteUri: string,
+    status: ContributorMembershipStatus,
+  ) => {
+    db.prepare(
+      "UPDATE contributor_memberships SET status = ? WHERE contributor_did = ? AND site_uri = ?",
+    ).run(status, contributorDid, siteUri);
+  },
+  // Owner removes someone from the roster, or the Owner-side reconciliation
+  // resolves a rejected row — either way, once scribe.contributors no longer
+  // has the entry, the local mirror shouldn't either.
+  remove: (contributorDid: string, siteUri: string) => {
+    db.prepare(
+      "DELETE FROM contributor_memberships WHERE contributor_did = ? AND site_uri = ?",
+    ).run(contributorDid, siteUri);
+  },
+  get: (contributorDid: string, siteUri: string): ContributorMembership | undefined => {
+    const row = db
+      .prepare<[string, string], ContributorMembershipRow>(
+        "SELECT contributor_did, site_uri, added_at, status FROM contributor_memberships WHERE contributor_did = ? AND site_uri = ?",
+      )
+      .get(contributorDid, siteUri);
+    return row ? fromRow(row) : undefined;
+  },
+  // "Which sites am I a contributor of?" — the Contributor-side discovery
+  // check (global, on-login), keyed purely by the logged-in DID.
+  listForContributor: (contributorDid: string): ContributorMembership[] => {
+    const rows = db
+      .prepare<[string], ContributorMembershipRow>(
+        "SELECT contributor_did, site_uri, added_at, status FROM contributor_memberships WHERE contributor_did = ?",
+      )
+      .all(contributorDid);
+    return rows.map(fromRow);
+  },
+  // Owner-side reconciliation on the site's article-list page — accepted
+  // rows get promoted in scribe.contributors, rejected rows get stripped out.
+  listForSite: (siteUri: string): ContributorMembership[] => {
+    const rows = db
+      .prepare<[string], ContributorMembershipRow>(
+        "SELECT contributor_did, site_uri, added_at, status FROM contributor_memberships WHERE site_uri = ?",
+      )
+      .all(siteUri);
+    return rows.map(fromRow);
   },
 };
 
