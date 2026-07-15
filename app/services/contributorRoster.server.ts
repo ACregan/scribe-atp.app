@@ -191,16 +191,47 @@ function parseSiteUri(siteUri: string): { ownerDid: string; rkey: string } {
   return { ownerDid: match[1], rkey: match[2] };
 }
 
+// Found live, 2026-07-15: an authenticated agent's com.atproto.repo.getRecord
+// queries the CALLER's own PDS, which cannot serve a record hosted on a
+// different PDS — most real accounts are, since bsky.social is sharded
+// across many PDS hosts (confirmed live: two real test accounts resolved to
+// oyster.us-east and rhizopogon.us-west, and the cross-host read returned
+// RecordNotFound). Every prior use of getRecord in this app's Contributors
+// code reads the CALLER's own record (their own repo, same PDS as their
+// agent, so this never surfaced there) — this is the first genuinely
+// cross-account read in the feature. Same resolution steps as
+// @scribe-atp/core's resolvePds (not imported directly — that helper isn't
+// part of the package's public API surface), reimplemented here rather than
+// reused across a package boundary for one small lookup.
+const pdsUrlCache = new Map<string, string>();
+
+async function resolveOwnerPdsUrl(did: string): Promise<string> {
+  const cached = pdsUrlCache.get(did);
+  if (cached) return cached;
+
+  const didDocUrl = did.startsWith("did:web:")
+    ? `https://${did.slice("did:web:".length)}/.well-known/did.json`
+    : `https://plc.directory/${encodeURIComponent(did)}`;
+  const res = await fetch(didDocUrl);
+  if (!res.ok) throw new Error(`Failed to resolve DID document for ${did}: ${res.statusText}`);
+  const doc = (await res.json()) as {
+    service?: Array<{ id: string; serviceEndpoint: string }>;
+  };
+  const pds = doc.service?.find((s) => s.id === "#atproto_pds");
+  if (!pds) throw new Error(`No PDS service found in DID document for ${did}`);
+
+  pdsUrlCache.set(did, pds.serviceEndpoint);
+  return pds.serviceEndpoint;
+}
+
 // Invitee-side discovery (ADR 0019 Decision 6) — a global, on-any-login
 // check, not tied to a specific route or the DM link. site.standard.publication
-// records are publicly readable (no auth needed against the Owner's repo),
-// so this works purely from the invitee's own local contributor_memberships
-// rows plus a public read per site — no dependency on ever having clicked
-// the invite DM's link. Best-effort per site: a site that's since been
-// deleted or is otherwise unreadable is silently dropped from the list
-// rather than failing the whole page's load.
+// records are publicly readable — no auth needed against the Owner's repo,
+// and (per the PDS-resolution note above) no agent at all, just a plain
+// fetch against the Owner's own PDS. Best-effort per site: a site that's
+// since been deleted or is otherwise unreadable is silently dropped from
+// the list rather than failing the whole page's load.
 export async function listPendingInvitations(
-  agent: Agent,
   contributorDid: string,
 ): Promise<PendingInvitation[]> {
   const invited = contributorMemberships
@@ -210,14 +241,15 @@ export async function listPendingInvitations(
   const results = await Promise.allSettled(
     invited.map(async (m): Promise<PendingInvitation> => {
       const { ownerDid, rkey } = parseSiteUri(m.siteUri);
-      const rec = await agent.com.atproto.repo.getRecord({
-        repo: ownerDid,
-        collection: SITE_COLLECTION,
-        rkey,
-      });
-      const scribe = (rec.data.value as Record<string, unknown>).scribe as
-        | Record<string, unknown>
-        | undefined;
+      const pdsUrl = await resolveOwnerPdsUrl(ownerDid);
+      const url = new URL(`${pdsUrl}/xrpc/com.atproto.repo.getRecord`);
+      url.searchParams.set("repo", ownerDid);
+      url.searchParams.set("collection", SITE_COLLECTION);
+      url.searchParams.set("rkey", rkey);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch site record: ${res.status}`);
+      const data = (await res.json()) as { value: Record<string, unknown> };
+      const scribe = data.value.scribe as Record<string, unknown> | undefined;
       return {
         siteUri: m.siteUri,
         siteTitle: String(scribe?.title ?? ""),
@@ -225,6 +257,19 @@ export async function listPendingInvitations(
       };
     }),
   );
+
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      logger.warn(
+        {
+          event: "contributor.pending_invitation_lookup_failed",
+          siteUri: invited[i].siteUri,
+          error: String(r.reason),
+        },
+        "failed to resolve a pending invitation's site — dropped from the list",
+      );
+    }
+  });
 
   return results
     .filter(

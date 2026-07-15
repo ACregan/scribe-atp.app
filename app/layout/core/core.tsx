@@ -81,8 +81,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       limit: 1,
     }),
     // ADR 0019 Decision 6 — global, on-any-login discovery check, not tied
-    // to a specific route or the DM link.
-    listPendingInvitations(agent, did),
+    // to a specific route or the DM link. No agent needed — this reads the
+    // Owner's site record from the Owner's own PDS (resolved per-DID), not
+    // the current user's, and public records need no auth.
+    listPendingInvitations(did),
   ]);
   const hasSites = sitesResult.data.records.length > 0;
   const hasArticles = documentsResult.data.records.length > 0;

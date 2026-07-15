@@ -353,20 +353,51 @@ describe("reconcileContributorStatuses", () => {
   });
 });
 
+// Found live, 2026-07-15: two real accounts on different PDS hosts proved
+// agent.com.atproto.repo.getRecord can't read a record hosted on a PDS
+// other than the caller's own — so listPendingInvitations resolves the
+// Owner's real PDS per-DID (via their DID document) and reads from there
+// directly with a plain fetch, no agent. These tests mock global fetch
+// rather than the Agent, matching what the function actually calls now.
+function mockFetchForSites(
+  bySiteRkey: Record<string, { scribe: Record<string, unknown> } | "reject">,
+) {
+  return vi.fn().mockImplementation((input: string | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.startsWith("https://plc.directory/")) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            service: [{ id: "#atproto_pds", serviceEndpoint: "https://owner-pds.example" }],
+          }),
+      });
+    }
+    const rkey = new URL(url).searchParams.get("rkey")!;
+    const outcome = bySiteRkey[rkey];
+    if (outcome === "reject" || outcome === undefined) {
+      return Promise.resolve({ ok: false, status: 400, statusText: "RecordNotFound" });
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ value: outcome }) });
+  });
+}
+
 describe("listPendingInvitations", () => {
   it("returns site title/domain for each invited-status membership", async () => {
     contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "invited");
-    const agent = makeAgent({
-      getRecord: vi.fn().mockResolvedValue(
-        siteRecord({ title: "NoRobots Blog", domain: "norobots.blog" }),
-      ),
-    });
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSites({
+        "my-site": { scribe: { title: "NoRobots Blog", domain: "norobots.blog" } },
+      }),
+    );
 
-    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+    const result = await listPendingInvitations(CONTRIBUTOR_DID);
 
     expect(result).toEqual([
       { siteUri: SITE_URI, siteTitle: "NoRobots Blog", siteDomain: "norobots.blog" },
     ]);
+    vi.unstubAllGlobals();
   });
 
   it("excludes accepted and rejected memberships — only invited is pending", async () => {
@@ -377,15 +408,17 @@ describe("listPendingInvitations", () => {
       "2026-01-01T00:00:00.000Z",
       "rejected",
     );
-    const agent = makeAgent();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
 
-    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+    const result = await listPendingInvitations(CONTRIBUTOR_DID);
 
     expect(result).toEqual([]);
-    expect(agent.com.atproto.repo.getRecord).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
-  it("drops a site that fails to resolve instead of failing the whole list", async () => {
+  it("drops a site that fails to resolve (different PDS host, RecordNotFound) instead of failing the whole list", async () => {
     contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "invited");
     contributorMemberships.upsert(
       CONTRIBUTOR_DID,
@@ -393,25 +426,27 @@ describe("listPendingInvitations", () => {
       "2026-01-01T00:00:00.000Z",
       "invited",
     );
-    const agent = makeAgent({
-      getRecord: vi.fn().mockImplementation(({ repo }: { repo: string }) => {
-        if (repo === "did:plc:otherowner") {
-          return Promise.reject(new Error("RecordNotFound"));
-        }
-        return Promise.resolve(siteRecord({ title: "NoRobots Blog", domain: "norobots.blog" }));
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSites({
+        "my-site": { scribe: { title: "NoRobots Blog", domain: "norobots.blog" } },
+        "other-site": "reject",
       }),
-    });
+    );
 
-    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+    const result = await listPendingInvitations(CONTRIBUTOR_DID);
 
     expect(result).toEqual([
       { siteUri: SITE_URI, siteTitle: "NoRobots Blog", siteDomain: "norobots.blog" },
     ]);
+    vi.unstubAllGlobals();
   });
 
   it("returns an empty array when there are no memberships at all", async () => {
-    const agent = makeAgent();
-    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await listPendingInvitations(CONTRIBUTOR_DID);
     expect(result).toEqual([]);
+    vi.unstubAllGlobals();
   });
 });
