@@ -15,6 +15,17 @@ export type RosterEntry = SiteContributor & {
   avatar?: string;
 };
 
+// Phase 3 sub-pass 2 (ADR 0022) — the plain, un-decorated submissions list
+// this sub-pass's scope calls for; toasts/badges are Phase 4.
+export type SubmissionListEntry = {
+  contributorDid: string;
+  rkey: string;
+  documentTitle: string;
+  submittedAt: string;
+  contributorHandle: string;
+  contributorDisplayName?: string;
+};
+
 export type SiteManifest = {
   rkey: string;
   cid: string;

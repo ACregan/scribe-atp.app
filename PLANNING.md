@@ -541,7 +541,7 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Depends on:** Phase 1. Does not depend on Phase 2.
 
-**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** — 3c not yet grilled.
+**This is the largest and riskiest phase — most of the new cross-repo-write logic in the whole feature lives here.** Split into three sub-passes, each grilled independently before its own implementation: **3a submit + modal** (grilled and implemented 2026-07-16, see ADR 0021), **3b review/approve/reject** (grilled and implemented 2026-07-16, see ADR 0022), **3c Contributor-side reconciliation** — not yet grilled.
 
 **Explicitly out of scope for the whole phase:** toasts and badges (Phase 4) — this phase can ship with a plain, un-decorated submissions list on the site management page; chat integration (Phase 5) — approve/reject can no-op the chat post until Phase 5 exists.
 
@@ -558,7 +558,7 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Backlogged, not specced:** a Contributor rescinding their own pending submission before the Owner responds — a real gap surfaced during the grill session, explicitly deferred rather than designed now (ADR 0021 Consequences).
 
-#### Sub-pass 3b — Review screen + approve/reject (grilled + not yet built, see ADR 0022)
+#### Sub-pass 3b — Review screen + approve/reject (grilled + built 2026-07-16, see ADR 0022)
 
 **Scope:**
 - New route `/article/review/:contributorDid/:rkey`, sibling to `/article/view` (not a variant of it). Loader reconstructs the document URI, looks up `pending_submissions.get(...)` for `siteUri`/`ownerDid` (the DB row is authoritative — no second URL segment needed for site context), guards `ownerDid === caller's own did`, then does the cross-repo public read. Reached via a link from the plain submissions list on `/article/list/:siteSlug`.

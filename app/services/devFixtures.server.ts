@@ -4,7 +4,11 @@
 // catch shape mismatches at call sites when the real loader changes.
 
 import type { SiteCard } from "~/components/types";
-import type { SiteManifest, RosterEntry } from "~/routes/article/site-list/siteTree";
+import type {
+  SiteManifest,
+  RosterEntry,
+  SubmissionListEntry,
+} from "~/routes/article/site-list/siteTree";
 
 // ── Shared base data ──────────────────────────────────────────────────────────
 
@@ -260,6 +264,7 @@ export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
   hasUnassignedArticles: boolean;
   contributors: RosterEntry[];
+  submissions: SubmissionListEntry[];
   site: SiteManifest;
 } {
   return {
@@ -286,6 +291,16 @@ export function devSiteListLoader(siteSlug: string): {
         handle: "bob.bsky.social",
         displayName: "Bob",
         avatar: undefined,
+      },
+    ],
+    submissions: [
+      {
+        contributorDid: `${DEV_DID}:contributor-1`,
+        rkey: "dev-submitted-article",
+        documentTitle: "A Contributor's Dev Submission",
+        submittedAt: "2026-07-15T00:00:00.000Z",
+        contributorHandle: "alice.bsky.social",
+        contributorDisplayName: "Alice",
       },
     ],
     site: {
@@ -343,6 +358,31 @@ export function devViewLoader(articleUrl: string) {
     slug: articleUrl,
     likes: 7,
     shares: 2,
+  };
+}
+
+// ── /article/review/:contributorDid/:rkey ─────────────────────────────────────
+
+export function devReviewLoader(contributorDid: string, rkey: string) {
+  return {
+    documentUri: `at://${contributorDid}/site.standard.document/${rkey}`,
+    contributorDid,
+    siteUri: `at://${DEV_DID}/site.standard.publication/dev-site`,
+    ownerDid: DEV_DID,
+    submittedAt: new Date(Date.now() - 86400 * 1000).toISOString(),
+    siteSlug: "dev-site",
+    siteTitle: "NoRobots.blog (Dev)",
+    groups: [{ slug: "getting-started", title: "Getting Started" }],
+    contributorHandle: "alice.bsky.social",
+    contributorDisplayName: "Alice",
+    document: {
+      title: "A Contributor's Dev Article",
+      content: "<p>This is placeholder content for dev mode, standing in for a Contributor's submitted article.</p>",
+      description: "A short description of the submitted article.",
+      splashImageUrl: "",
+      tags: ["dev", "example"],
+      createdAt: new Date(Date.now() - 2 * 86400 * 1000).toISOString(),
+    },
   };
 }
 

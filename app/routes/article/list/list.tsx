@@ -23,10 +23,8 @@ import {
   unpublishArticle,
   validateGroupFields,
 } from "~/services/siteManifest.server";
-import {
-  listContributorSites,
-  parseSiteUri,
-} from "~/services/contributorRoster.server";
+import { listContributorSites } from "~/services/contributorRoster.server";
+import { parseSiteUri } from "~/services/pdsResolution.server";
 import { pendingSubmissions } from "~/services/db.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
@@ -307,7 +305,14 @@ export async function action({ request }: Route.ActionArgs) {
         },
         cid,
       );
-      pendingSubmissions.create(uri, did, siteUri, ownerDid, submittedAt);
+      pendingSubmissions.create(
+        uri,
+        did,
+        siteUri,
+        ownerDid,
+        String(value.title ?? "Untitled"),
+        submittedAt,
+      );
 
       return { ok: true };
     } catch (err) {
