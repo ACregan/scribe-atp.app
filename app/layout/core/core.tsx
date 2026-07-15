@@ -58,13 +58,21 @@ export async function loader({ request }: Route.LoaderArgs) {
       hasSites: true,
       hasArticles: true,
       // Dev fixture — exercises the Accept/Reject modal without a real PDS.
-      pendingInvitations: [
-        {
-          siteUri: `at://did:dev:owner/${SITE_COLLECTION}/dev-site`,
-          siteTitle: "NoRobots.blog (Dev)",
-          siteDomain: "norobots.blog",
-        },
-      ] as PendingInvitation[],
+      // Suppressed under E2E=true: the modal is `isOpen` unconditionally
+      // until dismissed, so it sat open and intercepted pointer events on
+      // every authenticated page the E2E suite visits (46 unrelated specs
+      // failed in CI this way) — no e2e spec exists that expects or
+      // dismisses it, since this fixture predates any e2e coverage for the
+      // Contributors feature.
+      pendingInvitations: (process.env.E2E === "true"
+        ? []
+        : [
+            {
+              siteUri: `at://did:dev:owner/${SITE_COLLECTION}/dev-site`,
+              siteTitle: "NoRobots.blog (Dev)",
+              siteDomain: "norobots.blog",
+            },
+          ]) as PendingInvitation[],
     };
   }
 
