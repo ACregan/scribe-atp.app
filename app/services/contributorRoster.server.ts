@@ -4,6 +4,7 @@ import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import { contributorMemberships } from "~/services/db.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 import { publicUrl } from "~/services/auth.server";
+import { syncSiteRoster } from "~/services/imageServiceClient.server";
 import { logger } from "~/services/logger.server";
 import type { SiteContributor } from "~/hooks/types";
 import type { SiteRecordValue } from "~/routes/article/site-list/siteTree";
@@ -67,6 +68,27 @@ async function sendInviteDm(
     logger.warn(
       { event: "contributor.invite_dm_failed", contributorDid, error: String(err) },
       "invite DM failed — roster write already succeeded, not retried",
+    );
+  }
+}
+
+// ADR 0020 — best-effort, same posture as sendInviteDm: a sync failure must
+// never turn a successful scribe.contributors write into a reported error.
+// The Image Service's roster mirror goes stale until the next call that
+// touches this site's roster, which is accepted as low-stakes and
+// self-correcting (same posture ADR 0017 already takes for this exact call).
+async function syncSiteRosterBestEffort(
+  siteUri: string,
+  siteName: string,
+  memberDids: string[],
+  cookieHeader: string,
+): Promise<void> {
+  try {
+    await syncSiteRoster(siteUri, siteName, memberDids, cookieHeader);
+  } catch (err) {
+    logger.warn(
+      { event: "contributor.site_roster_sync_failed", siteUri, error: String(err) },
+      "Image Service roster sync failed — roster write already succeeded, not retried",
     );
   }
 }
@@ -150,16 +172,26 @@ export async function removeContributor(
   did: string,
   siteSlug: string,
   contributorDid: string,
+  cookieHeader: string,
 ): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  const siteUri = siteUriFor(did, siteSlug);
+  let acceptedDids: string[] = [];
+  let siteDomain = "";
   try {
-    await mutateSiteRecord(agent, did, siteSlug, (val) => ({
-      ...val,
-      contributors: ((val.contributors as SiteContributor[]) ?? []).filter(
+    await mutateSiteRecord(agent, did, siteSlug, (val) => {
+      const contributors = ((val.contributors as SiteContributor[]) ?? []).filter(
         (c) => c.did !== contributorDid,
-      ),
-      updatedAt: new Date().toISOString(),
-    }));
-    contributorMemberships.remove(contributorDid, siteUriFor(did, siteSlug));
+      );
+      acceptedDids = contributors.filter((c) => c.status === "accepted").map((c) => c.did);
+      siteDomain = String(val.domain ?? "");
+      return { ...val, contributors, updatedAt: new Date().toISOString() };
+    });
+    contributorMemberships.remove(contributorDid, siteUri);
+
+    // Revoke Image Service access immediately, regardless of the removed
+    // contributor's prior status (ADR 0020 point 3) — best-effort, see
+    // syncSiteRosterBestEffort.
+    await syncSiteRosterBestEffort(siteUri, siteDomain, acceptedDids, cookieHeader);
   } catch (err) {
     console.error("Failed to remove contributor:", err);
     return { ok: false, error: err };
@@ -289,6 +321,7 @@ export async function reconcileContributorStatuses(
   agent: Agent,
   did: string,
   siteSlug: string,
+  cookieHeader: string,
 ): Promise<void> {
   const siteUri = siteUriFor(did, siteSlug);
   const localRows = contributorMemberships.listForSite(siteUri);
@@ -299,19 +332,29 @@ export async function reconcileContributorStatuses(
   const removeDids = new Set(toRemove.map((r) => r.contributorDid));
   const promoteDids = new Set(toPromote.map((r) => r.contributorDid));
 
-  await mutateSiteRecord(agent, did, siteSlug, (val) => ({
-    ...val,
-    contributors: ((val.contributors as SiteContributor[]) ?? [])
+  let acceptedDids: string[] = [];
+  let siteDomain = "";
+  await mutateSiteRecord(agent, did, siteSlug, (val) => {
+    const contributors = ((val.contributors as SiteContributor[]) ?? [])
       .filter((c) => !removeDids.has(c.did))
       .map((c) =>
         promoteDids.has(c.did) && c.status !== "accepted"
           ? { ...c, status: "accepted" as const }
           : c,
-      ),
-    updatedAt: new Date().toISOString(),
-  }));
+      );
+    acceptedDids = contributors.filter((c) => c.status === "accepted").map((c) => c.did);
+    siteDomain = String(val.domain ?? "");
+    return { ...val, contributors, updatedAt: new Date().toISOString() };
+  });
 
   for (const row of toRemove) {
     contributorMemberships.remove(row.contributorDid, siteUri);
+  }
+
+  // Only sync on an actual promotion (ADR 0020 point 3) — a rejected
+  // invitee never had Image Service access to begin with, so a
+  // reject-only reconciliation pass has nothing to sync.
+  if (toPromote.length > 0) {
+    await syncSiteRosterBestEffort(siteUri, siteDomain, acceptedDids, cookieHeader);
   }
 }

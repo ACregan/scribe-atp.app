@@ -1,18 +1,13 @@
 import type { Request, Response } from "express";
 import db from "./db.js";
+import { canAccessFolder, canAccessImage, getFolder } from "./access.js";
 
-type FolderRow = { id: number; user_did: string; name: string; parent_id: number | null };
-type ImageRow = { id: number; user_did: string };
+type ImageRow = { id: number; user_did: string; folder_id: number | null };
 
-function requireOwnFolder(did: string, folderId: number): FolderRow | null {
-  const folder = db
-    .prepare("SELECT id, user_did, name, parent_id FROM image_folders WHERE id = ?")
-    .get(folderId) as FolderRow | undefined;
-  if (!folder || folder.user_did !== did) return null;
-  return folder;
-}
-
-// GET /api/image-service/folders/mine — flat list of all folders the user owns
+// GET /api/image-service/folders/mine — flat list of all folders the user
+// personally owns. Deliberately unchanged for Phase 2 — this only ever
+// lists user_did-owned folders, so site folders never appear here regardless
+// of roster membership; there is no "folders shared with me" list yet.
 export function handleListFolders(req: Request, res: Response): void {
   const did = (req as Request & { userDid: string }).userDid;
   const folders = db
@@ -21,7 +16,11 @@ export function handleListFolders(req: Request, res: Response): void {
   res.json({ folders });
 }
 
-// POST /api/image-service/folders — create a named subfolder
+// POST /api/image-service/folders — create a named subfolder. A subfolder
+// inherits its parent's ownership (user_did or site_uri) rather than being
+// attributed to whoever clicked "create" — a Contributor creating a
+// subfolder inside a site folder must not end up owning it personally,
+// or nobody else on the roster (including the Owner) could manage it.
 export function handleCreateFolder(req: Request, res: Response): void {
   const did = (req as Request & { userDid: string }).userDid;
   const { name, parentId } = req.body as { name?: string; parentId?: number };
@@ -36,8 +35,8 @@ export function handleCreateFolder(req: Request, res: Response): void {
     return;
   }
 
-  const parent = requireOwnFolder(did, parentId);
-  if (!parent) {
+  const parent = getFolder(parentId);
+  if (!parent || !canAccessFolder(did, parent)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -52,11 +51,13 @@ export function handleCreateFolder(req: Request, res: Response): void {
   }
 
   const result = db
-    .prepare("INSERT INTO image_folders (user_did, name, parent_id, created_at) VALUES (?, ?, ?, datetime('now'))")
-    .run(did, trimmedName, parentId);
+    .prepare(
+      "INSERT INTO image_folders (user_did, site_uri, name, parent_id, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
+    )
+    .run(parent.user_did, parent.site_uri, trimmedName, parentId);
 
   const folder = db
-    .prepare("SELECT id, user_did, name, parent_id, created_at FROM image_folders WHERE id = ?")
+    .prepare("SELECT id, user_did, site_uri, name, parent_id, created_at FROM image_folders WHERE id = ?")
     .get(result.lastInsertRowid);
 
   res.status(201).json({ ok: true, folder });
@@ -69,11 +70,11 @@ export function handleDeleteFolder(req: Request, res: Response): void {
   const folderId = parseInt(folderIdRaw, 10);
   if (isNaN(folderId)) { res.status(400).json({ error: "Invalid folderId" }); return; }
 
-  const folder = requireOwnFolder(did, folderId);
-  if (!folder) { res.status(403).json({ error: "Forbidden" }); return; }
+  const folder = getFolder(folderId);
+  if (!folder || !canAccessFolder(did, folder)) { res.status(403).json({ error: "Forbidden" }); return; }
 
   if (folder.parent_id === null) {
-    res.status(400).json({ error: "Cannot delete the root User Image Folder" });
+    res.status(400).json({ error: "Cannot delete the root folder" });
     return;
   }
 
@@ -107,16 +108,16 @@ export function handleMoveImage(req: Request, res: Response): void {
   }
 
   const image = db
-    .prepare("SELECT id, user_did FROM images WHERE id = ?")
+    .prepare("SELECT id, user_did, folder_id FROM images WHERE id = ?")
     .get(imageId) as ImageRow | undefined;
-  if (!image || image.user_did !== did) {
+  if (!image || !canAccessImage(did, image)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
-  const targetFolder = requireOwnFolder(did, folderId);
-  if (!targetFolder) {
-    res.status(403).json({ error: "Target folder not found or not owned by you" });
+  const targetFolder = getFolder(folderId);
+  if (!targetFolder || !canAccessFolder(did, targetFolder)) {
+    res.status(403).json({ error: "Target folder not found or not accessible to you" });
     return;
   }
 

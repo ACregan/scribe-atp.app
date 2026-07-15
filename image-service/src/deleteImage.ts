@@ -3,8 +3,9 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import db from "./db.js";
 import { logger } from "../../shared/logger.js";
+import { canAccessImage } from "./access.js";
 
-type ImageRow = { id: number; user_did: string; filename: string };
+type ImageRow = { id: number; user_did: string; filename: string; folder_id: number | null };
 
 export function handleDeleteImage(req: Request, res: Response): void {
   const did = (req as Request & { userDid: string }).userDid;
@@ -13,9 +14,9 @@ export function handleDeleteImage(req: Request, res: Response): void {
   if (isNaN(imageId)) { res.status(400).json({ error: "Invalid imageId" }); return; }
 
   const image = db
-    .prepare("SELECT id, user_did, filename FROM images WHERE id = ?")
+    .prepare("SELECT id, user_did, filename, folder_id FROM images WHERE id = ?")
     .get(imageId) as ImageRow | undefined;
-  if (!image || image.user_did !== did) {
+  if (!image || !canAccessImage(did, image)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

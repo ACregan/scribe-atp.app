@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Agent } from "@atproto/api";
 import { loader, action } from "./configure";
 import { getAtpAgent, requireAuth } from "~/services/auth.server";
+import { syncSiteRoster } from "~/services/imageServiceClient.server";
 
 // Characterization tests for the configure-site route's real-OAuth path
 // (useRealOAuth: true), written before extracting onto documentRepository.server.ts
@@ -22,6 +23,10 @@ vi.mock("~/services/auth.server", () => ({
 
 vi.mock("~/services/logger.server", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("~/services/imageServiceClient.server", () => ({
+  syncSiteRoster: vi.fn(),
 }));
 
 const DID = "did:plc:testuser";
@@ -92,6 +97,7 @@ function callLoader() {
 beforeEach(() => {
   vi.mocked(requireAuth).mockResolvedValue({ did: DID, handle: DID });
   vi.mocked(getAtpAgent).mockReset();
+  vi.mocked(syncSiteRoster).mockReset().mockResolvedValue(undefined);
 });
 
 describe("loader", () => {
@@ -500,5 +506,64 @@ describe("action — failure", () => {
     }).catch((err) => err);
 
     expect(thrown).toBe(redirectToLogin);
+  });
+});
+
+describe("action — resyncImageFolder (ADR 0020)", () => {
+  it("syncs only the accepted-status contributors, ignoring invited/rejected", async () => {
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecordValue({
+          domain: "example.com",
+          contributors: [
+            { did: "did:plc:accepted1", addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+            { did: "did:plc:invited1", addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+            { did: "did:plc:accepted2", addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+          ],
+        }),
+      ),
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+    const result = await callAction({ _intent: "resyncImageFolder" });
+
+    expect(result).toEqual({ ok: true, imageFolderSynced: true });
+    expect(syncSiteRoster).toHaveBeenCalledWith(
+      `at://${DID}/site.standard.publication/${SITE_SLUG}`,
+      "example.com",
+      ["did:plc:accepted1", "did:plc:accepted2"],
+      "",
+    );
+  });
+
+  it("syncs an empty list when there are no contributors at all — safe to run on any site, not just ones with real rosters", async () => {
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(siteRecordValue({ domain: "example.com" })),
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+    await callAction({ _intent: "resyncImageFolder" });
+
+    expect(syncSiteRoster).toHaveBeenCalledWith(
+      `at://${DID}/site.standard.publication/${SITE_SLUG}`,
+      "example.com",
+      [],
+      "",
+    );
+  });
+
+  it("returns an error rather than throwing when the Image Service sync fails", async () => {
+    vi.mocked(syncSiteRoster).mockRejectedValue(new Error("Image Service down"));
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(siteRecordValue({ domain: "example.com" })),
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+    const result = await callAction({ _intent: "resyncImageFolder" });
+
+    expect(result).toEqual({
+      ok: false,
+      error: expect.stringContaining("Resync failed"),
+    });
   });
 });

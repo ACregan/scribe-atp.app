@@ -95,7 +95,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // ADR 0019 — Owner-side reconciliation: promote locally-accepted invites
     // and strip locally-rejected ones out of scribe.contributors, every time
     // the Owner visits this page. Cheap no-op when there's nothing pending.
-    await reconcileContributorStatuses(agent, did, siteSlug);
+    // cookieHeader (ADR 0020) lets it sync the Image Service's site_rosters
+    // mirror when a promotion actually happens.
+    await reconcileContributorStatuses(
+      agent,
+      did,
+      siteSlug,
+      request.headers.get("Cookie") ?? "",
+    );
 
     const [record, documents] = await Promise.all([
       agent.com.atproto.repo.getRecord({
@@ -215,7 +222,13 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!useRealOAuth) return { ok: true, removedDid: contributorDid };
 
     const agent = await getAtpAgent(did, request);
-    const result = await removeContributor(agent, did, siteSlug, contributorDid);
+    const result = await removeContributor(
+      agent,
+      did,
+      siteSlug,
+      contributorDid,
+      request.headers.get("Cookie") ?? "",
+    );
     return result.ok
       ? { ok: true, removedDid: contributorDid }
       : { ok: false, error: String(result.error) };

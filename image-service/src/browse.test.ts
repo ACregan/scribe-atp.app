@@ -38,9 +38,16 @@ function insertImage(userDid: string, folderId: number, filename: string) {
   ).run(userDid, folderId, filename, `${filename}.jpg`, 800, 600, JSON.stringify({ thumb: { width: 300, height: 225 } }));
 }
 
+function insertSiteFolder(siteUri: string, name: string, parentId: number | null): number {
+  return db
+    .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, ?)")
+    .run(siteUri, name, parentId).lastInsertRowid as number;
+}
+
 beforeEach(() => {
   db.exec("DELETE FROM images");
   db.exec("DELETE FROM image_folders");
+  db.exec("DELETE FROM site_rosters");
 });
 
 describe("handleBrowse — no folderId (top-level shared view)", () => {
@@ -122,5 +129,65 @@ describe("handleBrowse — with folderId", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.images).toHaveLength(1);
+  });
+});
+
+// ADR 0020 — the one place read access is actually restricted.
+describe("handleBrowse — site-owned folders", () => {
+  const SITE_URI = `at://${DID}/site.standard.publication/my-site`;
+
+  it("top-level listing excludes a site folder for someone not on its roster", () => {
+    insertFolder(DID, DID, null);
+    insertSiteFolder(SITE_URI, "example.com Images", null);
+
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: OTHER_DID }), res);
+
+    expect(res.body.subfolders).toHaveLength(1);
+    expect(res.body.subfolders[0].user_did).toBe(DID);
+  });
+
+  it("top-level listing includes the site folder for its owner", () => {
+    insertSiteFolder(SITE_URI, "example.com Images", null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: DID }), res);
+    expect(res.body.subfolders).toHaveLength(1);
+  });
+
+  it("top-level listing includes the site folder for an accepted roster member", () => {
+    const memberDid = "did:plc:contributor";
+    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, memberDid);
+    insertSiteFolder(SITE_URI, "example.com Images", null);
+
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: memberDid }), res);
+    expect(res.body.subfolders).toHaveLength(1);
+  });
+
+  it("404s (not 403) for a direct folderId fetch by someone not on the roster — existence isn't confirmed", () => {
+    const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: OTHER_DID, query: { folderId: String(siteFolderId) } }), res);
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("allows a roster member to fetch the site folder directly and see its images", () => {
+    const memberDid = "did:plc:contributor";
+    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, memberDid);
+    const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
+    insertImage("did:plc:whoeveruploaded", siteFolderId, "shared-photo");
+
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: memberDid, query: { folderId: String(siteFolderId) } }), res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.images).toHaveLength(1);
+  });
+
+  it("uses the folder's own name for a site folder's breadcrumb — no 'My Images' override", () => {
+    const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: DID, query: { folderId: String(siteFolderId) } }), res);
+    expect(res.body.breadcrumbs).toEqual([{ id: siteFolderId, name: "example.com Images" }]);
   });
 });
