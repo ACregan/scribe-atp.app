@@ -583,7 +583,7 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table. Also backlogged: `list.tsx`'s Standalone-vs-Site-Assigned classification (keyed off the caller's own `assignmentMap`) doesn't recognize a document now published to the **Owner's** site as "assigned" — it keeps showing under Standalone Articles minus the pill, harmless (the submit guard already blocks re-submitting it) but misleading; deferred to Phase 4 (ADR 0023 Consequences).
 
-### Phase 4 — Discovery UX polish (light check-in 2026-07-16, no dedicated ADR — see note below)
+### Phase 4 — Discovery UX polish (light check-in + built 2026-07-16, no dedicated ADR — see note below)
 
 **Depends on:** Phase 3 (needs `pending_submissions` and `contributor_memberships` populated by real data to be meaningful).
 

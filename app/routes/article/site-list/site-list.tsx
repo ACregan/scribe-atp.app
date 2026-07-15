@@ -714,6 +714,10 @@ function SubmissionsSection({
 }: {
   submissions: SubmissionListEntry[];
 }) {
+  // Phase 4 (discovery UX polish) — hidden entirely when empty, matching
+  // the conditional-section pattern Standalone Articles already uses.
+  if (submissions.length === 0) return null;
+
   return (
     <div
       style={{
@@ -724,39 +728,33 @@ function SubmissionsSection({
     >
       <h6 style={{ margin: 0 }}>New Article Submissions</h6>
 
-      {submissions.length === 0 ? (
-        <p style={{ color: "var(--text-secondary)" }}>
-          No pending submissions right now.
-        </p>
-      ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {submissions.map((s) => (
-            <li
-              key={`${s.contributorDid}:${s.rkey}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.8rem",
-                padding: "0.8rem 0",
-                borderTop: "0.1rem solid var(--border-subtle)",
-              }}
-            >
-              <span>{s.documentTitle}</span>
-              <span style={{ color: "var(--text-secondary)" }}>
-                from {s.contributorDisplayName ?? s.contributorHandle}
-              </span>
-              <span style={{ color: "var(--text-secondary)", marginLeft: "auto" }}>
-                {new Date(s.submittedAt).toLocaleDateString()}
-              </span>
-              <Link to={`/article/review/${s.contributorDid}/${s.rkey}`}>
-                <Button type="button" variant="primary" tabIndex={-1}>
-                  Review
-                </Button>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {submissions.map((s) => (
+          <li
+            key={`${s.contributorDid}:${s.rkey}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.8rem",
+              padding: "0.8rem 0",
+              borderTop: "0.1rem solid var(--border-subtle)",
+            }}
+          >
+            <span>{s.documentTitle}</span>
+            <span style={{ color: "var(--text-secondary)" }}>
+              from {s.contributorDisplayName ?? s.contributorHandle}
+            </span>
+            <span style={{ color: "var(--text-secondary)", marginLeft: "auto" }}>
+              {new Date(s.submittedAt).toLocaleDateString()}
+            </span>
+            <Link to={`/article/review/${s.contributorDid}/${s.rkey}`}>
+              <Button type="button" variant="primary" tabIndex={-1}>
+                Review
+              </Button>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

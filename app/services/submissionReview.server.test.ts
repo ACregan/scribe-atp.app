@@ -421,8 +421,12 @@ describe("reconcilePendingSubmission", () => {
         swapRecord: "doc-cid",
       }),
     );
-    expect(result).not.toBeNull();
-    expect((result?.scribe as Record<string, unknown>).pendingPublish).toBeUndefined();
+    expect(result).toEqual(
+      expect.objectContaining({ outcome: "rejected", rejectionReason: "Not a fit", siteUri: SITE_URI }),
+    );
+    expect(
+      (result?.value.scribe as Record<string, unknown>).pendingPublish,
+    ).toBeUndefined();
     expect(pendingSubmissions.get(DOCUMENT_URI)).toBeUndefined();
   });
 
@@ -493,11 +497,18 @@ describe("reconcilePendingSubmission", () => {
     );
     expect(result).toEqual(
       expect.objectContaining({
-        site: SITE_URI,
-        path: "/g1/my-article",
+        outcome: "approved",
+        siteUri: SITE_URI,
+        siteTitle: "",
+        value: expect.objectContaining({
+          site: SITE_URI,
+          path: "/g1/my-article",
+        }),
       }),
     );
-    expect((result?.scribe as Record<string, unknown>).pendingPublish).toBeUndefined();
+    expect(
+      (result?.value.scribe as Record<string, unknown>).pendingPublish,
+    ).toBeUndefined();
   });
 
   it("approved: dedup guard skips adding a second Publisher credit if the Owner is already listed", async () => {
@@ -521,7 +532,7 @@ describe("reconcilePendingSubmission", () => {
 
     const result = await reconcilePendingSubmission(agent, CONTRIBUTOR_DID, record);
 
-    expect(result?.contributors).toEqual([
+    expect(result?.value.contributors).toEqual([
       { did: OWNER_DID, role: "Publisher", displayName: "Old Name" },
     ]);
   });
@@ -540,7 +551,7 @@ describe("reconcilePendingSubmission", () => {
 
     const result = await reconcilePendingSubmission(agent, CONTRIBUTOR_DID, looseRecord());
 
-    expect(result?.contributors).toEqual([
+    expect(result?.value.contributors).toEqual([
       { did: OWNER_DID, role: "Publisher", displayName: OWNER_DID },
     ]);
   });

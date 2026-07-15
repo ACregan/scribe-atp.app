@@ -102,6 +102,23 @@
   height: 100%;
 }
 
+/* ── "Requires attention" count badge (Phase 4) ── */
+.menuItemBadge {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--action-primary);
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6rem;
+  text-align: center;
+}
+
 /* ── Label ── */
 .menuItemLabel {
   color: var(--aside-color);

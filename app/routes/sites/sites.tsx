@@ -40,6 +40,7 @@ import {
 import { deleteUmamiConfig } from "~/services/umami.server";
 import { registerSocialOrigin } from "~/services/socialOrigin.server";
 import { syncSiteRoster } from "~/services/imageServiceClient.server";
+import { pendingSubmissions } from "~/services/db.server";
 
 type ActionData = { ok: boolean; error?: string; iconWarning?: string };
 
@@ -54,6 +55,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const agent = await getAtpAgent(did, request);
   const records = await listSites(agent, did);
+
+  // Phase 4 (discovery UX polish) — a purely local SQLite read, no
+  // network, cheap to do on every /sites visit.
+  const submissionCountBySiteUri = new Map<string, number>();
+  for (const s of pendingSubmissions.listForOwner(did)) {
+    if (s.status !== "pending") continue;
+    submissionCountBySiteUri.set(
+      s.siteUri,
+      (submissionCountBySiteUri.get(s.siteUri) ?? 0) + 1,
+    );
+  }
 
   const sites: SiteCard[] = records
     .filter((record) => record.value.scribe != null)
@@ -80,6 +92,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         articleCount:
           groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0) +
           topArticles.length,
+        pendingSubmissionCount: submissionCountBySiteUri.get(record.uri) ?? 0,
       };
     });
 

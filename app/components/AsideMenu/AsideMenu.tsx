@@ -69,14 +69,25 @@ interface AsideMenuProps {
   onToggle: () => void;
   hasSites: boolean;
   hasArticles: boolean;
+  /** Phase 4 — total pending Contributor submissions across the Owner's sites. */
+  pendingSubmissionsCount?: number;
 }
 
 const AsideMenuItem: React.FC<
-  AsideMenuItemConfig & { expanded: boolean; disabled: boolean }
-> = ({ id, icon, label, to, expanded, disabled, disabledReason }) => {
+  AsideMenuItemConfig & {
+    expanded: boolean;
+    disabled: boolean;
+    badgeCount?: number;
+  }
+> = ({ id, icon, label, to, expanded, disabled, disabledReason, badgeCount }) => {
   const iconEl = (
     <span className={styles.menuItemIconWrapper}>
       <SvgIcon name={icon} fill="var(--aside-color)" />
+      {!!badgeCount && (
+        <span className={styles.menuItemBadge} aria-hidden="true">
+          {badgeCount}
+        </span>
+      )}
     </span>
   );
 
@@ -114,7 +125,13 @@ const AsideMenuItem: React.FC<
     <NavLink
       to={to}
       className={`${styles.menuItemLink}${expanded ? ` ${styles.menuItemLinkExpanded}` : ""}`}
-      aria-label={expanded ? undefined : label}
+      aria-label={
+        badgeCount
+          ? `${label} (${badgeCount} pending)`
+          : expanded
+            ? undefined
+            : label
+      }
     >
       {expanded ? (
         iconEl
@@ -145,6 +162,7 @@ const AsideMenu: React.FC<AsideMenuProps> = ({
   onToggle,
   hasSites,
   hasArticles,
+  pendingSubmissionsCount,
 }) => {
   return (
     <aside className={styles.asideElement}>
@@ -160,6 +178,11 @@ const AsideMenu: React.FC<AsideMenuProps> = ({
               {...menuItem}
               expanded={expanded}
               disabled={disabled}
+              badgeCount={
+                menuItem.id === "site-management"
+                  ? pendingSubmissionsCount
+                  : undefined
+              }
             />
           );
         })}

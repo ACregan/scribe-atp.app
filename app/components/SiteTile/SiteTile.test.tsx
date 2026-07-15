@@ -154,4 +154,24 @@ describe("SiteTile", () => {
     )!;
     expect(deleteButton).not.toBeDisabled();
   });
+
+  // Phase 4 (discovery UX polish) — "requires attention" badge.
+  it("renders a pending-submission badge when pendingSubmissionCount > 0", () => {
+    render(
+      <SiteTile site={{ ...baseSite, pendingSubmissionCount: 2 }} onDelete={onDelete} />,
+    );
+    expect(screen.getByText("2 PENDING SUBMISSIONS")).toBeInTheDocument();
+  });
+
+  it("uses singular wording for exactly one pending submission", () => {
+    render(
+      <SiteTile site={{ ...baseSite, pendingSubmissionCount: 1 }} onDelete={onDelete} />,
+    );
+    expect(screen.getByText("1 PENDING SUBMISSION")).toBeInTheDocument();
+  });
+
+  it("renders no badge when pendingSubmissionCount is 0 or omitted", () => {
+    render(<SiteTile site={baseSite} onDelete={onDelete} />);
+    expect(screen.queryByText(/PENDING SUBMISSION/)).not.toBeInTheDocument();
+  });
 });

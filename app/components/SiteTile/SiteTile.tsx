@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Button } from "~/components/Button/Button";
+import { Pill } from "~/components/Pill/Pill";
 import styles from "./SiteTile.module.css";
 import SvgIcon, { SvgImageList } from "../SvgIcon/SvgIcon";
 import { type SiteCard } from "~/components/types";
@@ -43,6 +44,12 @@ export function SiteTile({
             />
           )}
           <p className={styles.tileTitle}>{site.title}</p>
+          {!!site.pendingSubmissionCount && (
+            <Pill variant="primary">
+              {site.pendingSubmissionCount} PENDING SUBMISSION
+              {site.pendingSubmissionCount !== 1 ? "S" : ""}
+            </Pill>
+          )}
         </div>
 
         {site.description && (

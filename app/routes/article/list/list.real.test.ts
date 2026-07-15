@@ -441,7 +441,73 @@ describe("loader", () => {
       expect(result.standaloneArticles[0]).toEqual(
         expect.objectContaining({ rkey: "loose1", pendingPublish: undefined }),
       );
+      // Phase 4 — Contributor-side toast surfacing (ADR 0023 + Phase 4).
+      expect(result.justReconciled).toEqual([
+        {
+          outcome: "approved",
+          documentTitle: "Loose Article",
+          siteRkey: "site-a",
+          siteTitle: "",
+        },
+      ]);
       vi.unstubAllGlobals();
+    });
+
+    it("surfaces a rejected outcome in justReconciled with the rejection reason", async () => {
+      pendingSubmissions.create(
+        looseUri,
+        DID,
+        ownerSiteUri,
+        "did:plc:owner",
+        "Loose Article",
+        "2026-07-15T00:00:00.000Z",
+      );
+      pendingSubmissions.reject(looseUri, "Not a fit for this site.");
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord(
+                  "loose1",
+                  {
+                    title: "Loose Article",
+                    path: "/loose1",
+                    createdAt: "2026-01-01T00:00:00Z",
+                    site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                    scribe: {
+                      pendingPublish: {
+                        siteUri: ownerSiteUri,
+                        submittedAt: "2026-07-15T00:00:00.000Z",
+                      },
+                    },
+                  },
+                  "loose1-cid",
+                ),
+              ],
+            },
+          });
+        }),
+        putRecord: vi.fn().mockResolvedValue({ data: {} }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+
+      const result = await callLoader();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result.justReconciled).toEqual([
+        {
+          outcome: "rejected",
+          documentTitle: "Loose Article",
+          siteRkey: "site-a",
+          rejectionReason: "Not a fit for this site.",
+        },
+      ]);
     });
 
     it("does not touch the PDS when the local pending_submissions row is still status: pending", async () => {

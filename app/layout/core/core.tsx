@@ -12,6 +12,7 @@ import {
   listPendingInvitations,
   type PendingInvitation,
 } from "~/services/contributorRoster.server";
+import { pendingSubmissions } from "~/services/db.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
@@ -45,10 +46,20 @@ export async function loader({ request }: Route.LoaderArgs) {
       hasSites: false,
       hasArticles: false,
       pendingInvitations: [] as PendingInvitation[],
+      pendingSubmissionsCount: 0,
+      newSubmissions: [] as Array<{ documentUri: string; documentTitle: string }>,
     };
   }
 
   if (!useRealOAuth) {
+    // Phase 4 — exercises the AsideMenu badge + new-submission toast without
+    // a real PDS. Suppressed under E2E=true for the same reason the
+    // invitations modal fixture is (see the pendingInvitations comment
+    // below) — no e2e spec expects either.
+    const devSubmission = {
+      documentUri: `at://did:dev:owner/${DOCUMENT_COLLECTION}/dev-submission`,
+      documentTitle: "A Contributor's Dev Submission",
+    };
     return {
       isAuthenticated: true,
       handle,
@@ -73,6 +84,11 @@ export async function loader({ request }: Route.LoaderArgs) {
               siteDomain: "norobots.blog",
             },
           ]) as PendingInvitation[],
+      pendingSubmissionsCount: process.env.E2E === "true" ? 0 : 1,
+      newSubmissions:
+        process.env.E2E === "true"
+          ? ([] as Array<{ documentUri: string; documentTitle: string }>)
+          : [devSubmission],
     };
   }
 
@@ -97,6 +113,19 @@ export async function loader({ request }: Route.LoaderArgs) {
   const hasSites = sitesResult.data.records.length > 0;
   const hasArticles = documentsResult.data.records.length > 0;
 
+  // Phase 4 (discovery UX polish) — a purely local SQLite read, no network,
+  // cheap to do on every page load. Powers both the AsideMenu/`/sites` badge
+  // cascade (count) and the new-submission toast (client-side sessionStorage
+  // dedup decides which of these are actually new to show).
+  const pendingOwnerSubmissions = pendingSubmissions
+    .listForOwner(did)
+    .filter((s) => s.status === "pending");
+  const pendingSubmissionsCount = pendingOwnerSubmissions.length;
+  const newSubmissions = pendingOwnerSubmissions.map((s) => ({
+    documentUri: s.documentUri,
+    documentTitle: s.documentTitle,
+  }));
+
   try {
     const res = await fetch(
       `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${did}`,
@@ -112,6 +141,8 @@ export async function loader({ request }: Route.LoaderArgs) {
         hasSites,
         hasArticles,
         pendingInvitations,
+        pendingSubmissionsCount,
+        newSubmissions,
       };
     }
   } catch {
@@ -127,6 +158,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     hasSites,
     hasArticles,
     pendingInvitations,
+    pendingSubmissionsCount,
+    newSubmissions,
   };
 }
 
@@ -254,6 +287,58 @@ function PendingInvitationsModal({
   );
 }
 
+// Phase 4 (discovery UX polish) — Owner-side non-expiring toast per new
+// submission, deduped via sessionStorage so it doesn't re-fire on every
+// visit while a submission is still pending (a pending_submissions row
+// persists across many page loads until reviewed, unlike the Contributor-
+// side reconciliation toast in list.tsx, which is self-consuming and needs
+// no dedup at all). Rendered inside <ToastProvider>, same reasoning as
+// PendingInvitationsModal above.
+const SUBMISSION_TOAST_STORAGE_KEY = "scribe-toasted-submission-uris";
+
+export function NewSubmissionToasts({
+  submissions,
+}: {
+  submissions: Array<{ documentUri: string; documentTitle: string }>;
+}) {
+  const { addToast } = useToast();
+  const key = submissions
+    .map((s) => s.documentUri)
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    if (submissions.length === 0) return;
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(
+        sessionStorage.getItem(SUBMISSION_TOAST_STORAGE_KEY) ?? "[]",
+      );
+    } catch {
+      seen = [];
+    }
+    const seenSet = new Set(seen);
+    const newOnes = submissions.filter((s) => !seenSet.has(s.documentUri));
+    if (newOnes.length === 0) return;
+
+    for (const s of newOnes) {
+      addToast({
+        heading: "New article submission",
+        content: `"${s.documentTitle}" is waiting for your review.`,
+        variant: "primary",
+        autoExpire: false,
+      });
+    }
+    sessionStorage.setItem(
+      SUBMISSION_TOAST_STORAGE_KEY,
+      JSON.stringify([...seenSet, ...newOnes.map((s) => s.documentUri)]),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return null;
+}
+
 function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
   const {
     isAuthenticated,
@@ -263,6 +348,8 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
     hasSites,
     hasArticles,
     pendingInvitations,
+    pendingSubmissionsCount,
+    newSubmissions,
   } = loaderData;
   const location = useLocation();
   const navigation = useNavigation();
@@ -372,6 +459,7 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
             onToggle={handleToggleAside}
             hasSites={hasSites}
             hasArticles={hasArticles}
+            pendingSubmissionsCount={pendingSubmissionsCount}
           />
         )}
         <main id="main-content">
@@ -382,6 +470,7 @@ function CoreLayoutInner({ loaderData }: Route.ComponentProps) {
       </div>
       <Toasts />
       <PendingInvitationsModal invitations={pendingInvitations} />
+      <NewSubmissionToasts submissions={newSubmissions} />
     </ToastProvider>
   );
 }
