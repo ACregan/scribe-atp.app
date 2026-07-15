@@ -80,6 +80,7 @@ const renderMenu = (
   onToggle = vi.fn(),
   hasSites = true,
   hasArticles = true,
+  pendingSubmissionsCount?: number,
 ) => {
   const router = createMemoryRouter(
     [
@@ -91,6 +92,7 @@ const renderMenu = (
             onToggle={onToggle}
             hasSites={hasSites}
             hasArticles={hasArticles}
+            pendingSubmissionsCount={pendingSubmissionsCount}
           />
         ),
       },
@@ -140,6 +142,36 @@ describe("AsideMenu", () => {
       buttons.forEach((button) => {
         expect(button.querySelector("svg")).toBeInTheDocument();
       });
+    });
+  });
+
+  // Phase 4 (discovery UX polish) — "requires attention" badge on the
+  // Sites nav item only.
+  describe("pendingSubmissionsCount badge", () => {
+    it("renders no badge when the count is 0 or undefined", () => {
+      renderMenu(false, vi.fn(), true, true, 0);
+      expect(screen.queryByText("0")).not.toBeInTheDocument();
+      renderMenu(false, vi.fn(), true, true, undefined);
+      expect(screen.queryByText(/pending/)).not.toBeInTheDocument();
+    });
+
+    it("renders the count on the Sites nav item when > 0", () => {
+      renderMenu(false, vi.fn(), true, true, 3);
+      expect(screen.getByText("3")).toBeInTheDocument();
+    });
+
+    it("includes the count in the Sites link's accessible name", () => {
+      renderMenu(false, vi.fn(), true, true, 3);
+      expect(
+        screen.getByRole("link", { name: "Sites (3 pending)" }),
+      ).toBeInTheDocument();
+    });
+
+    it("does not add a badge to any other nav item", () => {
+      renderMenu(false, vi.fn(), true, true, 3);
+      const links = screen.getAllByRole("link");
+      const badged = links.filter((l) => l.textContent?.includes("3"));
+      expect(badged).toHaveLength(1);
     });
   });
 

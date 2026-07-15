@@ -583,14 +583,17 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table. Also backlogged: `list.tsx`'s Standalone-vs-Site-Assigned classification (keyed off the caller's own `assignmentMap`) doesn't recognize a document now published to the **Owner's** site as "assigned" — it keeps showing under Standalone Articles minus the pill, harmless (the submit guard already blocks re-submitting it) but misleading; deferred to Phase 4 (ADR 0023 Consequences).
 
-### Phase 4 — Discovery UX polish
+### Phase 4 — Discovery UX polish (light check-in + built 2026-07-16, no dedicated ADR — see note below)
 
 **Depends on:** Phase 3 (needs `pending_submissions` and `contributor_memberships` populated by real data to be meaningful).
 
+**Not given a full grill session** — unlike Phase 3's sub-passes, nothing here is a real architectural fork: it's UI polish over data Phase 3 already populates, built entirely from patterns this codebase already has (the "Toast + navigate" pattern in `CLAUDE.md`, the conditional-hidden-when-empty pattern Standalone Articles already uses, existing count-badge conventions on `SiteListItem`/`SiteTile`). A short check-in resolved the few genuinely open questions instead of a full interview.
+
 **Scope:**
-- Owner-side non-expiring toast per new submission (`autoExpire: false`), one per submission not aggregated, client-side dedup against re-showing the same one twice in a session, dismiss purely cosmetic.
-- The "requires attention" badge cascade: `AsideMenu`'s Sites icon, the `/sites` page, and the "New Article Submission" section on the per-site management page (hidden entirely when empty, matching the existing conditional-section pattern already used for Standalone Articles).
-- Contributor-side toast on the same reconciliation check from Phase 3 (approved / rejected-with-reason), linking to the per-site page.
+- **`/article/list/:siteSlug`'s "New Article Submissions" section becomes hidden entirely when empty** (a change from how sub-pass 3b shipped it — today it always renders with a "No pending submissions right now" message), matching the same conditional-section pattern Standalone Articles already uses.
+- **"Requires attention" badge cascade — numeric count, not a plain dot.** `AsideMenu`'s Sites icon, and the affected site's tile/row on `/sites`, both show the pending-submission count for that site — consistent with the existing article/group count-pill convention already on `SiteListItem`/`SiteTile`.
+- **Owner-side new-submission toast, deduped via `sessionStorage`** (keyed by `documentUri`) — matches the original stub's own "twice in a session" wording; resets on a new tab/browser restart, which is fine since a toast reappearing across sessions for a genuinely-still-pending item isn't really a bug. `localStorage` was considered and rejected as needless permanence with no cleanup path.
+- **Contributor-side reconciliation toast, no dedup needed at all.** Since the reconciliation check in `list.tsx`'s loader is self-consuming (the triggering `pending_submissions` row is gone the moment it fires), the loader can just return a small transient "reconciled this request" list; the component reads it once per render and calls `addToast` — there's nothing to re-detect on a later visit, so no session-tracking is required the way the Owner-side toast needs.
 
 **Reference:** ADR 0015 in full.
 

@@ -63,6 +63,12 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
                   {site.articleCount !== 1 ? "S" : ""}
                 </Pill>
               )}
+              {!!site.pendingSubmissionCount && (
+                <Pill variant="primary">
+                  {site.pendingSubmissionCount} PENDING SUBMISSION
+                  {site.pendingSubmissionCount !== 1 ? "S" : ""}
+                </Pill>
+              )}
             </div>
           </div>
         </Tooltip>

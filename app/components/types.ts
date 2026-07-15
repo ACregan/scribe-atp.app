@@ -9,6 +9,8 @@ export interface SiteCard {
   logoImageUrl?: string;
   groupCount: number;
   articleCount: number;
+  /** Phase 4 (discovery UX polish) — count of pending Contributor submissions for this site. */
+  pendingSubmissionCount?: number;
 }
 
 export type SiteOption = { rkey: string; title: string; url: string };

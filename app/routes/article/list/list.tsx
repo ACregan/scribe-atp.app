@@ -103,11 +103,48 @@ export async function loader({ request }: Route.LoaderArgs) {
     // any other document's check. Patches documentRecords in place so the
     // rest of this loader sees the post-reconciliation state in the same
     // request, not one visit stale.
+    //
+    // justReconciled (Phase 4) — surfaces a one-shot Contributor-side toast
+    // for whatever just transitioned this exact request. Self-consuming, no
+    // dedup needed: the triggering local row is gone the moment it fires, so
+    // a later visit can never detect the same transition again.
+    const justReconciled: Array<
+      | {
+          outcome: "approved";
+          documentTitle: string;
+          siteRkey: string;
+          siteTitle: string;
+        }
+      | {
+          outcome: "rejected";
+          documentTitle: string;
+          siteRkey: string;
+          rejectionReason: string;
+        }
+    > = [];
     await Promise.allSettled(
       documentRecords.map(async (record) => {
         try {
-          const updatedValue = await reconcilePendingSubmission(agent, did, record);
-          if (updatedValue) record.value = updatedValue;
+          const documentTitle = String(record.value.title ?? "Untitled");
+          const result = await reconcilePendingSubmission(agent, did, record);
+          if (!result) return;
+          record.value = result.value;
+          const { rkey: siteRkey } = parseSiteUri(result.siteUri);
+          if (result.outcome === "approved") {
+            justReconciled.push({
+              outcome: "approved",
+              documentTitle,
+              siteRkey,
+              siteTitle: result.siteTitle,
+            });
+          } else {
+            justReconciled.push({
+              outcome: "rejected",
+              documentTitle,
+              siteRkey,
+              rejectionReason: result.rejectionReason,
+            });
+          }
         } catch (err) {
           logger.warn(
             {
@@ -237,6 +274,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       standaloneArticles,
       publishTargets,
       contributorSites,
+      justReconciled,
       authorDid: did,
       authorHandle: handle,
     };
@@ -467,6 +505,7 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
     standaloneArticles,
     publishTargets,
     contributorSites,
+    justReconciled,
     authorDid,
     authorHandle,
   } = loaderData;
@@ -562,6 +601,40 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
   );
 
   const { addToast } = useToast();
+
+  // Phase 4 (discovery UX polish) — Contributor-side toast for whatever
+  // reconciliation (ADR 0023) just resolved this exact request. No dedup
+  // needed: justReconciled is self-consuming (see submissionReview.server.ts).
+  useEffect(() => {
+    for (const r of justReconciled) {
+      if (r.outcome === "approved") {
+        addToast({
+          heading: "Article published",
+          content: (
+            <>
+              {`"${r.documentTitle}" was approved${r.siteTitle ? ` for ${r.siteTitle}` : ""}.`}{" "}
+              <Link to={`/article/list/${r.siteRkey}`}>View site</Link>
+            </>
+          ),
+          variant: "success",
+          autoExpire: false,
+        });
+      } else {
+        addToast({
+          heading: "Submission declined",
+          content: (
+            <>
+              {`"${r.documentTitle}" was declined: ${r.rejectionReason}`}{" "}
+              <Link to={`/article/list/${r.siteRkey}`}>View site</Link>
+            </>
+          ),
+          variant: "danger",
+          autoExpire: false,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justReconciled]);
 
   useEffect(() => {
     if (publishFetcher.state !== "idle" || !publishFetcher.data) return;

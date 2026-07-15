@@ -31,6 +31,10 @@ export function devSitesLoader(): { sites: SiteCard[] } {
         logoImageUrl: "",
         groupCount: 2,
         articleCount: 7,
+        // Phase 4 — exercises the "requires attention" badge; suppressed
+        // under E2E=true for the same reason the invitations modal fixture
+        // is (see core.tsx's loader) — no e2e spec expects this badge.
+        pendingSubmissionCount: process.env.E2E === "true" ? 0 : 1,
       },
       {
         rkey: "perpetualsummer-ltd",
@@ -43,6 +47,7 @@ export function devSitesLoader(): { sites: SiteCard[] } {
         logoImageUrl: "",
         groupCount: 0,
         articleCount: 3,
+        pendingSubmissionCount: 0,
       },
     ],
   };
@@ -213,6 +218,10 @@ export function devArticleListLoader() {
       },
     ],
     contributorSites: [],
+    justReconciled: [] as Array<
+      | { outcome: "approved"; documentTitle: string; siteRkey: string; siteTitle: string }
+      | { outcome: "rejected"; documentTitle: string; siteRkey: string; rejectionReason: string }
+    >,
     authorDid: DEV_DID,
     authorHandle: "dev.user",
   };

@@ -215,11 +215,32 @@ function clearPendingPublishScribe(
   return rest;
 }
 
+// Phase 4 (discovery UX polish) — the outcome is reported back so list.tsx's
+// loader can surface a Contributor-side toast. This needs no dedup of its
+// own the way the Owner-side new-submission toast does (ADR 0023's
+// sessionStorage note doesn't apply here): the reconciliation itself is
+// self-consuming — once a document transitions, the triggering condition
+// (a pending or rejected local row) is gone, so a later visit can never
+// detect the same transition twice.
+export type ReconciliationResult =
+  | {
+      outcome: "rejected";
+      value: Record<string, unknown>;
+      siteUri: string;
+      rejectionReason: string;
+    }
+  | {
+      outcome: "approved";
+      value: Record<string, unknown>;
+      siteUri: string;
+      siteTitle: string;
+    };
+
 export async function reconcilePendingSubmission(
   agent: Agent,
   contributorDid: string,
   record: { rkey: string; uri: string; cid: string; value: Record<string, unknown> },
-): Promise<Record<string, unknown> | null> {
+): Promise<ReconciliationResult | null> {
   const scribe = (record.value.scribe as Record<string, unknown>) ?? {};
   const pendingPublish = scribe.pendingPublish as { siteUri?: string } | undefined;
   if (!pendingPublish?.siteUri) return null;
@@ -238,7 +259,12 @@ export async function reconcilePendingSubmission(
     };
     await putDocument(agent, contributorDid, record.rkey, newValue, record.cid);
     pendingSubmissions.remove(record.uri);
-    return newValue;
+    return {
+      outcome: "rejected",
+      value: newValue,
+      siteUri: pendingPublish.siteUri,
+      rejectionReason: submission.rejectionReason ?? "",
+    };
   }
 
   // Row missing — ambiguous between "approved" (approveSubmission already
@@ -263,6 +289,7 @@ export async function reconcilePendingSubmission(
   // can make (ADR 0014 point 3).
   const domain = String(siteScribe.domain ?? "");
   const basePath = String(siteScribe.basePath ?? "");
+  const siteTitle = String(siteScribe.title ?? "");
   const slug =
     String(record.value.path ?? "")
       .split("/")
@@ -302,5 +329,10 @@ export async function reconcilePendingSubmission(
   };
 
   await putDocument(agent, contributorDid, record.rkey, newValue, record.cid);
-  return newValue;
+  return {
+    outcome: "approved",
+    value: newValue,
+    siteUri: pendingPublish.siteUri,
+    siteTitle,
+  };
 }

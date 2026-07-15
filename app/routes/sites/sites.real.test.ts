@@ -3,6 +3,7 @@ import type { Agent } from "@atproto/api";
 import { loader, action } from "./sites";
 import { requireAuth, getAtpAgent } from "~/services/auth.server";
 import { syncSiteRoster } from "~/services/imageServiceClient.server";
+import { db, pendingSubmissions } from "~/services/db.server";
 
 // Characterization tests for the sites route's real-OAuth path (useRealOAuth:
 // true), written against the untouched loader/action before extracting onto
@@ -79,6 +80,7 @@ beforeEach(() => {
   vi.mocked(requireAuth).mockResolvedValue({ did: DID, handle: DID });
   vi.mocked(getAtpAgent).mockReset();
   vi.mocked(syncSiteRoster).mockReset().mockResolvedValue(undefined);
+  db.exec("DELETE FROM pending_submissions");
 });
 
 describe("loader", () => {
@@ -129,6 +131,7 @@ describe("loader", () => {
           logoImageUrl: "https://a.com/logo.png",
           groupCount: 2,
           articleCount: 4,
+          pendingSubmissionCount: 0,
         },
       ],
     });
@@ -160,6 +163,83 @@ describe("loader", () => {
         articleCount: 0,
       }),
     );
+  });
+
+  // Phase 4 (discovery UX polish) — per-site pending-submission count,
+  // read straight from local SQLite (pendingSubmissions.listForOwner).
+  describe("pendingSubmissionCount", () => {
+    it("counts only pending submissions for that exact site", async () => {
+      const siteAUri = `at://${DID}/site.standard.publication/site-a`;
+      const siteBUri = `at://${DID}/site.standard.publication/site-b`;
+      pendingSubmissions.create(
+        "at://did:plc:contributor/site.standard.document/abc",
+        "did:plc:contributor",
+        siteAUri,
+        DID,
+        "Article 1",
+        "2026-07-16T00:00:00.000Z",
+      );
+      pendingSubmissions.create(
+        "at://did:plc:contributor/site.standard.document/def",
+        "did:plc:contributor",
+        siteAUri,
+        DID,
+        "Article 2",
+        "2026-07-16T00:00:00.000Z",
+      );
+      pendingSubmissions.create(
+        "at://did:plc:contributor/site.standard.document/ghi",
+        "did:plc:contributor",
+        siteBUri,
+        DID,
+        "Article 3",
+        "2026-07-16T00:00:00.000Z",
+      );
+      const agent = makeAgent({
+        listRecords: vi.fn().mockResolvedValue({
+          data: {
+            records: [
+              { uri: siteAUri, cid: "cid-a", value: { scribe: { title: "Site A", domain: "a.com" } } },
+              { uri: siteBUri, cid: "cid-b", value: { scribe: { title: "Site B", domain: "b.com" } } },
+            ],
+          },
+        }),
+      });
+      vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+      const result = await callLoader();
+
+      expect(result.sites.find((s) => s.rkey === "site-a")?.pendingSubmissionCount).toBe(2);
+      expect(result.sites.find((s) => s.rkey === "site-b")?.pendingSubmissionCount).toBe(1);
+    });
+
+    it("excludes rejected submissions from the count", async () => {
+      const siteAUri = `at://${DID}/site.standard.publication/site-a`;
+      const rejectedUri = "at://did:plc:contributor/site.standard.document/rejected";
+      pendingSubmissions.create(
+        rejectedUri,
+        "did:plc:contributor",
+        siteAUri,
+        DID,
+        "Rejected article",
+        "2026-07-16T00:00:00.000Z",
+      );
+      pendingSubmissions.reject(rejectedUri, "Not a fit");
+      const agent = makeAgent({
+        listRecords: vi.fn().mockResolvedValue({
+          data: {
+            records: [
+              { uri: siteAUri, cid: "cid-a", value: { scribe: { title: "Site A", domain: "a.com" } } },
+            ],
+          },
+        }),
+      });
+      vi.mocked(getAtpAgent).mockResolvedValue(agent);
+
+      const result = await callLoader();
+
+      expect(result.sites[0].pendingSubmissionCount).toBe(0);
+    });
   });
 });
 
