@@ -476,6 +476,8 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 ### Phase 1 — Foundational roster
 
+**Status: COMPLETE 2026-07-15 — verified live end-to-end** against two real Bluesky accounts on `feature/owner-contributor`: Owner invites → real DM arrives with a clickable link → invitee sees the global Accept/Reject modal → accepts → Owner's `/article/list/:siteSlug` shows the entry promoted to `status: "accepted"`. Two real bugs were caught and fixed by this live testing (not caught by unit tests alone): the invite DM's link needed an explicit rich-text facet to be clickable, and the invitee-side site lookup needed real PDS resolution per-DID rather than assuming the caller's own PDS could serve it (see ADR 0019's Consequences for both).
+
 **Depends on:** nothing; this is the prerequisite for every other phase.
 
 **Grilled 2026-07-15 — see ADR 0019 for everything that changed from the original ADR 0014/0015/0018 sketch.** The scope below is the settled result, not the original draft.
@@ -496,7 +498,7 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 *Invite DM (ADR 0019 — does not route through `scribe-atp-social`):*
 - Sent directly from the Owner's own CMS OAuth session via `chat.bsky.convo.getConvoForMembers` + `sendMessage` (same two calls `scribe-atp-social`'s `notify.ts` already makes for subscriber alerts, just executed in-process against the Owner's own agent instead of that service's fixed bot identity) — keeps `scribe-atp-social` scoped to anonymous engagement events only, per ADR 0015.
 - Message: "Hi {displayName}, I'd like to invite you to contribute to {site URL}. Please click here ({app root URL}) and login to accept the invite." Link carries no identifying parameter — see next point for why.
-- Requires adding `chat.bsky.convo.*` to `OAUTH_SCOPE` **in this phase**, not Phase 5 as ADR 0016 originally scoped it (ADR 0019) — every existing user must re-authenticate before Phase 1 ships. The exact scope string needs verifying against Bluesky's real OAuth docs during implementation — no prior code in this repo has used OAuth (rather than app-password) against `chat.bsky.convo`, so ADR 0016/0019's `chat.bsky.convo.*` is shorthand, not a confirmed value.
+- Requires adding two scopes to `OAUTH_SCOPE` **in this phase**, not Phase 5 as ADR 0016 originally scoped it (ADR 0019) — every existing user must re-authenticate before Phase 1 ships. Implemented as `rpc:chat.bsky.convo.getConvoForMembers?aud=did:web:api.bsky.chat#bsky_chat` and the `sendMessage` equivalent, per atproto.com's service-proxied-lexicon scope syntax (not the legacy `transition:chat.bsky`, which doesn't fit this app's existing fine-grained `repo:` scope style). **Verified 2026-07-15 against a real Bluesky account** — full re-auth → invite → DM chain confirmed working end to end (see ADR 0019's Consequences); the invite link also needed an explicit `app.bsky.richtext.facet#link` facet to render as clickable rather than plain text, since chat messages have no auto-linkification.
 
 *Invitee-side Accept/Reject (ADR 0019):*
 - A global, on-any-authenticated-page check (not a dedicated route) reads `contributor_memberships` for `status: "invited"` rows against the logged-in DID and surfaces an Accept/Reject modal — "You have been invited to contribute articles to {Site URL}." This works whether the invitee arrives via the DM link or logs in organically later, since no state needs to travel through the link itself.
