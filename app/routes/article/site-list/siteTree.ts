@@ -3,8 +3,17 @@
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type { ArticleRef, SiteGroup } from "~/hooks/types";
-import type { ArticleRef, SiteGroup } from "~/hooks/types";
+export type { ArticleRef, SiteGroup, SiteContributor } from "~/hooks/types";
+import type { ArticleRef, SiteGroup, SiteContributor } from "~/hooks/types";
+
+// A roster entry as displayed on the page — the raw SiteContributor
+// (did/addedAt/status) plus the Bluesky profile fields resolved for display
+// only (never written back to scribe.contributors).
+export type RosterEntry = SiteContributor & {
+  handle: string;
+  displayName?: string;
+  avatar?: string;
+};
 
 export type SiteManifest = {
   rkey: string;
