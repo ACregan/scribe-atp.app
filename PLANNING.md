@@ -510,17 +510,31 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 ### Phase 2 — Image Library site-scoped folders
 
-**Depends on:** Phase 1 (needs the roster to exist and the add/remove action to sync from).
+**Depends on:** Phase 1 (needs the roster to exist and `contributorRoster.server.ts`'s functions to sync from).
+
+**Grilled 2026-07-15 — see ADR 0020 for everything resolved beyond ADR 0017's original sketch.** The scope below is the settled result.
 
 **Scope:**
-- `image_folders.site_uri` new nullable owner column, alongside the existing `user_did`.
-- `site_rosters (site_uri, member_did)` table in the Image Service's own SQLite, wholesale-replaced by a new sync call.
-- New Image Service endpoint (e.g. `PUT /api/image-service/site-roster`), called from the same CMS action that writes `scribe.contributors` in Phase 1 — reuses the existing session-cookie-forwarding auth already used by `browseImages`, not a new shared secret.
-- Access-check changes to the Image Service's existing read/write endpoints: allow if caller is the folder's `user_did`, or — for a site-owned folder — the site's owner (parseable directly from `site_uri`, no lookup needed) or a row in `site_rosters`.
 
-**Explicitly out of scope:** any change to personal (`user_did`-owned) folder behavior, and the general Image Library read-access-control gap for personal folders (tracked separately, not part of Contributors).
+*Schema:*
+- `image_folders.user_did` becomes **nullable** (today `NOT NULL`) alongside a new nullable `site_uri` column — a folder is owned by exactly one of the two. SQLite has no direct `ALTER COLUMN ... DROP NOT NULL`; needs the standard create-new-table/copy-data/drop/rename procedure, not a bare `ALTER TABLE ADD COLUMN`.
+- `site_rosters (site_uri, member_did)` table in the Image Service's own SQLite, with a composite uniqueness constraint on `(site_uri, member_did)` so repeated wholesale-replace syncs don't accumulate duplicates.
+- New shared module `image-service/src/access.ts` (ADR 0020 point 8) — `canAccessFolder(did, folder)` / `canAccessImage(did, image)`, replacing the per-file `!row || row.user_did !== did` idiom currently duplicated across `folders.ts` (×3), `deleteImage.ts`, and `bulkOperations.ts` (×2 + a destination-folder check). Logic: allowed if caller is the `user_did` owner, or — for a site-owned folder/image — the caller is the site owner (parsed from `site_uri`, no lookup needed) or appears in `site_rosters` for that `site_uri`.
 
-**Reference:** ADR 0017 in full.
+*Access restriction (ADR 0020 point 1 — the one place this phase deviates from "no change to existing behavior"):*
+- Site-owned folders get **both** read and write restriction — owner or roster member only. Personal folders are explicitly unaffected and keep today's open-read behavior (a separately tracked gap, not part of this feature).
+- `browse.ts`'s top-level "all root folders" listing must exclude a site-owned folder unless the caller is authorized for it via `access.ts`. Fetching a specific `folderId` (which today does zero ownership comparison for *any* folder) needs a check added — this is the first read-side restriction this service has ever had.
+- Contributors get full write parity with the Owner inside a site folder (upload/delete/create-subfolder/move) — one check, no tiers, consistent with ADR 0018.
+
+*Sync endpoint and trigger points (ADR 0020 points 3–6):*
+- `PUT /api/image-service/site-roster`, body `{ siteUri, siteName, memberDids }`, wholesale replace. Auth: caller's session DID must equal the owner DID parsed from `siteUri`, 403 otherwise.
+- **Access is granted only once status is `"accepted"`, not from `"invited"`.** Synced from two places: `removeContributor` (revoke immediately, any prior status) and the accepted-promotion branch of `reconcileContributorStatuses` (grant access) — both in `contributorRoster.server.ts`, both gain a `cookieHeader: string` parameter threaded from `site-list.tsx`'s `request.headers.get("Cookie")`, and both call the new `syncSiteRoster` (in `imageServiceClient.server.ts`) as an internal side-effect of their own write, mirroring how `inviteContributor` already calls `sendInviteDm`. The rejected-promotion branch needs no sync call.
+- **The folder is created at site-creation time**, not lazily on first accepted Contributor (ADR 0020 point 6, reversed from the initial recommendation) — useful to the Owner as "this site's images" independent of Contributors existing at all. `sites.tsx`'s create action calls the same `syncSiteRoster(siteUri, siteName, [])` (empty roster) right after writing the site record, reusing the sync endpoint's auto-create-if-missing behavior. Best-effort — if the Image Service is unreachable, site creation still succeeds, logged, self-correcting on the next sync. **Needs a one-shot backfill script** for the 3 sites that already exist across 2 accounts, calling the same endpoint once per site with an empty roster.
+- Folder display name: `"{domain} Images"` (e.g. "anthonycregan.co.uk Images"), using `scribe.domain` — set once at creation from the `siteName` sync payload field, **not** kept in sync with a later domain change via `/site/:siteName/configure` (accepted cosmetic limitation).
+
+**Explicitly out of scope:** any change to personal (`user_did`-owned) folder behavior; the general Image Library read-access-control gap for personal folders (tracked separately); site-deletion cleanup of the shared folder — **backlogged explicitly**, not solved here, per ADR 0020's Consequences.
+
+**Reference:** ADR 0017 (Context, for why the CMS pushes the roster rather than the Image Service resolving it live), **ADR 0020 (for every concrete decision above — read this one first, it supersedes ADR 0017's unspecified behavior, not its architecture).**
 
 ### Phase 3 — Submission core flow
 
