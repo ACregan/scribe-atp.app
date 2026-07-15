@@ -6,24 +6,37 @@ export interface SelectOption {
   label: string;
 }
 
-type BaseProps = {
+// Grouped options render as <optgroup> sections (ADR 0021 point 2) — an
+// additive alternative to `options`, not a change to it. Only the
+// single-select path supports this; MultiSelect stays flat-only, since
+// nothing needs grouped multi-select yet.
+export interface SelectOptionGroup {
+  label: string;
+  options: SelectOption[];
+}
+
+type FlatOptionsProps = { options: SelectOption[] };
+type GroupedOptionsProps = { groups: SelectOptionGroup[] };
+
+type MultipleProps = {
   id?: string;
   name: string;
   label?: string;
   error?: string;
   options: SelectOption[];
-};
-
-type SingleProps = BaseProps & {
-  multiple?: false;
-  value?: string;
-  onChange?: (value: string) => void;
-};
-
-type MultipleProps = BaseProps & {
   multiple: true;
   value?: string[];
   onChange?: (value: string[]) => void;
+};
+
+type SingleProps = (FlatOptionsProps | GroupedOptionsProps) & {
+  id?: string;
+  name: string;
+  label?: string;
+  error?: string;
+  multiple?: false;
+  value?: string;
+  onChange?: (value: string) => void;
 };
 
 type SelectProps = SingleProps | MultipleProps;
@@ -135,7 +148,7 @@ function MultiSelect({
 }
 
 export function Select(props: SelectProps) {
-  const { id, name, label, error, options } = props;
+  const { id, name, label, error } = props;
 
   if (props.multiple) {
     return <MultiSelect {...props} />;
@@ -158,11 +171,21 @@ export function Select(props: SelectProps) {
         <option value="" disabled>
           Select an option
         </option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
+        {"groups" in props
+          ? props.groups.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))
+          : props.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
       </select>
       <div className={styles.errorContainer}>
         {error && <span className={styles.error}>{error}</span>}

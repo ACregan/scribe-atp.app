@@ -106,6 +106,27 @@ function migrate(db: Database.Database) {
       status           TEXT NOT NULL,
       PRIMARY KEY (contributor_did, site_uri)
     );
+
+    -- Owner-side discovery of a Contributor's submission (ADR 0015) — written
+    -- in the same request as the Contributor's own scribe.pendingPublish
+    -- write. owner_did is parsed once from site_uri at write time so lookups
+    -- for "submissions to my sites" don't need to re-parse every row.
+    -- Approved rows are deleted once reconciled (Phase 3c); rejected rows
+    -- persist until the Contributor's own reconciliation check acknowledges
+    -- them — that local status is the only signal available, since rejection
+    -- leaves no public artifact on the Owner's site the way approval does.
+    CREATE TABLE IF NOT EXISTS pending_submissions (
+      document_uri     TEXT NOT NULL UNIQUE,
+      contributor_did  TEXT NOT NULL,
+      site_uri         TEXT NOT NULL,
+      owner_did        TEXT NOT NULL,
+      submitted_at     TEXT NOT NULL,
+      status           TEXT NOT NULL,
+      rejection_reason TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS pending_submissions_owner
+      ON pending_submissions (owner_did);
   `);
 }
 
@@ -357,6 +378,93 @@ export const contributorMemberships = {
       )
       .all(siteUri);
     return rows.map(fromRow);
+  },
+};
+
+export type PendingSubmissionStatus = "pending" | "rejected";
+
+export type PendingSubmission = {
+  documentUri: string;
+  contributorDid: string;
+  siteUri: string;
+  ownerDid: string;
+  submittedAt: string;
+  status: PendingSubmissionStatus;
+  rejectionReason: string | null;
+};
+
+type PendingSubmissionRow = {
+  document_uri: string;
+  contributor_did: string;
+  site_uri: string;
+  owner_did: string;
+  submitted_at: string;
+  status: PendingSubmissionStatus;
+  rejection_reason: string | null;
+};
+
+function fromSubmissionRow(row: PendingSubmissionRow): PendingSubmission {
+  return {
+    documentUri: row.document_uri,
+    contributorDid: row.contributor_did,
+    siteUri: row.site_uri,
+    ownerDid: row.owner_did,
+    submittedAt: row.submitted_at,
+    status: row.status,
+    rejectionReason: row.rejection_reason,
+  };
+}
+
+export const pendingSubmissions = {
+  // Written in the same request as the Contributor's own scribe.pendingPublish
+  // write (ADR 0015) — one document can only ever have one pending_submissions
+  // row at a time (enforced by the UNIQUE constraint on document_uri and the
+  // submit action's own pre-write guard, ADR 0021 point 5).
+  create: (
+    documentUri: string,
+    contributorDid: string,
+    siteUri: string,
+    ownerDid: string,
+    submittedAt: string,
+  ) => {
+    db.prepare(
+      `INSERT INTO pending_submissions (document_uri, contributor_did, site_uri, owner_did, submitted_at, status)
+       VALUES (?, ?, ?, ?, ?, 'pending')`,
+    ).run(documentUri, contributorDid, siteUri, ownerDid, submittedAt);
+  },
+  get: (documentUri: string): PendingSubmission | undefined => {
+    const row = db
+      .prepare<[string], PendingSubmissionRow>(
+        "SELECT document_uri, contributor_did, site_uri, owner_did, submitted_at, status, rejection_reason FROM pending_submissions WHERE document_uri = ?",
+      )
+      .get(documentUri);
+    return row ? fromSubmissionRow(row) : undefined;
+  },
+  // Reject (Phase 3b) — the row persists with the reason; it's the only
+  // signal the Contributor's own reconciliation check (Phase 3c) has, since
+  // rejection leaves no public artifact on the Owner's site the way approval
+  // does.
+  reject: (documentUri: string, reason: string) => {
+    db.prepare(
+      "UPDATE pending_submissions SET status = 'rejected', rejection_reason = ? WHERE document_uri = ?",
+    ).run(reason, documentUri);
+  },
+  // Approve (Phase 3b) deletes the row immediately — no local trace needed
+  // once the ArticleRef appears in the Owner's manifest, that's the
+  // authoritative signal. Reject (Phase 3c) deletes it once the Contributor's
+  // reconciliation check has acknowledged it.
+  remove: (documentUri: string) => {
+    db.prepare("DELETE FROM pending_submissions WHERE document_uri = ?").run(documentUri);
+  },
+  // Owner-side review list (Phase 3b) — every submission awaiting a decision
+  // for any of the Owner's sites.
+  listForOwner: (ownerDid: string): PendingSubmission[] => {
+    const rows = db
+      .prepare<[string], PendingSubmissionRow>(
+        "SELECT document_uri, contributor_did, site_uri, owner_did, submitted_at, status, rejection_reason FROM pending_submissions WHERE owner_did = ?",
+      )
+      .all(ownerDid);
+    return rows.map(fromSubmissionRow);
   },
 };
 

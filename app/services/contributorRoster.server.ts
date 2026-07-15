@@ -1,7 +1,7 @@
 import { Agent } from "@atproto/api";
 import { SITE_COLLECTION } from "~/constants";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
-import { contributorMemberships } from "~/services/db.server";
+import { contributorMemberships, type ContributorMembership } from "~/services/db.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 import { publicUrl } from "~/services/auth.server";
 import { syncSiteRoster } from "~/services/imageServiceClient.server";
@@ -217,7 +217,10 @@ export type PendingInvitation = {
   siteDomain: string;
 };
 
-function parseSiteUri(siteUri: string): { ownerDid: string; rkey: string } {
+// Exported for list.tsx's submit action (ADR 0021 point 1) — the action
+// derives publish-vs-submit for itself by parsing the owner DID out of the
+// submitted site URI, rather than trusting a client-supplied flag.
+export function parseSiteUri(siteUri: string): { ownerDid: string; rkey: string } {
   const match = siteUri.match(/^at:\/\/([^/]+)\/[^/]+\/([^/]+)$/);
   if (!match) throw new Error(`Malformed site URI: ${siteUri}`);
   return { ownerDid: match[1], rkey: match[2] };
@@ -256,36 +259,47 @@ async function resolveOwnerPdsUrl(did: string): Promise<string> {
   return pds.serviceEndpoint;
 }
 
-// Invitee-side discovery (ADR 0019 Decision 6) — a global, on-any-login
-// check, not tied to a specific route or the DM link. site.standard.publication
-// records are publicly readable — no auth needed against the Owner's repo,
-// and (per the PDS-resolution note above) no agent at all, just a plain
-// fetch against the Owner's own PDS. Best-effort per site: a site that's
-// since been deleted or is otherwise unreadable is silently dropped from
-// the list rather than failing the whole page's load.
-export async function listPendingInvitations(
-  contributorDid: string,
-): Promise<PendingInvitation[]> {
-  const invited = contributorMemberships
-    .listForContributor(contributorDid)
-    .filter((m) => m.status === "invited");
+// Shared by listPendingInvitations (status: "invited") and listContributorSites
+// (status: "accepted", ADR 0021 point 3) — both need the identical resolution
+// work (site record + Owner profile, via the cross-repo PDS-read pattern
+// above), differing only in which status they filter contributor_memberships
+// for. Resolves the Owner's display name eagerly alongside the site record
+// (ADR 0021 point 4) rather than lazily once a Contributor site is selected
+// in the modal — the Contributor Sites list for any one person is realistically
+// small, so this costs little and avoids a network delay on selection.
+// Best-effort per site: one that's since been deleted or is otherwise
+// unreadable is silently dropped from the list rather than failing the whole
+// page's load.
+type ResolvedMembershipSite = {
+  siteUri: string;
+  siteTitle: string;
+  siteDomain: string;
+  ownerDisplayName: string;
+};
 
+async function resolveMembershipSites(
+  memberships: ContributorMembership[],
+): Promise<ResolvedMembershipSite[]> {
   const results = await Promise.allSettled(
-    invited.map(async (m): Promise<PendingInvitation> => {
+    memberships.map(async (m): Promise<ResolvedMembershipSite> => {
       const { ownerDid, rkey } = parseSiteUri(m.siteUri);
       const pdsUrl = await resolveOwnerPdsUrl(ownerDid);
       const url = new URL(`${pdsUrl}/xrpc/com.atproto.repo.getRecord`);
       url.searchParams.set("repo", ownerDid);
       url.searchParams.set("collection", SITE_COLLECTION);
       url.searchParams.set("rkey", rkey);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Failed to fetch site record: ${res.status}`);
-      const data = (await res.json()) as { value: Record<string, unknown> };
+      const [siteRes, ownerProfile] = await Promise.all([
+        fetch(url),
+        fetchBskyProfile(ownerDid),
+      ]);
+      if (!siteRes.ok) throw new Error(`Failed to fetch site record: ${siteRes.status}`);
+      const data = (await siteRes.json()) as { value: Record<string, unknown> };
       const scribe = data.value.scribe as Record<string, unknown> | undefined;
       return {
         siteUri: m.siteUri,
         siteTitle: String(scribe?.title ?? ""),
         siteDomain: String(scribe?.domain ?? ""),
+        ownerDisplayName: ownerProfile?.displayName || ownerProfile?.handle || ownerDid,
       };
     }),
   );
@@ -294,20 +308,56 @@ export async function listPendingInvitations(
     if (r.status === "rejected") {
       logger.warn(
         {
-          event: "contributor.pending_invitation_lookup_failed",
-          siteUri: invited[i].siteUri,
+          event: "contributor.membership_site_lookup_failed",
+          siteUri: memberships[i].siteUri,
           error: String(r.reason),
         },
-        "failed to resolve a pending invitation's site — dropped from the list",
+        "failed to resolve a membership's site — dropped from the list",
       );
     }
   });
 
   return results
     .filter(
-      (r): r is PromiseFulfilledResult<PendingInvitation> => r.status === "fulfilled",
+      (r): r is PromiseFulfilledResult<ResolvedMembershipSite> => r.status === "fulfilled",
     )
     .map((r) => r.value);
+}
+
+// Invitee-side discovery (ADR 0019 Decision 6) — a global, on-any-login
+// check, not tied to a specific route or the DM link.
+export async function listPendingInvitations(
+  contributorDid: string,
+): Promise<PendingInvitation[]> {
+  const invited = contributorMemberships
+    .listForContributor(contributorDid)
+    .filter((m) => m.status === "invited");
+  const resolved = await resolveMembershipSites(invited);
+  return resolved.map(({ siteUri, siteTitle, siteDomain }) => ({
+    siteUri,
+    siteTitle,
+    siteDomain,
+  }));
+}
+
+// "Contributor Sites" group for the unified Publish/Submit modal (ADR 0021
+// point 3) — every site this DID is an *accepted* Contributor on. Merely
+// "invited" doesn't count (ADR 0019/0020's accepted-only-gates-access
+// posture, applied here too — no submit access before acceptance).
+export type ContributorSite = {
+  siteUri: string;
+  siteTitle: string;
+  siteDomain: string;
+  ownerDisplayName: string;
+};
+
+export async function listContributorSites(
+  contributorDid: string,
+): Promise<ContributorSite[]> {
+  const accepted = contributorMemberships
+    .listForContributor(contributorDid)
+    .filter((m) => m.status === "accepted");
+  return resolveMembershipSites(accepted);
 }
 
 // Owner-side reconciliation (ADR 0019) — run from the site's own
