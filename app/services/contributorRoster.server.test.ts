@@ -8,9 +8,16 @@ import {
   reconcileContributorStatuses,
 } from "./contributorRoster.server";
 import { db, contributorMemberships } from "./db.server";
+import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 
 // Mirrors the makeAgent/siteRecord helpers in siteManifest.server.test.ts —
 // same mocking shape, kept local since this is a separate module.
+
+vi.mock("~/services/auth.server", () => ({ publicUrl: "https://test.example" }));
+
+vi.mock("~/services/blueskyProfile.server", () => ({
+  fetchBskyProfile: vi.fn(),
+}));
 
 const DID = "did:plc:owner";
 const SITE_SLUG = "my-site";
@@ -21,6 +28,8 @@ function makeAgent(
   overrides: {
     getRecord?: ReturnType<typeof vi.fn>;
     putRecord?: ReturnType<typeof vi.fn>;
+    getConvoForMembers?: ReturnType<typeof vi.fn>;
+    sendMessage?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
   return {
@@ -31,6 +40,18 @@ function makeAgent(
           putRecord:
             overrides.putRecord ??
             vi.fn().mockResolvedValue({ data: { cid: "new-cid" } }),
+        },
+      },
+    },
+    api: {
+      chat: {
+        bsky: {
+          convo: {
+            getConvoForMembers:
+              overrides.getConvoForMembers ??
+              vi.fn().mockResolvedValue({ data: { convo: { id: "convo-1" } } }),
+            sendMessage: overrides.sendMessage ?? vi.fn().mockResolvedValue({}),
+          },
         },
       },
     },
@@ -48,6 +69,11 @@ function siteRecord(scribe: Record<string, unknown>) {
 
 beforeEach(() => {
   db.exec("DELETE FROM contributor_memberships");
+  vi.mocked(fetchBskyProfile).mockReset().mockResolvedValue({
+    did: CONTRIBUTOR_DID,
+    handle: "contributor.bsky.social",
+    displayName: "Contributor Name",
+  } as never);
 });
 
 describe("inviteContributor", () => {
@@ -71,6 +97,52 @@ describe("inviteContributor", () => {
       addedAt: written.contributors[0].addedAt,
       status: "invited",
     });
+  });
+
+  it("sends an invite DM via the Owner's own agent, not scribe-atp-social (ADR 0019)", async () => {
+    const getConvoForMembers = vi
+      .fn()
+      .mockResolvedValue({ data: { convo: { id: "convo-42" } } });
+    const sendMessage = vi.fn().mockResolvedValue({});
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({ contributors: [], domain: "norobots.blog" }),
+      ),
+      getConvoForMembers,
+      sendMessage,
+    });
+
+    await inviteContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID);
+
+    expect(getConvoForMembers).toHaveBeenCalledWith(
+      { members: [CONTRIBUTOR_DID] },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+    expect(sendMessage).toHaveBeenCalledWith(
+      {
+        convoId: "convo-42",
+        message: {
+          $type: "chat.bsky.convo.defs#messageInput",
+          text: expect.stringContaining("Contributor Name"),
+        },
+      },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+    const messageText = sendMessage.mock.calls[0][0].message.text;
+    expect(messageText).toContain("norobots.blog");
+    expect(messageText).toContain("https://test.example");
+  });
+
+  it("still returns ok:true when the invite DM fails — the roster write already succeeded", async () => {
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(siteRecord({ contributors: [] })),
+      getConvoForMembers: vi.fn().mockRejectedValue(new Error("chat proxy down")),
+    });
+
+    const result = await inviteContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID);
+
+    expect(result).toEqual({ ok: true });
+    expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)?.status).toBe("invited");
   });
 
   it("rejects inviting the site owner's own DID", async () => {

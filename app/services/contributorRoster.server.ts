@@ -2,8 +2,54 @@ import { Agent } from "@atproto/api";
 import { SITE_COLLECTION } from "~/constants";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import { contributorMemberships } from "~/services/db.server";
+import { fetchBskyProfile } from "~/services/blueskyProfile.server";
+import { publicUrl } from "~/services/auth.server";
+import { logger } from "~/services/logger.server";
 import type { SiteContributor } from "~/hooks/types";
 import type { SiteRecordValue } from "~/routes/article/site-list/siteTree";
+
+// ADR 0019 — chat.bsky is a service-proxied lexicon, not part of the
+// authenticated user's own repo, hence the Atproto-Proxy header rather than
+// a plain agent call. Same proxy DID and call shape scribe-atp-social's
+// notify.ts already uses for subscriber DMs — the difference here is the
+// caller: the Owner's own OAuth session, not that service's fixed
+// app-password identity, per the grill session's decision to keep
+// scribe-atp-social scoped to anonymous engagement events only.
+const CHAT_PROXY_HEADERS = { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } };
+
+// Best-effort — failure here must never fail the invite itself. The roster
+// write (scribe.contributors + contributor_memberships) is the state that
+// actually matters; the DM is a nudge, and the invitee can still discover
+// the invitation via the global on-login check (ADR 0019 Decision 6)
+// even if this never sends.
+async function sendInviteDm(
+  agent: Agent,
+  contributorDid: string,
+  siteDomain: string,
+): Promise<void> {
+  try {
+    const profile = await fetchBskyProfile(contributorDid);
+    const greetingName = profile?.displayName || profile?.handle || "there";
+    const text = `Hi ${greetingName}, I'd like to invite you to contribute to ${siteDomain}. Please click here (${publicUrl}) and login to accept the invite.`;
+
+    const convo = await agent.api.chat.bsky.convo.getConvoForMembers(
+      { members: [contributorDid] },
+      CHAT_PROXY_HEADERS,
+    );
+    await agent.api.chat.bsky.convo.sendMessage(
+      {
+        convoId: convo.data.convo.id,
+        message: { $type: "chat.bsky.convo.defs#messageInput", text },
+      },
+      CHAT_PROXY_HEADERS,
+    );
+  } catch (err) {
+    logger.warn(
+      { event: "contributor.invite_dm_failed", contributorDid, error: String(err) },
+      "invite DM failed — roster write already succeeded, not retried",
+    );
+  }
+}
 
 // Contributors feature, Phase 1 (ADR 0014/0015/0018/0019) — roster
 // mutations for scribe.contributors, kept in lock-step with the local
@@ -68,6 +114,10 @@ export async function inviteContributor(
       addedAt,
       "invited",
     );
+
+    // Best-effort (see sendInviteDm) — never turns a successful roster
+    // write into a reported failure.
+    await sendInviteDm(agent, contributorDid, String(scribe.domain ?? ""));
   } catch (err) {
     console.error("Failed to invite contributor:", err);
     return { error: `Failed to invite contributor: ${String(err)}` };
