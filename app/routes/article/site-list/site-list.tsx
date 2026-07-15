@@ -16,6 +16,7 @@ import {
   useRealOAuth,
 } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
+import { Pill } from "~/components/Pill/Pill";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { Input } from "~/components/Input/Input";
 import { Modal } from "~/components/Modal/Modal";
@@ -49,9 +50,16 @@ import {
 } from "~/constants";
 import { listDocuments } from "~/services/documentRepository.server";
 import { crossPostToBluesky } from "@scribe-atp/core";
-import type { ArticleRef, SiteGroup } from "~/hooks/types";
+import type { ArticleRef, SiteGroup, SiteContributor } from "~/hooks/types";
+import { fetchBskyProfiles } from "~/services/blueskyProfile.server";
+import {
+  inviteContributor,
+  removeContributor,
+  reconcileContributorStatuses,
+} from "~/services/contributorRoster.server";
 import {
   type SiteManifest,
+  type RosterEntry,
   toSlug,
   treeToSiteData,
 } from "./siteTree";
@@ -83,6 +91,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   try {
     const { agent, did } = await requireAtpAgent(request);
+
+    // ADR 0019 — Owner-side reconciliation: promote locally-accepted invites
+    // and strip locally-rejected ones out of scribe.contributors, every time
+    // the Owner visits this page. Cheap no-op when there's nothing pending.
+    await reconcileContributorStatuses(agent, did, siteSlug);
+
     const [record, documents] = await Promise.all([
       agent.com.atproto.repo.getRecord({
         repo: did,
@@ -101,9 +115,20 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       String(d.value.site ?? "").startsWith(READER_BASE_URL),
     );
 
+    const rosterEntries = (scribeVal.contributors as SiteContributor[]) ?? [];
+    const profiles = await fetchBskyProfiles(rosterEntries.map((c) => c.did));
+    const profileByDid = new Map(profiles.map((p) => [p.did, p]));
+    const contributors: RosterEntry[] = rosterEntries.map((c) => ({
+      ...c,
+      handle: profileByDid.get(c.did)?.handle ?? c.did,
+      displayName: profileByDid.get(c.did)?.displayName,
+      avatar: profileByDid.get(c.did)?.avatar,
+    }));
+
     return {
       devMode: false,
       hasUnassignedArticles,
+      contributors,
       site: {
         rkey: siteSlug,
         cid: record.data.cid,
@@ -173,6 +198,27 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     return redirect(`/article/list/${siteSlug}`);
+  }
+
+  if (intent === "inviteContributor") {
+    const contributorDid = (formData.get("contributorDid") as string)?.trim();
+    if (!contributorDid) return { error: "No Bluesky account selected." };
+    if (!useRealOAuth) return { ok: true };
+
+    const agent = await getAtpAgent(did, request);
+    return inviteContributor(agent, did, siteSlug, contributorDid);
+  }
+
+  if (intent === "removeContributor") {
+    const contributorDid = formData.get("contributorDid") as string;
+    if (!contributorDid) return { ok: false, error: "Missing contributor." };
+    if (!useRealOAuth) return { ok: true, removedDid: contributorDid };
+
+    const agent = await getAtpAgent(did, request);
+    const result = await removeContributor(agent, did, siteSlug, contributorDid);
+    return result.ok
+      ? { ok: true, removedDid: contributorDid }
+      : { ok: false, error: String(result.error) };
   }
 
   if (intent === "moveToDraft") {
@@ -407,6 +453,161 @@ function CreateGroupModal({
   );
 }
 
+type ResolvedProfile = {
+  did: string;
+  handle: string;
+  displayName: string;
+  avatar?: string;
+};
+type ResolveResult = ResolvedProfile | { error: string };
+
+// Modal for adding someone to this site's Contributor roster (ADR 0014/0018/
+// 0019). Handle-resolution half mirrors AddContributorModal (the document-
+// level byline feature's existing lookup flow) — reused rather than building
+// a second lookup pattern — but unlike that modal, "Send Invite" is a real
+// server write (scribe.contributors + contributor_memberships), not local
+// component state staged for a later form save.
+function InviteContributorModal({
+  isOpen,
+  onClose,
+  existingDids,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  existingDids: string[];
+}) {
+  const [handle, setHandle] = useState("");
+  const [hasLookedUp, setHasLookedUp] = useState(false);
+  const resolveFetcher = useFetcher<ResolveResult>();
+  const inviteFetcher = useFetcher<{ ok?: boolean; error?: string }>();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setHandle("");
+    setHasLookedUp(false);
+  }, [isOpen]);
+
+  // Mirrors CreateGroupModal's close-on-success effect above — this pattern
+  // is already proven to work in this file for a modal+fetcher submission.
+  useEffect(() => {
+    if (
+      inviteFetcher.state === "idle" &&
+      inviteFetcher.data &&
+      !inviteFetcher.data.error
+    ) {
+      onCloseRef.current();
+    }
+  }, [inviteFetcher.state, inviteFetcher.data]);
+
+  const resolved =
+    hasLookedUp && resolveFetcher.data && "did" in resolveFetcher.data
+      ? resolveFetcher.data
+      : null;
+  const resolveError =
+    hasLookedUp && resolveFetcher.data && "error" in resolveFetcher.data
+      ? resolveFetcher.data.error
+      : null;
+
+  const isResolving = resolveFetcher.state !== "idle";
+  const isInviting = inviteFetcher.state !== "idle";
+  const alreadyOnRoster = resolved ? existingDids.includes(resolved.did) : false;
+  const canInvite = resolved !== null && !alreadyOnRoster && !isInviting;
+
+  function handleLookup() {
+    if (!handle.trim()) return;
+    setHasLookedUp(true);
+    resolveFetcher.load(
+      `/article/resolve-contributor?handle=${encodeURIComponent(handle.trim())}`,
+    );
+  }
+
+  function handleInvite() {
+    if (!resolved || !canInvite) return;
+    const formData = new FormData();
+    formData.set("_intent", "inviteContributor");
+    formData.set("contributorDid", resolved.did);
+    inviteFetcher.submit(formData, { method: "post" });
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Invite Contributor"
+      footer={
+        <div
+          style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}
+        >
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="success" disabled={!canInvite} onClick={handleInvite}>
+            {isInviting ? "Sending…" : "Send Invite"}
+          </Button>
+        </div>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+        <div style={{ display: "flex", gap: "0.8rem", alignItems: "flex-end" }}>
+          <Input
+            id="invite-contributor-handle"
+            label="Bluesky handle"
+            placeholder="e.g. alice.bsky.app"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleLookup();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!handle.trim() || isResolving}
+            onClick={handleLookup}
+          >
+            {isResolving ? "Looking up…" : "Look up"}
+          </Button>
+        </div>
+
+        {resolveError && (
+          <p style={{ color: "var(--action-danger)", margin: 0 }}>{resolveError}</p>
+        )}
+        {inviteFetcher.data?.error && (
+          <p style={{ color: "var(--action-danger)", margin: 0 }}>
+            {inviteFetcher.data.error}
+          </p>
+        )}
+
+        {resolved && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+            {resolved.avatar && (
+              <img
+                src={resolved.avatar}
+                alt=""
+                style={{ width: "3.2rem", height: "3.2rem", borderRadius: "50%" }}
+              />
+            )}
+            <span>{resolved.displayName}</span>
+            <span style={{ color: "var(--text-secondary)" }}>
+              @{resolved.handle}
+            </span>
+            {alreadyOnRoster && (
+              <p style={{ color: "var(--action-danger)", margin: 0 }}>
+                This person is already on the roster for this site.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function ShareModal({
   article,
 }: {
@@ -454,13 +655,107 @@ function ShareModal({
   );
 }
 
+const STATUS_VARIANT: Record<RosterEntry["status"], "success" | "secondary" | "danger"> = {
+  accepted: "success",
+  invited: "secondary",
+  // Never actually rendered — a rejected entry is reconciled out of
+  // scribe.contributors by this page's own loader before it ever reaches
+  // the component (ADR 0019). Handled for type completeness only.
+  rejected: "danger",
+};
+
+function ContributorsSection({
+  contributors,
+  onRemove,
+  removingDid,
+}: {
+  contributors: RosterEntry[];
+  onRemove: (did: string) => void;
+  removingDid: string | null;
+}) {
+  // Not wrapped in its own <PageSection> — this renders inside the single
+  // scrolling PageSection the whole page content shares (see Contributors
+  // Phase 1 grill session, Question 4: one scrolling column, not a second
+  // clipped-by-default region under the fixed container's overflow:hidden).
+  return (
+    <div
+      style={{
+        borderTop: "0.1rem solid var(--border-color)",
+        marginTop: "1rem",
+        paddingTop: "1rem",
+      }}
+    >
+      <h6 style={{ margin: 0 }}>Contributors</h6>
+
+      {contributors.length === 0 ? (
+        <p style={{ color: "var(--text-secondary)" }}>
+          No contributors yet — invite someone to let them submit articles to
+          this site.
+        </p>
+      ) : (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {contributors.map((c) => (
+            <li
+              key={c.did}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.8rem",
+                padding: "0.8rem 0",
+                borderTop: "0.1rem solid var(--border-subtle)",
+              }}
+            >
+              {c.avatar && (
+                <img
+                  src={c.avatar}
+                  alt=""
+                  style={{ width: "3.2rem", height: "3.2rem", borderRadius: "50%" }}
+                />
+              )}
+              <span>{c.displayName ?? c.handle}</span>
+              <span style={{ color: "var(--text-secondary)" }}>@{c.handle}</span>
+              <Pill variant={STATUS_VARIANT[c.status]}>{c.status}</Pill>
+              <Button
+                type="button"
+                variant="danger"
+                style={{ marginLeft: "auto" }}
+                disabled={removingDid === c.did}
+                onClick={() => onRemove(c.did)}
+              >
+                {removingDid === c.did ? "Removing…" : "Remove"}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function HydrateFallback() {
   return <Spinner size="large" />;
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, hasUnassignedArticles } = loaderData;
+  const { site, devMode, hasUnassignedArticles, contributors } = loaderData;
   const { isOpen, open, close } = useModal();
+  const inviteModal = useModal();
+
+  const removeContributorFetcher = useFetcher<{
+    ok?: boolean;
+    removedDid?: string;
+    error?: string;
+  }>();
+  const removingContributorDidRef = useRef<string | null>(null);
+  const isRemovingContributor = removeContributorFetcher.state !== "idle";
+
+  function handleRemoveContributor(contributorDid: string) {
+    removingContributorDidRef.current = contributorDid;
+    const formData = new FormData();
+    formData.set("_intent", "removeContributor");
+    formData.set("contributorDid", contributorDid);
+    removeContributorFetcher.submit(formData, { method: "post" });
+  }
 
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -584,6 +879,28 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     }
   }
 
+  // Same "derive during render" fix as processedDeleteData above — useEffect
+  // keyed on fetcher.data doesn't reliably re-fire in this app's React
+  // Router version (see feedback-usefetcher-data-effect-unreliable memory).
+  const [processedRemoveContributorData, setProcessedRemoveContributorData] =
+    useState(removeContributorFetcher.data);
+  if (
+    removeContributorFetcher.state === "idle" &&
+    removeContributorFetcher.data &&
+    removeContributorFetcher.data !== processedRemoveContributorData
+  ) {
+    setProcessedRemoveContributorData(removeContributorFetcher.data);
+    removingContributorDidRef.current = null;
+    if (!removeContributorFetcher.data.ok) {
+      addToast({
+        heading: "Remove failed",
+        content: removeContributorFetcher.data.error,
+        variant: "danger",
+        autoExpire: false,
+      });
+    }
+  }
+
   useEffect(() => {
     if (shareFetcher.state !== "idle" || !shareFetcher.data) return;
     if (shareFetcher.data.ok) {
@@ -634,24 +951,30 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
   return (
     <PageContainer
+      fixed
       title={
         <PageContainerHeading icon={SvgImageList.Documents}>
           Groups & Articles
         </PageContainerHeading>
       }
       topButtons={
-        <ButtonGroupContainer>
-          <Link to={`/article/create?site=${site.rkey}`}>
-            <Button type="button" variant="primary" tabIndex={-1}>
-              Draft New Article
-            </Button>
-          </Link>
-          <Link to={`/article/list/${site.rkey}/new`}>
-            <Button type="button" variant="primary" tabIndex={-1}>
-              Add New Group
-            </Button>
-          </Link>
-        </ButtonGroupContainer>
+        <>
+          <ButtonGroupContainer>
+            <Link to={`/article/create?site=${site.rkey}`}>
+              <Button type="button" variant="primary" tabIndex={-1}>
+                Draft New Article
+              </Button>
+            </Link>
+            <Link to={`/article/list/${site.rkey}/new`}>
+              <Button type="button" variant="primary" tabIndex={-1}>
+                Add New Group
+              </Button>
+            </Link>
+          </ButtonGroupContainer>
+          <Button type="button" variant="primary" onClick={inviteModal.open}>
+            Invite Contributor
+          </Button>
+        </>
       }
     >
       <DndContext
@@ -661,11 +984,14 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
-        <SortableContext items={rootIds} strategy={verticalListSortingStrategy}>
-          <PageSection>
-            <h6>{site.title}</h6>
-          </PageSection>
-          <PageSection>
+        {/* Single scrolling column for Phase 1 (grill session Question 4) —
+            title, groups, and the Contributors section all share one
+            overflow region rather than a PageSectionColumns split. That
+            split is deferred to Phase 5, when the chat panel actually
+            exists and there's a real second thing to put beside this. */}
+        <PageSection overflow>
+          <h6>{site.title}</h6>
+          <SortableContext items={rootIds} strategy={verticalListSortingStrategy}>
             <GroupList>
               {/* g:root never has anything to render — since ADR 0013 every
                   document reaching this site is already published into a
@@ -701,8 +1027,14 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                   />
                 ))}
             </GroupList>
-          </PageSection>
-        </SortableContext>
+          </SortableContext>
+
+          <ContributorsSection
+            contributors={contributors}
+            onRemove={handleRemoveContributor}
+            removingDid={isRemovingContributor ? removingContributorDidRef.current : null}
+          />
+        </PageSection>
 
         <DragOverlay>
           {activeArticle && (
@@ -802,6 +1134,12 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           urlPrefix={site.urlPrefix}
         />
       </Modal>
+
+      <InviteContributorModal
+        isOpen={inviteModal.isOpen}
+        onClose={inviteModal.close}
+        existingDids={contributors.map((c) => c.did)}
+      />
 
       <Modal
         isOpen={blocker.state === "blocked"}

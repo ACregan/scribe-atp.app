@@ -29,7 +29,7 @@ export async function fetchBskyProfile(
 export async function fetchBskyProfiles(
   dids: string[],
   signal?: AbortSignal,
-): Promise<Array<{ did: string; avatar?: string }>> {
+): Promise<Array<{ did: string; handle: string; displayName?: string; avatar?: string }>> {
   if (dids.length === 0) return [];
   const results = await Promise.allSettled(
     dids.map((did) => fetchProfile(did, signal)),
@@ -39,5 +39,10 @@ export async function fetchBskyProfiles(
       (result): result is PromiseFulfilledResult<Profile> =>
         result.status === "fulfilled",
     )
-    .map((result) => ({ did: result.value.did, avatar: result.value.avatar }));
+    .map((result) => ({
+      did: result.value.did,
+      handle: result.value.handle,
+      displayName: result.value.displayName,
+      avatar: result.value.avatar,
+    }));
 }

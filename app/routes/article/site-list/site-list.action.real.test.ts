@@ -3,6 +3,7 @@ import type { Agent } from "@atproto/api";
 import { action } from "./site-list";
 import { requireAuth, getAtpAgent } from "~/services/auth.server";
 import * as siteManifest from "~/services/siteManifest.server";
+import * as contributorRoster from "~/services/contributorRoster.server";
 
 // Dispatch-only smoke tests for the site-list action's real-OAuth path
 // (useRealOAuth: true). This file used to characterize each intent's full
@@ -30,6 +31,16 @@ vi.mock("~/services/siteManifest.server", async (importOriginal) => {
     saveSiteOrder: vi.fn(),
     removeArticleFromSite: vi.fn(),
     unpublishArticle: vi.fn(),
+  };
+});
+
+vi.mock("~/services/contributorRoster.server", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("~/services/contributorRoster.server")>();
+  return {
+    ...actual,
+    inviteContributor: vi.fn(),
+    removeContributor: vi.fn(),
   };
 });
 
@@ -61,6 +72,8 @@ beforeEach(() => {
   vi.mocked(siteManifest.saveSiteOrder).mockReset();
   vi.mocked(siteManifest.removeArticleFromSite).mockReset();
   vi.mocked(siteManifest.unpublishArticle).mockReset();
+  vi.mocked(contributorRoster.inviteContributor).mockReset();
+  vi.mocked(contributorRoster.removeContributor).mockReset();
 });
 
 describe("action — createGroup", () => {
@@ -190,6 +203,74 @@ describe("action — removeArticle", () => {
       SITE_SLUG,
       articleUri,
     );
+  });
+});
+
+describe("action — inviteContributor", () => {
+  it("rejects a missing contributorDid without calling the module", async () => {
+    await expect(
+      callAction({ _intent: "inviteContributor", contributorDid: "" }),
+    ).resolves.toEqual({ error: "No Bluesky account selected." });
+    expect(contributorRoster.inviteContributor).not.toHaveBeenCalled();
+  });
+
+  it("dispatches to inviteContributor and passes its result through", async () => {
+    vi.mocked(contributorRoster.inviteContributor).mockResolvedValue({ ok: true });
+
+    await expect(
+      callAction({
+        _intent: "inviteContributor",
+        contributorDid: "did:plc:newcontributor",
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(contributorRoster.inviteContributor).toHaveBeenCalledWith(
+      AGENT_SENTINEL,
+      DID,
+      SITE_SLUG,
+      "did:plc:newcontributor",
+    );
+  });
+});
+
+describe("action — removeContributor", () => {
+  it("rejects a missing contributorDid without calling the module", async () => {
+    await expect(
+      callAction({ _intent: "removeContributor", contributorDid: "" }),
+    ).resolves.toEqual({ ok: false, error: "Missing contributor." });
+    expect(contributorRoster.removeContributor).not.toHaveBeenCalled();
+  });
+
+  it("dispatches to removeContributor and returns the removed DID on success", async () => {
+    vi.mocked(contributorRoster.removeContributor).mockResolvedValue({ ok: true });
+
+    await expect(
+      callAction({
+        _intent: "removeContributor",
+        contributorDid: "did:plc:existingcontributor",
+      }),
+    ).resolves.toEqual({ ok: true, removedDid: "did:plc:existingcontributor" });
+
+    expect(contributorRoster.removeContributor).toHaveBeenCalledWith(
+      AGENT_SENTINEL,
+      DID,
+      SITE_SLUG,
+      "did:plc:existingcontributor",
+    );
+  });
+
+  it("surfaces a module failure as ok:false with a stringified error", async () => {
+    vi.mocked(contributorRoster.removeContributor).mockResolvedValue({
+      ok: false,
+      error: new Error("InvalidSwap"),
+    });
+
+    await expect(
+      callAction({
+        _intent: "removeContributor",
+        contributorDid: "did:plc:existingcontributor",
+      }),
+    ).resolves.toEqual({ ok: false, error: "Error: InvalidSwap" });
   });
 });
 

@@ -4,7 +4,7 @@
 // catch shape mismatches at call sites when the real loader changes.
 
 import type { SiteCard } from "~/components/types";
-import type { SiteManifest } from "~/routes/article/site-list/siteTree";
+import type { SiteManifest, RosterEntry } from "~/routes/article/site-list/siteTree";
 
 // ── Shared base data ──────────────────────────────────────────────────────────
 
@@ -255,6 +255,7 @@ export function devEditLoader(articleUrl: string): {
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
   hasUnassignedArticles: boolean;
+  contributors: RosterEntry[];
   site: SiteManifest;
 } {
   return {
@@ -263,6 +264,26 @@ export function devSiteListLoader(siteSlug: string): {
     // below (getting-started is empty, engineering isn't) — the classic
     // "Drop articles here" DnD hint.
     hasUnassignedArticles: false,
+    // Exercises both roster states the Contributors UI can show post-
+    // reconciliation (rejected never reaches the loader's return value).
+    contributors: [
+      {
+        did: `${DEV_DID}:contributor-1`,
+        addedAt: "2026-07-01T00:00:00.000Z",
+        status: "accepted",
+        handle: "alice.bsky.social",
+        displayName: "Alice",
+        avatar: undefined,
+      },
+      {
+        did: `${DEV_DID}:contributor-2`,
+        addedAt: "2026-07-10T00:00:00.000Z",
+        status: "invited",
+        handle: "bob.bsky.social",
+        displayName: "Bob",
+        avatar: undefined,
+      },
+    ],
     site: {
       rkey: siteSlug,
       cid: "dev-cid-site",
