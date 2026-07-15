@@ -478,15 +478,33 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Depends on:** nothing; this is the prerequisite for every other phase.
 
+**Grilled 2026-07-15 — see ADR 0019 for everything that changed from the original ADR 0014/0015/0018 sketch.** The scope below is the settled result, not the original draft.
+
 **Scope:**
-- `scribe.contributors: [{did, addedAt}]` array on `site.standard.publication`, in the `scribe` extension object (ADR 0014, ADR 0018 — no role field, both roles' worth of context needed before writing this).
-- Owner-facing UI to add/remove a Contributor from a site's roster (handle lookup + resolution, matching the existing `resolve-contributor` pattern already shipped for the document-level byline feature — reuse it rather than building a second lookup flow).
-- `contributor_memberships (contributor_did, site_uri, added_at)` local table (ADR 0015), written in the same add-contributor action.
-- DM sent to a newly-added Contributor (ADR 0015 — reuses the existing notification mechanism, not new infra).
 
-**Explicitly out of scope for this phase:** anything about submitting, reviewing, or publishing an article — this phase only makes someone a Contributor and lets them (and the Owner) discover that fact. There is nothing for a Contributor to *do* yet at the end of this phase.
+*Schema:*
+- `scribe.contributors: [{did, addedAt, status}]` array on `site.standard.publication`, in the `scribe` extension object — `status: "invited" | "accepted" | "rejected"` (ADR 0019, amending ADR 0018's flat-list sketch; the "no role field" decision in ADR 0018 was about permission tiers, not this lifecycle field — still no permission-scoped role anywhere in the roster).
+- `contributor_memberships (contributor_did, site_uri, added_at, status)` local table (ADR 0015 + ADR 0019) — `status` mirrors the roster entry, kept in lock-step at all three transitions (invite / accept / reject) so a Contributor's own login can answer "what's pending for me?" without re-reading the actual site record.
 
-**Reference:** ADR 0014 (Context, for `scribe.contributors`'s shape and why it's per-site not a separate Team entity), ADR 0015 (for `contributor_memberships` and the DM), ADR 0018 (for why there's no role field at all).
+*Owner-side UI — lives on `/article/list/:siteSlug`, not `configure` (keeps all per-site people-and-content management on one page; this is also where Phase 5's chat panel will land):*
+- Route's `PageContainer` gains the `fixed` prop to enlarge the page. The existing two `PageSection`s (site title, group list) get consolidated so exactly one of them (the group list) uses `overflow`, since `fixedPageContainer` clips (`overflow: hidden`) rather than scrolling by default — without this, the page just clips instead of scrolling once the new Contributors section pushes it past viewport height. Single scrolling column for Phase 1 — no `PageSectionColumns` split yet; that's a Phase 5 concern when the chat panel actually exists.
+- A new Contributors section listing the roster (handle, avatar, status Pill, Remove button per entry).
+- `topButtons` gains a second sibling alongside the existing `ButtonGroupContainer` (Draft New Article / Add New Group) — a right-aligned "Invite Contributor" button. `topButtonPanel` already lays out with `justify-content: space-between`, so this falls out for free once there are two top-level children instead of one.
+- "Invite Contributor" opens a modal: handle input resolves to a DID via the existing `/article/resolve-contributor` route (same lookup already shipped for the document-level byline feature, `AddContributorModal` — reuse the pattern, not a second lookup flow). "Send Invite" is disabled until a profile resolves and is not already on the roster; submitting writes the `scribe.contributors` entry (`status: "invited"`) and the `contributor_memberships` row in one action, then sends the invite DM.
+- Rejected-entry cleanup runs in this route's own loader: on every load, any roster entry with `status: "rejected"` gets removed from `scribe.contributors` (and its `contributor_memberships` row deleted) — the concrete instantiation of "next Owner login" from ADR 0014's reconciliation pattern, made specific to the one page that displays roster state.
+
+*Invite DM (ADR 0019 — does not route through `scribe-atp-social`):*
+- Sent directly from the Owner's own CMS OAuth session via `chat.bsky.convo.getConvoForMembers` + `sendMessage` (same two calls `scribe-atp-social`'s `notify.ts` already makes for subscriber alerts, just executed in-process against the Owner's own agent instead of that service's fixed bot identity) — keeps `scribe-atp-social` scoped to anonymous engagement events only, per ADR 0015.
+- Message: "Hi {displayName}, I'd like to invite you to contribute to {site URL}. Please click here ({app root URL}) and login to accept the invite." Link carries no identifying parameter — see next point for why.
+- Requires adding `chat.bsky.convo.*` to `OAUTH_SCOPE` **in this phase**, not Phase 5 as ADR 0016 originally scoped it (ADR 0019) — every existing user must re-authenticate before Phase 1 ships. The exact scope string needs verifying against Bluesky's real OAuth docs during implementation — no prior code in this repo has used OAuth (rather than app-password) against `chat.bsky.convo`, so ADR 0016/0019's `chat.bsky.convo.*` is shorthand, not a confirmed value.
+
+*Invitee-side Accept/Reject (ADR 0019):*
+- A global, on-any-authenticated-page check (not a dedicated route) reads `contributor_memberships` for `status: "invited"` rows against the logged-in DID and surfaces an Accept/Reject modal — "You have been invited to contribute articles to {Site URL}." This works whether the invitee arrives via the DM link or logs in organically later, since no state needs to travel through the link itself.
+- Accept/Reject is recorded by the invitee's own session in the local `contributor_memberships` row only (their session cannot write the Owner's `site.standard.publication` record directly — the same cross-repo asymmetry ADR 0014 established for submissions). Reject is what the Owner-side loader cleanup (above) later reconciles away.
+
+**Explicitly out of scope for this phase:** anything about submitting, reviewing, or publishing an article — this phase only makes someone a Contributor and lets them (and the Owner) discover that fact. There is nothing for a Contributor to *do* yet at the end of this phase. Self-service "leave a site" (Contributor-initiated removal) is also out of scope — Phase 1 removal is Owner-only.
+
+**Reference:** ADR 0014 (Context, for `scribe.contributors`'s shape and why it's per-site not a separate Team entity), ADR 0015 (for `contributor_memberships` and the general discovery-index rationale), ADR 0018 (for why there's no permission-tiered role field), **ADR 0019 (for the status field, the DM mechanics, and the OAuth scope timing — read this one first, it supersedes specifics in the other three).**
 
 ### Phase 2 — Image Library site-scoped folders
 
@@ -536,11 +554,11 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 **Depends on:** Phase 1 only (needs a roster to resolve `getConvoForMembers` against). Independent of Phases 2–4; genuinely optional relative to the rest of the feature — the submission workflow (Phase 3) functions completely without this.
 
 **Scope:**
-- New `chat.bsky.convo.*` OAuth scope added to `OAUTH_SCOPE` — existing users need to re-authenticate before this works for them.
+- ~~New `chat.bsky.convo.*` OAuth scope added to `OAUTH_SCOPE`~~ — **already added in Phase 1** (ADR 0019, for the invite DM) — no second re-authentication event needed here, Phase 5 just reuses the scope Phase 1 already forced.
 - Inline chat panel on the per-site management page, always resolved fresh via `getConvoForMembers(currentRoster)` — explicitly not chaining old conversations together across roster changes (ADR 0016's central decision — re-read the Context/Decision before touching this).
 - Polling for new messages (interval TBD during implementation, with cleanup-on-unmount and ideally pause-when-unfocused), sender resolution (DID → displayName/avatar), timestamps, own-vs-others styling, send-failure states, pagination.
 
-**Reference:** ADR 0016 in full, including the two accepted limitations (history fragmentation on roster change, imperfect revocation) — these are decided, not open questions to re-litigate during the grill session for this phase.
+**Reference:** ADR 0016 in full, including the two accepted limitations (history fragmentation on roster change, imperfect revocation) — these are decided, not open questions to re-litigate during the grill session for this phase. ADR 0019 supersedes ADR 0016's OAuth-scope-timing consequence specifically.
 
 ## MIGRATION: standard.site Article Lexicon Adoption
 

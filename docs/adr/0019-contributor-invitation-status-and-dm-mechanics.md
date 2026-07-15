@@ -1,0 +1,33 @@
+# ADR 0019: Contributor Invitations Carry Status on the Roster; Invite DMs Bypass `scribe-atp-social`
+
+## Status
+Accepted — design finalized 2026-07-15 (Phase 1 grill session), not yet implemented
+
+## Context
+
+ADR 0014/0018 modeled `scribe.contributors` as a flat, unconditional membership list — `[{did, addedAt}]` — written the instant an Owner adds someone, with no notion of consent. Working through Phase 1's concrete build (PLANNING.md) surfaced a requirement that design never accounted for: the invitee should see an explicit Accept/Reject step before they're a real Contributor, not be silently added.
+
+This runs into the same cross-repo write asymmetry that runs through the whole feature: `scribe.contributors` lives on the Owner's `site.standard.publication` record and can only ever be written by the Owner's own session (ADR 0014's Context). An invitee's own session can never flip a field inside the Owner's record directly, so "accept" can't be a single atomic write the way it would be if the roster lived in the accepting party's own repo.
+
+Separately, Phase 1 also needs to notify the invitee that an invitation exists at all. The only existing DM mechanism in this codebase is `scribe-atp-social`'s `/notify` route — but it was purpose-built for one thing (announcing a newly published article to a publication's *subscribers*, resolved from `action_events`) and has no way to target one arbitrary, specific DID with an arbitrary message. Extending it to do so would give it a second, structurally different responsibility that ADR 0015 already deliberately kept out of that service — anonymous, cross-site engagement events are `scribe-atp-social`'s whole reason to exist, and an authenticated-only, CMS-session-driven invitation doesn't fit that shape any better than `pending_submissions`/`contributor_memberships` did.
+
+## Decision
+
+**1. `scribe.contributors` entries carry a `status` field.** Shape becomes `{did, addedAt, status: "invited" | "accepted" | "rejected"}` — extending, not reversing, ADR 0018's "no *permission*-tiered role field" decision. `status` is a lifecycle marker, not a permission tier; every Contributor still has identical capabilities once accepted. The Owner's own session writes the entry immediately, with `status: "invited"`, at invite time — there is no separate pre-invite record, and no privacy concern in doing so, since `site.standard.publication` is already a fully public AT Protocol record end to end.
+
+**2. `contributor_memberships` (ADR 0015) mirrors the same `status` field**, updated at the same three transition points (`invited` → `accepted`/`rejected`). This is the table a Contributor's own login checks to discover pending invitations without a global indexer (ADR 0015's original rationale) — without `status` mirrored locally, that check would need to re-read the actual site record per candidate row to find out what changed, defeating the point of the local index.
+
+**3. Accept/Reject is recorded locally by the invitee's own session, not written to the Owner's AT Protocol record directly** — consistent with the cross-repo constraint above. Reject is reconciled away from `scribe.contributors` the next time the Owner visits that site's `/article/list/:siteSlug` page (concrete instantiation of the reconciliation pattern ADR 0014 already established for submission approval — "next login" made specific to the one page that displays roster state, rather than a vaguer global check).
+
+**4. The invite DM is sent directly from the Owner's own CMS OAuth session**, via `chat.bsky.convo.getConvoForMembers` + `sendMessage` — the same two calls `scribe-atp-social`'s `notify.ts` already makes, just executed in-process against the Owner's own live agent instead of routing through that service's fixed `AUTHOR_HANDLE` app-password identity. This keeps `scribe-atp-social` scoped to anonymous engagement events only, per ADR 0015, and means the DM genuinely comes from the site Owner, not a generic service account.
+
+**5. The `chat.bsky.convo.*` OAuth scope is added in Phase 1, not deferred to Phase 5.** ADR 0016 originally scoped this addition (and its mandatory one-time re-authentication for every existing user) to Team Chat. Decision 4 above needs the same scope three phases earlier. Phase 5 inherits the already-granted scope for free and does not trigger a second re-authentication event.
+
+**6. The Accept/Reject prompt is a global, on-login check, not a dedicated route.** The invite DM's link carries no identifying parameter — it points at the app root. Once authenticated, a shared check (independent of which page the invitee lands on) reads `contributor_memberships` for `status: "invited"` rows against the logged-in DID and surfaces the modal. This works whether the invitee arrives via the DM link or logs in organically later, and requires no dedicated "review your invitations" route in Phase 1.
+
+## Consequences
+
+- `scribe.contributors` and `contributor_memberships` must be kept in lock-step on every status transition (three write sites instead of one), rather than the single write ADR 0014/0015 originally assumed for "add a Contributor."
+- A rejected entry is visible in the Owner's public AT Protocol record (`status: "rejected"`) for an indeterminate window, until the Owner next opens that site's article-list page. This is accepted as the same bounded, self-correcting eventual-consistency posture already applied elsewhere in this feature (ADR 0015, ADR 0017) — not a new category of risk.
+- Every existing CMS user must revoke and re-authenticate before Phase 1 ships (not Phase 5), to pick up the new `chat.bsky.convo.*` scope. At the time of this decision there is exactly one user, so the cost is negligible now — but this is a one-time hard requirement for whoever deploys Phase 1, not an optional follow-up.
+- The exact Bluesky OAuth scope string for `chat.bsky.convo` methods is unverified — every prior use of that lexicon in this codebase (`scribe-atp-social`) authenticates via app-password, not OAuth, so there is no existing precedent to copy. This needs confirming against Bluesky's real OAuth scope documentation during implementation, not assumed from the shorthand used in ADR 0016 and here.
