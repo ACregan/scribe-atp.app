@@ -26,6 +26,7 @@ import {
 import { listContributorSites } from "~/services/contributorRoster.server";
 import { parseSiteUri } from "~/services/pdsResolution.server";
 import { pendingSubmissions } from "~/services/db.server";
+import { reconcilePendingSubmission } from "~/services/submissionReview.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -95,6 +96,30 @@ export async function loader({ request }: Route.LoaderArgs) {
         listSites(agent, did),
         listContributorSites(did),
       ]);
+
+    // ADR 0023 — Contributor-side reconciliation, run inline on every visit
+    // like the Owner-side reconcileContributorStatuses. Best-effort per
+    // document: one failing check must never break this page load or block
+    // any other document's check. Patches documentRecords in place so the
+    // rest of this loader sees the post-reconciliation state in the same
+    // request, not one visit stale.
+    await Promise.allSettled(
+      documentRecords.map(async (record) => {
+        try {
+          const updatedValue = await reconcilePendingSubmission(agent, did, record);
+          if (updatedValue) record.value = updatedValue;
+        } catch (err) {
+          logger.warn(
+            {
+              event: "submission.reconciliation_failed",
+              uri: record.uri,
+              error: String(err),
+            },
+            "Contributor-side submission reconciliation failed — will retry on next visit",
+          );
+        }
+      }),
+    );
 
     const assignmentMap = new Map<string, ArticleAssignment[]>();
 

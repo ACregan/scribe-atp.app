@@ -363,6 +363,180 @@ describe("loader", () => {
     ]);
     vi.unstubAllGlobals();
   });
+
+  // ADR 0023 — Contributor-side reconciliation runs inline in this loader.
+  // Full behavioral coverage of reconcilePendingSubmission itself lives in
+  // submissionReview.server.test.ts; this is the wiring test — does the
+  // loader call it per document and reflect the result in the same request.
+  describe("Contributor-side reconciliation (ADR 0023)", () => {
+    const looseUri = `at://${DID}/site.standard.document/loose1`;
+    const ownerSiteUri = "at://did:plc:owner/site.standard.publication/site-a";
+
+    it("detects an approval via the cross-repo manifest read and clears pendingPublish in the same request", async () => {
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord(
+                  "loose1",
+                  {
+                    title: "Loose Article",
+                    path: "/loose1",
+                    createdAt: "2026-01-01T00:00:00Z",
+                    site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                    scribe: {
+                      pendingPublish: {
+                        siteUri: ownerSiteUri,
+                        submittedAt: "2026-07-15T00:00:00.000Z",
+                      },
+                    },
+                  },
+                  "loose1-cid",
+                ),
+              ],
+            },
+          });
+        }),
+        putRecord: vi.fn().mockResolvedValue({ data: {} }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+      vi.mocked(fetchBskyProfile).mockResolvedValue({
+        did: "did:plc:owner",
+        handle: "owner.bsky.social",
+        displayName: "Site Owner",
+      } as never);
+      vi.stubGlobal(
+        "fetch",
+        mockFetchForSites({
+          "site-a": {
+            scribe: {
+              domain: "example.com",
+              basePath: "",
+              groups: [{ slug: "g1", title: "Group 1", articles: [{ uri: looseUri }] }],
+            },
+          },
+        }),
+      );
+
+      const result = await callLoader();
+
+      expect(agent.com.atproto.repo.putRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repo: DID,
+          collection: "site.standard.document",
+          rkey: "loose1",
+          record: expect.objectContaining({ site: ownerSiteUri }),
+          swapRecord: "loose1-cid",
+        }),
+      );
+      // Backlogged known gap (ADR 0023 Consequences): the loader's
+      // Standalone/Site-Assigned split is keyed off the caller's own
+      // assignmentMap, which never includes a document published to
+      // someone else's site — so it still surfaces here, just without
+      // pendingPublish set (the pill is gone; the finalizing write happened).
+      expect(result.standaloneArticles[0]).toEqual(
+        expect.objectContaining({ rkey: "loose1", pendingPublish: undefined }),
+      );
+      vi.unstubAllGlobals();
+    });
+
+    it("does not touch the PDS when the local pending_submissions row is still status: pending", async () => {
+      pendingSubmissions.create(
+        looseUri,
+        DID,
+        ownerSiteUri,
+        "did:plc:owner",
+        "Loose Article",
+        "2026-07-15T00:00:00.000Z",
+      );
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord(
+                  "loose1",
+                  {
+                    title: "Loose Article",
+                    path: "/loose1",
+                    createdAt: "2026-01-01T00:00:00Z",
+                    site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                    scribe: {
+                      pendingPublish: {
+                        siteUri: ownerSiteUri,
+                        submittedAt: "2026-07-15T00:00:00.000Z",
+                      },
+                    },
+                  },
+                  "loose1-cid",
+                ),
+              ],
+            },
+          });
+        }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+
+      const result = await callLoader();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(agent.com.atproto.repo.putRecord).not.toHaveBeenCalled();
+      expect(result.standaloneArticles[0].pendingPublish).toEqual({
+        siteUri: ownerSiteUri,
+        submittedAt: "2026-07-15T00:00:00.000Z",
+      });
+    });
+
+    it("a reconciliation failure for one document doesn't break the page load", async () => {
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord(
+                  "loose1",
+                  {
+                    title: "Loose Article",
+                    path: "/loose1",
+                    createdAt: "2026-01-01T00:00:00Z",
+                    site: `https://reader.scribe-atp.app/${DID}/site.standard.document/loose1`,
+                    scribe: {
+                      pendingPublish: {
+                        siteUri: ownerSiteUri,
+                        submittedAt: "2026-07-15T00:00:00.000Z",
+                      },
+                    },
+                  },
+                  "loose1-cid",
+                ),
+              ],
+            },
+          });
+        }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+
+      const result = await callLoader();
+
+      expect(result.standaloneArticles[0]).toEqual(
+        expect.objectContaining({ rkey: "loose1" }),
+      );
+      vi.unstubAllGlobals();
+    });
+  });
 });
 
 describe("action", () => {
