@@ -13,6 +13,10 @@ export default [
     route("auth/callback", "./routes/auth/callback.tsx"),
     route("logout", "./routes/auth/logout.tsx"),
     layout("./layout/protected/protected.tsx", [
+      route(
+        "contributor-invitations/respond",
+        "./routes/contributor-invitations/respond.tsx",
+      ),
       route("article/create", "./routes/article/create/create.tsx"),
       route(
         "article/resolve-contributor",

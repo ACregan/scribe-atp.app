@@ -179,6 +179,60 @@ export function rejectInvitation(contributorDid: string, siteUri: string): void 
   contributorMemberships.setStatus(contributorDid, siteUri, "rejected");
 }
 
+export type PendingInvitation = {
+  siteUri: string;
+  siteTitle: string;
+  siteDomain: string;
+};
+
+function parseSiteUri(siteUri: string): { ownerDid: string; rkey: string } {
+  const match = siteUri.match(/^at:\/\/([^/]+)\/[^/]+\/([^/]+)$/);
+  if (!match) throw new Error(`Malformed site URI: ${siteUri}`);
+  return { ownerDid: match[1], rkey: match[2] };
+}
+
+// Invitee-side discovery (ADR 0019 Decision 6) — a global, on-any-login
+// check, not tied to a specific route or the DM link. site.standard.publication
+// records are publicly readable (no auth needed against the Owner's repo),
+// so this works purely from the invitee's own local contributor_memberships
+// rows plus a public read per site — no dependency on ever having clicked
+// the invite DM's link. Best-effort per site: a site that's since been
+// deleted or is otherwise unreadable is silently dropped from the list
+// rather than failing the whole page's load.
+export async function listPendingInvitations(
+  agent: Agent,
+  contributorDid: string,
+): Promise<PendingInvitation[]> {
+  const invited = contributorMemberships
+    .listForContributor(contributorDid)
+    .filter((m) => m.status === "invited");
+
+  const results = await Promise.allSettled(
+    invited.map(async (m): Promise<PendingInvitation> => {
+      const { ownerDid, rkey } = parseSiteUri(m.siteUri);
+      const rec = await agent.com.atproto.repo.getRecord({
+        repo: ownerDid,
+        collection: SITE_COLLECTION,
+        rkey,
+      });
+      const scribe = (rec.data.value as Record<string, unknown>).scribe as
+        | Record<string, unknown>
+        | undefined;
+      return {
+        siteUri: m.siteUri,
+        siteTitle: String(scribe?.title ?? ""),
+        siteDomain: String(scribe?.domain ?? ""),
+      };
+    }),
+  );
+
+  return results
+    .filter(
+      (r): r is PromiseFulfilledResult<PendingInvitation> => r.status === "fulfilled",
+    )
+    .map((r) => r.value);
+}
+
 // Owner-side reconciliation (ADR 0019) — run from the site's own
 // /article/list/:siteSlug loader on every visit, not a separate global check.
 // Promotes locally-accepted rows to status: "accepted" in scribe.contributors

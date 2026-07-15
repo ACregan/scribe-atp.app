@@ -6,6 +6,7 @@ import {
   acceptInvitation,
   rejectInvitation,
   reconcileContributorStatuses,
+  listPendingInvitations,
 } from "./contributorRoster.server";
 import { db, contributorMemberships } from "./db.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
@@ -349,5 +350,68 @@ describe("reconcileContributorStatuses", () => {
     ]);
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)?.status).toBe("accepted");
     expect(contributorMemberships.get(otherDid, SITE_URI)).toBeUndefined();
+  });
+});
+
+describe("listPendingInvitations", () => {
+  it("returns site title/domain for each invited-status membership", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "invited");
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({ title: "NoRobots Blog", domain: "norobots.blog" }),
+      ),
+    });
+
+    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+
+    expect(result).toEqual([
+      { siteUri: SITE_URI, siteTitle: "NoRobots Blog", siteDomain: "norobots.blog" },
+    ]);
+  });
+
+  it("excludes accepted and rejected memberships — only invited is pending", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    contributorMemberships.upsert(
+      CONTRIBUTOR_DID,
+      "at://did:plc:otherowner/site.standard.publication/other-site",
+      "2026-01-01T00:00:00.000Z",
+      "rejected",
+    );
+    const agent = makeAgent();
+
+    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+
+    expect(result).toEqual([]);
+    expect(agent.com.atproto.repo.getRecord).not.toHaveBeenCalled();
+  });
+
+  it("drops a site that fails to resolve instead of failing the whole list", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "invited");
+    contributorMemberships.upsert(
+      CONTRIBUTOR_DID,
+      "at://did:plc:otherowner/site.standard.publication/other-site",
+      "2026-01-01T00:00:00.000Z",
+      "invited",
+    );
+    const agent = makeAgent({
+      getRecord: vi.fn().mockImplementation(({ repo }: { repo: string }) => {
+        if (repo === "did:plc:otherowner") {
+          return Promise.reject(new Error("RecordNotFound"));
+        }
+        return Promise.resolve(siteRecord({ title: "NoRobots Blog", domain: "norobots.blog" }));
+      }),
+    });
+
+    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+
+    expect(result).toEqual([
+      { siteUri: SITE_URI, siteTitle: "NoRobots Blog", siteDomain: "norobots.blog" },
+    ]);
+  });
+
+  it("returns an empty array when there are no memberships at all", async () => {
+    const agent = makeAgent();
+    const result = await listPendingInvitations(agent, CONTRIBUTOR_DID);
+    expect(result).toEqual([]);
   });
 });
