@@ -17,6 +17,22 @@ import type { SiteRecordValue } from "~/routes/article/site-list/siteTree";
 // scribe-atp-social scoped to anonymous engagement events only.
 const CHAT_PROXY_HEADERS = { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } };
 
+// chat.bsky.convo.defs#messageInput has no auto-linkification — a bare URL
+// in `text` renders as plain text in Bluesky's own chat UI (confirmed live,
+// 2026-07-15: the first real-account test sent the invite link as inert
+// text). Facet ranges are UTF-8 *byte* offsets into `text`, not character
+// offsets — matters here because displayName is untrusted user profile data
+// and may contain multi-byte characters before the link.
+function linkFacet(text: string, uri: string) {
+  const start = text.indexOf(uri);
+  const byteStart = Buffer.byteLength(text.slice(0, start), "utf8");
+  const byteEnd = byteStart + Buffer.byteLength(uri, "utf8");
+  return {
+    index: { byteStart, byteEnd },
+    features: [{ $type: "app.bsky.richtext.facet#link", uri }],
+  };
+}
+
 // Best-effort — failure here must never fail the invite itself. The roster
 // write (scribe.contributors + contributor_memberships) is the state that
 // actually matters; the DM is a nudge, and the invitee can still discover
@@ -39,7 +55,11 @@ async function sendInviteDm(
     await agent.api.chat.bsky.convo.sendMessage(
       {
         convoId: convo.data.convo.id,
-        message: { $type: "chat.bsky.convo.defs#messageInput", text },
+        message: {
+          $type: "chat.bsky.convo.defs#messageInput",
+          text,
+          facets: [linkFacet(text, publicUrl)],
+        },
       },
       CHAT_PROXY_HEADERS,
     );

@@ -124,13 +124,32 @@ describe("inviteContributor", () => {
         message: {
           $type: "chat.bsky.convo.defs#messageInput",
           text: expect.stringContaining("Contributor Name"),
+          facets: [
+            {
+              index: expect.objectContaining({
+                byteStart: expect.any(Number),
+                byteEnd: expect.any(Number),
+              }),
+              features: [
+                { $type: "app.bsky.richtext.facet#link", uri: "https://test.example" },
+              ],
+            },
+          ],
         },
       },
       { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
     );
-    const messageText = sendMessage.mock.calls[0][0].message.text;
-    expect(messageText).toContain("norobots.blog");
-    expect(messageText).toContain("https://test.example");
+    const { message } = sendMessage.mock.calls[0][0];
+    expect(message.text).toContain("norobots.blog");
+    expect(message.text).toContain("https://test.example");
+    // The facet's byte range must point at exactly the link substring —
+    // confirms the plain-text-link bug (found via a real Bluesky account
+    // test, 2026-07-15) is actually fixed, not just present in shape.
+    const { byteStart, byteEnd } = message.facets[0].index;
+    const linkSubstring = Buffer.from(message.text, "utf8")
+      .subarray(byteStart, byteEnd)
+      .toString("utf8");
+    expect(linkSubstring).toBe("https://test.example");
   });
 
   it("still returns ok:true when the invite DM fails — the roster write already succeeded", async () => {
@@ -143,6 +162,28 @@ describe("inviteContributor", () => {
 
     expect(result).toEqual({ ok: true });
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)?.status).toBe("invited");
+  });
+
+  it("computes the link facet's byte offsets correctly when displayName has multi-byte characters", async () => {
+    vi.mocked(fetchBskyProfile).mockResolvedValue({
+      did: CONTRIBUTOR_DID,
+      handle: "contributor.bsky.social",
+      displayName: "Bjørn 日本語", // multi-byte name preceding the link in the message
+    } as never);
+    const sendMessage = vi.fn().mockResolvedValue({});
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(siteRecord({ contributors: [] })),
+      sendMessage,
+    });
+
+    await inviteContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID);
+
+    const { message } = sendMessage.mock.calls[0][0];
+    const { byteStart, byteEnd } = message.facets[0].index;
+    const linkSubstring = Buffer.from(message.text, "utf8")
+      .subarray(byteStart, byteEnd)
+      .toString("utf8");
+    expect(linkSubstring).toBe("https://test.example");
   });
 
   it("rejects inviting the site owner's own DID", async () => {
