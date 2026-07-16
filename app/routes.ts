@@ -38,6 +38,10 @@ export default [
         "article/review/:contributorDid/:rkey",
         "./routes/article/review/review.tsx",
       ),
+      route(
+        "article/site-chat/:siteSlug",
+        "./routes/article/site-chat/site-chat.tsx",
+      ),
       route("groups", "./routes/groups/groups.tsx"),
       route("groups/new", "./routes/groups/groups.tsx", { id: "groups-new" }),
       route("sites", "./routes/sites/sites.tsx"),

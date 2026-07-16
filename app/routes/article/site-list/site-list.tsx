@@ -26,6 +26,8 @@ import {
   PageContainer,
   PageContainerHeading,
   PageSection,
+  PageSectionColumns,
+  PageSectionColumn,
 } from "~/components/PageContainer/PageContainer";
 import { ArticleItemPreview } from "~/components/ArticleItem/ArticleItem";
 import GroupItem, {
@@ -68,6 +70,7 @@ import {
 } from "./siteTree";
 import { useDirtyTree } from "./useDirtyTree";
 import { useSiteListDnD } from "./useSiteListDnD";
+import { SiteChatPanel } from "./SiteChatPanel";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import {
   createGroup as createGroupManifest,
@@ -160,6 +163,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
     return {
       devMode: false,
+      authorDid: did,
       hasUnassignedArticles,
       contributors,
       submissions: submissionRows,
@@ -760,8 +764,22 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, hasUnassignedArticles, contributors, submissions } =
-    loaderData;
+  const {
+    site,
+    devMode,
+    authorDid,
+    hasUnassignedArticles,
+    contributors,
+    submissions,
+  } = loaderData;
+
+  // ADR 0025 (Site Chat) — the conversation membership is the Owner plus
+  // every *accepted* Contributor; invited-but-not-yet-accepted people
+  // haven't agreed to anything and aren't part of it.
+  const siteChatMemberDids = [
+    authorDid,
+    ...contributors.filter((c) => c.status === "accepted").map((c) => c.did),
+  ];
   const { isOpen, open, close } = useModal();
   const inviteModal = useModal();
 
@@ -1002,63 +1020,74 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
-        {/* Single scrolling column for Phase 1 (grill session Question 4) —
-            title, groups, and the Contributors section all share one
-            overflow region rather than a PageSectionColumns split. That
-            split is deferred to Phase 5, when the chat panel actually
-            exists and there's a real second thing to put beside this. */}
-        <PageSection overflow>
-          <h6>{site.title}</h6>
-          <SortableContext
-            items={rootIds}
-            strategy={verticalListSortingStrategy}
-          >
-            <GroupList>
-              {/* g:root never has anything to render — since ADR 0013 every
-                  document reaching this site is already published into a
-                  named group; nothing populates ungroupedArticles anymore. */}
-              {tree
-                .filter((group) => group.id !== "g:root")
-                .map((group) => (
-                  <GroupItem
-                    key={group.id}
-                    id={group.id}
-                    title={group.title}
-                    slug={group.slug}
-                    articleChildren={
-                      group.children.map((c) => ({
-                        id: c.id,
-                        uri: c.uri,
-                        slug: c.slug,
-                        title: c.title,
-                        createdAt: c.createdAt,
-                        bskyPostRef: c.bskyPostRef,
-                      })) as TreeArticle[]
-                    }
-                    articleMode="site-published"
-                    urlAndPrefix={urlAndPrefix}
-                    siteName={site.title}
-                    onDeleteConfirm={handleDeleteGroup}
-                    onShareClick={handleShareClick}
-                    isDeleting={
-                      isDeleting && deletingSlugRef.current === group.slug
-                    }
-                    siteHasAnyArticles={siteHasAnyArticles}
-                    hasUnassignedArticles={hasUnassignedArticles}
-                  />
-                ))}
-            </GroupList>
-          </SortableContext>
+        {/* Two-column layout (ADR 0025, Site Chat) — main content at 2/3
+            width, Site Chat at 1/3, both scrolling independently. Single
+            scrolling column was Phase 1's deliberate placeholder shape
+            until there was a real second thing to put beside it. */}
+        <PageSection fill>
+          <PageSectionColumns breakpoint="lg">
+            <PageSectionColumn span={8} overflow>
+              <h6>{site.title}</h6>
+              <SortableContext
+                items={rootIds}
+                strategy={verticalListSortingStrategy}
+              >
+                <GroupList>
+                  {/* g:root never has anything to render — since ADR 0013 every
+                      document reaching this site is already published into a
+                      named group; nothing populates ungroupedArticles anymore. */}
+                  {tree
+                    .filter((group) => group.id !== "g:root")
+                    .map((group) => (
+                      <GroupItem
+                        key={group.id}
+                        id={group.id}
+                        title={group.title}
+                        slug={group.slug}
+                        articleChildren={
+                          group.children.map((c) => ({
+                            id: c.id,
+                            uri: c.uri,
+                            slug: c.slug,
+                            title: c.title,
+                            createdAt: c.createdAt,
+                            bskyPostRef: c.bskyPostRef,
+                          })) as TreeArticle[]
+                        }
+                        articleMode="site-published"
+                        urlAndPrefix={urlAndPrefix}
+                        siteName={site.title}
+                        onDeleteConfirm={handleDeleteGroup}
+                        onShareClick={handleShareClick}
+                        isDeleting={
+                          isDeleting && deletingSlugRef.current === group.slug
+                        }
+                        siteHasAnyArticles={siteHasAnyArticles}
+                        hasUnassignedArticles={hasUnassignedArticles}
+                      />
+                    ))}
+                </GroupList>
+              </SortableContext>
 
-          <SubmissionsSection submissions={submissions} />
+              <SubmissionsSection submissions={submissions} />
 
-          <ContributorsSection
-            contributors={contributors}
-            onRemove={handleRemoveContributor}
-            removingDid={
-              isRemovingContributor ? removingContributorDidRef.current : null
-            }
-          />
+              <ContributorsSection
+                contributors={contributors}
+                onRemove={handleRemoveContributor}
+                removingDid={
+                  isRemovingContributor ? removingContributorDidRef.current : null
+                }
+              />
+            </PageSectionColumn>
+
+            <PageSectionColumn span={4} overflow>
+              <SiteChatPanel
+                siteSlug={site.rkey}
+                currentUserDid={authorDid}
+                memberDids={siteChatMemberDids}
+              />
+            </PageSectionColumn>
+          </PageSectionColumns>
         </PageSection>
 
         <DragOverlay>

@@ -1,0 +1,102 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.heading {
+  margin: 0 0 1rem;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.resolveError {
+  color: var(--text-secondary);
+  font-size: 1.3rem;
+}
+
+.messageList {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.messageRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.messageRowOwn {
+  justify-content: flex-end;
+}
+
+.messageBubble {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 80%;
+  padding: 0.6rem 1rem;
+  border-radius: 0.8rem;
+  background: var(--surface-input);
+}
+
+.messageBubbleOwn {
+  background: var(--action-primary);
+  color: var(--text-on-dark);
+}
+
+.messageSender {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.messageText {
+  margin: 0;
+  font-size: 1.4rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.messageTime {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  align-self: flex-end;
+}
+
+.messageBubbleOwn .messageTime {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.composer {
+  display: flex;
+  gap: 0.8rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 0.1rem solid var(--border-color);
+}
+
+.composerInput {
+  flex: 1;
+  padding: 0.8rem 1.2rem;
+  font-size: 1.4rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+}
+
+.composerInput:focus {
+  outline: 2px solid var(--action-primary);
+  outline-offset: 1px;
+}

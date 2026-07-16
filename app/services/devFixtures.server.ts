@@ -271,6 +271,7 @@ export function devEditLoader(articleUrl: string): {
 
 export function devSiteListLoader(siteSlug: string): {
   devMode: boolean;
+  authorDid: string;
   hasUnassignedArticles: boolean;
   contributors: RosterEntry[];
   submissions: SubmissionListEntry[];
@@ -278,6 +279,7 @@ export function devSiteListLoader(siteSlug: string): {
 } {
   return {
     devMode: true,
+    authorDid: DEV_DID,
     // Dev fixture exercises the "other group has articles" empty-state case
     // below (getting-started is empty, engineering isn't) — the classic
     // "Drop articles here" DnD hint.
@@ -392,6 +394,42 @@ export function devReviewLoader(contributorDid: string, rkey: string) {
       tags: ["dev", "example"],
       createdAt: new Date(Date.now() - 2 * 86400 * 1000).toISOString(),
     },
+  };
+}
+
+// ── /article/site-chat/:siteSlug (ADR 0025, Site Chat) ────────────────────────
+
+const DEV_SITE_CHAT_CONVO_ID = "dev-convo-1";
+
+export function devSiteChatLoader(convoId: string | null) {
+  if (!convoId) {
+    return { ok: true as const, convoId: DEV_SITE_CHAT_CONVO_ID };
+  }
+  return {
+    ok: true as const,
+    messages: [
+      {
+        id: "dev-msg-1",
+        text: "Just submitted the new article for review — let me know what you think!",
+        senderDid: `${DEV_DID}:contributor-1`,
+        sentAt: new Date(Date.now() - 3600 * 1000).toISOString(),
+      },
+      {
+        id: "dev-msg-2",
+        text: "Looks great, approving it now.",
+        senderDid: DEV_DID,
+        sentAt: new Date(Date.now() - 1800 * 1000).toISOString(),
+      },
+    ],
+    profiles: [
+      { did: DEV_DID, handle: "dev.bsky.social", displayName: "Dev User", avatar: undefined },
+      {
+        did: `${DEV_DID}:contributor-1`,
+        handle: "alice.bsky.social",
+        displayName: "Alice",
+        avatar: undefined,
+      },
+    ],
   };
 }
 
