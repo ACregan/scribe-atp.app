@@ -80,6 +80,7 @@ import { resolveThumbUrl } from "~/services/article.server";
 import { devSiteListLoader } from "~/services/devFixtures.server";
 import { logger } from "~/services/logger.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import styles from "./site-list.module.css";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.site?.title ?? "Site";
@@ -97,14 +98,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // ADR 0019 — Owner-side reconciliation: promote locally-accepted invites
     // and strip locally-rejected ones out of scribe.contributors, every time
     // the Owner visits this page. Cheap no-op when there's nothing pending.
-    // cookieHeader (ADR 0020) lets it sync the Image Service's site_rosters
-    // mirror when a promotion actually happens.
-    await reconcileContributorStatuses(
-      agent,
-      did,
-      siteSlug,
-      request.headers.get("Cookie") ?? "",
-    );
+    // core.tsx's global loop (every page, every owned site) also runs this,
+    // so this call is a same-page belt-and-braces, not the sole trigger.
+    await reconcileContributorStatuses(agent, did, siteSlug);
 
     const [record, documents] = await Promise.all([
       agent.com.atproto.repo.getRecord({
@@ -156,7 +152,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       rkey: s.documentUri.split("/").pop() ?? "",
       documentTitle: s.documentTitle,
       submittedAt: s.submittedAt,
-      contributorHandle: profileByDid.get(s.contributorDid)?.handle ?? s.contributorDid,
+      contributorHandle:
+        profileByDid.get(s.contributorDid)?.handle ?? s.contributorDid,
       contributorDisplayName: profileByDid.get(s.contributorDid)?.displayName,
     }));
 
@@ -251,13 +248,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!useRealOAuth) return { ok: true, removedDid: contributorDid };
 
     const agent = await getAtpAgent(did, request);
-    const result = await removeContributor(
-      agent,
-      did,
-      siteSlug,
-      contributorDid,
-      request.headers.get("Cookie") ?? "",
-    );
+    const result = await removeContributor(agent, did, siteSlug, contributorDid);
     return result.ok
       ? { ok: true, removedDid: contributorDid }
       : { ok: false, error: String(result.error) };
@@ -554,7 +545,9 @@ function InviteContributorModal({
 
   const isResolving = resolveFetcher.state !== "idle";
   const isInviting = inviteFetcher.state !== "idle";
-  const alreadyOnRoster = resolved ? existingDids.includes(resolved.did) : false;
+  const alreadyOnRoster = resolved
+    ? existingDids.includes(resolved.did)
+    : false;
   const canInvite = resolved !== null && !alreadyOnRoster && !isInviting;
 
   function handleLookup() {
@@ -585,7 +578,11 @@ function InviteContributorModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="success" disabled={!canInvite} onClick={handleInvite}>
+          <Button
+            variant="success"
+            disabled={!canInvite}
+            onClick={handleInvite}
+          >
             {isInviting ? "Sending…" : "Send Invite"}
           </Button>
         </div>
@@ -611,13 +608,16 @@ function InviteContributorModal({
             variant="secondary"
             disabled={!handle.trim() || isResolving}
             onClick={handleLookup}
+            className={styles.lookupButton}
           >
             {isResolving ? "Looking up…" : "Look up"}
           </Button>
         </div>
 
         {resolveError && (
-          <p style={{ color: "var(--action-danger)", margin: 0 }}>{resolveError}</p>
+          <p style={{ color: "var(--action-danger)", margin: 0 }}>
+            {resolveError}
+          </p>
         )}
         {inviteFetcher.data?.error && (
           <p style={{ color: "var(--action-danger)", margin: 0 }}>
@@ -631,7 +631,11 @@ function InviteContributorModal({
               <img
                 src={resolved.avatar}
                 alt=""
-                style={{ width: "3.2rem", height: "3.2rem", borderRadius: "50%" }}
+                style={{
+                  width: "3.2rem",
+                  height: "3.2rem",
+                  borderRadius: "50%",
+                }}
               />
             )}
             <span>{resolved.displayName}</span>
@@ -697,7 +701,10 @@ function ShareModal({
   );
 }
 
-const STATUS_VARIANT: Record<RosterEntry["status"], "success" | "secondary" | "danger"> = {
+const STATUS_VARIANT: Record<
+  RosterEntry["status"],
+  "success" | "secondary" | "danger"
+> = {
   accepted: "success",
   invited: "secondary",
   // Never actually rendered — a rejected entry is reconciled out of
@@ -744,7 +751,9 @@ function SubmissionsSection({
             <span style={{ color: "var(--text-secondary)" }}>
               from {s.contributorDisplayName ?? s.contributorHandle}
             </span>
-            <span style={{ color: "var(--text-secondary)", marginLeft: "auto" }}>
+            <span
+              style={{ color: "var(--text-secondary)", marginLeft: "auto" }}
+            >
               {new Date(s.submittedAt).toLocaleDateString()}
             </span>
             <Link to={`/article/review/${s.contributorDid}/${s.rkey}`}>
@@ -804,11 +813,17 @@ function ContributorsSection({
                 <img
                   src={c.avatar}
                   alt=""
-                  style={{ width: "3.2rem", height: "3.2rem", borderRadius: "50%" }}
+                  style={{
+                    width: "3.2rem",
+                    height: "3.2rem",
+                    borderRadius: "50%",
+                  }}
                 />
               )}
               <span>{c.displayName ?? c.handle}</span>
-              <span style={{ color: "var(--text-secondary)" }}>@{c.handle}</span>
+              <span style={{ color: "var(--text-secondary)" }}>
+                @{c.handle}
+              </span>
               <Pill variant={STATUS_VARIANT[c.status]}>{c.status}</Pill>
               <Button
                 type="button"
@@ -832,7 +847,8 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, hasUnassignedArticles, contributors, submissions } = loaderData;
+  const { site, devMode, hasUnassignedArticles, contributors, submissions } =
+    loaderData;
   const { isOpen, open, close } = useModal();
   const inviteModal = useModal();
 
@@ -877,14 +893,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   } | null>(null);
   const shareModal = useModal();
 
-  const {
-    tree,
-    setTree,
-    isDirty,
-    markSaved,
-    removeGroup,
-    setBskyPostRef,
-  } = useDirtyTree(site);
+  const { tree, setTree, isDirty, markSaved, removeGroup, setBskyPostRef } =
+    useDirtyTree(site);
   const {
     sensors,
     activeArticle,
@@ -1086,7 +1096,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
             exists and there's a real second thing to put beside this. */}
         <PageSection overflow>
           <h6>{site.title}</h6>
-          <SortableContext items={rootIds} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={rootIds}
+            strategy={verticalListSortingStrategy}
+          >
             <GroupList>
               {/* g:root never has anything to render — since ADR 0013 every
                   document reaching this site is already published into a
@@ -1129,7 +1142,9 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           <ContributorsSection
             contributors={contributors}
             onRemove={handleRemoveContributor}
-            removingDid={isRemovingContributor ? removingContributorDidRef.current : null}
+            removingDid={
+              isRemovingContributor ? removingContributorDidRef.current : null
+            }
           />
         </PageSection>
 

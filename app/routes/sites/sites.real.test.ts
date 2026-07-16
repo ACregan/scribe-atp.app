@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Agent } from "@atproto/api";
 import { loader, action } from "./sites";
 import { requireAuth, getAtpAgent } from "~/services/auth.server";
-import { syncSiteRoster } from "~/services/imageServiceClient.server";
+import { ensureSiteFolder } from "~/services/imageServiceClient.server";
 import { db, pendingSubmissions } from "~/services/db.server";
 
 // Characterization tests for the sites route's real-OAuth path (useRealOAuth:
@@ -24,7 +24,7 @@ vi.mock("~/services/logger.server", () => ({
 }));
 
 vi.mock("~/services/imageServiceClient.server", () => ({
-  syncSiteRoster: vi.fn(),
+  ensureSiteFolder: vi.fn(),
 }));
 
 const DID = "did:plc:testuser";
@@ -79,7 +79,7 @@ function callLoader() {
 beforeEach(() => {
   vi.mocked(requireAuth).mockResolvedValue({ did: DID, handle: DID });
   vi.mocked(getAtpAgent).mockReset();
-  vi.mocked(syncSiteRoster).mockReset().mockResolvedValue(undefined);
+  vi.mocked(ensureSiteFolder).mockReset().mockResolvedValue(undefined);
   db.exec("DELETE FROM pending_submissions");
 });
 
@@ -311,7 +311,7 @@ describe("action — createSite", () => {
     });
   });
 
-  it("syncs an empty-roster Image Service folder on creation (ADR 0020 point 6)", async () => {
+  it("creates the site's Image Service folder on creation (ADR 0024 point 6)", async () => {
     const createRecord = vi.fn().mockResolvedValue({
       data: { uri: `at://${DID}/site.standard.publication/3jxtctq7kqm2y`, cid: "cid-a" },
     });
@@ -319,16 +319,15 @@ describe("action — createSite", () => {
 
     await callAction({ _intent: "createSite", title: "My Site", url: "my.example.com" });
 
-    expect(syncSiteRoster).toHaveBeenCalledWith(
+    expect(ensureSiteFolder).toHaveBeenCalledWith(
       `at://${DID}/site.standard.publication/3jxtctq7kqm2y`,
       "my.example.com",
-      [],
       "",
     );
   });
 
   it("still creates the site successfully when the Image Service sync fails (best-effort)", async () => {
-    vi.mocked(syncSiteRoster).mockRejectedValue(new Error("Image Service down"));
+    vi.mocked(ensureSiteFolder).mockRejectedValue(new Error("Image Service down"));
     const createRecord = vi.fn().mockResolvedValue({
       data: { uri: `at://${DID}/site.standard.publication/3jxtctq7kqm2y`, cid: "cid-a" },
     });

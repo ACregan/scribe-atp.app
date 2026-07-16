@@ -1,4 +1,5 @@
-import db from "./db.js";
+import db, { getCmsDb } from "./db.js";
+import { logger } from "../../shared/logger.js";
 
 // Centralizes the access check every read/write endpoint needs (ADR 0020
 // point 8) — previously duplicated per-file as `!row || row.user_did !== did`
@@ -7,8 +8,10 @@ import db from "./db.js";
 // is owned by exactly one of a user or a site (enforced by db.ts's CHECK
 // constraint): personal folders keep today's owner-only access; site folders
 // are accessible to the site's Owner (parsed directly from `site_uri`, no
-// lookup needed) or anyone in `site_rosters` for that `site_uri` — and
-// nobody else, not even other authenticated users (ADR 0020 point 1).
+// lookup needed) or any DID with an *accepted* row in the CMS's own
+// contributor_memberships table for that `site_uri` (ADR 0024 — a live
+// cross-process read, replacing the old site_rosters mirror) — and nobody
+// else, not even other authenticated users (ADR 0020 point 1).
 
 export type FolderRow = {
   id: number;
@@ -23,18 +26,35 @@ function parseSiteOwnerDid(siteUri: string): string | null {
   return match ? match[1] : null;
 }
 
-function isSiteRosterMember(siteUri: string, did: string): boolean {
-  const row = db
-    .prepare("SELECT 1 FROM site_rosters WHERE site_uri = ? AND member_did = ?")
-    .get(siteUri, did);
-  return row !== undefined;
+// Fails closed: a read error (e.g. the CMS hasn't created its schema yet, a
+// genuine startup race — see db.ts's getCmsDb comment) denies access rather
+// than throwing, and self-corrects on the next request once the table exists.
+function isAcceptedContributor(siteUri: string, did: string): boolean {
+  try {
+    const row = getCmsDb()
+      .prepare(
+        "SELECT 1 FROM contributor_memberships WHERE site_uri = ? AND contributor_did = ? AND status = 'accepted'",
+      )
+      .get(siteUri, did);
+    return row !== undefined;
+  } catch (err) {
+    logger.warn(
+      {
+        event: "image_service.contributor_membership_read_failed",
+        siteUri,
+        error: String(err),
+      },
+      "failed to read contributor_memberships from the CMS database — denying site folder access",
+    );
+    return false;
+  }
 }
 
 export function canAccessFolder(did: string, folder: FolderRow): boolean {
   if (folder.user_did !== null) return folder.user_did === did;
   if (folder.site_uri !== null) {
     const ownerDid = parseSiteOwnerDid(folder.site_uri);
-    return did === ownerDid || isSiteRosterMember(folder.site_uri, did);
+    return did === ownerDid || isAcceptedContributor(folder.site_uri, did);
   }
   return false;
 }

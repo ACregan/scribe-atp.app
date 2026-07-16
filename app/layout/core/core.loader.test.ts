@@ -10,11 +10,14 @@ import { db, pendingSubmissions } from "~/services/db.server";
 
 // Phase 4 (discovery UX polish) — loader-only tests for the new
 // pendingSubmissionsCount/newSubmissions fields, plus the global
-// per-owned-site reconciliation loop added after the live test pass found a
-// Contributor could be stuck without Image Library folder access
-// indefinitely if the Owner never happened to visit that one site's own
-// /article/list/:siteSlug page. core.tsx's component tree (AsideMenu,
-// ToastProvider, etc.) is not exercised here — this is purely the data side.
+// per-owned-site reconciliation loop added after the live test pass found
+// scribe.contributors (the public record) could go stale indefinitely if
+// the Owner never happened to visit that one site's own
+// /article/list/:siteSlug page. This no longer gates Image Library access
+// (ADR 0024 — that reads contributor_memberships live instead); it exists
+// purely to keep the public PDS record correct. core.tsx's component tree
+// (AsideMenu, ToastProvider, etc.) is not exercised here — this is purely
+// the data side.
 
 vi.mock("~/services/auth.server", () => ({
   getAuthSession: vi.fn(),
@@ -181,36 +184,8 @@ describe("core.tsx loader — global per-owned-site reconciliation", () => {
     await callLoader();
 
     expect(reconcileContributorStatuses).toHaveBeenCalledTimes(2);
-    expect(reconcileContributorStatuses).toHaveBeenCalledWith(
-      agent,
-      DID,
-      "site-a",
-      "",
-    );
-    expect(reconcileContributorStatuses).toHaveBeenCalledWith(
-      agent,
-      DID,
-      "site-b",
-      "",
-    );
-  });
-
-  it("forwards the request's Cookie header for the Image Service sync", async () => {
-    const agent = makeAgentWithSites(["site-a"]);
-    vi.mocked(getAtpAgent).mockResolvedValue(agent as never);
-
-    await loader({
-      request: new Request("http://localhost/", {
-        headers: { Cookie: "__session=abc123" },
-      }),
-    } as unknown as Parameters<typeof loader>[0]);
-
-    expect(reconcileContributorStatuses).toHaveBeenCalledWith(
-      agent,
-      DID,
-      "site-a",
-      "__session=abc123",
-    );
+    expect(reconcileContributorStatuses).toHaveBeenCalledWith(agent, DID, "site-a");
+    expect(reconcileContributorStatuses).toHaveBeenCalledWith(agent, DID, "site-b");
   });
 
   it("does not call reconcileContributorStatuses when the Owner has no sites", async () => {

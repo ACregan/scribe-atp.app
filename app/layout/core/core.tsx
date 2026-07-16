@@ -115,20 +115,19 @@ export async function loader({ request }: Route.LoaderArgs) {
   // Found live 2026-07-16, Contributors Phase 2 test pass: reconciliation
   // was previously only triggered by visiting the *specific* site's own
   // /article/list/:siteSlug page — an Owner with no reason to click into
-  // that exact page could leave a newly-accepted Contributor without Image
-  // Library folder access indefinitely, with nothing telling either party
-  // to go there. Running it here means the very next page the Owner loads,
-  // anywhere, finalizes any pending accept/reject — not just one specific
-  // route. Cheap in the common case: reconcileContributorStatuses itself
-  // no-ops on a pure local read when a site has nothing pending, only doing
-  // a real PDS write + Image Service sync for sites that actually need it.
+  // that exact page could leave scribe.contributors (the public record)
+  // stale indefinitely. Running it here means the very next page the Owner
+  // loads, anywhere, finalizes any pending accept/reject. Cheap in the
+  // common case: reconcileContributorStatuses itself no-ops on a pure local
+  // read when a site has nothing pending. This no longer gates Image
+  // Library access — the Image Service reads contributor_memberships live
+  // (ADR 0024) — it exists purely to keep the public PDS record correct.
   // Best-effort per site, matching every other reconciliation loop in this
   // feature — one failing site must never break every page load in the app.
-  const cookieHeader = request.headers.get("Cookie") ?? "";
   await Promise.allSettled(
     ownedSites.map(async (site) => {
       try {
-        await reconcileContributorStatuses(agent, did, site.rkey, cookieHeader);
+        await reconcileContributorStatuses(agent, did, site.rkey);
       } catch (err) {
         logger.warn(
           {

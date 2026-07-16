@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { Request, Response } from "express";
 import db from "./db.js";
 import { handleListFolders, handleCreateFolder, handleDeleteFolder, handleMoveImage } from "./folders.js";
+import {
+  setupContributorMembershipsTable,
+  clearContributorMemberships,
+  insertContributorMembership,
+} from "./testSupport/contributorMemberships.js";
+
+setupContributorMembershipsTable();
 
 const DID = "did:plc:owner";
 const OTHER_DID = "did:plc:someone-else";
@@ -42,7 +49,7 @@ function insertFolder(userDid: string, name: string, parentId: number | null): n
 beforeEach(() => {
   db.exec("DELETE FROM images");
   db.exec("DELETE FROM image_folders");
-  db.exec("DELETE FROM site_rosters");
+  clearContributorMemberships();
 });
 
 describe("handleListFolders", () => {
@@ -227,8 +234,8 @@ describe("site-owned folders — full write parity for Contributors", () => {
   }
 
   beforeEach(() => {
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_A);
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_B);
+    insertContributorMembership(SITE_URI, CONTRIBUTOR_A);
+    insertContributorMembership(SITE_URI, CONTRIBUTOR_B);
   });
 
   it("a Contributor can create a subfolder inside the site folder", () => {

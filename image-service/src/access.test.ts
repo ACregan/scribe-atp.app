@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import db from "./db.js";
 import { canAccessFolder, canAccessImage, getFolder, type FolderRow } from "./access.js";
+import {
+  setupContributorMembershipsTable,
+  clearContributorMemberships,
+  insertContributorMembership,
+} from "./testSupport/contributorMemberships.js";
 
 const OWNER_DID = "did:plc:siteowner";
 const MEMBER_DID = "did:plc:contributor";
@@ -19,10 +24,17 @@ function insertSiteFolder(siteUri: string, name: string, parentId: number | null
     .run(siteUri, name, parentId).lastInsertRowid as number;
 }
 
+// ADR 0024 — access is now decided by a live read against the CMS's own
+// contributor_memberships table (accessed cross-process in production, but
+// in tests CMS_DB_PATH is ":memory:" per test.setup.ts, so this is a
+// from-scratch in-memory database this test file owns outright).
+setupContributorMembershipsTable();
+const insertMembership = insertContributorMembership;
+
 beforeEach(() => {
   db.exec("DELETE FROM images");
   db.exec("DELETE FROM image_folders");
-  db.exec("DELETE FROM site_rosters");
+  clearContributorMemberships();
 });
 
 describe("canAccessFolder — personal folders", () => {
@@ -38,26 +50,32 @@ describe("canAccessFolder — personal folders", () => {
 });
 
 describe("canAccessFolder — site folders", () => {
-  it("allows the site owner, parsed directly from site_uri — no roster row needed", () => {
+  it("allows the site owner, parsed directly from site_uri — no membership row needed", () => {
     const folder: FolderRow = { id: 1, user_did: null, site_uri: SITE_URI, name: "x", parent_id: null };
     expect(canAccessFolder(OWNER_DID, folder)).toBe(true);
   });
 
-  it("allows a DID present in site_rosters for that site_uri", () => {
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, MEMBER_DID);
+  it("allows a DID with an accepted contributor_memberships row for that site_uri", () => {
+    insertMembership(SITE_URI, MEMBER_DID, "accepted");
     const folder: FolderRow = { id: 1, user_did: null, site_uri: SITE_URI, name: "x", parent_id: null };
     expect(canAccessFolder(MEMBER_DID, folder)).toBe(true);
   });
 
-  it("denies a DID that is neither the owner nor on the roster — the whole point of ADR 0020", () => {
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, MEMBER_DID);
+  it("denies a DID whose membership row is still just invited, not accepted", () => {
+    insertMembership(SITE_URI, MEMBER_DID, "invited");
+    const folder: FolderRow = { id: 1, user_did: null, site_uri: SITE_URI, name: "x", parent_id: null };
+    expect(canAccessFolder(MEMBER_DID, folder)).toBe(false);
+  });
+
+  it("denies a DID that is neither the owner nor an accepted contributor — the whole point of ADR 0020", () => {
+    insertMembership(SITE_URI, MEMBER_DID, "accepted");
     const folder: FolderRow = { id: 1, user_did: null, site_uri: SITE_URI, name: "x", parent_id: null };
     expect(canAccessFolder(OUTSIDER_DID, folder)).toBe(false);
   });
 
-  it("does not grant access to a roster row from a different site", () => {
+  it("does not grant access to a membership row from a different site", () => {
     const otherSiteUri = `at://${OWNER_DID}/site.standard.publication/other-site`;
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(otherSiteUri, MEMBER_DID);
+    insertMembership(otherSiteUri, MEMBER_DID, "accepted");
     const folder: FolderRow = { id: 1, user_did: null, site_uri: SITE_URI, name: "x", parent_id: null };
     expect(canAccessFolder(MEMBER_DID, folder)).toBe(false);
   });
@@ -86,7 +104,7 @@ describe("canAccessImage", () => {
     // A Contributor (MEMBER_DID) accessing an image a DIFFERENT contributor
     // uploaded, sitting in the shared site folder — full write parity
     // (ADR 0020 point 2) means this must be allowed.
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, MEMBER_DID);
+    insertMembership(SITE_URI, MEMBER_DID, "accepted");
     const folderId = insertSiteFolder(SITE_URI, "Site Images");
     const result = db
       .prepare(

@@ -13,6 +13,28 @@ const dbPath = process.env.IMAGE_DB_PATH ?? (() => {
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 
+// ADR 0024 — cross-process connection to the main CMS app's own SQLite file,
+// read-only by convention (never call anything but SELECT through this).
+// Used solely by access.ts to check contributor_memberships for site-folder
+// access, replacing the old site_rosters mirror. Same host, same filesystem
+// — both processes already run from the same cwd via `npm run dev`'s
+// concurrently, so this resolves to the identical file the main app itself
+// opens. Deliberately not opened with `readonly`/`fileMustExist`: whichever
+// process starts first is allowed to create the (empty) file — the other
+// process's own migrate() call fills in the real schema moments later. A
+// query racing that startup window (table not created yet) is caught by the
+// caller and treated as "can't confirm access", not a crash.
+let cmsDb: Database.Database | undefined;
+
+export function getCmsDb(): Database.Database {
+  if (!cmsDb) {
+    const cmsDbPath =
+      process.env.CMS_DB_PATH ?? path.join(process.cwd(), "data", "oauth.db");
+    cmsDb = new Database(cmsDbPath);
+  }
+  return cmsDb;
+}
+
 // One-time repair: image_folders.user_did was NOT NULL before ADR 0020 (site-
 // owned folders, Phase 2 of Contributors) needed a folder to be owned by
 // either a user or a site — never both, never neither. SQLite has no direct
@@ -74,15 +96,6 @@ db.exec(`
     height INTEGER NOT NULL,
     sizes TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  -- Local mirror of a site's accepted-Contributor roster (ADR 0017/0020) —
-  -- wholesale-replaced on every sync call from the CMS, never diffed. Not a
-  -- source of truth; scribe.contributors on the Owner's PDS record is.
-  CREATE TABLE IF NOT EXISTS site_rosters (
-    site_uri TEXT NOT NULL,
-    member_did TEXT NOT NULL,
-    PRIMARY KEY (site_uri, member_did)
   );
 `);
 

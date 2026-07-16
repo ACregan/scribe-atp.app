@@ -1,7 +1,7 @@
 # ADR 0017: Image Library Site-Scoped Folders, Roster Pushed From the CMS, Not Resolved Live by the Image Service
 
 ## Status
-Accepted — design finalized 2026-07-15, not yet implemented
+Accepted, implemented, then partially superseded — design finalized 2026-07-15; the `site_rosters`/CMS-push mechanism this ADR sketched was replaced 2026-07-16 by a live cross-process read (see ADR 0024). The nullable `site_uri` owner column and the general "restrict site folders" shape are unaffected and still current.
 
 ## Context
 
