@@ -39,6 +39,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useState, useRef, useEffect } from "react";
+import cn from "classnames";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
@@ -411,10 +412,7 @@ function CreateGroupModal({
   }, [fetcher.state, fetcher.data]);
 
   return (
-    <fetcher.Form
-      method="post"
-      style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}
-    >
+    <fetcher.Form method="post" className={styles.formColumn}>
       <input type="hidden" name="_intent" value="createGroup" />
       <Input
         id="group-title"
@@ -446,34 +444,14 @@ function CreateGroupModal({
         }
       />
       {slug && slugValid && (
-        <p
-          style={{
-            fontSize: "1.2rem",
-            color: "var(--text-secondary)",
-            margin: 0,
-          }}
-        >
+        <p className={styles.helperText}>
           Path: <code>{composedPath}</code>
         </p>
       )}
       {fetcher.data?.error && (
-        <p
-          style={{
-            fontSize: "1.3rem",
-            color: "var(--action-danger)",
-            margin: 0,
-          }}
-        >
-          {fetcher.data.error}
-        </p>
+        <p className={styles.formError}>{fetcher.data.error}</p>
       )}
-      <p
-        style={{
-          fontSize: "1.2rem",
-          color: "var(--text-secondary)",
-          margin: 0,
-        }}
-      >
+      <p className={styles.helperText}>
         The URL path cannot be changed after the group is created.
       </p>
       <Button
@@ -572,9 +550,7 @@ function InviteContributorModal({
       onClose={onClose}
       title="Invite Contributor"
       footer={
-        <div
-          style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}
-        >
+        <div className={styles.modalFooter}>
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
@@ -588,8 +564,8 @@ function InviteContributorModal({
         </div>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-        <div style={{ display: "flex", gap: "0.8rem", alignItems: "flex-end" }}>
+      <div className={styles.formColumn}>
+        <div className={styles.handleInputRow}>
           <Input
             id="invite-contributor-handle"
             label="Bluesky handle"
@@ -614,36 +590,20 @@ function InviteContributorModal({
           </Button>
         </div>
 
-        {resolveError && (
-          <p style={{ color: "var(--action-danger)", margin: 0 }}>
-            {resolveError}
-          </p>
-        )}
+        {resolveError && <p className={styles.errorText}>{resolveError}</p>}
         {inviteFetcher.data?.error && (
-          <p style={{ color: "var(--action-danger)", margin: 0 }}>
-            {inviteFetcher.data.error}
-          </p>
+          <p className={styles.errorText}>{inviteFetcher.data.error}</p>
         )}
 
         {resolved && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+          <div className={styles.resolvedProfileRow}>
             {resolved.avatar && (
-              <img
-                src={resolved.avatar}
-                alt=""
-                style={{
-                  width: "3.2rem",
-                  height: "3.2rem",
-                  borderRadius: "50%",
-                }}
-              />
+              <img src={resolved.avatar} alt="" className={styles.avatar} />
             )}
             <span>{resolved.displayName}</span>
-            <span style={{ color: "var(--text-secondary)" }}>
-              @{resolved.handle}
-            </span>
+            <span className={styles.mutedText}>@{resolved.handle}</span>
             {alreadyOnRoster && (
-              <p style={{ color: "var(--action-danger)", margin: 0 }}>
+              <p className={styles.errorText}>
                 This person is already on the roster for this site.
               </p>
             )}
@@ -676,17 +636,12 @@ function ShareModal({
       <input type="hidden" name="_intent" value="shareToBluesky" />
       <input type="hidden" name="uri" value={article.uri} />
       {article.bskyPostRef && (
-        <p
-          style={{
-            marginBottom: "1rem",
-            color: "var(--color-warning, #d97706)",
-          }}
-        >
+        <p className={styles.shareWarning}>
           This article has already been shared to Bluesky. Sharing again will
           create a new post.
         </p>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div className={styles.shareTextField}>
         <label htmlFor="share-text">Post text</label>
         <textarea
           id="share-text"
@@ -694,7 +649,7 @@ function ShareModal({
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
-          style={{ resize: "vertical", width: "100%", padding: "0.5rem" }}
+          className={styles.shareTextarea}
         />
       </div>
     </form>
@@ -726,34 +681,17 @@ function SubmissionsSection({
   if (submissions.length === 0) return null;
 
   return (
-    <div
-      style={{
-        borderTop: "0.1rem solid var(--border-color)",
-        marginTop: "1rem",
-        paddingTop: "1rem",
-      }}
-    >
-      <h6 style={{ margin: 0 }}>New Article Submissions</h6>
+    <div className={styles.sectionDivider}>
+      <h6 className={styles.sectionHeading}>New Article Submissions</h6>
 
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+      <ul className={styles.plainList}>
         {submissions.map((s) => (
-          <li
-            key={`${s.contributorDid}:${s.rkey}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.8rem",
-              padding: "0.8rem 0",
-              borderTop: "0.1rem solid var(--border-subtle)",
-            }}
-          >
+          <li key={`${s.contributorDid}:${s.rkey}`} className={styles.listRow}>
             <span>{s.documentTitle}</span>
-            <span style={{ color: "var(--text-secondary)" }}>
+            <span className={styles.mutedText}>
               from {s.contributorDisplayName ?? s.contributorHandle}
             </span>
-            <span
-              style={{ color: "var(--text-secondary)", marginLeft: "auto" }}
-            >
+            <span className={cn(styles.mutedText, styles.pushRight)}>
               {new Date(s.submittedAt).toLocaleDateString()}
             </span>
             <Link to={`/article/review/${s.contributorDid}/${s.rkey}`}>
@@ -782,53 +720,28 @@ function ContributorsSection({
   // Phase 1 grill session, Question 4: one scrolling column, not a second
   // clipped-by-default region under the fixed container's overflow:hidden).
   return (
-    <div
-      style={{
-        borderTop: "0.1rem solid var(--border-color)",
-        marginTop: "1rem",
-        paddingTop: "1rem",
-      }}
-    >
-      <h6 style={{ margin: 0 }}>Contributors</h6>
+    <div className={styles.sectionDivider}>
+      <h6 className={styles.sectionHeading}>Contributors</h6>
 
       {contributors.length === 0 ? (
-        <p style={{ color: "var(--text-secondary)" }}>
+        <p className={styles.mutedText}>
           No contributors yet — invite someone to let them submit articles to
           this site.
         </p>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul className={styles.plainList}>
           {contributors.map((c) => (
-            <li
-              key={c.did}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.8rem",
-                padding: "0.8rem 0",
-                borderTop: "0.1rem solid var(--border-subtle)",
-              }}
-            >
+            <li key={c.did} className={styles.listRow}>
               {c.avatar && (
-                <img
-                  src={c.avatar}
-                  alt=""
-                  style={{
-                    width: "3.2rem",
-                    height: "3.2rem",
-                    borderRadius: "50%",
-                  }}
-                />
+                <img src={c.avatar} alt="" className={styles.avatar} />
               )}
               <span>{c.displayName ?? c.handle}</span>
-              <span style={{ color: "var(--text-secondary)" }}>
-                @{c.handle}
-              </span>
+              <span className={styles.mutedText}>@{c.handle}</span>
               <Pill variant={STATUS_VARIANT[c.status]}>{c.status}</Pill>
               <Button
                 type="button"
                 variant="danger"
-                style={{ marginLeft: "auto" }}
+                className={styles.pushRight}
                 disabled={removingDid === c.did}
                 onClick={() => onRemove(c.did)}
               >
@@ -1167,7 +1080,9 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
       {devMode && (
         <PageSection>
-          <p style={{ color: "orange" }}>Dev mode: no real PDS connected.</p>
+          <p className={styles.devModeNotice}>
+            Dev mode: no real PDS connected.
+          </p>
         </PageSection>
       )}
 
@@ -1194,13 +1109,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
             : "Share to Bluesky"
         }
         footer={
-          <div
-            style={{
-              display: "flex",
-              gap: "0.8rem",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className={styles.modalFooter}>
             <Button
               variant="secondary"
               onClick={() => {
@@ -1258,13 +1167,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onClose={() => blocker.reset?.()}
         title="Unsaved changes"
         footer={
-          <div
-            style={{
-              display: "flex",
-              gap: "0.8rem",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className={styles.modalFooter}>
             <Button variant="secondary" onClick={() => blocker.reset?.()}>
               Stay
             </Button>
