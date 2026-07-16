@@ -329,6 +329,47 @@ describe("ArticleItem", () => {
     });
   });
 
+  // Found live 2026-07-17: a Contributor's read-only view of someone else's
+  // site (site-list.tsx) needs every site-management action hidden.
+  describe("readOnly", () => {
+    it("does not render the drag handle", () => {
+      render(<ArticleItem {...defaultProps} readOnly />);
+      expect(screen.queryByTestId("svg-icon")).not.toBeInTheDocument();
+    });
+
+    it("disables the sortable via useSortable's disabled option", async () => {
+      const { useSortable } = await import("@dnd-kit/sortable");
+      render(<ArticleItem {...defaultProps} readOnly />);
+      expect(useSortable).toHaveBeenCalledWith({ id: "test-id", disabled: true });
+    });
+
+    it("hides the Delete button in pds mode", () => {
+      render(<ArticleItem {...defaultProps} mode="pds" readOnly />);
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    });
+
+    it("hides Share and Unpublish in site-published mode, but keeps Visit On Site", () => {
+      render(
+        <ArticleItem
+          {...defaultProps}
+          mode="site-published"
+          groupSlug="engineering"
+          urlAndPrefix="example.com"
+          readOnly
+        />,
+      );
+      expect(screen.queryByRole("button", { name: /Share/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Unpublish" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Visit On Site" })).toBeInTheDocument();
+    });
+
+    it("still renders View and Edit (article authorship is a separate concern)", () => {
+      render(<ArticleItem {...defaultProps} mode="site-published" readOnly />);
+      expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    });
+  });
+
   describe("ArticleItemPreview", () => {
     it("should render preview without buttons", () => {
       render(

@@ -60,7 +60,9 @@ import {
   removeContributor,
   reconcileContributorStatuses,
 } from "~/services/contributorRoster.server";
-import { pendingSubmissions } from "~/services/db.server";
+import { pendingSubmissions, contributorMemberships } from "~/services/db.server";
+import { parseSiteUri } from "~/services/pdsResolution.server";
+import { getPublicSiteRecord } from "~/services/submissionReview.server";
 import {
   type SiteManifest,
   type RosterEntry,
@@ -94,29 +96,68 @@ export function meta({ loaderData }: Route.MetaArgs) {
 export async function loader({ request, params }: Route.LoaderArgs) {
   const siteSlug = params.siteSlug;
 
-  if (!useRealOAuth) return devSiteListLoader(siteSlug);
+  if (!useRealOAuth) {
+    const viewAsContributor =
+      new URL(request.url).searchParams.get("viewAs") === "contributor";
+    return devSiteListLoader(siteSlug, viewAsContributor);
+  }
 
   try {
     const { agent, did } = await requireAtpAgent(request);
+
+    // Found live 2026-07-17: this page was Owner-only by accident, not by
+    // design — the fast path below assumes the caller owns the record at
+    // this rkey in their own repo, which is true for every Owner visit but
+    // never true for a Contributor (their own repo has no record at this
+    // rkey at all). Contributors get read-only access to the same page
+    // (Groups/Articles, roster, Site Chat) via a fallback: their own
+    // accepted contributor_memberships row names the site's real at:// URI
+    // (owner DID included), so a public cross-repo read resolves the same
+    // record the Owner sees, minus any capability to write to it.
+    let ownerDid = did;
+    let isOwner = true;
+    let record:
+      | { data: { cid?: string; value: Record<string, unknown> } }
+      | undefined;
+    try {
+      record = await agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteSlug,
+      });
+    } catch {
+      const membership = contributorMemberships
+        .listForContributor(did)
+        .find(
+          (m) => m.status === "accepted" && m.siteUri.endsWith(`/${siteSlug}`),
+        );
+      if (!membership) throw new Error("Site not found or not accessible.");
+      isOwner = false;
+      ({ ownerDid } = parseSiteUri(membership.siteUri));
+      const publicValue = await getPublicSiteRecord(ownerDid, siteSlug);
+      if (!publicValue) throw new Error("Site record not found.");
+      record = { data: { value: publicValue } };
+    }
 
     // ADR 0019 — Owner-side reconciliation: promote locally-accepted invites
     // and strip locally-rejected ones out of scribe.contributors, every time
     // the Owner visits this page. Cheap no-op when there's nothing pending.
     // core.tsx's global loop (every page, every owned site) also runs this,
     // so this call is a same-page belt-and-braces, not the sole trigger.
-    await reconcileContributorStatuses(agent, did, siteSlug);
+    // Contributor visits skip this entirely — their session can't write to
+    // the Owner's record anyway (ADR 0014's cross-repo write asymmetry).
+    if (isOwner) {
+      await reconcileContributorStatuses(agent, did, siteSlug);
+    }
 
-    const [record, documents] = await Promise.all([
-      agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteSlug,
-      }),
-      listDocuments(agent, did),
-    ]);
-
-    const value = record.data.value as Record<string, unknown>;
+    const value = record.data.value;
     const scribeVal = (value.scribe as Record<string, unknown>) ?? {};
+
+    // Owner-only concerns below — a Contributor's own loose documents and
+    // this site's pending submissions aren't theirs to act on here (Review
+    // is an Owner action; the review route has its own ownerDid guard
+    // regardless), so there's no reason to fetch either for a read-only visit.
+    const documents = isOwner ? await listDocuments(agent, ownerDid) : [];
 
     // ADR 0013: a document's own `site` field is the sole loose-vs-published
     // signal — a loose document's `site` is a reader URL, not an at:// URI.
@@ -130,10 +171,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // a rejected row lingers locally until the Contributor's own
     // reconciliation (Phase 3c) acknowledges it, and isn't this Owner's to
     // act on again.
-    const siteUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
-    const submissions = pendingSubmissions
-      .listForOwner(did)
-      .filter((s) => s.siteUri === siteUri && s.status === "pending");
+    const siteUri = `at://${ownerDid}/${SITE_COLLECTION}/${siteSlug}`;
+    const submissions = isOwner
+      ? pendingSubmissions
+          .listForOwner(ownerDid)
+          .filter((s) => s.siteUri === siteUri && s.status === "pending")
+      : [];
 
     const rosterEntries = (scribeVal.contributors as SiteContributor[]) ?? [];
     const profileDids = [
@@ -163,13 +206,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
     return {
       devMode: false,
+      // The current viewer's own DID — for Site Chat's own-vs-others
+      // styling, distinct from siteOwnerDid below (which is who owns the
+      // site, not who's looking at it right now).
       authorDid: did,
+      siteOwnerDid: ownerDid,
+      isOwner,
       hasUnassignedArticles,
       contributors,
       submissions: submissionRows,
       site: {
         rkey: siteSlug,
-        cid: record.data.cid,
+        cid: record.data.cid ?? "",
         url: String(scribeVal.domain ?? ""),
         title: String(scribeVal.title ?? ""),
         urlPrefix: String(scribeVal.basePath ?? ""),
@@ -714,10 +762,12 @@ function ContributorsSection({
   contributors,
   onRemove,
   removingDid,
+  isOwner,
 }: {
   contributors: RosterEntry[];
   onRemove: (did: string) => void;
   removingDid: string | null;
+  isOwner: boolean;
 }) {
   // Not wrapped in its own <PageSection> — this renders inside the single
   // scrolling PageSection the whole page content shares (see Contributors
@@ -742,15 +792,17 @@ function ContributorsSection({
               <span>{c.displayName ?? c.handle}</span>
               <span className={styles.mutedText}>@{c.handle}</span>
               <Pill variant={STATUS_VARIANT[c.status]}>{c.status}</Pill>
-              <Button
-                type="button"
-                variant="danger"
-                className={styles.pushRight}
-                disabled={removingDid === c.did}
-                onClick={() => onRemove(c.did)}
-              >
-                {removingDid === c.did ? "Removing…" : "Remove"}
-              </Button>
+              {isOwner && (
+                <Button
+                  type="button"
+                  variant="danger"
+                  className={styles.pushRight}
+                  disabled={removingDid === c.did}
+                  onClick={() => onRemove(c.did)}
+                >
+                  {removingDid === c.did ? "Removing…" : "Remove"}
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -768,6 +820,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     site,
     devMode,
     authorDid,
+    siteOwnerDid,
+    isOwner,
     hasUnassignedArticles,
     contributors,
     submissions,
@@ -775,9 +829,11 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
   // ADR 0025 (Site Chat) — the conversation membership is the Owner plus
   // every *accepted* Contributor; invited-but-not-yet-accepted people
-  // haven't agreed to anything and aren't part of it.
+  // haven't agreed to anything and aren't part of it. Built from
+  // siteOwnerDid (who owns the site), not authorDid (whoever is currently
+  // viewing it — used below only for Site Chat's own-vs-others styling).
   const siteChatMemberDids = [
-    authorDid,
+    siteOwnerDid,
     ...contributors.filter((c) => c.status === "accepted").map((c) => c.did),
   ];
   const { isOpen, open, close } = useModal();
@@ -994,23 +1050,25 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         </PageContainerHeading>
       }
       topButtons={
-        <>
-          <ButtonGroupContainer>
-            <Link to={`/article/create?site=${site.rkey}`}>
-              <Button type="button" variant="primary" tabIndex={-1}>
-                Draft New Article
-              </Button>
-            </Link>
-            <Link to={`/article/list/${site.rkey}/new`}>
-              <Button type="button" variant="primary" tabIndex={-1}>
-                Add New Group
-              </Button>
-            </Link>
-          </ButtonGroupContainer>
-          <Button type="button" variant="primary" onClick={inviteModal.open}>
-            Invite Contributor
-          </Button>
-        </>
+        isOwner ? (
+          <>
+            <ButtonGroupContainer>
+              <Link to={`/article/create?site=${site.rkey}`}>
+                <Button type="button" variant="primary" tabIndex={-1}>
+                  Draft New Article
+                </Button>
+              </Link>
+              <Link to={`/article/list/${site.rkey}/new`}>
+                <Button type="button" variant="primary" tabIndex={-1}>
+                  Add New Group
+                </Button>
+              </Link>
+            </ButtonGroupContainer>
+            <Button type="button" variant="primary" onClick={inviteModal.open}>
+              Invite Contributor
+            </Button>
+          </>
+        ) : undefined
       }
     >
       <DndContext
@@ -1064,6 +1122,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                         }
                         siteHasAnyArticles={siteHasAnyArticles}
                         hasUnassignedArticles={hasUnassignedArticles}
+                        readOnly={!isOwner}
                       />
                     ))}
                 </GroupList>
@@ -1077,6 +1136,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
                 removingDid={
                   isRemovingContributor ? removingContributorDidRef.current : null
                 }
+                isOwner={isOwner}
               />
             </PageSectionColumn>
 
@@ -1115,16 +1175,18 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         </PageSection>
       )}
 
-      <FooterPortal>
-        <Button
-          type="button"
-          variant="success"
-          onClick={handleSave}
-          disabled={isSaving || !isDirty}
-        >
-          {isSaving ? "Saving…" : "Save Order"}
-        </Button>
-      </FooterPortal>
+      {isOwner && (
+        <FooterPortal>
+          <Button
+            type="button"
+            variant="success"
+            onClick={handleSave}
+            disabled={isSaving || !isDirty}
+          >
+            {isSaving ? "Saving…" : "Save Order"}
+          </Button>
+        </FooterPortal>
+      )}
 
       <Modal
         isOpen={shareModal.isOpen}

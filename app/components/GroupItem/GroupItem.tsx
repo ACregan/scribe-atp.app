@@ -42,6 +42,10 @@ interface GroupItemProps {
   siteHasAnyArticles?: boolean;
   /** Are there any loose (unpublished-anywhere) articles in the account? */
   hasUnassignedArticles?: boolean;
+  /** Site-management actions (drag, delete group, and every ArticleItem
+   * action below it) hidden — for a Contributor's read-only view of
+   * someone else's site (site-list.tsx). */
+  readOnly?: boolean;
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
@@ -61,6 +65,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
   isDeleting = false,
   siteHasAnyArticles = false,
   hasUnassignedArticles = false,
+  readOnly = false,
 }) => {
   const {
     attributes,
@@ -69,7 +74,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled: readOnly });
 
   const { over } = useDndContext();
   const isOver = over?.id === id;
@@ -128,6 +133,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
                     onPublishClick={onPublishClick}
                     onShareClick={onShareClick}
                     bskyPostRef={article.bskyPostRef}
+                    readOnly={readOnly}
                   />
                 ))}
                 {articleChildren.length === 0 && (
@@ -150,9 +156,15 @@ const GroupItem: React.FC<GroupItemProps> = ({
   return (
     <>
       <li ref={setSortableRef} style={style} className={styles.groupItem}>
-        <div className={styles.handleContainer} {...attributes} {...listeners}>
-          <SvgIcon name={SvgImageList.DragHandle} />
-        </div>
+        {!readOnly && (
+          <div
+            className={styles.handleContainer}
+            {...attributes}
+            {...listeners}
+          >
+            <SvgIcon name={SvgImageList.DragHandle} />
+          </div>
+        )}
         <div className={styles.titleContainer}>
           <IconBadge icon={SvgImageList.Folder} size="small" />
           <strong className={styles.title}>{title}</strong>
@@ -183,44 +195,46 @@ const GroupItem: React.FC<GroupItemProps> = ({
         </div>
         {/*<div className={styles.middleContainer}></div> */}
 
-        <div className={styles.buttonsContainer}>
-          <Form ref={deleteFormRef} method="post" onSubmit={handleDeleteClick}>
-            <input type="hidden" name="_intent" value="deleteGroup" />
-            <input type="hidden" name="rkey" value={slug} />
-            {cid && <input type="hidden" name="cid" value={cid} />}
+        {!readOnly && (
+          <div className={styles.buttonsContainer}>
+            <Form ref={deleteFormRef} method="post" onSubmit={handleDeleteClick}>
+              <input type="hidden" name="_intent" value="deleteGroup" />
+              <input type="hidden" name="rkey" value={slug} />
+              {cid && <input type="hidden" name="cid" value={cid} />}
 
-            <Tooltip
-              anchorName={`${slug}_deleteButton`}
-              anchorPosition="bottom"
-              anchorContent={
-                <TooltipBubble pointerLocation="top" variant="danger">
-                  DELETE GROUP
-                  {articleChildren.length !== 0 ? (
-                    <>
-                      <br />
-                      Remove or Move all articles before deleting.
-                    </>
-                  ) : (
-                    ""
-                  )}
-                </TooltipBubble>
-              }
-            >
-              <Button
-                className={styles.deleteGroupButton}
-                type="submit"
-                variant="danger"
-                disabled={articleChildren.length !== 0 || isDeleting}
+              <Tooltip
+                anchorName={`${slug}_deleteButton`}
+                anchorPosition="bottom"
+                anchorContent={
+                  <TooltipBubble pointerLocation="top" variant="danger">
+                    DELETE GROUP
+                    {articleChildren.length !== 0 ? (
+                      <>
+                        <br />
+                        Remove or Move all articles before deleting.
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </TooltipBubble>
+                }
               >
-                {isDeleting ? (
-                  <Spinner size="small" />
-                ) : (
-                  <SvgIcon name={SvgImageList.Trash} fill="var(--white)" />
-                )}
-              </Button>
-            </Tooltip>
-          </Form>
-        </div>
+                <Button
+                  className={styles.deleteGroupButton}
+                  type="submit"
+                  variant="danger"
+                  disabled={articleChildren.length !== 0 || isDeleting}
+                >
+                  {isDeleting ? (
+                    <Spinner size="small" />
+                  ) : (
+                    <SvgIcon name={SvgImageList.Trash} fill="var(--white)" />
+                  )}
+                </Button>
+              </Tooltip>
+            </Form>
+          </div>
+        )}
         <div className={styles.groupArticlesContainer}>
           <SortableContext
             items={childIds}
@@ -245,6 +259,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   urlAndPrefix={urlAndPrefix}
                   onShareClick={onShareClick}
                   bskyPostRef={article.bskyPostRef}
+                  readOnly={readOnly}
                 />
               ))}
               {articleChildren.length === 0 &&

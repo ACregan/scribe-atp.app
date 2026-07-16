@@ -28,6 +28,11 @@ interface ArticleItemProps {
     bskyPostRef: { uri: string; cid: string } | null | undefined,
   ) => void;
   bskyPostRef?: { uri: string; cid: string } | null;
+  /** Site-management actions (drag, publish, share, unpublish, delete/remove)
+   * hidden — for a Contributor's read-only view of someone else's site
+   * (site-list.tsx). Does not affect View/Edit, which are about the
+   * article's own authorship, a separate concern. */
+  readOnly?: boolean;
 }
 
 const ArticleItem: React.FC<ArticleItemProps> = ({
@@ -45,6 +50,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   onPublishClick,
   onShareClick,
   bskyPostRef,
+  readOnly = false,
 }) => {
   const urlKey = slug ?? uri.split("/").pop();
   const deleteModal = useModal();
@@ -59,7 +65,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled: readOnly });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -104,13 +110,15 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   return (
     <>
       <li ref={setNodeRef} style={style} className={styles.articleItem}>
-        <div
-          className={styles.dragHandleContainer}
-          {...attributes}
-          {...listeners}
-        >
-          <SvgIcon name={SvgImageList.DragHandle} />
-        </div>
+        {!readOnly && (
+          <div
+            className={styles.dragHandleContainer}
+            {...attributes}
+            {...listeners}
+          >
+            <SvgIcon name={SvgImageList.DragHandle} />
+          </div>
+        )}
         <div className={styles.titleContainer}>
           <IconBadge icon={SvgImageList.Document} size="small" />
           <strong>{title}</strong>
@@ -128,7 +136,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </Button>
           </Link>
 
-          {isUnpublishedMode && (
+          {isUnpublishedMode && !readOnly && (
             <Button
               type="button"
               variant="success"
@@ -138,7 +146,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </Button>
           )}
 
-          {isPdsMode && (
+          {isPdsMode && !readOnly && (
             <Form
               ref={deleteFormRef}
               method="post"
@@ -154,7 +162,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </Form>
           )}
 
-          {isUnpublishedMode && (
+          {isUnpublishedMode && !readOnly && (
             <>
               <Form
                 ref={deleteFormRef}
@@ -176,7 +184,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </>
           )}
 
-          {isPublishedMode && (
+          {isPublishedMode && !readOnly && (
             <>
               <Button
                 type="button"
@@ -211,6 +219,15 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
                 </OverflowMenu>
               )}
             </>
+          )}
+          {isPublishedMode && readOnly && liveUrl && (
+            <OverflowMenu>
+              <Link to={liveUrl} target="_blank" rel="noreferrer">
+                <Button type="button" variant="success" tabIndex={-1}>
+                  Visit On Site
+                </Button>
+              </Link>
+            </OverflowMenu>
           )}
         </div>
       </li>

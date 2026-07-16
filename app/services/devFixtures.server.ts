@@ -269,9 +269,19 @@ export function devEditLoader(articleUrl: string): {
 
 // ── /article/list/:siteSlug ───────────────────────────────────────────────────
 
-export function devSiteListLoader(siteSlug: string): {
+export function devSiteListLoader(
+  siteSlug: string,
+  // Found live 2026-07-17: this page was Owner-only by accident — a
+  // Contributor has no repo of their own at this rkey, so their real visits
+  // fall back to a read-only cross-repo view (see site-list.tsx's loader).
+  // `?viewAs=contributor` lets dev mode exercise that same read-only
+  // rendering without a second real account.
+  viewAsContributor = false,
+): {
   devMode: boolean;
   authorDid: string;
+  siteOwnerDid: string;
+  isOwner: boolean;
   hasUnassignedArticles: boolean;
   contributors: RosterEntry[];
   submissions: SubmissionListEntry[];
@@ -279,7 +289,9 @@ export function devSiteListLoader(siteSlug: string): {
 } {
   return {
     devMode: true,
-    authorDid: DEV_DID,
+    authorDid: viewAsContributor ? `${DEV_DID}:contributor-1` : DEV_DID,
+    siteOwnerDid: DEV_DID,
+    isOwner: !viewAsContributor,
     // Dev fixture exercises the "other group has articles" empty-state case
     // below (getting-started is empty, engineering isn't) — the classic
     // "Drop articles here" DnD hint.
@@ -304,16 +316,18 @@ export function devSiteListLoader(siteSlug: string): {
         avatar: undefined,
       },
     ],
-    submissions: [
-      {
-        contributorDid: `${DEV_DID}:contributor-1`,
-        rkey: "dev-submitted-article",
-        documentTitle: "A Contributor's Dev Submission",
-        submittedAt: "2026-07-15T00:00:00.000Z",
-        contributorHandle: "alice.bsky.social",
-        contributorDisplayName: "Alice",
-      },
-    ],
+    submissions: viewAsContributor
+      ? []
+      : [
+          {
+            contributorDid: `${DEV_DID}:contributor-1`,
+            rkey: "dev-submitted-article",
+            documentTitle: "A Contributor's Dev Submission",
+            submittedAt: "2026-07-15T00:00:00.000Z",
+            contributorHandle: "alice.bsky.social",
+            contributorDisplayName: "Alice",
+          },
+        ],
     site: {
       rkey: siteSlug,
       cid: "dev-cid-site",
