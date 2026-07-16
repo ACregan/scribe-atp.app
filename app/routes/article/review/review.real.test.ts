@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Agent } from "@atproto/api";
-import { loader, action } from "./review";
+import type { ShouldRevalidateFunctionArgs } from "react-router";
+import { loader, action, shouldRevalidate } from "./review";
 import { requireAtpAgent } from "~/services/auth.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 import {
@@ -291,6 +292,40 @@ describe("action", () => {
 
       expect(rejectSubmission).toHaveBeenCalledWith(DOCUMENT_URI, "Not a fit");
       expect(result).toEqual({ ok: true, siteSlug: "site-a" });
+    });
+  });
+
+  // Found live 2026-07-16, Phase 3b test pass: approve/reject deletes this
+  // submission's pending_submissions row, so React Router's default
+  // post-action revalidation of this route's own loader legitimately 404s
+  // — racing against (and winning over) the success effect's navigate()
+  // away. Confirmed here at the shouldRevalidate level rather than through
+  // a full loader/effect integration test, since that's exactly where the
+  // fix lives.
+  describe("shouldRevalidate", () => {
+    function args(overrides: Partial<ShouldRevalidateFunctionArgs> = {}): ShouldRevalidateFunctionArgs {
+      return {
+        currentUrl: new URL("http://localhost/article/review/did:plc:x/abc"),
+        currentParams: {},
+        nextUrl: new URL("http://localhost/article/review/did:plc:x/abc"),
+        nextParams: {},
+        defaultShouldRevalidate: true,
+        ...overrides,
+      };
+    }
+
+    it("skips revalidation after this route's own action succeeds", () => {
+      expect(shouldRevalidate(args({ actionResult: { ok: true, siteSlug: "site-a" } }))).toBe(false);
+    });
+
+    it("falls back to the default when the action failed", () => {
+      expect(
+        shouldRevalidate(args({ actionResult: { ok: false, error: "nope" }, defaultShouldRevalidate: true })),
+      ).toBe(true);
+    });
+
+    it("falls back to the default when no action just ran (plain navigation)", () => {
+      expect(shouldRevalidate(args({ actionResult: undefined, defaultShouldRevalidate: true }))).toBe(true);
     });
   });
 });

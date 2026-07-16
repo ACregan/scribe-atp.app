@@ -1,6 +1,6 @@
 import type { Route } from "./+types/review";
 import { useEffect, useState } from "react";
-import { useFetcher, useNavigate, Link } from "react-router";
+import { useFetcher, useNavigate, Link, type ShouldRevalidateFunctionArgs } from "react-router";
 import DOMPurify from "isomorphic-dompurify";
 import {
   requireAtpAgent,
@@ -48,6 +48,26 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export function HydrateFallback() {
   return <Spinner size="large" />;
+}
+
+// Found live 2026-07-16, Phase 3b test pass: approving or rejecting deletes
+// this submission's pending_submissions row (ADR 0015) — the same row the
+// loader's not-found guard below depends on. React Router revalidates a
+// route's own loader by default after any fetcher action completes on it;
+// with the row now gone, that revalidation legitimately 404s and wins the
+// race against the success effect's own navigate() away, landing on the
+// "Not Found" page instead of the site's article list. This route always
+// navigates away on a successful approve/reject and leaves the original
+// loader data untouched on failure, so there's never a reason to revalidate
+// after its own action succeeds. actionResult is only populated when an
+// action just ran here, so navigating to a genuinely different submission's
+// URL still revalidates normally.
+export function shouldRevalidate({
+  actionResult,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  if (actionResult?.ok === true) return false;
+  return defaultShouldRevalidate;
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
