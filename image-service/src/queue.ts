@@ -11,6 +11,7 @@ type QueueJob = {
   fileBuffer: Buffer;
   originalName: string;
   outputDir: string;
+  targetFolderId?: number;
 };
 
 // Sequential promise chain — one file processes at a time
@@ -38,7 +39,7 @@ function ensureUserFolder(did: string): number {
 }
 
 async function processJob(job: QueueJob): Promise<void> {
-  const { uploadId, did, uuid, fileBuffer, originalName, outputDir } = job;
+  const { uploadId, did, uuid, fileBuffer, originalName, outputDir, targetFolderId } = job;
 
   try {
     const { sizes, sourceWidth, sourceHeight } = await generateVariants(
@@ -47,7 +48,7 @@ async function processJob(job: QueueJob): Promise<void> {
       (name, dims) => emitEvent(uploadId, "variant", { name, ...dims })
     );
 
-    const folderId = ensureUserFolder(did);
+    const folderId = targetFolderId ?? ensureUserFolder(did);
 
     db.prepare(
       `INSERT INTO images (user_did, folder_id, filename, original_name, width, height, sizes, created_at)

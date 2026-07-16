@@ -68,8 +68,11 @@ async function getPublicDocument(
 // Public, unauthenticated read of a site.standard.publication record —
 // used by the Contributor-side reconciliation check (ADR 0023 point 2) to
 // look for the submitted document's URI in the Owner's manifest. Same
-// shape as getPublicDocument, different collection.
-async function getPublicSiteRecord(
+// shape as getPublicDocument, different collection. Exported for list.tsx's
+// classification fix (ADR 0023's Consequences — a document published to a
+// site the caller doesn't own needs this same cross-repo read to correctly
+// show under Site-Assigned Articles instead of Standalone).
+export async function getPublicSiteRecord(
   ownerDid: string,
   siteRkey: string,
 ): Promise<Record<string, unknown> | null> {

@@ -15,7 +15,7 @@ import {
 } from "./folders.js";
 import { handleBulkMove, handleBulkDelete } from "./bulkOperations.js";
 import { handleDeleteImage } from "./deleteImage.js";
-import { handleSyncSiteRoster } from "./siteRoster.js";
+import { handleEnsureSiteFolder } from "./siteFolder.js";
 import { registerSSE } from "./sse.js";
 import { startupCleanup } from "./cleanup.js";
 
@@ -55,7 +55,7 @@ app.post(
 app.post("/api/image-service/bulk-move", express.json(), handleBulkMove);
 app.post("/api/image-service/bulk-delete", express.json(), handleBulkDelete);
 app.delete("/api/image-service/images/:imageId", handleDeleteImage);
-app.put("/api/image-service/site-roster", express.json(), handleSyncSiteRoster);
+app.put("/api/image-service/site-folder", express.json(), handleEnsureSiteFolder);
 
 app.get(
   "/api/image-service/progress/:uploadId",

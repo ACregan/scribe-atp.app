@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { Request, Response } from "express";
 import db from "./db.js";
 import { handleListFolders, handleCreateFolder, handleDeleteFolder, handleMoveImage } from "./folders.js";
+import {
+  setupContributorMembershipsTable,
+  clearContributorMemberships,
+  insertContributorMembership,
+} from "./testSupport/contributorMemberships.js";
+
+setupContributorMembershipsTable();
 
 const DID = "did:plc:owner";
 const OTHER_DID = "did:plc:someone-else";
@@ -39,14 +46,20 @@ function insertFolder(userDid: string, name: string, parentId: number | null): n
   return result.lastInsertRowid as number;
 }
 
+function insertSiteFolder(siteUri: string, name: string, parentId: number | null): number {
+  return db
+    .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, ?)")
+    .run(siteUri, name, parentId).lastInsertRowid as number;
+}
+
 beforeEach(() => {
   db.exec("DELETE FROM images");
   db.exec("DELETE FROM image_folders");
-  db.exec("DELETE FROM site_rosters");
+  clearContributorMemberships();
 });
 
 describe("handleListFolders", () => {
-  it("returns only the requesting user's folders, ordered root-first", () => {
+  it("returns the requesting user's own folders, ordered root-first", () => {
     const root = insertFolder(DID, DID, null);
     insertFolder(DID, "Subfolder", root);
     insertFolder(OTHER_DID, OTHER_DID, null);
@@ -59,6 +72,45 @@ describe("handleListFolders", () => {
       "Subfolder",
       DID,
     ]);
+  });
+
+  // ADR 0020 point 2 (full write parity) — this list backs the Move / Bulk
+  // Move / Add to New Folder destination pickers, so it must include site
+  // folders the caller can write to, not just ones they personally own.
+  it("includes a site folder the caller owns", () => {
+    const siteUri = `at://${DID}/site.standard.publication/my-site`;
+    insertSiteFolder(siteUri, "example.com Images", null);
+
+    const res = makeRes();
+    handleListFolders(makeReq({ userDid: DID }), res);
+
+    expect(res.body.folders.map((f: { name: string }) => f.name)).toContain(
+      "example.com Images",
+    );
+  });
+
+  it("includes a site folder the caller is an accepted contributor on", () => {
+    const siteUri = `at://${DID}/site.standard.publication/my-site`;
+    const contributorDid = "did:plc:contributor";
+    insertContributorMembership(siteUri, contributorDid);
+    insertSiteFolder(siteUri, "example.com Images", null);
+
+    const res = makeRes();
+    handleListFolders(makeReq({ userDid: contributorDid }), res);
+
+    expect(res.body.folders.map((f: { name: string }) => f.name)).toContain(
+      "example.com Images",
+    );
+  });
+
+  it("excludes a site folder the caller has no accepted membership for", () => {
+    const siteUri = `at://${DID}/site.standard.publication/my-site`;
+    insertSiteFolder(siteUri, "example.com Images", null);
+
+    const res = makeRes();
+    handleListFolders(makeReq({ userDid: OTHER_DID }), res);
+
+    expect(res.body.folders).toHaveLength(0);
   });
 });
 
@@ -227,8 +279,8 @@ describe("site-owned folders — full write parity for Contributors", () => {
   }
 
   beforeEach(() => {
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_A);
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_B);
+    insertContributorMembership(SITE_URI, CONTRIBUTOR_A);
+    insertContributorMembership(SITE_URI, CONTRIBUTOR_B);
   });
 
   it("a Contributor can create a subfolder inside the site folder", () => {

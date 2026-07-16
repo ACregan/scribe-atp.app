@@ -1,7 +1,7 @@
 # ADR 0020: Site-Owned Image Folders Are Fully Restricted, Created With the Site, and Gated on Accepted Status
 
 ## Status
-Accepted — design finalized 2026-07-15 (Phase 2 grill session), not yet implemented
+Accepted, implemented, then partially superseded — design finalized 2026-07-15 (Phase 2 grill session). Points 3–6 (the sync endpoint, its `memberDids` payload, and site creation calling it with an empty roster) were replaced 2026-07-16 by ADR 0024's live cross-process read — there is no sync endpoint anymore, just idempotent folder creation. Points 1, 2, 7, and 8 (access restriction scope, write parity, schema, the shared `access.ts` module) are unaffected and still current.
 
 ## Context
 

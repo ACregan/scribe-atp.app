@@ -30,9 +30,15 @@ type FileEntry = {
 type Props = {
   isOpen: boolean;
   onClose: () => void;
+  // The currently-browsed folder to upload into, if the caller can write
+  // there (images.tsx passes null while browsing someone else's read-only
+  // personal folder, or the top-level view) — the server independently
+  // re-validates write access and falls back to the caller's own root
+  // folder if this is absent or not accessible.
+  folderId: number | null;
 };
 
-export function UploadModal({ isOpen, onClose }: Props) {
+export function UploadModal({ isOpen, onClose, folderId }: Props) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [phase, setPhase] = useState<"selection" | "progress">("selection");
   const [isDragging, setIsDragging] = useState(false);
@@ -170,6 +176,7 @@ export function UploadModal({ isOpen, onClose }: Props) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("uploadId", uploadId);
+    if (folderId !== null) formData.append("folderId", String(folderId));
 
     updateFile(uploadId, { status: "uploading" });
     xhr.open("POST", UPLOAD_URL);

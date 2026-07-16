@@ -510,32 +510,30 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 ### Phase 2 — Image Library site-scoped folders
 
-**Depends on:** Phase 1 (needs the roster to exist and `contributorRoster.server.ts`'s functions to sync from).
+**Depends on:** Phase 1 (needs `contributor_memberships` to exist).
 
-**Grilled 2026-07-15 — see ADR 0020 for everything resolved beyond ADR 0017's original sketch.** The scope below is the settled result.
+**Grilled 2026-07-15 — see ADR 0020 for everything resolved beyond ADR 0017's original sketch. Redesigned 2026-07-16 — see ADR 0024: the push-sync mechanism below (`site_rosters`, `syncSiteRoster`) was found live to make Contributor access depend on the Owner doing something first; it's since been replaced by a live cross-process read.** The scope below is the current, as-built state.
 
 **Scope:**
 
 *Schema:*
 - `image_folders.user_did` becomes **nullable** (today `NOT NULL`) alongside a new nullable `site_uri` column — a folder is owned by exactly one of the two. SQLite has no direct `ALTER COLUMN ... DROP NOT NULL`; needs the standard create-new-table/copy-data/drop/rename procedure, not a bare `ALTER TABLE ADD COLUMN`.
-- `site_rosters (site_uri, member_did)` table in the Image Service's own SQLite, with a composite uniqueness constraint on `(site_uri, member_did)` so repeated wholesale-replace syncs don't accumulate duplicates.
-- New shared module `image-service/src/access.ts` (ADR 0020 point 8) — `canAccessFolder(did, folder)` / `canAccessImage(did, image)`, replacing the per-file `!row || row.user_did !== did` idiom currently duplicated across `folders.ts` (×3), `deleteImage.ts`, and `bulkOperations.ts` (×2 + a destination-folder check). Logic: allowed if caller is the `user_did` owner, or — for a site-owned folder/image — the caller is the site owner (parsed from `site_uri`, no lookup needed) or appears in `site_rosters` for that `site_uri`.
+- New shared module `image-service/src/access.ts` (ADR 0020 point 8) — `canAccessFolder(did, folder)` / `canAccessImage(did, image)`, replacing the per-file `!row || row.user_did !== did` idiom currently duplicated across `folders.ts` (×3), `deleteImage.ts`, and `bulkOperations.ts` (×2 + a destination-folder check). Logic: allowed if caller is the `user_did` owner, or — for a site-owned folder/image — the caller is the site owner (parsed from `site_uri`, no lookup needed) or has an **accepted** row in `contributor_memberships` for that `site_uri`, read live via a second connection straight into the main app's own `data/oauth.db` (ADR 0024 — `getCmsDb()` in `image-service/src/db.ts`). There is no `site_rosters` table anymore.
 
 *Access restriction (ADR 0020 point 1 — the one place this phase deviates from "no change to existing behavior"):*
-- Site-owned folders get **both** read and write restriction — owner or roster member only. Personal folders are explicitly unaffected and keep today's open-read behavior (a separately tracked gap, not part of this feature).
+- Site-owned folders get **both** read and write restriction — owner or accepted contributor only. Personal folders are explicitly unaffected and keep today's open-read behavior (a separately tracked gap, not part of this feature).
 - `browse.ts`'s top-level "all root folders" listing must exclude a site-owned folder unless the caller is authorized for it via `access.ts`. Fetching a specific `folderId` (which today does zero ownership comparison for *any* folder) needs a check added — this is the first read-side restriction this service has ever had.
 - Contributors get full write parity with the Owner inside a site folder (upload/delete/create-subfolder/move) — one check, no tiers, consistent with ADR 0018.
 
-*Sync endpoint and trigger points (ADR 0020 points 3–6):*
-- `PUT /api/image-service/site-roster`, body `{ siteUri, siteName, memberDids }`, wholesale replace. Auth: caller's session DID must equal the owner DID parsed from `siteUri`, 403 otherwise.
-- **Access is granted only once status is `"accepted"`, not from `"invited"`.** Synced from two places: `removeContributor` (revoke immediately, any prior status) and the accepted-promotion branch of `reconcileContributorStatuses` (grant access) — both in `contributorRoster.server.ts`, both gain a `cookieHeader: string` parameter threaded from `site-list.tsx`'s `request.headers.get("Cookie")`, and both call the new `syncSiteRoster` (in `imageServiceClient.server.ts`) as an internal side-effect of their own write, mirroring how `inviteContributor` already calls `sendInviteDm`. The rejected-promotion branch needs no sync call.
-- **The folder is created at site-creation time**, not lazily on first accepted Contributor (ADR 0020 point 6, reversed from the initial recommendation) — useful to the Owner as "this site's images" independent of Contributors existing at all. `sites.tsx`'s create action calls the same `syncSiteRoster(siteUri, siteName, [])` (empty roster) right after writing the site record, reusing the sync endpoint's auto-create-if-missing behavior. Best-effort — if the Image Service is unreachable, site creation still succeeds, logged, self-correcting on the next sync.
-- **Backfilling the 3 pre-existing sites uses a permanent feature, not a throwaway script** (resolved during implementation — a true one-shot script risked wholesale-wiping a real roster if ever re-run). A "Resync Image Folder" button on `/site/:siteName/configure` reads the site's actual current accepted contributors and syncs exactly that — safe to run anytime, doubles as manual recovery from a failed sync, and each Owner uses it once per pre-existing site to backfill.
-- Folder display name: `"{domain} Images"` (e.g. "anthonycregan.co.uk Images"), using `scribe.domain` — set once at creation from the `siteName` sync payload field, **not** kept in sync with a later domain change via `/site/:siteName/configure` (accepted cosmetic limitation).
+*Folder creation (ADR 0024, superseding ADR 0020 points 3–6):*
+- `PUT /api/image-service/site-folder`, body `{ siteUri, siteName }` — idempotent folder creation only. Auth: caller's session DID must equal the owner DID parsed from `siteUri`, 403 otherwise. There is no roster to push; Contributor access is decided per-request by `access.ts`'s live read, the instant `contributorMemberships.setStatus`/`.remove` changes the underlying row — no sync call, no propagation delay, no Owner-side action required at all.
+- **The folder is created at site-creation time** — `sites.tsx`'s create action calls `ensureSiteFolder(siteUri, siteName, cookieHeader)` (in `imageServiceClient.server.ts`) right after writing the site record. Best-effort — if the Image Service is unreachable, site creation still succeeds, logged, self-correcting on the next visit to "Resync Image Folder".
+- **Pre-existing sites** (created before this at-creation-time call existed) are backfilled by a genuine one-shot script, `scripts/backfill-site-image-folders.ts` — restores an `Agent` for every DID with a stored `oauth_session` row and calls the same folder-ensure logic directly, no live login needed. Delete it once run against every deployment with pre-existing sites, per this repo's "chore: remove devtools/repair-*" convention. The "Resync Image Folder" button on `/site/:siteName/configure` still exists as an on-demand manual recovery path, but is no longer the backfill mechanism itself.
+- Folder display name: `"{domain} Images"` (e.g. "anthonycregan.co.uk Images"), using `scribe.domain` — set once at creation, **not** kept in sync with a later domain change via `/site/:siteName/configure` (accepted cosmetic limitation).
 
 **Explicitly out of scope:** any change to personal (`user_did`-owned) folder behavior; the general Image Library read-access-control gap for personal folders (tracked separately); site-deletion cleanup of the shared folder — **backlogged explicitly**, not solved here, per ADR 0020's Consequences.
 
-**Reference:** ADR 0017 (Context, for why the CMS pushes the roster rather than the Image Service resolving it live), **ADR 0020 (for every concrete decision above — read this one first, it supersedes ADR 0017's unspecified behavior, not its architecture).**
+**Reference:** ADR 0017 (Context, historical — its "CMS pushes, image-service doesn't resolve live" reasoning was about avoiding AT-proto reads and doesn't apply to the local-file read ADR 0024 uses instead), ADR 0020 (folder-ownership schema, access restriction, write parity — still current), **ADR 0024 (current source of truth for how Contributor access is actually decided — supersedes ADR 0020's/0017's sync-based mechanism specifically).**
 
 ### Phase 3 — Submission core flow
 
@@ -581,7 +579,9 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 - **Error handling:** per-document try/catch, best-effort, log and continue (ADR 0023 point 6) — one document's failure never blocks the page or any other document's check.
 - **Idempotency:** relies entirely on the finalizing write's existing `swapRecord`/`cid` optimistic-concurrency check plus the try/catch above — no new guard needed (ADR 0023 point 7).
 
-**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table. Also backlogged: `list.tsx`'s Standalone-vs-Site-Assigned classification (keyed off the caller's own `assignmentMap`) doesn't recognize a document now published to the **Owner's** site as "assigned" — it keeps showing under Standalone Articles minus the pill, harmless (the submit guard already blocks re-submitting it) but misleading; deferred to Phase 4 (ADR 0023 Consequences).
+**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table.
+
+**Fixed 2026-07-16 (found live during the Phase 3c test pass):** `list.tsx`'s Standalone-vs-Site-Assigned classification, keyed off the caller's own `assignmentMap`, didn't recognize a document now published to the **Owner's** site as assigned — it kept showing under Standalone Articles with a live Publish button. Fixed by resolving any document whose `value.site` is an `at://` URI not already covered by `assignmentMap` via the same cross-repo site-record read `reconcilePendingSubmission` uses (see ADR 0023 Consequences).
 
 ### Phase 4 — Discovery UX polish (light check-in + built 2026-07-16, no dedicated ADR — see note below)
 

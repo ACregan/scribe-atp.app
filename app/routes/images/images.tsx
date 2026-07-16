@@ -59,7 +59,7 @@ const DEV_MOCK: LoaderData = {
 // Playwright viewport so fullscreen fit/actual toggle tests work reliably.
 const DEV_MOCK_FOLDER: LoaderData = {
   currentUserDid: DEV_DID,
-  folder: { id: 1, user_did: DEV_DID, name: DEV_DID, parent_id: null },
+  folder: { id: 1, user_did: DEV_DID, name: DEV_DID, parent_id: null, canWrite: true },
   breadcrumbs: [{ id: 1, name: DEV_DID }],
   subfolders: [],
   images: [
@@ -121,9 +121,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     );
 
     const profiles: Record<string, UserProfile> = {};
+    // Site folders have a null user_did — filter it out rather than asking
+    // Bluesky's API to resolve a profile for the literal string "null".
     const didsToResolve = data.folder
-      ? [data.folder.user_did]
-      : [...new Set(data.subfolders.map((f) => f.user_did))];
+      ? [data.folder.user_did].filter((d): d is string => d !== null)
+      : [...new Set(data.subfolders.map((f) => f.user_did).filter((d): d is string => d !== null))];
     if (didsToResolve.length > 0) {
       try {
         const params = new URLSearchParams();
@@ -253,6 +255,7 @@ export default function ImagesRoute({ loaderData }: Route.ComponentProps) {
       <UploadModal
         isOpen={lib.uploadModal.isOpen}
         onClose={lib.handleUploadClose}
+        folderId={lib.isOwnTree && folder ? folder.id : null}
       />
 
       {lib.isOwnTree && folder && (

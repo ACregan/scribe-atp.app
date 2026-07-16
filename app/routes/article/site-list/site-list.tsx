@@ -39,6 +39,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useState, useRef, useEffect } from "react";
+import cn from "classnames";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
@@ -80,6 +81,7 @@ import { resolveThumbUrl } from "~/services/article.server";
 import { devSiteListLoader } from "~/services/devFixtures.server";
 import { logger } from "~/services/logger.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
+import styles from "./site-list.module.css";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.site?.title ?? "Site";
@@ -97,14 +99,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // ADR 0019 — Owner-side reconciliation: promote locally-accepted invites
     // and strip locally-rejected ones out of scribe.contributors, every time
     // the Owner visits this page. Cheap no-op when there's nothing pending.
-    // cookieHeader (ADR 0020) lets it sync the Image Service's site_rosters
-    // mirror when a promotion actually happens.
-    await reconcileContributorStatuses(
-      agent,
-      did,
-      siteSlug,
-      request.headers.get("Cookie") ?? "",
-    );
+    // core.tsx's global loop (every page, every owned site) also runs this,
+    // so this call is a same-page belt-and-braces, not the sole trigger.
+    await reconcileContributorStatuses(agent, did, siteSlug);
 
     const [record, documents] = await Promise.all([
       agent.com.atproto.repo.getRecord({
@@ -156,7 +153,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       rkey: s.documentUri.split("/").pop() ?? "",
       documentTitle: s.documentTitle,
       submittedAt: s.submittedAt,
-      contributorHandle: profileByDid.get(s.contributorDid)?.handle ?? s.contributorDid,
+      contributorHandle:
+        profileByDid.get(s.contributorDid)?.handle ?? s.contributorDid,
       contributorDisplayName: profileByDid.get(s.contributorDid)?.displayName,
     }));
 
@@ -251,13 +249,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!useRealOAuth) return { ok: true, removedDid: contributorDid };
 
     const agent = await getAtpAgent(did, request);
-    const result = await removeContributor(
-      agent,
-      did,
-      siteSlug,
-      contributorDid,
-      request.headers.get("Cookie") ?? "",
-    );
+    const result = await removeContributor(agent, did, siteSlug, contributorDid);
     return result.ok
       ? { ok: true, removedDid: contributorDid }
       : { ok: false, error: String(result.error) };
@@ -420,10 +412,7 @@ function CreateGroupModal({
   }, [fetcher.state, fetcher.data]);
 
   return (
-    <fetcher.Form
-      method="post"
-      style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}
-    >
+    <fetcher.Form method="post" className={styles.formColumn}>
       <input type="hidden" name="_intent" value="createGroup" />
       <Input
         id="group-title"
@@ -455,34 +444,14 @@ function CreateGroupModal({
         }
       />
       {slug && slugValid && (
-        <p
-          style={{
-            fontSize: "1.2rem",
-            color: "var(--text-secondary)",
-            margin: 0,
-          }}
-        >
+        <p className={styles.helperText}>
           Path: <code>{composedPath}</code>
         </p>
       )}
       {fetcher.data?.error && (
-        <p
-          style={{
-            fontSize: "1.3rem",
-            color: "var(--action-danger)",
-            margin: 0,
-          }}
-        >
-          {fetcher.data.error}
-        </p>
+        <p className={styles.formError}>{fetcher.data.error}</p>
       )}
-      <p
-        style={{
-          fontSize: "1.2rem",
-          color: "var(--text-secondary)",
-          margin: 0,
-        }}
-      >
+      <p className={styles.helperText}>
         The URL path cannot be changed after the group is created.
       </p>
       <Button
@@ -554,7 +523,9 @@ function InviteContributorModal({
 
   const isResolving = resolveFetcher.state !== "idle";
   const isInviting = inviteFetcher.state !== "idle";
-  const alreadyOnRoster = resolved ? existingDids.includes(resolved.did) : false;
+  const alreadyOnRoster = resolved
+    ? existingDids.includes(resolved.did)
+    : false;
   const canInvite = resolved !== null && !alreadyOnRoster && !isInviting;
 
   function handleLookup() {
@@ -579,20 +550,22 @@ function InviteContributorModal({
       onClose={onClose}
       title="Invite Contributor"
       footer={
-        <div
-          style={{ display: "flex", gap: "0.8rem", justifyContent: "flex-end" }}
-        >
+        <div className={styles.modalFooter}>
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="success" disabled={!canInvite} onClick={handleInvite}>
+          <Button
+            variant="success"
+            disabled={!canInvite}
+            onClick={handleInvite}
+          >
             {isInviting ? "Sending…" : "Send Invite"}
           </Button>
         </div>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-        <div style={{ display: "flex", gap: "0.8rem", alignItems: "flex-end" }}>
+      <div className={styles.formColumn}>
+        <div className={styles.handleInputRow}>
           <Input
             id="invite-contributor-handle"
             label="Bluesky handle"
@@ -611,35 +584,26 @@ function InviteContributorModal({
             variant="secondary"
             disabled={!handle.trim() || isResolving}
             onClick={handleLookup}
+            className={styles.lookupButton}
           >
             {isResolving ? "Looking up…" : "Look up"}
           </Button>
         </div>
 
-        {resolveError && (
-          <p style={{ color: "var(--action-danger)", margin: 0 }}>{resolveError}</p>
-        )}
+        {resolveError && <p className={styles.errorText}>{resolveError}</p>}
         {inviteFetcher.data?.error && (
-          <p style={{ color: "var(--action-danger)", margin: 0 }}>
-            {inviteFetcher.data.error}
-          </p>
+          <p className={styles.errorText}>{inviteFetcher.data.error}</p>
         )}
 
         {resolved && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+          <div className={styles.resolvedProfileRow}>
             {resolved.avatar && (
-              <img
-                src={resolved.avatar}
-                alt=""
-                style={{ width: "3.2rem", height: "3.2rem", borderRadius: "50%" }}
-              />
+              <img src={resolved.avatar} alt="" className={styles.avatar} />
             )}
             <span>{resolved.displayName}</span>
-            <span style={{ color: "var(--text-secondary)" }}>
-              @{resolved.handle}
-            </span>
+            <span className={styles.mutedText}>@{resolved.handle}</span>
             {alreadyOnRoster && (
-              <p style={{ color: "var(--action-danger)", margin: 0 }}>
+              <p className={styles.errorText}>
                 This person is already on the roster for this site.
               </p>
             )}
@@ -672,17 +636,12 @@ function ShareModal({
       <input type="hidden" name="_intent" value="shareToBluesky" />
       <input type="hidden" name="uri" value={article.uri} />
       {article.bskyPostRef && (
-        <p
-          style={{
-            marginBottom: "1rem",
-            color: "var(--color-warning, #d97706)",
-          }}
-        >
+        <p className={styles.shareWarning}>
           This article has already been shared to Bluesky. Sharing again will
           create a new post.
         </p>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div className={styles.shareTextField}>
         <label htmlFor="share-text">Post text</label>
         <textarea
           id="share-text"
@@ -690,14 +649,17 @@ function ShareModal({
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
-          style={{ resize: "vertical", width: "100%", padding: "0.5rem" }}
+          className={styles.shareTextarea}
         />
       </div>
     </form>
   );
 }
 
-const STATUS_VARIANT: Record<RosterEntry["status"], "success" | "secondary" | "danger"> = {
+const STATUS_VARIANT: Record<
+  RosterEntry["status"],
+  "success" | "secondary" | "danger"
+> = {
   accepted: "success",
   invited: "secondary",
   // Never actually rendered — a rejected entry is reconciled out of
@@ -719,32 +681,17 @@ function SubmissionsSection({
   if (submissions.length === 0) return null;
 
   return (
-    <div
-      style={{
-        borderTop: "0.1rem solid var(--border-color)",
-        marginTop: "1rem",
-        paddingTop: "1rem",
-      }}
-    >
-      <h6 style={{ margin: 0 }}>New Article Submissions</h6>
+    <div className={styles.sectionDivider}>
+      <h6 className={styles.sectionHeading}>New Article Submissions</h6>
 
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+      <ul className={styles.plainList}>
         {submissions.map((s) => (
-          <li
-            key={`${s.contributorDid}:${s.rkey}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.8rem",
-              padding: "0.8rem 0",
-              borderTop: "0.1rem solid var(--border-subtle)",
-            }}
-          >
+          <li key={`${s.contributorDid}:${s.rkey}`} className={styles.listRow}>
             <span>{s.documentTitle}</span>
-            <span style={{ color: "var(--text-secondary)" }}>
+            <span className={styles.mutedText}>
               from {s.contributorDisplayName ?? s.contributorHandle}
             </span>
-            <span style={{ color: "var(--text-secondary)", marginLeft: "auto" }}>
+            <span className={cn(styles.mutedText, styles.pushRight)}>
               {new Date(s.submittedAt).toLocaleDateString()}
             </span>
             <Link to={`/article/review/${s.contributorDid}/${s.rkey}`}>
@@ -773,47 +720,28 @@ function ContributorsSection({
   // Phase 1 grill session, Question 4: one scrolling column, not a second
   // clipped-by-default region under the fixed container's overflow:hidden).
   return (
-    <div
-      style={{
-        borderTop: "0.1rem solid var(--border-color)",
-        marginTop: "1rem",
-        paddingTop: "1rem",
-      }}
-    >
-      <h6 style={{ margin: 0 }}>Contributors</h6>
+    <div className={styles.sectionDivider}>
+      <h6 className={styles.sectionHeading}>Contributors</h6>
 
       {contributors.length === 0 ? (
-        <p style={{ color: "var(--text-secondary)" }}>
+        <p className={styles.mutedText}>
           No contributors yet — invite someone to let them submit articles to
           this site.
         </p>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul className={styles.plainList}>
           {contributors.map((c) => (
-            <li
-              key={c.did}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.8rem",
-                padding: "0.8rem 0",
-                borderTop: "0.1rem solid var(--border-subtle)",
-              }}
-            >
+            <li key={c.did} className={styles.listRow}>
               {c.avatar && (
-                <img
-                  src={c.avatar}
-                  alt=""
-                  style={{ width: "3.2rem", height: "3.2rem", borderRadius: "50%" }}
-                />
+                <img src={c.avatar} alt="" className={styles.avatar} />
               )}
               <span>{c.displayName ?? c.handle}</span>
-              <span style={{ color: "var(--text-secondary)" }}>@{c.handle}</span>
+              <span className={styles.mutedText}>@{c.handle}</span>
               <Pill variant={STATUS_VARIANT[c.status]}>{c.status}</Pill>
               <Button
                 type="button"
                 variant="danger"
-                style={{ marginLeft: "auto" }}
+                className={styles.pushRight}
                 disabled={removingDid === c.did}
                 onClick={() => onRemove(c.did)}
               >
@@ -832,7 +760,8 @@ export function HydrateFallback() {
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, hasUnassignedArticles, contributors, submissions } = loaderData;
+  const { site, devMode, hasUnassignedArticles, contributors, submissions } =
+    loaderData;
   const { isOpen, open, close } = useModal();
   const inviteModal = useModal();
 
@@ -877,14 +806,8 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
   } | null>(null);
   const shareModal = useModal();
 
-  const {
-    tree,
-    setTree,
-    isDirty,
-    markSaved,
-    removeGroup,
-    setBskyPostRef,
-  } = useDirtyTree(site);
+  const { tree, setTree, isDirty, markSaved, removeGroup, setBskyPostRef } =
+    useDirtyTree(site);
   const {
     sensors,
     activeArticle,
@@ -1086,7 +1009,10 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
             exists and there's a real second thing to put beside this. */}
         <PageSection overflow>
           <h6>{site.title}</h6>
-          <SortableContext items={rootIds} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={rootIds}
+            strategy={verticalListSortingStrategy}
+          >
             <GroupList>
               {/* g:root never has anything to render — since ADR 0013 every
                   document reaching this site is already published into a
@@ -1129,7 +1055,9 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
           <ContributorsSection
             contributors={contributors}
             onRemove={handleRemoveContributor}
-            removingDid={isRemovingContributor ? removingContributorDidRef.current : null}
+            removingDid={
+              isRemovingContributor ? removingContributorDidRef.current : null
+            }
           />
         </PageSection>
 
@@ -1152,7 +1080,9 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
       {devMode && (
         <PageSection>
-          <p style={{ color: "orange" }}>Dev mode: no real PDS connected.</p>
+          <p className={styles.devModeNotice}>
+            Dev mode: no real PDS connected.
+          </p>
         </PageSection>
       )}
 
@@ -1179,13 +1109,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
             : "Share to Bluesky"
         }
         footer={
-          <div
-            style={{
-              display: "flex",
-              gap: "0.8rem",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className={styles.modalFooter}>
             <Button
               variant="secondary"
               onClick={() => {
@@ -1243,13 +1167,7 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onClose={() => blocker.reset?.()}
         title="Unsaved changes"
         footer={
-          <div
-            style={{
-              display: "flex",
-              gap: "0.8rem",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className={styles.modalFooter}>
             <Button variant="secondary" onClick={() => blocker.reset?.()}>
               Stay
             </Button>

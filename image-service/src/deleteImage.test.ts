@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { Request, Response } from "express";
 import db from "./db.js";
 import { handleDeleteImage } from "./deleteImage.js";
+import {
+  setupContributorMembershipsTable,
+  clearContributorMemberships,
+  insertContributorMembership,
+} from "./testSupport/contributorMemberships.js";
+
+setupContributorMembershipsTable();
 
 const DID = "did:plc:owner";
 const OTHER_DID = "did:plc:someone-else";
@@ -52,7 +59,7 @@ function insertImage(userDid: string, filename: string): number {
 beforeEach(() => {
   db.exec("DELETE FROM images");
   db.exec("DELETE FROM image_folders");
-  db.exec("DELETE FROM site_rosters");
+  clearContributorMemberships();
 });
 
 afterEach(() => {
@@ -106,8 +113,8 @@ describe("handleDeleteImage — site-owned folders (ADR 0020 full write parity)"
   const CONTRIBUTOR_B = "did:plc:contributor-b";
 
   it("a Contributor can delete an image a different Contributor uploaded into the site folder", () => {
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_A);
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_B);
+    insertContributorMembership(SITE_URI, CONTRIBUTOR_A);
+    insertContributorMembership(SITE_URI, CONTRIBUTOR_B);
     const siteFolderId = db
       .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, NULL)")
       .run(SITE_URI, "example.com Images").lastInsertRowid as number;
@@ -125,8 +132,8 @@ describe("handleDeleteImage — site-owned folders (ADR 0020 full write parity)"
     expect(res.statusCode).toBe(200);
   });
 
-  it("someone not on the roster cannot delete an image in the site folder", () => {
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, CONTRIBUTOR_A);
+  it("someone with no accepted membership row cannot delete an image in the site folder", () => {
+    insertContributorMembership(SITE_URI, CONTRIBUTOR_A);
     const siteFolderId = db
       .prepare("INSERT INTO image_folders (site_uri, name, parent_id) VALUES (?, ?, NULL)")
       .run(SITE_URI, "example.com Images").lastInsertRowid as number;

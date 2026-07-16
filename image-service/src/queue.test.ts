@@ -103,6 +103,49 @@ describe("enqueue / processJob", () => {
     expect(folderCount).toBe(1);
   });
 
+  it("uses targetFolderId instead of the caller's root folder when provided", async () => {
+    vi.mocked(generateVariants).mockResolvedValue({
+      sizes: {},
+      sourceWidth: 100,
+      sourceHeight: 100,
+    });
+    const rootId = db
+      .prepare("INSERT INTO image_folders (user_did, name, parent_id, created_at) VALUES (?, ?, NULL, datetime('now'))")
+      .run(DID, DID).lastInsertRowid as number;
+    const otherFolderId = db
+      .prepare("INSERT INTO image_folders (user_did, name, parent_id, created_at) VALUES (?, ?, ?, datetime('now'))")
+      .run(DID, "Vacations", rootId).lastInsertRowid as number;
+
+    enqueue({
+      uploadId: "upload-targeted",
+      did: DID,
+      uuid: "uuid-targeted",
+      fileBuffer: Buffer.from("fake"),
+      originalName: "photo.jpg",
+      outputDir: "/tmp/x",
+      targetFolderId: otherFolderId,
+    });
+
+    await vi.waitFor(() => {
+      expect(db.prepare("SELECT id FROM images WHERE filename = ?").get("uuid-targeted")).toBeDefined();
+    });
+
+    const image = db
+      .prepare("SELECT folder_id FROM images WHERE filename = ?")
+      .get("uuid-targeted") as { folder_id: number };
+    expect(image.folder_id).toBe(otherFolderId);
+    expect(image.folder_id).not.toBe(rootId);
+
+    // ensureUserFolder must not have been triggered as a side effect —
+    // still exactly the one root folder this test itself created.
+    const rootFolderCount = (
+      db.prepare("SELECT COUNT(*) as n FROM image_folders WHERE user_did = ? AND parent_id IS NULL").get(DID) as {
+        n: number;
+      }
+    ).n;
+    expect(rootFolderCount).toBe(1);
+  });
+
   it("emits an error event and does not insert a row when variant generation fails", async () => {
     vi.mocked(generateVariants).mockRejectedValue(new Error("sharp blew up"));
 

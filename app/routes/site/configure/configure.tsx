@@ -34,8 +34,7 @@ import {
 } from "~/services/documentRepository.server";
 import { resolveThumbUrl } from "~/services/article.server";
 import { registerSocialOrigin } from "~/services/socialOrigin.server";
-import { syncSiteRoster } from "~/services/imageServiceClient.server";
-import type { SiteContributor } from "~/hooks/types";
+import { ensureSiteFolder } from "~/services/imageServiceClient.server";
 import {
   getUmamiConfig,
   saveUmamiConfig,
@@ -179,17 +178,12 @@ export async function action({ request, params }: Route.ActionArgs) {
       const agent = await getAtpAgent(did, request);
       const site = await getSite(agent, did, siteSlug);
       const scribe = (site.value.scribe as Record<string, unknown>) ?? {};
-      const contributors = (scribe.contributors as SiteContributor[]) ?? [];
-      const acceptedDids = contributors
-        .filter((c) => c.status === "accepted")
-        .map((c) => c.did);
       const siteUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
       const siteDomain = String(scribe.domain ?? "");
 
-      await syncSiteRoster(
+      await ensureSiteFolder(
         siteUri,
         siteDomain,
-        acceptedDids,
         request.headers.get("Cookie") ?? "",
       );
       logger.info(

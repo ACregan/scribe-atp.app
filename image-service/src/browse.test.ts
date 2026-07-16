@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { Request, Response } from "express";
 import db from "./db.js";
 import { handleBrowse } from "./browse.js";
+import {
+  setupContributorMembershipsTable,
+  clearContributorMemberships,
+  insertContributorMembership,
+} from "./testSupport/contributorMemberships.js";
+
+setupContributorMembershipsTable();
 
 const DID = "did:plc:owner";
 const OTHER_DID = "did:plc:someone-else";
@@ -47,7 +54,7 @@ function insertSiteFolder(siteUri: string, name: string, parentId: number | null
 beforeEach(() => {
   db.exec("DELETE FROM images");
   db.exec("DELETE FROM image_folders");
-  db.exec("DELETE FROM site_rosters");
+  clearContributorMemberships();
 });
 
 describe("handleBrowse — no folderId (top-level shared view)", () => {
@@ -136,7 +143,7 @@ describe("handleBrowse — with folderId", () => {
 describe("handleBrowse — site-owned folders", () => {
   const SITE_URI = `at://${DID}/site.standard.publication/my-site`;
 
-  it("top-level listing excludes a site folder for someone not on its roster", () => {
+  it("top-level listing excludes a site folder for someone with no accepted contributor_memberships row", () => {
     insertFolder(DID, DID, null);
     insertSiteFolder(SITE_URI, "example.com Images", null);
 
@@ -154,9 +161,9 @@ describe("handleBrowse — site-owned folders", () => {
     expect(res.body.subfolders).toHaveLength(1);
   });
 
-  it("top-level listing includes the site folder for an accepted roster member", () => {
+  it("top-level listing includes the site folder for an accepted contributor", () => {
     const memberDid = "did:plc:contributor";
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, memberDid);
+    insertContributorMembership(SITE_URI, memberDid);
     insertSiteFolder(SITE_URI, "example.com Images", null);
 
     const res = makeRes();
@@ -164,16 +171,16 @@ describe("handleBrowse — site-owned folders", () => {
     expect(res.body.subfolders).toHaveLength(1);
   });
 
-  it("404s (not 403) for a direct folderId fetch by someone not on the roster — existence isn't confirmed", () => {
+  it("404s (not 403) for a direct folderId fetch by someone with no accepted membership row — existence isn't confirmed", () => {
     const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
     const res = makeRes();
     handleBrowse(makeReq({ userDid: OTHER_DID, query: { folderId: String(siteFolderId) } }), res);
     expect(res.statusCode).toBe(404);
   });
 
-  it("allows a roster member to fetch the site folder directly and see its images", () => {
+  it("allows an accepted contributor to fetch the site folder directly and see its images", () => {
     const memberDid = "did:plc:contributor";
-    db.prepare("INSERT INTO site_rosters (site_uri, member_did) VALUES (?, ?)").run(SITE_URI, memberDid);
+    insertContributorMembership(SITE_URI, memberDid);
     const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
     insertImage("did:plc:whoeveruploaded", siteFolderId, "shared-photo");
 
@@ -182,6 +189,34 @@ describe("handleBrowse — site-owned folders", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.images).toHaveLength(1);
+  });
+
+  // Found live 2026-07-16: the client used to derive write-capability from
+  // `folder.user_did === currentUserDid`, which is always false for a site
+  // folder — hiding New Folder/Move/Delete/upload-into-here from the Owner
+  // and every accepted Contributor alike. canWrite is the server-computed
+  // fix (ADR 0024).
+  it("reports canWrite: true for the site owner", () => {
+    const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: DID, query: { folderId: String(siteFolderId) } }), res);
+    expect(res.body.folder.canWrite).toBe(true);
+  });
+
+  it("reports canWrite: true for an accepted contributor", () => {
+    const memberDid = "did:plc:contributor";
+    insertContributorMembership(SITE_URI, memberDid);
+    const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: memberDid, query: { folderId: String(siteFolderId) } }), res);
+    expect(res.body.folder.canWrite).toBe(true);
+  });
+
+  it("reports canWrite: false for a personal folder someone else owns (openly readable, not writable)", () => {
+    const otherRoot = insertFolder(OTHER_DID, OTHER_DID, null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: DID, query: { folderId: String(otherRoot) } }), res);
+    expect(res.body.folder.canWrite).toBe(false);
   });
 
   it("uses the folder's own name for a site folder's breadcrumb — no 'My Images' override", () => {

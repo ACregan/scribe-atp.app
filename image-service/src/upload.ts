@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import path from "node:path";
 import { enqueue } from "./queue.js";
 import { emitEvent } from "./sse.js";
+import { canAccessFolder, getFolder } from "./access.js";
 
 const ACCEPTED_MIMETYPES = new Set([
   "image/jpeg",
@@ -34,7 +35,29 @@ export async function handleUpload(req: Request, res: Response): Promise<void> {
   const uploadId = (req.body as Record<string, string>).uploadId ?? uuid;
   const outputDir = path.join(storageRoot, did, uuid);
 
-  enqueue({ uploadId, did, uuid, fileBuffer: req.file.buffer, originalName: req.file.originalname, outputDir });
+  // targetFolderId (the folder the client was browsing when they clicked
+  // Upload) is honored only if the caller can actually write there —
+  // otherwise falls back to the caller's own root folder rather than reject
+  // the whole upload, e.g. someone browsing another user's openly-readable
+  // personal folder and clicking Upload still gets it, just into their own
+  // library instead of that folder.
+  const folderIdRaw = (req.body as Record<string, string>).folderId;
+  let targetFolderId: number | undefined;
+  if (folderIdRaw) {
+    const parsed = parseInt(folderIdRaw, 10);
+    const folder = !isNaN(parsed) ? getFolder(parsed) : undefined;
+    if (folder && canAccessFolder(did, folder)) targetFolderId = folder.id;
+  }
+
+  enqueue({
+    uploadId,
+    did,
+    uuid,
+    fileBuffer: req.file.buffer,
+    originalName: req.file.originalname,
+    outputDir,
+    targetFolderId,
+  });
   emitEvent(uploadId, "queued", { uuid });
 
   res.status(202).json({ ok: true, uuid, uploadId });

@@ -26,7 +26,10 @@ import {
 import { listContributorSites } from "~/services/contributorRoster.server";
 import { parseSiteUri } from "~/services/pdsResolution.server";
 import { pendingSubmissions } from "~/services/db.server";
-import { reconcilePendingSubmission } from "~/services/submissionReview.server";
+import {
+  reconcilePendingSubmission,
+  getPublicSiteRecord,
+} from "~/services/submissionReview.server";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
@@ -197,6 +200,77 @@ export async function loader({ request }: Route.LoaderArgs) {
         }
       }
     }
+
+    // ADR 0023's Consequences — a document the Contributor-side
+    // reconciliation above just finalized (or one finalized on a previous
+    // visit) is published to the *Owner's* site, not the caller's own, so
+    // it's invisible to the assignmentMap loop above (built only from
+    // listSites). Per ADR 0013, `value.site` being an at:// URI (not the
+    // loose reader URL) is the sole, authoritative loose-vs-published
+    // signal — resolve whichever other site each such document points at so
+    // it correctly leaves Standalone Articles and shows its real site/group
+    // instead. Deduped per site URI (one fetch serves every document
+    // published to the same site this visit); best-effort per site — a
+    // dead/slow PDS host just leaves those documents showing as standalone
+    // this visit, self-correcting on the next one.
+    const externalSiteUris = new Set(
+      documentRecords
+        .filter((r) => !assignmentMap.has(r.uri))
+        .map((r) => String(r.value.site ?? ""))
+        .filter((site) => site.startsWith("at://")),
+    );
+
+    await Promise.allSettled(
+      [...externalSiteUris].map(async (siteUri) => {
+        try {
+          const { ownerDid, rkey: siteRkey } = parseSiteUri(siteUri);
+          const siteValue = await getPublicSiteRecord(ownerDid, siteRkey);
+          const scribe = siteValue?.scribe as Record<string, unknown> | undefined;
+          if (!scribe) return;
+          const siteBase = {
+            siteTitle: String(scribe.title ?? ""),
+            siteRkey,
+            siteAtUri: siteUri,
+            siteUrl: String(scribe.domain ?? ""),
+            siteUrlPrefix: String(scribe.basePath ?? ""),
+            logoImageUrl: scribe.logoImageUrl
+              ? String(scribe.logoImageUrl)
+              : undefined,
+            splashImageUrl: scribe.splashImageUrl
+              ? String(scribe.splashImageUrl)
+              : undefined,
+          };
+
+          for (const a of (scribe.ungroupedArticles as Array<{ uri: string }>) ??
+            []) {
+            const list = assignmentMap.get(a.uri) ?? [];
+            list.push({ ...siteBase });
+            assignmentMap.set(a.uri, list);
+          }
+
+          for (const g of (scribe.groups as Array<{
+            slug: string;
+            title: string;
+            articles: Array<{ uri: string }>;
+          }>) ?? []) {
+            for (const a of g.articles ?? []) {
+              const list = assignmentMap.get(a.uri) ?? [];
+              list.push({ ...siteBase, groupTitle: g.title, groupSlug: g.slug });
+              assignmentMap.set(a.uri, list);
+            }
+          }
+        } catch (err) {
+          logger.warn(
+            {
+              event: "list.external_site_resolve_failed",
+              siteUri,
+              error: String(err),
+            },
+            "failed to resolve a Contributor-published site's manifest — article stays under Standalone Articles this visit",
+          );
+        }
+      }),
+    );
 
     const publishedArticles: PublishedArticle[] = documentRecords
       .filter((record) => assignmentMap.has(record.uri))
@@ -874,15 +948,22 @@ export default function ArticleListIndex({ loaderData }: Route.ComponentProps) {
                         Edit
                       </Button>
                     </Link>
-                    {article.assignments[0] && (
-                      <Button
-                        type="button"
-                        variant="danger"
-                        onClick={() => handleUnpublishClick(article)}
-                      >
-                        Unpublish
-                      </Button>
-                    )}
+                    {/* Unpublish writes to the site's own manifest via the
+                        caller's own session (siteManifest.server.ts's
+                        unpublishArticle) — only possible for a site the
+                        caller owns. A Contributor-published article (site
+                        owned by someone else, resolved above) has no valid
+                        way to unpublish itself; that's the Owner's call. */}
+                    {article.assignments[0] &&
+                      article.assignments[0].siteAtUri.startsWith(`at://${authorDid}/`) && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          onClick={() => handleUnpublishClick(article)}
+                        >
+                          Unpublish
+                        </Button>
+                      )}
                   </div>
                 </li>
               );

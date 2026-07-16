@@ -39,7 +39,7 @@ import {
 } from "~/services/siteRepository.server";
 import { deleteUmamiConfig } from "~/services/umami.server";
 import { registerSocialOrigin } from "~/services/socialOrigin.server";
-import { syncSiteRoster } from "~/services/imageServiceClient.server";
+import { ensureSiteFolder } from "~/services/imageServiceClient.server";
 import { pendingSubmissions } from "~/services/db.server";
 
 type ActionData = { ok: boolean; error?: string; iconWarning?: string };
@@ -202,16 +202,15 @@ export async function action({ request }: Route.ActionArgs) {
         );
         await registerSocialOrigin(url, did);
 
-        // ADR 0020 point 6 — creates the site's shared Image Library folder
-        // (empty roster; the Owner already has access via site_uri parsing
-        // alone). Best-effort: if the Image Service is unreachable, site
-        // creation still succeeds — self-corrects on the next sync call for
-        // this site (e.g. the first Contributor invite).
+        // ADR 0024 point 6 — creates the site's shared Image Library folder
+        // at creation time (the Owner already has access via site_uri
+        // parsing alone). Best-effort: if the Image Service is unreachable,
+        // site creation still succeeds — self-corrects on the next visit to
+        // "Resync Image Folder" on the site's configure page.
         try {
-          await syncSiteRoster(
+          await ensureSiteFolder(
             `at://${did}/${SITE_COLLECTION}/${rkey}`,
             url,
-            [],
             request.headers.get("Cookie") ?? "",
           );
         } catch (imageServiceErr) {

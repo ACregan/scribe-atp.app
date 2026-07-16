@@ -64,7 +64,15 @@ export function useImageLibrary({
   const [anchorId, setAnchorId] = useState<string | null>(null);
 
   const isSelectionMode = selected.size > 0;
-  const isOwnTree = folder?.user_did === currentUserDid;
+  // Gates New Folder / per-image Move-Delete / bulk selection actions. Used
+  // to be `folder?.user_did === currentUserDid`, which is always false for a
+  // site-owned folder (its user_did is always null) — hiding every write
+  // action from the Owner and every accepted Contributor alike while
+  // browsing their own shared folder. `canWrite` is computed server-side
+  // (ADR 0020/0024: personal-folder owner, site owner, or accepted
+  // Contributor) — the name predates that fix but the meaning is now "can I
+  // write here", not literally "is this my own tree".
+  const isOwnTree = folder?.canWrite ?? false;
   const isEmpty = subfolders.length === 0 && images.length === 0;
 
   // Clear selection on folder navigation
@@ -100,7 +108,7 @@ export function useImageLibrary({
   function folderLabel(sub: BrowseFolder): string {
     if (sub.parent_id !== null) return sub.name;
     if (sub.user_did === currentUserDid) return "My Images";
-    const displayName = profiles[sub.user_did]?.displayName;
+    const displayName = sub.user_did ? profiles[sub.user_did]?.displayName : undefined;
     if (displayName) return `${displayName} Images`;
     return sub.name.length > 20 ? `${sub.name.slice(0, 20)}…` : sub.name;
   }

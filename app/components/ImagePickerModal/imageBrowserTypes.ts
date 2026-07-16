@@ -1,9 +1,14 @@
 export type BrowseFolder = {
   id: number;
-  user_did: string;
+  user_did: string | null;
   name: string;
   parent_id: number | null;
   created_at?: string;
+  // Present on the "current folder" (BrowseResponse.folder), not on
+  // subfolders/root listings — whether the logged-in user can write here:
+  // personal-folder owner, site owner, or an accepted Contributor (ADR
+  // 0020/0024). Absent means not yet computed for that context.
+  canWrite?: boolean;
 };
 
 export type BrowseImage = {

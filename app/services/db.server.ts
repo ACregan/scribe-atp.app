@@ -50,8 +50,31 @@ function repairUmamiConfigSchema(db: Database.Database) {
   db.exec("DROP TABLE umami_config;");
 }
 
+// One-time repair: pending_submissions was created (sub-pass 3a) before the
+// document_title column existed (added sub-pass 3b) — CREATE TABLE IF NOT
+// EXISTS is a no-op against an already-existing table on any environment
+// that ran migrate() between those two sub-passes (this app's own local dev
+// database included, not just a hypothetical prod deploy — see the Schema
+// Migration Safety rule this violated). Additive column, not a drop: unlike
+// umami_config's stale rows, existing pending_submissions rows are real
+// in-flight submissions and must survive. SQLite requires a non-NULL
+// default for a NOT NULL column added via ALTER TABLE; '' is an acceptable
+// placeholder for the rare pre-existing row missing a cached title.
+function repairPendingSubmissionsSchema(db: Database.Database) {
+  const columns = db
+    .prepare("PRAGMA table_info(pending_submissions)")
+    .all() as { name: string }[];
+  if (columns.length === 0) return; // table doesn't exist yet — CREATE TABLE below handles it
+  if (columns.some((c) => c.name === "document_title")) return; // already current
+
+  db.exec(
+    "ALTER TABLE pending_submissions ADD COLUMN document_title TEXT NOT NULL DEFAULT ''",
+  );
+}
+
 function migrate(db: Database.Database) {
   repairUmamiConfigSchema(db);
+  repairPendingSubmissionsSchema(db);
   db.exec(`
     CREATE TABLE IF NOT EXISTS oauth_state (
       key   TEXT PRIMARY KEY,
