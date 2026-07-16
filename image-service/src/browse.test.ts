@@ -191,6 +191,34 @@ describe("handleBrowse — site-owned folders", () => {
     expect(res.body.images).toHaveLength(1);
   });
 
+  // Found live 2026-07-16: the client used to derive write-capability from
+  // `folder.user_did === currentUserDid`, which is always false for a site
+  // folder — hiding New Folder/Move/Delete/upload-into-here from the Owner
+  // and every accepted Contributor alike. canWrite is the server-computed
+  // fix (ADR 0024).
+  it("reports canWrite: true for the site owner", () => {
+    const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: DID, query: { folderId: String(siteFolderId) } }), res);
+    expect(res.body.folder.canWrite).toBe(true);
+  });
+
+  it("reports canWrite: true for an accepted contributor", () => {
+    const memberDid = "did:plc:contributor";
+    insertContributorMembership(SITE_URI, memberDid);
+    const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: memberDid, query: { folderId: String(siteFolderId) } }), res);
+    expect(res.body.folder.canWrite).toBe(true);
+  });
+
+  it("reports canWrite: false for a personal folder someone else owns (openly readable, not writable)", () => {
+    const otherRoot = insertFolder(OTHER_DID, OTHER_DID, null);
+    const res = makeRes();
+    handleBrowse(makeReq({ userDid: DID, query: { folderId: String(otherRoot) } }), res);
+    expect(res.body.folder.canWrite).toBe(false);
+  });
+
   it("uses the folder's own name for a site folder's breadcrumb — no 'My Images' override", () => {
     const siteFolderId = insertSiteFolder(SITE_URI, "example.com Images", null);
     const res = makeRes();

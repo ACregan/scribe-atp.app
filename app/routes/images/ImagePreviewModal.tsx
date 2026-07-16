@@ -22,7 +22,7 @@ type Props = {
   images: BrowseImage[];
   folder: {
     id: number;
-    user_did: string;
+    user_did: string | null;
     name: string;
     parent_id: number | null;
   } | null;

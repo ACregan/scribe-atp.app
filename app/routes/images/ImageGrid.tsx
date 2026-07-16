@@ -137,7 +137,7 @@ export function ImageGrid({
       <ul className={styles.grid} onClick={onGridClick}>
         {subfolders.map((subfolder) => {
           const avatarUrl =
-            subfolder.parent_id === null
+            subfolder.parent_id === null && subfolder.user_did
               ? (profiles[subfolder.user_did]?.avatarUrl ?? null)
               : null;
           const itemId = `f:${subfolder.id}`;

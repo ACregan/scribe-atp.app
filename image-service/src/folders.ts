@@ -1,18 +1,29 @@
 import type { Request, Response } from "express";
 import db from "./db.js";
-import { canAccessFolder, canAccessImage, getFolder } from "./access.js";
+import { canAccessFolder, canAccessImage, getFolder, type FolderRow } from "./access.js";
 
 type ImageRow = { id: number; user_did: string; folder_id: number | null };
 
-// GET /api/image-service/folders/mine — flat list of all folders the user
-// personally owns. Deliberately unchanged for Phase 2 — this only ever
-// lists user_did-owned folders, so site folders never appear here regardless
-// of roster membership; there is no "folders shared with me" list yet.
+// GET /api/image-service/folders/mine — destination-folder list for Move /
+// Bulk Move / Add to New Folder. Despite the name and its original Phase 2
+// scope ("only ever lists user_did-owned folders"), this must include any
+// site-owned folder the caller can write to too (ADR 0020 point 2 — full
+// write parity, no tiers) — otherwise an Owner or accepted Contributor can
+// never move an image into (or between subfolders of) a shared site folder,
+// only ever within their own personal tree. Filters the full folder list
+// through the same canAccessFolder check every other write endpoint uses,
+// rather than a second did-scoped query — this table is small and it keeps
+// one definition of "can write here" instead of two.
 export function handleListFolders(req: Request, res: Response): void {
   const did = (req as Request & { userDid: string }).userDid;
-  const folders = db
-    .prepare("SELECT id, name, parent_id FROM image_folders WHERE user_did = ? ORDER BY parent_id NULLS FIRST, name")
-    .all(did) as Array<{ id: number; name: string; parent_id: number | null }>;
+  const allFolders = db
+    .prepare(
+      "SELECT id, user_did, site_uri, name, parent_id FROM image_folders ORDER BY parent_id NULLS FIRST, name",
+    )
+    .all() as FolderRow[];
+  const folders = allFolders
+    .filter((f) => canAccessFolder(did, f))
+    .map(({ id, name, parent_id }) => ({ id, name, parent_id }));
   res.json({ folders });
 }
 

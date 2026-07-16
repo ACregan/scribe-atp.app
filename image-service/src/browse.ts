@@ -114,5 +114,16 @@ export function handleBrowse(req: Request, res: Response): void {
     >,
   }));
 
-  res.json({ folder, breadcrumbs, subfolders, images });
+  // canWrite (not just canReadFolder above) — the client uses this to decide
+  // whether to show New Folder/Move/Delete/upload-into-here UI. A raw
+  // `folder.user_did === currentUserDid` check (what this used to be, client
+  // side) is wrong for site folders, whose user_did is always null — it
+  // would hide write actions from the Owner and every accepted Contributor
+  // alike while browsing their own shared folder.
+  res.json({
+    folder: { ...folder, canWrite: canAccessFolder(did, folder) },
+    breadcrumbs,
+    subfolders,
+    images,
+  });
 }
