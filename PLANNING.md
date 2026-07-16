@@ -579,7 +579,9 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 - **Error handling:** per-document try/catch, best-effort, log and continue (ADR 0023 point 6) — one document's failure never blocks the page or any other document's check.
 - **Idempotency:** relies entirely on the finalizing write's existing `swapRecord`/`cid` optimistic-concurrency check plus the try/catch above — no new guard needed (ADR 0023 point 7).
 
-**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table. Also backlogged: `list.tsx`'s Standalone-vs-Site-Assigned classification (keyed off the caller's own `assignmentMap`) doesn't recognize a document now published to the **Owner's** site as "assigned" — it keeps showing under Standalone Articles minus the pill, harmless (the submit guard already blocks re-submitting it) but misleading; deferred to Phase 4 (ADR 0023 Consequences).
+**Backlogged, not specced:** a document whose local `pending_submissions` row is genuinely lost (not just approved-and-deleted) has no resolution path — it inherits the same accepted gap ADR 0015 already documents for a lost index table.
+
+**Fixed 2026-07-16 (found live during the Phase 3c test pass):** `list.tsx`'s Standalone-vs-Site-Assigned classification, keyed off the caller's own `assignmentMap`, didn't recognize a document now published to the **Owner's** site as assigned — it kept showing under Standalone Articles with a live Publish button. Fixed by resolving any document whose `value.site` is an `at://` URI not already covered by `assignmentMap` via the same cross-repo site-record read `reconcilePendingSubmission` uses (see ADR 0023 Consequences).
 
 ### Phase 4 — Discovery UX polish (light check-in + built 2026-07-16, no dedicated ADR — see note below)
 

@@ -364,6 +364,113 @@ describe("loader", () => {
     vi.unstubAllGlobals();
   });
 
+  // Found live 2026-07-16, Phase 3c test pass (ADR 0023's Consequences): a
+  // document a Contributor submitted, already approved onto the Owner's
+  // site on a *previous* visit (so scribe.pendingPublish is already
+  // cleared — this isn't re-testing reconcilePendingSubmission itself,
+  // covered in submissionReview.server.test.ts), kept showing under
+  // Standalone Articles with a live Publish button because assignmentMap
+  // was only ever built from the caller's own sites. value.site being an
+  // at:// URI pointing at someone else's site now triggers a cross-repo
+  // resolve so it's classified correctly.
+  describe("documents published to a site the caller doesn't own (ADR 0023 Consequences)", () => {
+    const ownerDid = "did:plc:owner";
+    const siteUri = `at://${ownerDid}/site.standard.publication/site-b`;
+
+    it("classifies it as published, not standalone, with the resolved site's assignment", async () => {
+      vi.stubGlobal(
+        "fetch",
+        mockFetchForSites({
+          "site-b": {
+            scribe: {
+              title: "Owner's Site",
+              domain: "owner.example",
+              basePath: "",
+              groups: [
+                {
+                  slug: "g1",
+                  title: "Group 1",
+                  articles: [{ uri: `at://${DID}/site.standard.document/approved1` }],
+                },
+              ],
+            },
+          },
+        }),
+      );
+
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord("approved1", {
+                  title: "Approved Article",
+                  path: "/g1/approved1",
+                  site: siteUri,
+                  publishedAt: "2026-01-05T00:00:00Z",
+                }),
+              ],
+            },
+          });
+        }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+
+      const result = await callLoader();
+
+      expect(result.standaloneArticles).toEqual([]);
+      expect(result.publishedArticles.map((a) => a.rkey)).toEqual(["approved1"]);
+      expect(result.publishedArticles[0].assignments).toEqual([
+        {
+          siteTitle: "Owner's Site",
+          siteRkey: "site-b",
+          siteAtUri: siteUri,
+          siteUrl: "owner.example",
+          siteUrlPrefix: "",
+          logoImageUrl: undefined,
+          splashImageUrl: undefined,
+          groupTitle: "Group 1",
+          groupSlug: "g1",
+        },
+      ]);
+      vi.unstubAllGlobals();
+    });
+
+    it("falls back to standalone (not a crash) when the external site fetch fails", async () => {
+      vi.stubGlobal("fetch", mockFetchForSites({}));
+
+      const agent = makeAgent({
+        listRecords: vi.fn().mockImplementation(({ collection }) => {
+          if (collection === "site.standard.publication") {
+            return Promise.resolve({ data: { records: [] } });
+          }
+          return Promise.resolve({
+            data: {
+              records: [
+                docListRecord("approved1", {
+                  title: "Approved Article",
+                  path: "/g1/approved1",
+                  site: siteUri,
+                  publishedAt: "2026-01-05T00:00:00Z",
+                }),
+              ],
+            },
+          });
+        }),
+      });
+      vi.mocked(requireAtpAgent).mockResolvedValue({ agent, did: DID, handle: HANDLE });
+
+      const result = await callLoader();
+
+      expect(result.standaloneArticles.map((a) => a.rkey)).toEqual(["approved1"]);
+      expect(result.publishedArticles).toEqual([]);
+      vi.unstubAllGlobals();
+    });
+  });
+
   // ADR 0023 — Contributor-side reconciliation runs inline in this loader.
   // Full behavioral coverage of reconcilePendingSubmission itself lives in
   // submissionReview.server.test.ts; this is the wiring test — does the
@@ -433,14 +540,23 @@ describe("loader", () => {
           swapRecord: "loose1-cid",
         }),
       );
-      // Backlogged known gap (ADR 0023 Consequences): the loader's
-      // Standalone/Site-Assigned split is keyed off the caller's own
-      // assignmentMap, which never includes a document published to
-      // someone else's site — so it still surfaces here, just without
-      // pendingPublish set (the pill is gone; the finalizing write happened).
-      expect(result.standaloneArticles[0]).toEqual(
-        expect.objectContaining({ rkey: "loose1", pendingPublish: undefined }),
-      );
+      // Fixed live 2026-07-16 (was the ADR 0023 Consequences gap): the
+      // finalizing write set value.site to the Owner's at:// URI, and the
+      // loader now resolves that external site to correctly classify this
+      // as published, not standalone.
+      expect(result.standaloneArticles).toEqual([]);
+      expect(result.publishedArticles).toEqual([
+        expect.objectContaining({
+          rkey: "loose1",
+          assignments: [
+            expect.objectContaining({
+              siteRkey: "site-a",
+              groupTitle: "Group 1",
+              groupSlug: "g1",
+            }),
+          ],
+        }),
+      ]);
       // Phase 4 — Contributor-side toast surfacing (ADR 0023 + Phase 4).
       expect(result.justReconciled).toEqual([
         {
