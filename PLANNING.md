@@ -597,16 +597,24 @@ Phases are ordered by hard dependency, not by size — each phase after the firs
 
 **Reference:** ADR 0015 in full.
 
-### Phase 5 — Team chat
+### Phase 5 — Site Chat (renamed from "Team chat" — ADR 0025; "Team" was never a defined term, see `UBIQUITOUS_LANGUAGE.md`)
 
 **Depends on:** Phase 1 only (needs a roster to resolve `getConvoForMembers` against). Independent of Phases 2–4; genuinely optional relative to the rest of the feature — the submission workflow (Phase 3) functions completely without this.
 
-**Scope:**
-- ~~New `chat.bsky.convo.*` OAuth scope added to `OAUTH_SCOPE`~~ — **already added in Phase 1** (ADR 0019, for the invite DM) — no second re-authentication event needed here, Phase 5 just reuses the scope Phase 1 already forced.
-- Inline chat panel on the per-site management page, always resolved fresh via `getConvoForMembers(currentRoster)` — explicitly not chaining old conversations together across roster changes (ADR 0016's central decision — re-read the Context/Decision before touching this).
-- Polling for new messages (interval TBD during implementation, with cleanup-on-unmount and ideally pause-when-unfocused), sender resolution (DID → displayName/avatar), timestamps, own-vs-others styling, send-failure states, pagination.
+**Grilled 2026-07-16 — see ADR 0025 for every concrete implementation decision below; ADR 0016 remains the high-level design record (build inline, don't chain conversations across roster changes).**
 
-**Reference:** ADR 0016 in full, including the two accepted limitations (history fragmentation on roster change, imperfect revocation) — these are decided, not open questions to re-litigate during the grill session for this phase. ADR 0019 supersedes ADR 0016's OAuth-scope-timing consequence specifically.
+**Scope:**
+- **A new `rpc:chat.bsky.convo.getMessages` OAuth scope is still required in this phase** — Phase 1 (ADR 0019) only added `getConvoForMembers`/`sendMessage` for the invite DM; `getMessages` (needed to actually read a conversation) is net-new here, so every existing user must re-authenticate once more before Site Chat works for them. (Corrects an earlier note in this file that assumed Phase 1's scope addition would cover this too.)
+- **Layout:** `/article/list/:siteSlug`'s current single scrolling `PageSection` becomes a two-column `PageSectionColumns` split — existing content (title, Groups, Submissions, Contributors) at `span={8}`, Site Chat at `span={4}` — both `overflow`, a real structural change to the page, not an additive panel.
+- Conversation resolved once per mount via `getConvoForMembers(currentRoster)`; re-resolves only when the loader's own roster data changes (piggybacking on the revalidation `inviteContributor`/`removeContributor` already trigger), not via independent roster-drift watching.
+- Polling every 10s while mounted and the tab is visible, paused when backgrounded with an immediate refetch on refocus; a poll is a full re-fetch of the newest page (`limit: 50`, no cursor) diffed by message `id`, since `getMessages` has no incremental/since parameter.
+- **No pagination/"load more"** — a single page is the entire history shown, justified by ADR 0016's own conversation-per-roster-era fragmentation already making deep history structurally pointless.
+- Sender resolution needs no separate profile-fetch call — `getMessages` returns `relatedProfiles` inline. Timestamps and own-vs-others styling are otherwise ordinary list rendering.
+- Conversation-resolution failures (`BlockedActorError`/`MessagesDisabledError`/`NotFollowedBySenderError`/`AccountSuspendedError`) render as a distinct inline message per error type in the chat column itself, not a toast or a hidden column.
+- Send failures use this app's existing toast convention (danger, non-expiring) with the typed message left in place, not cleared.
+- **Explicitly out of scope:** unread badges/`updateRead` (the panel's persistent visibility makes Phase 4's "you might not notice" problem not apply here); detecting/messaging the guaranteed-on-first-run insufficient-`getMessages`-scope state (deferred until there's a real user base beyond the developer's own two accounts — see ADR 0025 Consequences).
+
+**Reference:** ADR 0016 (high-level design, still current) and ADR 0025 (this session's implementation decisions — read this one for anything about layout, polling, pagination, or error handling specifically).
 
 ## MIGRATION: standard.site Article Lexicon Adoption
 

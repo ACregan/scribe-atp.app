@@ -1,7 +1,7 @@
 # ADR 0016: Team Chat via Bluesky's `chat.bsky.convo` Lexicon, Built Inline, Not Chained Across Roster Changes
 
 ## Status
-Accepted — design finalized 2026-07-15, not yet implemented
+Accepted — design finalized 2026-07-15; still the current high-level design record. Renamed "Team Chat" → **Site Chat** and given concrete implementation decisions (layout, polling, pagination, error handling, scope) in ADR 0025 (2026-07-16) — read that one alongside this for anything past the architecture-level decisions here. This ADR's title retains the old name as a historical artifact.
 
 ## Context
 
