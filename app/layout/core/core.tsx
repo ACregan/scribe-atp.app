@@ -10,9 +10,12 @@ import { getTheme } from "~/services/theme.server";
 import { DOCUMENT_COLLECTION, SITE_COLLECTION } from "~/constants";
 import {
   listPendingInvitations,
+  reconcileContributorStatuses,
   type PendingInvitation,
 } from "~/services/contributorRoster.server";
+import { listSites } from "~/services/siteRepository.server";
 import { pendingSubmissions } from "~/services/db.server";
+import { logger } from "~/services/logger.server";
 import styles from "./core.module.css";
 import { Button } from "~/components/Button/Button";
 import { Modal } from "~/components/Modal/Modal";
@@ -93,12 +96,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const agent = await getAtpAgent(did, request);
-  const [sitesResult, documentsResult, pendingInvitations] = await Promise.all([
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: SITE_COLLECTION,
-      limit: 1,
-    }),
+  const [ownedSites, documentsResult, pendingInvitations] = await Promise.all([
+    listSites(agent, did),
     agent.com.atproto.repo.listRecords({
       repo: did,
       collection: DOCUMENT_COLLECTION,
@@ -110,8 +109,38 @@ export async function loader({ request }: Route.LoaderArgs) {
     // the current user's, and public records need no auth.
     listPendingInvitations(did),
   ]);
-  const hasSites = sitesResult.data.records.length > 0;
+  const hasSites = ownedSites.length > 0;
   const hasArticles = documentsResult.data.records.length > 0;
+
+  // Found live 2026-07-16, Contributors Phase 2 test pass: reconciliation
+  // was previously only triggered by visiting the *specific* site's own
+  // /article/list/:siteSlug page — an Owner with no reason to click into
+  // that exact page could leave a newly-accepted Contributor without Image
+  // Library folder access indefinitely, with nothing telling either party
+  // to go there. Running it here means the very next page the Owner loads,
+  // anywhere, finalizes any pending accept/reject — not just one specific
+  // route. Cheap in the common case: reconcileContributorStatuses itself
+  // no-ops on a pure local read when a site has nothing pending, only doing
+  // a real PDS write + Image Service sync for sites that actually need it.
+  // Best-effort per site, matching every other reconciliation loop in this
+  // feature — one failing site must never break every page load in the app.
+  const cookieHeader = request.headers.get("Cookie") ?? "";
+  await Promise.allSettled(
+    ownedSites.map(async (site) => {
+      try {
+        await reconcileContributorStatuses(agent, did, site.rkey, cookieHeader);
+      } catch (err) {
+        logger.warn(
+          {
+            event: "contributor.global_reconciliation_failed",
+            siteRkey: site.rkey,
+            error: String(err),
+          },
+          "Owner-side contributor reconciliation failed — will retry on next page load",
+        );
+      }
+    }),
+  );
 
   // Phase 4 (discovery UX polish) — a purely local SQLite read, no network,
   // cheap to do on every page load. Powers both the AsideMenu/`/sites` badge
