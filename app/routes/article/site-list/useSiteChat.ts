@@ -15,12 +15,7 @@ export type SiteChatProfile = {
   avatar?: string;
 };
 
-export type SiteChatResolveErrorType =
-  | "blocked"
-  | "messagesDisabled"
-  | "notFollowed"
-  | "accountSuspended"
-  | "unknown";
+export type SiteChatResolveErrorType = "notCreatedYet" | "unknown";
 
 type ResolveResponse =
   | { ok: true; convoId: string }
@@ -49,17 +44,19 @@ function siteChatUrl(siteSlug: string, params: Record<string, string>): string {
   return `${url.pathname}${url.search}`;
 }
 
-// ADR 0025 — one hook owning the whole Site Chat lifecycle: resolve once
-// per roster (Decision 2), poll every 10s while visible (Decision 3),
-// dedupe against the currently-rendered messages by id (getMessages has no
-// incremental/since param), and send. Kept separate from SiteChatPanel so
-// the panel stays pure rendering, matching this file's own
-// useDirtyTree/useSiteListDnD split.
-export function useSiteChat(
-  siteSlug: string,
-  currentUserDid: string,
-  memberDids: string[],
-) {
+// ADR 0025/0026 — one hook owning the whole Site Chat lifecycle: look up the
+// site's persisted group conversation once per mount, poll every 10s while
+// visible (Decision 3), dedupe against the currently-rendered messages by id
+// (getMessages has no incremental/since param), and send. Kept separate
+// from SiteChatPanel so the panel stays pure rendering, matching this
+// file's own useDirtyTree/useSiteListDnD split.
+//
+// ADR 0026 — the resolve step no longer builds or filters a member list at
+// all: chat.bsky.group.createGroup/addMembers already keep the group's
+// actual membership in sync out-of-band (reconcileContributorStatuses,
+// removeContributor), so this hook only needs the site's own identity
+// (siteSlug + ownerDid) to look up its persisted convoId.
+export function useSiteChat(siteSlug: string, ownerDid: string) {
   // Explicit keys — three independent fetchers per panel instance, and
   // distinguishable in tests without relying on call-order mocking.
   const resolveFetcher = useFetcher<ResolveResponse>({ key: "site-chat-resolve" });
@@ -77,34 +74,20 @@ export function useSiteChat(
 
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
 
-  // Found live 2026-07-17: getConvoForMembers resolves a 1-1 conversation
-  // between the caller and whoever's named in `members` — the caller is
-  // never included in that list themselves (same convention the existing
-  // invite-DM code already uses: `members: [otherDid]`, never including the
-  // sender). Passing the full roster including the caller's own DID meant
-  // both browsers computed lists that each wrongly included themselves,
-  // which don't reliably resolve to the same conversation — messages sent
-  // from one side never reached where the other side was polling.
-  const otherMemberDids = memberDids.filter((did) => did !== currentUserDid);
-  const memberDidsKey = [...otherMemberDids].sort().join(",");
-
-  // Resolve once whenever the roster (member DID set) actually changes —
-  // not on every render, and not independently watching for drift; the
-  // caller re-renders this hook with a new memberDidsKey only when
-  // site-list's own loader data (contributors) changes, since
-  // inviteContributor/removeContributor already revalidate it.
+  // Resolve once per mount — the group's membership is synced entirely
+  // server-side by reconcileContributorStatuses/removeContributor, so
+  // there's no roster-derived key to re-resolve on; siteSlug/ownerDid
+  // identify the same site chat for the whole time this component is
+  // mounted.
   useEffect(() => {
     setConvoId(null);
     setResolveErrorType(null);
     setMessages([]);
     setProfiles(new Map());
     knownMessageIdsRef.current = new Set();
-    if (otherMemberDids.length === 0) return;
-    resolveFetcher.load(
-      siteChatUrl(siteSlug, { members: otherMemberDids.join(",") }),
-    );
+    resolveFetcher.load(siteChatUrl(siteSlug, { ownerDid }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteSlug, memberDidsKey]);
+  }, [siteSlug, ownerDid]);
 
   // Derived during render, not a useEffect keyed on fetcher.data — that
   // doesn't reliably re-fire in this app's React Router version (see

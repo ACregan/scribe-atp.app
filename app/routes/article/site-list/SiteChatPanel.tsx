@@ -7,22 +7,19 @@ import { useSiteChat, type SiteChatResolveErrorType } from "./useSiteChat";
 import styles from "./SiteChatPanel.module.css";
 
 const RESOLVE_ERROR_COPY: Record<SiteChatResolveErrorType, string> = {
-  blocked: "Chat isn't available — you and this account can't message each other on Bluesky.",
-  messagesDisabled: "Chat isn't available — this account has direct messages turned off.",
-  notFollowed: "Chat isn't available yet — this account only accepts messages from people they follow.",
-  accountSuspended: "Chat isn't available — this account has been suspended.",
+  notCreatedYet: "Chat will start once your first Contributor accepts their invite.",
   unknown: "Chat isn't available right now.",
 };
 
 type Props = {
   siteSlug: string;
   currentUserDid: string;
-  memberDids: string[];
+  ownerDid: string;
 };
 
-export function SiteChatPanel({ siteSlug, currentUserDid, memberDids }: Props) {
+export function SiteChatPanel({ siteSlug, currentUserDid, ownerDid }: Props) {
   const { convoId, resolveErrorType, messages, profiles, sendError, isSending, sendMessage } =
-    useSiteChat(siteSlug, currentUserDid, memberDids);
+    useSiteChat(siteSlug, ownerDid);
   const { addToast } = useToast();
   const [text, setText] = useState("");
   const listRef = useRef<HTMLUListElement>(null);

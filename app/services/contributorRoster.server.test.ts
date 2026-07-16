@@ -9,7 +9,7 @@ import {
   listPendingInvitations,
   listContributorSites,
 } from "./contributorRoster.server";
-import { db, contributorMemberships } from "./db.server";
+import { db, contributorMemberships, siteChatConvos } from "./db.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 
 // Mirrors the makeAgent/siteRecord helpers in siteManifest.server.test.ts —
@@ -32,6 +32,9 @@ function makeAgent(
     putRecord?: ReturnType<typeof vi.fn>;
     getConvoForMembers?: ReturnType<typeof vi.fn>;
     sendMessage?: ReturnType<typeof vi.fn>;
+    createGroup?: ReturnType<typeof vi.fn>;
+    addMembers?: ReturnType<typeof vi.fn>;
+    removeMembers?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
   return {
@@ -54,6 +57,14 @@ function makeAgent(
               vi.fn().mockResolvedValue({ data: { convo: { id: "convo-1" } } }),
             sendMessage: overrides.sendMessage ?? vi.fn().mockResolvedValue({}),
           },
+          group: {
+            createGroup:
+              overrides.createGroup ??
+              vi.fn().mockResolvedValue({ data: { convo: { id: "chat-convo-1" } } }),
+            addMembers: overrides.addMembers ?? vi.fn().mockResolvedValue({ data: { convo: {} } }),
+            removeMembers:
+              overrides.removeMembers ?? vi.fn().mockResolvedValue({ data: { convo: {} } }),
+          },
         },
       },
     },
@@ -71,6 +82,7 @@ function siteRecord(scribe: Record<string, unknown>) {
 
 beforeEach(() => {
   db.exec("DELETE FROM contributor_memberships");
+  db.exec("DELETE FROM site_chat_convos");
   vi.mocked(fetchBskyProfile).mockReset().mockResolvedValue({
     did: CONTRIBUTOR_DID,
     handle: "contributor.bsky.social",
@@ -248,6 +260,29 @@ describe("removeContributor", () => {
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)).toBeUndefined();
   });
 
+  it("removes the departing Contributor from the site's chat group, if one exists (ADR 0026)", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    siteChatConvos.create(SITE_URI, "chat-convo-1", "2026-01-01T00:00:00.000Z");
+    const removeMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+          ],
+        }),
+      ),
+      removeMembers,
+    });
+
+    await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID);
+
+    expect(removeMembers).toHaveBeenCalledWith(
+      { convoId: "chat-convo-1", members: [CONTRIBUTOR_DID] },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+  });
+
   it("returns ok:false rather than throwing when the write fails", async () => {
     const agent = makeAgent({
       getRecord: vi.fn().mockResolvedValue(siteRecord({ contributors: [] })),
@@ -309,6 +344,81 @@ describe("reconcileContributorStatuses", () => {
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)?.status).toBe("accepted");
   });
 
+  it("creates the site's chat group the moment the first Contributor is accepted (ADR 0026)", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    const createGroup = vi.fn().mockResolvedValue({ data: { convo: { id: "chat-convo-1" } } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          title: "My Site",
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+      createGroup,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(createGroup).toHaveBeenCalledWith(
+      { members: [CONTRIBUTOR_DID], name: "My Site" },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+    expect(siteChatConvos.get(SITE_URI)).toBe("chat-convo-1");
+  });
+
+  it("adds to the existing chat group, rather than re-creating it, once one already exists", async () => {
+    siteChatConvos.create(SITE_URI, "chat-convo-1", "2026-01-01T00:00:00.000Z");
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    const createGroup = vi.fn();
+    const addMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          title: "My Site",
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+      createGroup,
+      addMembers,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(createGroup).not.toHaveBeenCalled();
+    expect(addMembers).toHaveBeenCalledWith(
+      { convoId: "chat-convo-1", members: [CONTRIBUTOR_DID] },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+  });
+
+  it("does not re-sync the chat group for a contributor who was already accepted on a prior pass", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    const createGroup = vi.fn();
+    const addMembers = vi.fn();
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          title: "My Site",
+          // Already accepted in the public record — not a fresh promotion.
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+          ],
+        }),
+      ),
+      createGroup,
+      addMembers,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(createGroup).not.toHaveBeenCalled();
+    expect(addMembers).not.toHaveBeenCalled();
+  });
+
   it("strips a rejected row out of scribe.contributors and deletes the local row", async () => {
     contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "rejected");
     const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
@@ -327,6 +437,29 @@ describe("reconcileContributorStatuses", () => {
 
     expect(putRecord.mock.calls[0][0].record.scribe.contributors).toEqual([]);
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)).toBeUndefined();
+  });
+
+  it("removes a rejected row's DID from the site's chat group, if one exists", async () => {
+    siteChatConvos.create(SITE_URI, "chat-convo-1", "2026-01-01T00:00:00.000Z");
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "rejected");
+    const removeMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+      removeMembers,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(removeMembers).toHaveBeenCalledWith(
+      { convoId: "chat-convo-1", members: [CONTRIBUTOR_DID] },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
   });
 
   it("handles a mix of accepted and rejected rows for different contributors in one pass", async () => {

@@ -3,7 +3,7 @@ import type { Agent } from "@atproto/api";
 import { loader, action } from "./site-chat";
 import { requireAtpAgent } from "~/services/auth.server";
 import {
-  resolveSiteChatConvo,
+  lookupSiteChatConvo,
   getSiteChatMessages,
   sendSiteChatMessage,
 } from "~/services/siteChat.server";
@@ -19,7 +19,7 @@ vi.mock("~/services/auth.server", () => ({
 }));
 
 vi.mock("~/services/siteChat.server", () => ({
-  resolveSiteChatConvo: vi.fn(),
+  lookupSiteChatConvo: vi.fn(),
   getSiteChatMessages: vi.fn(),
   sendSiteChatMessage: vi.fn(),
 }));
@@ -34,9 +34,10 @@ function makeRequest(url: string, entries?: Record<string, string>): Request {
 }
 
 function callLoader(url: string) {
-  return loader({ request: makeRequest(url) } as unknown as Parameters<
-    typeof loader
-  >[0]);
+  return loader({
+    request: makeRequest(url),
+    params: { siteSlug: "my-site" },
+  } as unknown as Parameters<typeof loader>[0]);
 }
 
 function callAction(entries: Record<string, string>) {
@@ -51,35 +52,35 @@ beforeEach(() => {
     did: "did:plc:owner",
     handle: "owner.bsky.social",
   });
-  vi.mocked(resolveSiteChatConvo).mockReset();
+  vi.mocked(lookupSiteChatConvo).mockReset();
   vi.mocked(getSiteChatMessages).mockReset();
   vi.mocked(sendSiteChatMessage).mockReset();
 });
 
 describe("loader", () => {
-  it("resolve mode: calls resolveSiteChatConvo with the members param split on commas, when no convoId is given", async () => {
-    vi.mocked(resolveSiteChatConvo).mockResolvedValue({ ok: true, convoId: "convo-1" });
+  it("resolve mode: calls lookupSiteChatConvo with the site URI built from ownerDid + :siteSlug", async () => {
+    vi.mocked(lookupSiteChatConvo).mockResolvedValue({ ok: true, convoId: "convo-1" });
 
     const result = await callLoader(
-      "http://localhost/article/site-chat/my-site?members=did:plc:owner,did:plc:contributor",
+      "http://localhost/article/site-chat/my-site?ownerDid=did:plc:owner",
     );
 
-    expect(resolveSiteChatConvo).toHaveBeenCalledWith(AGENT_SENTINEL, [
-      "did:plc:owner",
-      "did:plc:contributor",
-    ]);
+    expect(lookupSiteChatConvo).toHaveBeenCalledWith(
+      AGENT_SENTINEL,
+      "at://did:plc:owner/site.standard.publication/my-site",
+    );
     expect(getSiteChatMessages).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: true, convoId: "convo-1" });
   });
 
-  it("resolve mode: returns errorType unknown without calling resolveSiteChatConvo when members is empty", async () => {
+  it("resolve mode: returns errorType unknown without calling lookupSiteChatConvo when ownerDid is missing", async () => {
     const result = await callLoader("http://localhost/article/site-chat/my-site");
 
-    expect(resolveSiteChatConvo).not.toHaveBeenCalled();
+    expect(lookupSiteChatConvo).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: false, errorType: "unknown" });
   });
 
-  it("poll mode: calls getSiteChatMessages with the convoId, ignoring any members param", async () => {
+  it("poll mode: calls getSiteChatMessages with the convoId, ignoring any ownerDid param", async () => {
     vi.mocked(getSiteChatMessages).mockResolvedValue({
       ok: true,
       messages: [],
@@ -87,11 +88,11 @@ describe("loader", () => {
     });
 
     const result = await callLoader(
-      "http://localhost/article/site-chat/my-site?convoId=convo-1&members=did:plc:owner",
+      "http://localhost/article/site-chat/my-site?convoId=convo-1&ownerDid=did:plc:owner",
     );
 
     expect(getSiteChatMessages).toHaveBeenCalledWith(AGENT_SENTINEL, "convo-1");
-    expect(resolveSiteChatConvo).not.toHaveBeenCalled();
+    expect(lookupSiteChatConvo).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: true, messages: [], profiles: [] });
   });
 });

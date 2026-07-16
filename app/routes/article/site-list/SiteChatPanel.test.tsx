@@ -34,15 +34,15 @@ beforeEach(() => {
 describe("SiteChatPanel", () => {
   it("shows a loading spinner before the conversation resolves", () => {
     useSiteChatMock.mockReturnValue(baseHookState());
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
     expect(screen.getByText("Site Chat")).toBeInTheDocument();
   });
 
   it("shows the mapped inline message when resolution fails, per error type", () => {
-    useSiteChatMock.mockReturnValue(baseHookState({ resolveErrorType: "notFollowed" }));
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={[]} />);
+    useSiteChatMock.mockReturnValue(baseHookState({ resolveErrorType: "notCreatedYet" }));
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
     expect(
-      screen.getByText(/only accepts messages from people they follow/),
+      screen.getByText(/Chat will start once your first Contributor accepts/),
     ).toBeInTheDocument();
   });
 
@@ -59,7 +59,7 @@ describe("SiteChatPanel", () => {
         ]),
       }),
     );
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
 
     expect(screen.getByText("hi from alice")).toBeInTheDocument();
     expect(screen.getByText("Alice")).toBeInTheDocument();
@@ -75,14 +75,14 @@ describe("SiteChatPanel", () => {
         ],
       }),
     );
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
     expect(screen.getByText("did:plc:stranger")).toBeInTheDocument();
   });
 
   it("calls sendMessage with the typed text on Send click, then clears the input", () => {
     const sendMessage = vi.fn();
     useSiteChatMock.mockReturnValue(baseHookState({ convoId: "convo-1", sendMessage }));
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
 
     const input = screen.getByPlaceholderText("Message…");
     fireEvent.change(input, { target: { value: "hello there" } });
@@ -95,7 +95,7 @@ describe("SiteChatPanel", () => {
   it("calls sendMessage on Enter key, not on Shift+Enter", () => {
     const sendMessage = vi.fn();
     useSiteChatMock.mockReturnValue(baseHookState({ convoId: "convo-1", sendMessage }));
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
 
     const input = screen.getByPlaceholderText("Message…");
     fireEvent.change(input, { target: { value: "hello" } });
@@ -107,7 +107,7 @@ describe("SiteChatPanel", () => {
   it("does not send an empty or whitespace-only message", () => {
     const sendMessage = vi.fn();
     useSiteChatMock.mockReturnValue(baseHookState({ convoId: "convo-1", sendMessage }));
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
 
     const input = screen.getByPlaceholderText("Message…");
     fireEvent.change(input, { target: { value: "   " } });
@@ -118,7 +118,7 @@ describe("SiteChatPanel", () => {
 
   it("disables the composer while a send is in flight", () => {
     useSiteChatMock.mockReturnValue(baseHookState({ convoId: "convo-1", isSending: true }));
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
 
     expect(screen.getByPlaceholderText("Message…")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
@@ -128,7 +128,7 @@ describe("SiteChatPanel", () => {
     useSiteChatMock.mockReturnValue(
       baseHookState({ convoId: "convo-1", sendError: "Failed to send message" }),
     );
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" memberDids={["did:plc:owner"]} />);
+    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
 
     expect(addToastMock).toHaveBeenCalledWith(
       expect.objectContaining({

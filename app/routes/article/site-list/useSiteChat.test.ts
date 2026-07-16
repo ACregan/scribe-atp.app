@@ -56,67 +56,37 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// The currently-logged-in viewer, distinct from the "other" DID(s) in the
-// roster — most tests view as the Owner, chatting with one Contributor.
-const VIEWER_DID = "did:plc:owner";
-const OTHER_DID = "did:plc:contributor";
+const OWNER_DID = "did:plc:owner";
 
 describe("useSiteChat", () => {
-  // Found live 2026-07-17: getConvoForMembers resolves a 1-1 conversation
-  // between the caller and whoever's in `members` — the caller must never
-  // be included in that list themselves (same convention the existing
-  // invite-DM code already uses). Passing the full roster including self
-  // meant two browsers' member lists never matched, so messages sent from
-  // one side never reached where the other side was polling.
-  describe("excludes the current viewer from the resolved members list", () => {
-    it("resolves using only the other member DIDs, not the viewer's own", () => {
-      renderHook(() => useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]));
+  // ADR 0026 — resolve no longer builds/filters a member list at all; the
+  // group's actual membership is synced out-of-band by
+  // reconcileContributorStatuses/removeContributor. This hook only needs
+  // the site's own identity to look up its persisted conversation.
+  it("resolves by looking up the site's persisted conversation via ownerDid", () => {
+    renderHook(() => useSiteChat("my-site", OWNER_DID));
 
-      expect(fetcherMocks["site-chat-resolve"].load).toHaveBeenCalledWith(
-        "/article/site-chat/my-site?members=did%3Aplc%3Acontributor",
-      );
-    });
-
-    it("joins multiple other members, still excluding the viewer", () => {
-      const thirdDid = "did:plc:contributor-2";
-      renderHook(() =>
-        useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID, thirdDid]),
-      );
-
-      const [url] = fetcherMocks["site-chat-resolve"].load.mock.calls[0];
-      const membersParam = new URL(url, "http://localhost").searchParams.get("members");
-      expect(membersParam?.split(",")).toEqual([OTHER_DID, thirdDid]);
-    });
-
-    it("does not resolve when the viewer is the only member (nobody else to chat with)", () => {
-      renderHook(() => useSiteChat("my-site", VIEWER_DID, [VIEWER_DID]));
-      expect(fetcherMocks["site-chat-resolve"].load).not.toHaveBeenCalled();
-    });
+    expect(fetcherMocks["site-chat-resolve"].load).toHaveBeenCalledWith(
+      "/article/site-chat/my-site?ownerDid=did%3Aplc%3Aowner",
+    );
   });
 
-  it("does not resolve when there are no members yet", () => {
-    renderHook(() => useSiteChat("my-site", VIEWER_DID, []));
-    expect(fetcherMocks["site-chat-resolve"].load).not.toHaveBeenCalled();
-  });
-
-  it("re-resolves when the other-member DID set changes, but not on an unrelated re-render", () => {
+  it("re-resolves when siteSlug or ownerDid changes, but not on an unrelated re-render", () => {
     const { rerender } = renderHook(
-      ({ members }) => useSiteChat("my-site", VIEWER_DID, members),
-      { initialProps: { members: [VIEWER_DID, OTHER_DID] } },
+      ({ siteSlug, ownerDid }) => useSiteChat(siteSlug, ownerDid),
+      { initialProps: { siteSlug: "my-site", ownerDid: OWNER_DID } },
     );
     expect(fetcherMocks["site-chat-resolve"].load).toHaveBeenCalledTimes(1);
 
-    rerender({ members: [VIEWER_DID, OTHER_DID] });
+    rerender({ siteSlug: "my-site", ownerDid: OWNER_DID });
     expect(fetcherMocks["site-chat-resolve"].load).toHaveBeenCalledTimes(1);
 
-    rerender({ members: [VIEWER_DID, OTHER_DID, "did:plc:contributor-2"] });
+    rerender({ siteSlug: "my-site", ownerDid: "did:plc:different-owner" });
     expect(fetcherMocks["site-chat-resolve"].load).toHaveBeenCalledTimes(2);
   });
 
   it("sets convoId once resolve succeeds and starts polling", () => {
-    const { result, rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { result, rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
 
     fetcherMocks["site-chat-resolve"].data = { ok: true, convoId: "convo-1" };
     rerender();
@@ -128,21 +98,17 @@ describe("useSiteChat", () => {
   });
 
   it("sets resolveErrorType when resolve fails, without setting convoId", () => {
-    const { result, rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { result, rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
 
-    fetcherMocks["site-chat-resolve"].data = { ok: false, errorType: "blocked" };
+    fetcherMocks["site-chat-resolve"].data = { ok: false, errorType: "notCreatedYet" };
     rerender();
 
-    expect(result.current.resolveErrorType).toBe("blocked");
+    expect(result.current.resolveErrorType).toBe("notCreatedYet");
     expect(result.current.convoId).toBeNull();
   });
 
   it("polls again after 10s while the document stays visible", () => {
-    const { rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
     fetcherMocks["site-chat-resolve"].data = { ok: true, convoId: "convo-1" };
     rerender();
     fetcherMocks["site-chat-poll"].load.mockClear();
@@ -155,9 +121,7 @@ describe("useSiteChat", () => {
   });
 
   it("pauses polling when the tab is hidden and resumes with an immediate poll on refocus", () => {
-    const { rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
     fetcherMocks["site-chat-resolve"].data = { ok: true, convoId: "convo-1" };
     rerender();
     fetcherMocks["site-chat-poll"].load.mockClear();
@@ -183,18 +147,16 @@ describe("useSiteChat", () => {
   });
 
   it("appends only new messages from a poll, deduped by id, sorted by sentAt", () => {
-    const { result, rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { result, rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
     fetcherMocks["site-chat-resolve"].data = { ok: true, convoId: "convo-1" };
     rerender();
 
     fetcherMocks["site-chat-poll"].data = {
       ok: true,
       messages: [
-        { id: "m1", text: "first", senderDid: VIEWER_DID, sentAt: "2026-07-16T00:00:00.000Z" },
+        { id: "m1", text: "first", senderDid: OWNER_DID, sentAt: "2026-07-16T00:00:00.000Z" },
       ],
-      profiles: [{ did: VIEWER_DID, handle: "owner.bsky.social" }],
+      profiles: [{ did: OWNER_DID, handle: "owner.bsky.social" }],
     };
     rerender();
     expect(result.current.messages.map((m) => m.id)).toEqual(["m1"]);
@@ -202,8 +164,8 @@ describe("useSiteChat", () => {
     fetcherMocks["site-chat-poll"].data = {
       ok: true,
       messages: [
-        { id: "m1", text: "first", senderDid: VIEWER_DID, sentAt: "2026-07-16T00:00:00.000Z" },
-        { id: "m2", text: "second", senderDid: OTHER_DID, sentAt: "2026-07-16T00:01:00.000Z" },
+        { id: "m1", text: "first", senderDid: OWNER_DID, sentAt: "2026-07-16T00:00:00.000Z" },
+        { id: "m2", text: "second", senderDid: "did:plc:contributor", sentAt: "2026-07-16T00:01:00.000Z" },
       ],
       profiles: [],
     };
@@ -212,9 +174,7 @@ describe("useSiteChat", () => {
   });
 
   it("sendMessage submits convoId and text to the site-chat action", () => {
-    const { result, rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { result, rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
     fetcherMocks["site-chat-resolve"].data = { ok: true, convoId: "convo-1" };
     rerender();
 
@@ -232,9 +192,7 @@ describe("useSiteChat", () => {
   });
 
   it("does not submit when there is no resolved convoId yet", () => {
-    const { result } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { result } = renderHook(() => useSiteChat("my-site", OWNER_DID));
 
     act(() => {
       result.current.sendMessage("hello");
@@ -244,15 +202,13 @@ describe("useSiteChat", () => {
   });
 
   it("appends the sent message on success and clears sendError", () => {
-    const { result, rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { result, rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
     fetcherMocks["site-chat-resolve"].data = { ok: true, convoId: "convo-1" };
     rerender();
 
     fetcherMocks["site-chat-send"].data = {
       ok: true,
-      message: { id: "m1", text: "hello", senderDid: VIEWER_DID, sentAt: "2026-07-16T00:00:00.000Z" },
+      message: { id: "m1", text: "hello", senderDid: OWNER_DID, sentAt: "2026-07-16T00:00:00.000Z" },
     };
     rerender();
 
@@ -261,9 +217,7 @@ describe("useSiteChat", () => {
   });
 
   it("sets sendError on a failed send, without touching messages", () => {
-    const { result, rerender } = renderHook(() =>
-      useSiteChat("my-site", VIEWER_DID, [VIEWER_DID, OTHER_DID]),
-    );
+    const { result, rerender } = renderHook(() => useSiteChat("my-site", OWNER_DID));
     fetcherMocks["site-chat-resolve"].data = { ok: true, convoId: "convo-1" };
     rerender();
 

@@ -827,15 +827,15 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
     submissions,
   } = loaderData;
 
-  // ADR 0025 (Site Chat) — the conversation membership is the Owner plus
-  // every *accepted* Contributor; invited-but-not-yet-accepted people
-  // haven't agreed to anything and aren't part of it. Built from
-  // siteOwnerDid (who owns the site), not authorDid (whoever is currently
-  // viewing it — used below only for Site Chat's own-vs-others styling).
-  const siteChatMemberDids = [
-    siteOwnerDid,
-    ...contributors.filter((c) => c.status === "accepted").map((c) => c.did),
-  ];
+  // ADR 0026 (Site Chat group redesign) — "the chat feature has no reason
+  // to exist until a contributor has been added to the site" (explicit user
+  // decision): the group itself is only ever created once the Owner's own
+  // reconciliation accepts a first Contributor, so there's nothing to show
+  // an Owner with an empty roster. A Contributor viewing this page is
+  // necessarily themselves an accepted Contributor (ADR 0025's read-only
+  // access check), so the group is guaranteed to already exist for them.
+  const hasAcceptedContributors = contributors.some((c) => c.status === "accepted");
+  const showSiteChat = isOwner ? hasAcceptedContributors : true;
   const { isOpen, open, close } = useModal();
   const inviteModal = useModal();
 
@@ -1079,12 +1079,13 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onDragEnd={onDragEnd}
       >
         {/* Two-column layout (ADR 0025, Site Chat) — main content at 2/3
-            width, Site Chat at 1/3, both scrolling independently. Single
-            scrolling column was Phase 1's deliberate placeholder shape
-            until there was a real second thing to put beside it. */}
+            width, Site Chat at 1/3, both scrolling independently, when
+            there's a chat to show (ADR 0026 — hidden entirely for an Owner
+            with no accepted Contributors yet, since the group itself
+            doesn't exist until then). Single scrolling column otherwise. */}
         <PageSection fill>
           <PageSectionColumns breakpoint="lg">
-            <PageSectionColumn span={8} overflow>
+            <PageSectionColumn span={showSiteChat ? 8 : 12} overflow>
               <h6>{site.title}</h6>
               <SortableContext
                 items={rootIds}
@@ -1140,13 +1141,15 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
               />
             </PageSectionColumn>
 
-            <PageSectionColumn span={4} overflow>
-              <SiteChatPanel
-                siteSlug={site.rkey}
-                currentUserDid={authorDid}
-                memberDids={siteChatMemberDids}
-              />
-            </PageSectionColumn>
+            {showSiteChat && (
+              <PageSectionColumn span={4} overflow>
+                <SiteChatPanel
+                  siteSlug={site.rkey}
+                  currentUserDid={authorDid}
+                  ownerDid={siteOwnerDid}
+                />
+              </PageSectionColumn>
+            )}
           </PageSectionColumns>
         </PageSection>
 

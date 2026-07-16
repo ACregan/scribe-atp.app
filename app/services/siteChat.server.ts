@@ -1,57 +1,125 @@
-import { Agent, ChatBskyConvoGetConvoForMembers } from "@atproto/api";
+import { Agent } from "@atproto/api";
+import { siteChatConvos } from "~/services/db.server";
 import { logger } from "~/services/logger.server";
 
-// ADR 0016/0025 (Site Chat) — same proxy header pattern already used by
+// ADR 0016/0025/0026 (Site Chat) — same proxy header pattern already used by
 // contributorRoster.server.ts's sendInviteDm and scribe-atp-social's
-// notify.ts for this exact service-proxied lexicon.
+// notify.ts for this exact service-proxied lexicon. chat.bsky.group.* lives
+// on the same proxied service as chat.bsky.convo.*, so one header constant
+// covers both namespaces.
 const CHAT_PROXY_HEADERS = {
   headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" },
 };
 
-export type SiteChatResolveErrorType =
-  | "blocked"
-  | "messagesDisabled"
-  | "notFollowed"
-  | "accountSuspended"
-  | "unknown";
+// ADR 0026 — chat.bsky.convo.getConvoForMembers is strictly 1-1 ("Always
+// returns the same direct (non-group) conversation"), which cannot support
+// the actual requirement (1 Owner + up to ~20 Contributors). The group
+// namespace (chat.bsky.group.*) supports real, persistent, member-mutable
+// group conversations instead: createGroup (owner-only, non-idempotent —
+// hence the local site_chat_convos persistence below), addMembers,
+// removeMembers. This replaces the old per-request resolveSiteChatConvo.
 
-export type SiteChatResolveResult =
-  | { ok: true; convoId: string }
-  | { ok: false; errorType: SiteChatResolveErrorType };
-
-// ADR 0025 Decision 2/5 — resolved fresh against the *current* roster every
-// call, never cached/stored (matches ADR 0016's no-chaining decision: a
-// different member set is, correctly, a different conversation). The four
-// error types map to getConvoForMembers's actual failure modes — real,
-// social-graph-dependent states (blocked, doesn't follow the sender,
-// messages disabled, account suspended), each needing its own inline
-// explanation rather than one generic "chat unavailable".
-export async function resolveSiteChatConvo(
+// Called from reconcileContributorStatuses at the exact moment one or more
+// Contributors are newly accepted — never gated behind a page/chat visit
+// (explicit user decision: "the chat feature has no reason to exist until a
+// contributor has been added to the site"). Best-effort: a failure here
+// must never turn an already-successful roster write into a reported
+// failure, same posture as sendInviteDm. Without a drift-reconciliation
+// pass, a failed call here does leave that Contributor durably missing from
+// the group until the next roster change touches this site — an accepted
+// trade-off, not yet a problem with no real user base.
+export async function syncSiteChatGroup(
   agent: Agent,
-  memberDids: string[],
-): Promise<SiteChatResolveResult> {
+  siteUri: string,
+  siteName: string,
+  newlyAcceptedDids: string[],
+): Promise<void> {
+  if (newlyAcceptedDids.length === 0) return;
+
+  const existingConvoId = siteChatConvos.get(siteUri);
   try {
-    const res = await agent.api.chat.bsky.convo.getConvoForMembers(
-      { members: memberDids },
+    if (!existingConvoId) {
+      // createGroup's `members` excludes the caller — the owner (whoever
+      // calls this, always the Owner's own session) is implicitly the
+      // group's creator with "accepted" status; only the named `members`
+      // start out "pending".
+      const res = await agent.api.chat.bsky.group.createGroup(
+        { members: newlyAcceptedDids, name: siteName },
+        CHAT_PROXY_HEADERS,
+      );
+      siteChatConvos.create(siteUri, res.data.convo.id, new Date().toISOString());
+    } else {
+      await agent.api.chat.bsky.group.addMembers(
+        { convoId: existingConvoId, members: newlyAcceptedDids },
+        CHAT_PROXY_HEADERS,
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      { event: "site_chat.group_sync_failed", siteUri, error: String(err) },
+      "failed to create/update Site Chat group membership",
+    );
+  }
+}
+
+// Called from removeContributor and the rejected-row branch of
+// reconcileContributorStatuses. A no-op if the group doesn't exist yet
+// (nothing to remove from).
+export async function removeSiteChatMember(
+  agent: Agent,
+  siteUri: string,
+  memberDid: string,
+): Promise<void> {
+  const convoId = siteChatConvos.get(siteUri);
+  if (!convoId) return;
+  try {
+    await agent.api.chat.bsky.group.removeMembers(
+      { convoId, members: [memberDid] },
       CHAT_PROXY_HEADERS,
     );
-    return { ok: true, convoId: res.data.convo.id };
   } catch (err) {
-    let errorType: SiteChatResolveErrorType = "unknown";
-    if (err instanceof ChatBskyConvoGetConvoForMembers.BlockedActorError) {
-      errorType = "blocked";
-    } else if (err instanceof ChatBskyConvoGetConvoForMembers.MessagesDisabledError) {
-      errorType = "messagesDisabled";
-    } else if (err instanceof ChatBskyConvoGetConvoForMembers.NotFollowedBySenderError) {
-      errorType = "notFollowed";
-    } else if (err instanceof ChatBskyConvoGetConvoForMembers.AccountSuspendedError) {
-      errorType = "accountSuspended";
-    }
     logger.warn(
-      { event: "site_chat.resolve_failed", errorType, error: String(err) },
-      "failed to resolve Site Chat conversation",
+      { event: "site_chat.remove_member_failed", siteUri, memberDid, error: String(err) },
+      "failed to remove Site Chat group member",
     );
-    return { ok: false, errorType };
+  }
+}
+
+export type SiteChatLookupErrorType = "notCreatedYet" | "unknown";
+
+export type SiteChatLookupResult =
+  | { ok: true; convoId: string }
+  | { ok: false; errorType: SiteChatLookupErrorType };
+
+// Replaces the old per-request resolveSiteChatConvo — the group already
+// exists (or doesn't) independently of who's looking, so this is a local
+// lookup, not a getConvoForMembers-style resolve. addMembers puts new
+// Contributors in "request" status on the group side (they must accept
+// before they can read/send); this transparently calls acceptConvo on the
+// caller's own behalf the first time their own session hits it, so
+// Contributors never see a manual "accept this chat" step.
+export async function lookupSiteChatConvo(
+  agent: Agent,
+  siteUri: string,
+): Promise<SiteChatLookupResult> {
+  const convoId = siteChatConvos.get(siteUri);
+  if (!convoId) return { ok: false, errorType: "notCreatedYet" };
+
+  try {
+    const res = await agent.api.chat.bsky.convo.getConvo(
+      { convoId },
+      CHAT_PROXY_HEADERS,
+    );
+    if (res.data.convo.status === "request") {
+      await agent.api.chat.bsky.convo.acceptConvo({ convoId }, CHAT_PROXY_HEADERS);
+    }
+    return { ok: true, convoId };
+  } catch (err) {
+    logger.warn(
+      { event: "site_chat.lookup_failed", siteUri, error: String(err) },
+      "failed to look up Site Chat conversation",
+    );
+    return { ok: false, errorType: "unknown" };
   }
 }
 
@@ -77,6 +145,8 @@ export type SiteChatMessagesResult =
 // getMessages returns relatedProfiles inline with the page, so sender
 // display info needs no separate fetchBskyProfiles-style call. Deleted and
 // system messages are dropped — only real message content is rendered.
+// Unchanged by the group-chat redesign: getMessages operates identically on
+// a group convoId as it does on a direct one.
 export async function getSiteChatMessages(
   agent: Agent,
   convoId: string,
@@ -119,7 +189,7 @@ export type SiteChatSendResult =
 
 // ADR 0025 Decision 6 — sendMessage returns the created MessageView
 // directly, so the caller can append it to the local list on success with
-// no optimistic-then-reconcile step.
+// no optimistic-then-reconcile step. Unchanged by the group-chat redesign.
 export async function sendSiteChatMessage(
   agent: Agent,
   convoId: string,

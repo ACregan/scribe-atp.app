@@ -5,6 +5,7 @@ import { contributorMemberships, type ContributorMembership } from "~/services/d
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 import { publicUrl } from "~/services/auth.server";
 import { logger } from "~/services/logger.server";
+import { syncSiteChatGroup, removeSiteChatMember } from "~/services/siteChat.server";
 import { parseSiteUri, resolveDidPdsUrl } from "~/services/pdsResolution.server";
 import type { SiteContributor } from "~/hooks/types";
 import type { SiteRecordValue } from "~/routes/article/site-list/siteTree";
@@ -163,6 +164,9 @@ export async function removeContributor(
     // Image Service access is revoked the instant this row is gone (ADR
     // 0024) — it reads contributor_memberships live, no separate sync step.
     contributorMemberships.remove(contributorDid, siteUri);
+    // Best-effort (ADR 0026) — a failed removeMembers call never turns an
+    // already-successful roster removal into a reported failure.
+    await removeSiteChatMember(agent, siteUri, contributorDid);
   } catch (err) {
     console.error("Failed to remove contributor:", err);
     return { ok: false, error: err };
@@ -312,19 +316,36 @@ export async function reconcileContributorStatuses(
 
   const removeDids = new Set(toRemove.map((r) => r.contributorDid));
   const promoteDids = new Set(toPromote.map((r) => r.contributorDid));
+  let siteName = "";
+  const newlyPromotedDids: string[] = [];
 
   await mutateSiteRecord(agent, did, siteSlug, (val) => {
+    siteName = String(val.title ?? "");
     const contributors = ((val.contributors as SiteContributor[]) ?? [])
       .filter((c) => !removeDids.has(c.did))
-      .map((c) =>
-        promoteDids.has(c.did) && c.status !== "accepted"
-          ? { ...c, status: "accepted" as const }
-          : c,
-      );
+      .map((c) => {
+        if (promoteDids.has(c.did) && c.status !== "accepted") {
+          newlyPromotedDids.push(c.did);
+          return { ...c, status: "accepted" as const };
+        }
+        return c;
+      });
     return { ...val, contributors, updatedAt: new Date().toISOString() };
   });
 
   for (const row of toRemove) {
     contributorMemberships.remove(row.contributorDid, siteUri);
+    // Best-effort (ADR 0026) — never turns the roster write above into a
+    // reported failure.
+    await removeSiteChatMember(agent, siteUri, row.contributorDid);
+  }
+
+  // ADR 0026 — the group is created the moment a Contributor is genuinely
+  // newly accepted (not on every reconcile pass — c.status !== "accepted"
+  // above only pushes here the first time), per the explicit decision that
+  // Site Chat has no reason to exist before that. Best-effort: never turns
+  // the roster write above into a reported failure.
+  if (newlyPromotedDids.length > 0) {
+    await syncSiteChatGroup(agent, siteUri, siteName, newlyPromotedDids);
   }
 }

@@ -1,19 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Agent } from "@atproto/api";
-import { ChatBskyConvoGetConvoForMembers } from "@atproto/api";
 import {
-  resolveSiteChatConvo,
+  syncSiteChatGroup,
+  removeSiteChatMember,
+  lookupSiteChatConvo,
   getSiteChatMessages,
   sendSiteChatMessage,
 } from "./siteChat.server";
+import { siteChatConvos } from "~/services/db.server";
 
 vi.mock("~/services/logger.server", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("~/services/db.server", () => ({
+  siteChatConvos: { get: vi.fn(), create: vi.fn() },
+}));
+
+const PROXY_HEADERS = { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } };
+const SITE_URI = "at://did:plc:owner/site.standard.publication/my-site";
+
 function makeAgent(
   overrides: {
-    getConvoForMembers?: ReturnType<typeof vi.fn>;
+    createGroup?: ReturnType<typeof vi.fn>;
+    addMembers?: ReturnType<typeof vi.fn>;
+    removeMembers?: ReturnType<typeof vi.fn>;
+    getConvo?: ReturnType<typeof vi.fn>;
+    acceptConvo?: ReturnType<typeof vi.fn>;
     getMessages?: ReturnType<typeof vi.fn>;
     sendMessage?: ReturnType<typeof vi.fn>;
   } = {},
@@ -22,8 +35,14 @@ function makeAgent(
     api: {
       chat: {
         bsky: {
+          group: {
+            createGroup: overrides.createGroup ?? vi.fn(),
+            addMembers: overrides.addMembers ?? vi.fn(),
+            removeMembers: overrides.removeMembers ?? vi.fn(),
+          },
           convo: {
-            getConvoForMembers: overrides.getConvoForMembers ?? vi.fn(),
+            getConvo: overrides.getConvo ?? vi.fn(),
+            acceptConvo: overrides.acceptConvo ?? vi.fn(),
             getMessages: overrides.getMessages ?? vi.fn(),
             sendMessage: overrides.sendMessage ?? vi.fn(),
           },
@@ -33,49 +52,151 @@ function makeAgent(
   } as unknown as Agent;
 }
 
-function knownErr(ErrorClass: new (src: never) => Error) {
-  return new ErrorClass({
-    status: 400,
-    error: "Known",
-    message: "known error",
-  } as never);
-}
+beforeEach(() => {
+  vi.mocked(siteChatConvos.get).mockReset();
+  vi.mocked(siteChatConvos.create).mockReset();
+});
 
-describe("resolveSiteChatConvo", () => {
-  it("returns the convo id on success", async () => {
-    const getConvoForMembers = vi
-      .fn()
-      .mockResolvedValue({ data: { convo: { id: "convo-1" } } });
-    const agent = makeAgent({ getConvoForMembers });
+describe("syncSiteChatGroup", () => {
+  it("does nothing when there are no newly accepted DIDs", async () => {
+    const createGroup = vi.fn();
+    const addMembers = vi.fn();
+    const agent = makeAgent({ createGroup, addMembers });
 
-    const result = await resolveSiteChatConvo(agent, ["did:plc:a", "did:plc:b"]);
+    await syncSiteChatGroup(agent, SITE_URI, "My Site", []);
 
-    expect(result).toEqual({ ok: true, convoId: "convo-1" });
-    expect(getConvoForMembers).toHaveBeenCalledWith(
-      { members: ["did:plc:a", "did:plc:b"] },
-      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    expect(createGroup).not.toHaveBeenCalled();
+    expect(addMembers).not.toHaveBeenCalled();
+    expect(siteChatConvos.get).not.toHaveBeenCalled();
+  });
+
+  it("creates the group and persists the convoId when none exists yet", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue(undefined);
+    const createGroup = vi.fn().mockResolvedValue({ data: { convo: { id: "convo-1" } } });
+    const addMembers = vi.fn();
+    const agent = makeAgent({ createGroup, addMembers });
+
+    await syncSiteChatGroup(agent, SITE_URI, "My Site", ["did:plc:contributor"]);
+
+    expect(createGroup).toHaveBeenCalledWith(
+      { members: ["did:plc:contributor"], name: "My Site" },
+      PROXY_HEADERS,
+    );
+    expect(addMembers).not.toHaveBeenCalled();
+    expect(siteChatConvos.create).toHaveBeenCalledWith(
+      SITE_URI,
+      "convo-1",
+      expect.any(String),
     );
   });
 
-  it.each([
-    [ChatBskyConvoGetConvoForMembers.BlockedActorError, "blocked"],
-    [ChatBskyConvoGetConvoForMembers.MessagesDisabledError, "messagesDisabled"],
-    [ChatBskyConvoGetConvoForMembers.NotFollowedBySenderError, "notFollowed"],
-    [ChatBskyConvoGetConvoForMembers.AccountSuspendedError, "accountSuspended"],
-  ] as const)("maps %s to errorType %s", async (ErrorClass, expectedType) => {
-    const getConvoForMembers = vi.fn().mockRejectedValue(knownErr(ErrorClass));
-    const agent = makeAgent({ getConvoForMembers });
+  it("adds members to the existing group instead of creating a new one", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue("convo-1");
+    const createGroup = vi.fn();
+    const addMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({ createGroup, addMembers });
 
-    const result = await resolveSiteChatConvo(agent, ["did:plc:a"]);
+    await syncSiteChatGroup(agent, SITE_URI, "My Site", ["did:plc:contributor-2"]);
 
-    expect(result).toEqual({ ok: false, errorType: expectedType });
+    expect(createGroup).not.toHaveBeenCalled();
+    expect(addMembers).toHaveBeenCalledWith(
+      { convoId: "convo-1", members: ["did:plc:contributor-2"] },
+      PROXY_HEADERS,
+    );
+    expect(siteChatConvos.create).not.toHaveBeenCalled();
   });
 
-  it("maps an unrecognised error to errorType unknown", async () => {
-    const getConvoForMembers = vi.fn().mockRejectedValue(new Error("network down"));
-    const agent = makeAgent({ getConvoForMembers });
+  it("swallows failures — never throws", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue(undefined);
+    const createGroup = vi.fn().mockRejectedValue(new Error("MemberLimitReached"));
+    const agent = makeAgent({ createGroup });
 
-    const result = await resolveSiteChatConvo(agent, ["did:plc:a"]);
+    await expect(
+      syncSiteChatGroup(agent, SITE_URI, "My Site", ["did:plc:contributor"]),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("removeSiteChatMember", () => {
+  it("does nothing when no group has been created for this site", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue(undefined);
+    const removeMembers = vi.fn();
+    const agent = makeAgent({ removeMembers });
+
+    await removeSiteChatMember(agent, SITE_URI, "did:plc:contributor");
+
+    expect(removeMembers).not.toHaveBeenCalled();
+  });
+
+  it("removes the member from the existing group", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue("convo-1");
+    const removeMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({ removeMembers });
+
+    await removeSiteChatMember(agent, SITE_URI, "did:plc:contributor");
+
+    expect(removeMembers).toHaveBeenCalledWith(
+      { convoId: "convo-1", members: ["did:plc:contributor"] },
+      PROXY_HEADERS,
+    );
+  });
+
+  it("swallows failures — never throws", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue("convo-1");
+    const removeMembers = vi.fn().mockRejectedValue(new Error("InsufficientRole"));
+    const agent = makeAgent({ removeMembers });
+
+    await expect(
+      removeSiteChatMember(agent, SITE_URI, "did:plc:contributor"),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("lookupSiteChatConvo", () => {
+  it("returns notCreatedYet when no group has been created for this site", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue(undefined);
+    const agent = makeAgent();
+
+    const result = await lookupSiteChatConvo(agent, SITE_URI);
+
+    expect(result).toEqual({ ok: false, errorType: "notCreatedYet" });
+  });
+
+  it("returns the convoId without accepting when already accepted", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue("convo-1");
+    const getConvo = vi
+      .fn()
+      .mockResolvedValue({ data: { convo: { status: "accepted" } } });
+    const acceptConvo = vi.fn();
+    const agent = makeAgent({ getConvo, acceptConvo });
+
+    const result = await lookupSiteChatConvo(agent, SITE_URI);
+
+    expect(result).toEqual({ ok: true, convoId: "convo-1" });
+    expect(getConvo).toHaveBeenCalledWith({ convoId: "convo-1" }, PROXY_HEADERS);
+    expect(acceptConvo).not.toHaveBeenCalled();
+  });
+
+  it("transparently accepts the group membership when still in request status", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue("convo-1");
+    const getConvo = vi
+      .fn()
+      .mockResolvedValue({ data: { convo: { status: "request" } } });
+    const acceptConvo = vi.fn().mockResolvedValue({ data: {} });
+    const agent = makeAgent({ getConvo, acceptConvo });
+
+    const result = await lookupSiteChatConvo(agent, SITE_URI);
+
+    expect(result).toEqual({ ok: true, convoId: "convo-1" });
+    expect(acceptConvo).toHaveBeenCalledWith({ convoId: "convo-1" }, PROXY_HEADERS);
+  });
+
+  it("returns errorType unknown when the lookup fails", async () => {
+    vi.mocked(siteChatConvos.get).mockReturnValue("convo-1");
+    const getConvo = vi.fn().mockRejectedValue(new Error("InvalidConvo"));
+    const agent = makeAgent({ getConvo });
+
+    const result = await lookupSiteChatConvo(agent, SITE_URI);
 
     expect(result).toEqual({ ok: false, errorType: "unknown" });
   });
@@ -119,7 +240,7 @@ describe("getSiteChatMessages", () => {
     });
     expect(getMessages).toHaveBeenCalledWith(
       { convoId: "convo-1", limit: 50 },
-      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+      PROXY_HEADERS,
     );
   });
 
@@ -200,7 +321,7 @@ describe("sendSiteChatMessage", () => {
         convoId: "convo-1",
         message: { $type: "chat.bsky.convo.defs#messageInput", text: "hello back" },
       },
-      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+      PROXY_HEADERS,
     );
   });
 

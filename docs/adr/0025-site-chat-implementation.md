@@ -1,7 +1,7 @@
 # ADR 0025: Site Chat Implementation
 
 ## Status
-Accepted — design finalized 2026-07-16 (Phase 5 grill session)
+Accepted — design finalized 2026-07-16 (Phase 5 grill session). **Decision 2 (conversation resolution via `getConvoForMembers`) is superseded by ADR 0026** — that mechanism is 1-1 only and cannot support the actual n-Contributor requirement; Site Chat now resolves against a persistent `chat.bsky.group` conversation instead. Decisions 1, 3, 4, 6 remain current.
 
 ## Context
 
