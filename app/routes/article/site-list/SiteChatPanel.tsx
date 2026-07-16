@@ -22,7 +22,7 @@ type Props = {
 
 export function SiteChatPanel({ siteSlug, currentUserDid, memberDids }: Props) {
   const { convoId, resolveErrorType, messages, profiles, sendError, isSending, sendMessage } =
-    useSiteChat(siteSlug, memberDids);
+    useSiteChat(siteSlug, currentUserDid, memberDids);
   const { addToast } = useToast();
   const [text, setText] = useState("");
   const listRef = useRef<HTMLUListElement>(null);

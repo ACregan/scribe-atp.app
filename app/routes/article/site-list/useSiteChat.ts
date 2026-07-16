@@ -55,7 +55,11 @@ function siteChatUrl(siteSlug: string, params: Record<string, string>): string {
 // incremental/since param), and send. Kept separate from SiteChatPanel so
 // the panel stays pure rendering, matching this file's own
 // useDirtyTree/useSiteListDnD split.
-export function useSiteChat(siteSlug: string, memberDids: string[]) {
+export function useSiteChat(
+  siteSlug: string,
+  currentUserDid: string,
+  memberDids: string[],
+) {
   // Explicit keys — three independent fetchers per panel instance, and
   // distinguishable in tests without relying on call-order mocking.
   const resolveFetcher = useFetcher<ResolveResponse>({ key: "site-chat-resolve" });
@@ -72,7 +76,17 @@ export function useSiteChat(siteSlug: string, memberDids: string[]) {
   const [sendError, setSendError] = useState<string | null>(null);
 
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
-  const memberDidsKey = [...memberDids].sort().join(",");
+
+  // Found live 2026-07-17: getConvoForMembers resolves a 1-1 conversation
+  // between the caller and whoever's named in `members` — the caller is
+  // never included in that list themselves (same convention the existing
+  // invite-DM code already uses: `members: [otherDid]`, never including the
+  // sender). Passing the full roster including the caller's own DID meant
+  // both browsers computed lists that each wrongly included themselves,
+  // which don't reliably resolve to the same conversation — messages sent
+  // from one side never reached where the other side was polling.
+  const otherMemberDids = memberDids.filter((did) => did !== currentUserDid);
+  const memberDidsKey = [...otherMemberDids].sort().join(",");
 
   // Resolve once whenever the roster (member DID set) actually changes —
   // not on every render, and not independently watching for drift; the
@@ -85,9 +99,9 @@ export function useSiteChat(siteSlug: string, memberDids: string[]) {
     setMessages([]);
     setProfiles(new Map());
     knownMessageIdsRef.current = new Set();
-    if (memberDids.length === 0) return;
+    if (otherMemberDids.length === 0) return;
     resolveFetcher.load(
-      siteChatUrl(siteSlug, { members: memberDids.join(",") }),
+      siteChatUrl(siteSlug, { members: otherMemberDids.join(",") }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteSlug, memberDidsKey]);
