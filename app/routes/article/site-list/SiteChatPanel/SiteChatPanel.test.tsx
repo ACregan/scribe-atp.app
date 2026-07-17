@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SiteChatPanel } from "./SiteChatPanel";
+import styles from "./SiteChatPanel.module.css";
 
 const useSiteChatMock = vi.hoisted(() => vi.fn());
-vi.mock("./useSiteChat", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./useSiteChat")>();
+vi.mock("../useSiteChat", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../useSiteChat")>();
   return { ...actual, useSiteChat: useSiteChatMock };
 });
 
@@ -34,8 +35,10 @@ beforeEach(() => {
 describe("SiteChatPanel", () => {
   it("shows a loading spinner before the conversation resolves", () => {
     useSiteChatMock.mockReturnValue(baseHookState());
-    render(<SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />);
-    expect(screen.getByText("Site Chat")).toBeInTheDocument();
+    const { container } = render(
+      <SiteChatPanel siteSlug="my-site" currentUserDid="did:plc:owner" ownerDid="did:plc:owner" />,
+    );
+    expect(container.querySelector(`.${styles.loading}`)).toBeInTheDocument();
   });
 
   it("shows the mapped inline message when resolution fails, per error type", () => {

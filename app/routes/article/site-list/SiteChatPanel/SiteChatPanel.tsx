@@ -3,11 +3,12 @@ import cn from "classnames";
 import { Button } from "~/components/Button/Button";
 import { Spinner } from "~/components/Spinner/Spinner";
 import { useToast } from "~/components/Toast/ToastContext";
-import { useSiteChat, type SiteChatResolveErrorType } from "./useSiteChat";
+import { useSiteChat, type SiteChatResolveErrorType } from "../useSiteChat";
 import styles from "./SiteChatPanel.module.css";
 
 const RESOLVE_ERROR_COPY: Record<SiteChatResolveErrorType, string> = {
-  notCreatedYet: "Chat will start once your first Contributor accepts their invite.",
+  notCreatedYet:
+    "Chat will start once your first Contributor accepts their invite.",
   unknown: "Chat isn't available right now.",
 };
 
@@ -18,8 +19,15 @@ type Props = {
 };
 
 export function SiteChatPanel({ siteSlug, currentUserDid, ownerDid }: Props) {
-  const { convoId, resolveErrorType, messages, profiles, sendError, isSending, sendMessage } =
-    useSiteChat(siteSlug, ownerDid);
+  const {
+    convoId,
+    resolveErrorType,
+    messages,
+    profiles,
+    sendError,
+    isSending,
+    sendMessage,
+  } = useSiteChat(siteSlug, ownerDid);
   const { addToast } = useToast();
   const [text, setText] = useState("");
   const listRef = useRef<HTMLUListElement>(null);
@@ -52,10 +60,10 @@ export function SiteChatPanel({ siteSlug, currentUserDid, ownerDid }: Props) {
 
   return (
     <div className={styles.panel}>
-      <h6 className={styles.heading}>Site Chat</h6>
-
       {resolveErrorType ? (
-        <p className={styles.resolveError}>{RESOLVE_ERROR_COPY[resolveErrorType]}</p>
+        <p className={styles.resolveError}>
+          {RESOLVE_ERROR_COPY[resolveErrorType]}
+        </p>
       ) : !convoId ? (
         <div className={styles.loading}>
           <Spinner size="small" />
@@ -69,12 +77,22 @@ export function SiteChatPanel({ siteSlug, currentUserDid, ownerDid }: Props) {
               return (
                 <li
                   key={message.id}
-                  className={cn(styles.messageRow, isOwn && styles.messageRowOwn)}
+                  className={cn(
+                    styles.messageRow,
+                    isOwn && styles.messageRowOwn,
+                  )}
                 >
-                  <div className={cn(styles.messageBubble, isOwn && styles.messageBubbleOwn)}>
+                  <div
+                    className={cn(
+                      styles.messageBubble,
+                      isOwn && styles.messageBubbleOwn,
+                    )}
+                  >
                     {!isOwn && (
                       <span className={styles.messageSender}>
-                        {profile?.displayName || profile?.handle || message.senderDid}
+                        {profile?.displayName ||
+                          profile?.handle ||
+                          message.senderDid}
                       </span>
                     )}
                     <p className={styles.messageText}>{message.text}</p>
@@ -106,6 +124,7 @@ export function SiteChatPanel({ siteSlug, currentUserDid, ownerDid }: Props) {
               disabled={isSending}
             />
             <Button
+              className={styles.sendButton}
               type="button"
               variant="primary"
               disabled={isSending || !text.trim()}

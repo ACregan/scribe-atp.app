@@ -1,0 +1,34 @@
+.sectionDivider {
+  margin: 0 1rem;
+}
+
+.sectionHeading {
+  margin: 0;
+}
+
+.mutedText {
+  color: var(--text-secondary);
+}
+
+.plainList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem 0;
+}
+
+.avatar {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+}
+
+.pushRight {
+  margin-left: auto;
+}
