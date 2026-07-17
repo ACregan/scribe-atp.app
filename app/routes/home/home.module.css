@@ -254,6 +254,7 @@
 }
 
 .siteHeader {
+  position: relative;
   display: flex;
   align-items: center;
   height: 8rem;
@@ -304,7 +305,8 @@
 .siteTitleLink {
   text-decoration: none;
   color: var(--text-primary);
-  flex: 1 0 auto;
+  flex: 1 1 auto;
+  margin-right: 0.5rem;
 }
 
 .siteTitleContainer {
@@ -329,6 +331,12 @@
 }
 .siteTitleLink:hover .siteTitleIcon {
   opacity: 1;
+}
+
+.contributorPill {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.5rem;
 }
 
 .siteActions {

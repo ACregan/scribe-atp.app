@@ -5,7 +5,6 @@ import {
   useBlocker,
   useNavigate,
   useLocation,
-  Form,
   Link,
 } from "react-router";
 import {
@@ -16,16 +15,15 @@ import {
   useRealOAuth,
 } from "~/services/auth.server";
 import { Button } from "~/components/Button/Button";
-import { Pill } from "~/components/Pill/Pill";
 import { Spinner } from "~/components/Spinner/Spinner";
-import { Input } from "~/components/Input/Input";
-import { Modal } from "~/components/Modal/Modal";
 import { useModal } from "~/components/Modal/useModal";
 import {
   ButtonGroupContainer,
   PageContainer,
   PageContainerHeading,
   PageSection,
+  PageSectionColumns,
+  PageSectionColumn,
 } from "~/components/PageContainer/PageContainer";
 import { ArticleItemPreview } from "~/components/ArticleItem/ArticleItem";
 import GroupItem, {
@@ -39,7 +37,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useState, useRef, useEffect } from "react";
-import cn from "classnames";
 import FooterPortal from "~/components/FooterPortal/FooterPortal";
 import { useToast } from "~/components/Toast/ToastContext";
 
@@ -47,7 +44,6 @@ import {
   DOCUMENT_COLLECTION,
   READER_BASE_URL,
   SITE_COLLECTION,
-  SLUG_RE,
 } from "~/constants";
 import { listDocuments } from "~/services/documentRepository.server";
 import { crossPostToBluesky } from "@scribe-atp/core";
@@ -58,16 +54,27 @@ import {
   removeContributor,
   reconcileContributorStatuses,
 } from "~/services/contributorRoster.server";
-import { pendingSubmissions } from "~/services/db.server";
+import {
+  pendingSubmissions,
+  contributorMemberships,
+} from "~/services/db.server";
+import { parseSiteUri } from "~/services/pdsResolution.server";
+import { getPublicSiteRecord } from "~/services/submissionReview.server";
 import {
   type SiteManifest,
   type RosterEntry,
   type SubmissionListEntry,
-  toSlug,
   treeToSiteData,
 } from "./siteTree";
 import { useDirtyTree } from "./useDirtyTree";
 import { useSiteListDnD } from "./useSiteListDnD";
+import { SiteChatPanel } from "./SiteChatPanel/SiteChatPanel";
+import { ContributorsSection } from "./ContributorsSection/ContributorsSection";
+import { SubmissionsSection } from "./SubmissionsSection/SubmissionsSection";
+import { CreateGroupModal } from "./CreateGroupModal/CreateGroupModal";
+import { InviteContributorModal } from "./InviteContributorModal/InviteContributorModal";
+import { ShareModal } from "./ShareModal/ShareModal";
+import { UnsavedChangesModal } from "./UnsavedChangesModal/UnsavedChangesModal";
 import { mutateSiteRecord } from "~/services/articleSiteSync.server";
 import {
   createGroup as createGroupManifest,
@@ -82,6 +89,7 @@ import { devSiteListLoader } from "~/services/devFixtures.server";
 import { logger } from "~/services/logger.server";
 import { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import styles from "./site-list.module.css";
+import TabSection from "~/components/TabSection/TabSection";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.site?.title ?? "Site";
@@ -91,29 +99,67 @@ export function meta({ loaderData }: Route.MetaArgs) {
 export async function loader({ request, params }: Route.LoaderArgs) {
   const siteSlug = params.siteSlug;
 
-  if (!useRealOAuth) return devSiteListLoader(siteSlug);
+  if (!useRealOAuth) {
+    const viewAsContributor =
+      new URL(request.url).searchParams.get("viewAs") === "contributor";
+    return devSiteListLoader(siteSlug, viewAsContributor);
+  }
 
   try {
     const { agent, did } = await requireAtpAgent(request);
+
+    // Found live 2026-07-17: this page was Owner-only by accident, not by
+    // design — the fast path below assumes the caller owns the record at
+    // this rkey in their own repo, which is true for every Owner visit but
+    // never true for a Contributor (their own repo has no record at this
+    // rkey at all). Contributors get read-only access to the same page
+    // (Groups/Articles, roster, Site Chat) via a fallback: their own
+    // accepted contributor_memberships row names the site's real at:// URI
+    // (owner DID included), so a public cross-repo read resolves the same
+    // record the Owner sees, minus any capability to write to it.
+    let ownerDid = did;
+    let isOwner = true;
+    let record:
+      { data: { cid?: string; value: Record<string, unknown> } } | undefined;
+    try {
+      record = await agent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: SITE_COLLECTION,
+        rkey: siteSlug,
+      });
+    } catch {
+      const membership = contributorMemberships
+        .listForContributor(did)
+        .find(
+          (m) => m.status === "accepted" && m.siteUri.endsWith(`/${siteSlug}`),
+        );
+      if (!membership) throw new Error("Site not found or not accessible.");
+      isOwner = false;
+      ({ ownerDid } = parseSiteUri(membership.siteUri));
+      const publicValue = await getPublicSiteRecord(ownerDid, siteSlug);
+      if (!publicValue) throw new Error("Site record not found.");
+      record = { data: { value: publicValue } };
+    }
 
     // ADR 0019 — Owner-side reconciliation: promote locally-accepted invites
     // and strip locally-rejected ones out of scribe.contributors, every time
     // the Owner visits this page. Cheap no-op when there's nothing pending.
     // core.tsx's global loop (every page, every owned site) also runs this,
     // so this call is a same-page belt-and-braces, not the sole trigger.
-    await reconcileContributorStatuses(agent, did, siteSlug);
+    // Contributor visits skip this entirely — their session can't write to
+    // the Owner's record anyway (ADR 0014's cross-repo write asymmetry).
+    if (isOwner) {
+      await reconcileContributorStatuses(agent, did, siteSlug);
+    }
 
-    const [record, documents] = await Promise.all([
-      agent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: SITE_COLLECTION,
-        rkey: siteSlug,
-      }),
-      listDocuments(agent, did),
-    ]);
-
-    const value = record.data.value as Record<string, unknown>;
+    const value = record.data.value;
     const scribeVal = (value.scribe as Record<string, unknown>) ?? {};
+
+    // Owner-only concerns below — a Contributor's own loose documents and
+    // this site's pending submissions aren't theirs to act on here (Review
+    // is an Owner action; the review route has its own ownerDid guard
+    // regardless), so there's no reason to fetch either for a read-only visit.
+    const documents = isOwner ? await listDocuments(agent, ownerDid) : [];
 
     // ADR 0013: a document's own `site` field is the sole loose-vs-published
     // signal — a loose document's `site` is a reader URL, not an at:// URI.
@@ -127,10 +173,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // a rejected row lingers locally until the Contributor's own
     // reconciliation (Phase 3c) acknowledges it, and isn't this Owner's to
     // act on again.
-    const siteUri = `at://${did}/${SITE_COLLECTION}/${siteSlug}`;
-    const submissions = pendingSubmissions
-      .listForOwner(did)
-      .filter((s) => s.siteUri === siteUri && s.status === "pending");
+    const siteUri = `at://${ownerDid}/${SITE_COLLECTION}/${siteSlug}`;
+    const submissions = isOwner
+      ? pendingSubmissions
+          .listForOwner(ownerDid)
+          .filter((s) => s.siteUri === siteUri && s.status === "pending")
+      : [];
 
     const rosterEntries = (scribeVal.contributors as SiteContributor[]) ?? [];
     const profileDids = [
@@ -160,12 +208,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
     return {
       devMode: false,
+      // The current viewer's own DID — for Site Chat's own-vs-others
+      // styling, distinct from siteOwnerDid below (which is who owns the
+      // site, not who's looking at it right now).
+      authorDid: did,
+      siteOwnerDid: ownerDid,
+      isOwner,
       hasUnassignedArticles,
       contributors,
       submissions: submissionRows,
       site: {
         rkey: siteSlug,
-        cid: record.data.cid,
+        cid: record.data.cid ?? "",
         url: String(scribeVal.domain ?? ""),
         title: String(scribeVal.title ?? ""),
         urlPrefix: String(scribeVal.basePath ?? ""),
@@ -249,7 +303,12 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!useRealOAuth) return { ok: true, removedDid: contributorDid };
 
     const agent = await getAtpAgent(did, request);
-    const result = await removeContributor(agent, did, siteSlug, contributorDid);
+    const result = await removeContributor(
+      agent,
+      did,
+      siteSlug,
+      contributorDid,
+    );
     return result.ok
       ? { ok: true, removedDid: contributorDid }
       : { ok: false, error: String(result.error) };
@@ -385,383 +444,33 @@ export async function action({ request, params }: Route.ActionArgs) {
   return redirect(`/article/list/${siteSlug}`);
 }
 
-function CreateGroupModal({
-  onClose,
-  siteUrl,
-  urlPrefix,
-}: {
-  onClose: () => void;
-  siteUrl: string;
-  urlPrefix: string;
-}) {
-  const fetcher = useFetcher<{ error?: string }>();
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const slugDirtyRef = useRef(false);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  const isPending = fetcher.state !== "idle";
-  const slugValid = slug === "" || SLUG_RE.test(slug);
-  const composedPath = [siteUrl, urlPrefix, slug].filter(Boolean).join("/");
-
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data && !fetcher.data.error) {
-      onCloseRef.current();
-    }
-  }, [fetcher.state, fetcher.data]);
-
-  return (
-    <fetcher.Form method="post" className={styles.formColumn}>
-      <input type="hidden" name="_intent" value="createGroup" />
-      <Input
-        id="group-title"
-        name="title"
-        label="Group title"
-        placeholder="e.g. Engineering"
-        value={title}
-        onChange={(e) => {
-          const value = e.target.value;
-          setTitle(value);
-          if (!slugDirtyRef.current) setSlug(toSlug(value));
-        }}
-        autoFocus
-      />
-      <Input
-        id="group-slug"
-        name="slug"
-        label="URL path"
-        placeholder="e.g. engineering"
-        value={slug}
-        onChange={(e) => {
-          slugDirtyRef.current = true;
-          setSlug(e.target.value.toLowerCase());
-        }}
-        error={
-          !slugValid
-            ? "Lowercase letters, numbers and hyphens only."
-            : undefined
-        }
-      />
-      {slug && slugValid && (
-        <p className={styles.helperText}>
-          Path: <code>{composedPath}</code>
-        </p>
-      )}
-      {fetcher.data?.error && (
-        <p className={styles.formError}>{fetcher.data.error}</p>
-      )}
-      <p className={styles.helperText}>
-        The URL path cannot be changed after the group is created.
-      </p>
-      <Button
-        type="submit"
-        disabled={isPending || !title.trim() || !slug || !slugValid}
-      >
-        {isPending ? "Creating…" : "Create Group"}
-      </Button>
-    </fetcher.Form>
-  );
-}
-
-type ResolvedProfile = {
-  did: string;
-  handle: string;
-  displayName: string;
-  avatar?: string;
-};
-type ResolveResult = ResolvedProfile | { error: string };
-
-// Modal for adding someone to this site's Contributor roster (ADR 0014/0018/
-// 0019). Handle-resolution half mirrors AddContributorModal (the document-
-// level byline feature's existing lookup flow) — reused rather than building
-// a second lookup pattern — but unlike that modal, "Send Invite" is a real
-// server write (scribe.contributors + contributor_memberships), not local
-// component state staged for a later form save.
-function InviteContributorModal({
-  isOpen,
-  onClose,
-  existingDids,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  existingDids: string[];
-}) {
-  const [handle, setHandle] = useState("");
-  const [hasLookedUp, setHasLookedUp] = useState(false);
-  const resolveFetcher = useFetcher<ResolveResult>();
-  const inviteFetcher = useFetcher<{ ok?: boolean; error?: string }>();
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setHandle("");
-    setHasLookedUp(false);
-  }, [isOpen]);
-
-  // Mirrors CreateGroupModal's close-on-success effect above — this pattern
-  // is already proven to work in this file for a modal+fetcher submission.
-  useEffect(() => {
-    if (
-      inviteFetcher.state === "idle" &&
-      inviteFetcher.data &&
-      !inviteFetcher.data.error
-    ) {
-      onCloseRef.current();
-    }
-  }, [inviteFetcher.state, inviteFetcher.data]);
-
-  const resolved =
-    hasLookedUp && resolveFetcher.data && "did" in resolveFetcher.data
-      ? resolveFetcher.data
-      : null;
-  const resolveError =
-    hasLookedUp && resolveFetcher.data && "error" in resolveFetcher.data
-      ? resolveFetcher.data.error
-      : null;
-
-  const isResolving = resolveFetcher.state !== "idle";
-  const isInviting = inviteFetcher.state !== "idle";
-  const alreadyOnRoster = resolved
-    ? existingDids.includes(resolved.did)
-    : false;
-  const canInvite = resolved !== null && !alreadyOnRoster && !isInviting;
-
-  function handleLookup() {
-    if (!handle.trim()) return;
-    setHasLookedUp(true);
-    resolveFetcher.load(
-      `/article/resolve-contributor?handle=${encodeURIComponent(handle.trim())}`,
-    );
-  }
-
-  function handleInvite() {
-    if (!resolved || !canInvite) return;
-    const formData = new FormData();
-    formData.set("_intent", "inviteContributor");
-    formData.set("contributorDid", resolved.did);
-    inviteFetcher.submit(formData, { method: "post" });
-  }
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Invite Contributor"
-      footer={
-        <div className={styles.modalFooter}>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="success"
-            disabled={!canInvite}
-            onClick={handleInvite}
-          >
-            {isInviting ? "Sending…" : "Send Invite"}
-          </Button>
-        </div>
-      }
-    >
-      <div className={styles.formColumn}>
-        <div className={styles.handleInputRow}>
-          <Input
-            id="invite-contributor-handle"
-            label="Bluesky handle"
-            placeholder="e.g. alice.bsky.app"
-            value={handle}
-            onChange={(e) => setHandle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleLookup();
-              }
-            }}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={!handle.trim() || isResolving}
-            onClick={handleLookup}
-            className={styles.lookupButton}
-          >
-            {isResolving ? "Looking up…" : "Look up"}
-          </Button>
-        </div>
-
-        {resolveError && <p className={styles.errorText}>{resolveError}</p>}
-        {inviteFetcher.data?.error && (
-          <p className={styles.errorText}>{inviteFetcher.data.error}</p>
-        )}
-
-        {resolved && (
-          <div className={styles.resolvedProfileRow}>
-            {resolved.avatar && (
-              <img src={resolved.avatar} alt="" className={styles.avatar} />
-            )}
-            <span>{resolved.displayName}</span>
-            <span className={styles.mutedText}>@{resolved.handle}</span>
-            {alreadyOnRoster && (
-              <p className={styles.errorText}>
-                This person is already on the roster for this site.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-function ShareModal({
-  article,
-}: {
-  article: {
-    uri: string;
-    title: string;
-    bskyPostRef: { uri: string; cid: string } | null | undefined;
-  } | null;
-}) {
-  const [text, setText] = useState(article?.title ?? "");
-
-  useEffect(() => {
-    setText(article?.title ?? "");
-  }, [article?.uri]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (!article) return null;
-
-  return (
-    <form id="share-article-form" method="post">
-      <input type="hidden" name="_intent" value="shareToBluesky" />
-      <input type="hidden" name="uri" value={article.uri} />
-      {article.bskyPostRef && (
-        <p className={styles.shareWarning}>
-          This article has already been shared to Bluesky. Sharing again will
-          create a new post.
-        </p>
-      )}
-      <div className={styles.shareTextField}>
-        <label htmlFor="share-text">Post text</label>
-        <textarea
-          id="share-text"
-          name="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={4}
-          className={styles.shareTextarea}
-        />
-      </div>
-    </form>
-  );
-}
-
-const STATUS_VARIANT: Record<
-  RosterEntry["status"],
-  "success" | "secondary" | "danger"
-> = {
-  accepted: "success",
-  invited: "secondary",
-  // Never actually rendered — a rejected entry is reconciled out of
-  // scribe.contributors by this page's own loader before it ever reaches
-  // the component (ADR 0019). Handled for type completeness only.
-  rejected: "danger",
-};
-
-// Plain, un-decorated per Phase 3's own explicit scope (ADR 0022) — no
-// toast, no badge, no chat post. Those are Phase 4/5, layered on top of the
-// same pending_submissions data this section reads.
-function SubmissionsSection({
-  submissions,
-}: {
-  submissions: SubmissionListEntry[];
-}) {
-  // Phase 4 (discovery UX polish) — hidden entirely when empty, matching
-  // the conditional-section pattern Standalone Articles already uses.
-  if (submissions.length === 0) return null;
-
-  return (
-    <div className={styles.sectionDivider}>
-      <h6 className={styles.sectionHeading}>New Article Submissions</h6>
-
-      <ul className={styles.plainList}>
-        {submissions.map((s) => (
-          <li key={`${s.contributorDid}:${s.rkey}`} className={styles.listRow}>
-            <span>{s.documentTitle}</span>
-            <span className={styles.mutedText}>
-              from {s.contributorDisplayName ?? s.contributorHandle}
-            </span>
-            <span className={cn(styles.mutedText, styles.pushRight)}>
-              {new Date(s.submittedAt).toLocaleDateString()}
-            </span>
-            <Link to={`/article/review/${s.contributorDid}/${s.rkey}`}>
-              <Button type="button" variant="primary" tabIndex={-1}>
-                Review
-              </Button>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function ContributorsSection({
-  contributors,
-  onRemove,
-  removingDid,
-}: {
-  contributors: RosterEntry[];
-  onRemove: (did: string) => void;
-  removingDid: string | null;
-}) {
-  // Not wrapped in its own <PageSection> — this renders inside the single
-  // scrolling PageSection the whole page content shares (see Contributors
-  // Phase 1 grill session, Question 4: one scrolling column, not a second
-  // clipped-by-default region under the fixed container's overflow:hidden).
-  return (
-    <div className={styles.sectionDivider}>
-      <h6 className={styles.sectionHeading}>Contributors</h6>
-
-      {contributors.length === 0 ? (
-        <p className={styles.mutedText}>
-          No contributors yet — invite someone to let them submit articles to
-          this site.
-        </p>
-      ) : (
-        <ul className={styles.plainList}>
-          {contributors.map((c) => (
-            <li key={c.did} className={styles.listRow}>
-              {c.avatar && (
-                <img src={c.avatar} alt="" className={styles.avatar} />
-              )}
-              <span>{c.displayName ?? c.handle}</span>
-              <span className={styles.mutedText}>@{c.handle}</span>
-              <Pill variant={STATUS_VARIANT[c.status]}>{c.status}</Pill>
-              <Button
-                type="button"
-                variant="danger"
-                className={styles.pushRight}
-                disabled={removingDid === c.did}
-                onClick={() => onRemove(c.did)}
-              >
-                {removingDid === c.did ? "Removing…" : "Remove"}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 export function HydrateFallback() {
   return <Spinner size="large" />;
 }
 
 export default function SiteListView({ loaderData }: Route.ComponentProps) {
-  const { site, devMode, hasUnassignedArticles, contributors, submissions } =
-    loaderData;
+  const {
+    site,
+    devMode,
+    authorDid,
+    siteOwnerDid,
+    isOwner,
+    hasUnassignedArticles,
+    contributors,
+    submissions,
+  } = loaderData;
+
+  // ADR 0026 (Site Chat group redesign) — "the chat feature has no reason
+  // to exist until a contributor has been added to the site" (explicit user
+  // decision): the group itself is only ever created once the Owner's own
+  // reconciliation accepts a first Contributor, so there's nothing to show
+  // an Owner with an empty roster. A Contributor viewing this page is
+  // necessarily themselves an accepted Contributor (ADR 0025's read-only
+  // access check), so the group is guaranteed to already exist for them.
+  const hasAcceptedContributors = contributors.some(
+    (c) => c.status === "accepted",
+  );
+  const showSiteChat = isOwner ? hasAcceptedContributors : true;
   const { isOpen, open, close } = useModal();
   const inviteModal = useModal();
 
@@ -967,6 +676,32 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
 
   const urlAndPrefix = `${site?.url && site.url}${site?.urlPrefix && "/" + site.urlPrefix}`;
 
+  const tabConfig = [
+    {
+      label: "Discussion",
+      component: (
+        <SiteChatPanel
+          siteSlug={site.rkey}
+          currentUserDid={authorDid}
+          ownerDid={siteOwnerDid}
+        />
+      ),
+    },
+    {
+      label: "Contributors",
+      component: (
+        <ContributorsSection
+          contributors={contributors}
+          onRemove={handleRemoveContributor}
+          removingDid={
+            isRemovingContributor ? removingContributorDidRef.current : null
+          }
+          isOwner={isOwner}
+        />
+      ),
+    },
+  ];
+
   return (
     <PageContainer
       fixed
@@ -976,23 +711,25 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         </PageContainerHeading>
       }
       topButtons={
-        <>
-          <ButtonGroupContainer>
-            <Link to={`/article/create?site=${site.rkey}`}>
-              <Button type="button" variant="primary" tabIndex={-1}>
-                Draft New Article
-              </Button>
-            </Link>
-            <Link to={`/article/list/${site.rkey}/new`}>
-              <Button type="button" variant="primary" tabIndex={-1}>
-                Add New Group
-              </Button>
-            </Link>
-          </ButtonGroupContainer>
-          <Button type="button" variant="primary" onClick={inviteModal.open}>
-            Invite Contributor
-          </Button>
-        </>
+        isOwner ? (
+          <>
+            <ButtonGroupContainer>
+              <Link to={`/article/create?site=${site.rkey}`}>
+                <Button type="button" variant="primary" tabIndex={-1}>
+                  Draft New Article
+                </Button>
+              </Link>
+              <Link to={`/article/list/${site.rkey}/new`}>
+                <Button type="button" variant="primary" tabIndex={-1}>
+                  Add New Group
+                </Button>
+              </Link>
+            </ButtonGroupContainer>
+            <Button type="button" variant="primary" onClick={inviteModal.open}>
+              Invite Contributor
+            </Button>
+          </>
+        ) : undefined
       }
     >
       <DndContext
@@ -1002,63 +739,67 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
-        {/* Single scrolling column for Phase 1 (grill session Question 4) —
-            title, groups, and the Contributors section all share one
-            overflow region rather than a PageSectionColumns split. That
-            split is deferred to Phase 5, when the chat panel actually
-            exists and there's a real second thing to put beside this. */}
-        <PageSection overflow>
-          <h6>{site.title}</h6>
-          <SortableContext
-            items={rootIds}
-            strategy={verticalListSortingStrategy}
-          >
-            <GroupList>
-              {/* g:root never has anything to render — since ADR 0013 every
-                  document reaching this site is already published into a
-                  named group; nothing populates ungroupedArticles anymore. */}
-              {tree
-                .filter((group) => group.id !== "g:root")
-                .map((group) => (
-                  <GroupItem
-                    key={group.id}
-                    id={group.id}
-                    title={group.title}
-                    slug={group.slug}
-                    articleChildren={
-                      group.children.map((c) => ({
-                        id: c.id,
-                        uri: c.uri,
-                        slug: c.slug,
-                        title: c.title,
-                        createdAt: c.createdAt,
-                        bskyPostRef: c.bskyPostRef,
-                      })) as TreeArticle[]
-                    }
-                    articleMode="site-published"
-                    urlAndPrefix={urlAndPrefix}
-                    siteName={site.title}
-                    onDeleteConfirm={handleDeleteGroup}
-                    onShareClick={handleShareClick}
-                    isDeleting={
-                      isDeleting && deletingSlugRef.current === group.slug
-                    }
-                    siteHasAnyArticles={siteHasAnyArticles}
-                    hasUnassignedArticles={hasUnassignedArticles}
-                  />
-                ))}
-            </GroupList>
-          </SortableContext>
+        {/* Two-column layout (ADR 0025, Site Chat) — main content at 2/3
+            width, Site Chat at 1/3, both scrolling independently, when
+            there's a chat to show (ADR 0026 — hidden entirely for an Owner
+            with no accepted Contributors yet, since the group itself
+            doesn't exist until then). Single scrolling column otherwise. */}
+        <PageSection fill>
+          <PageSectionColumns breakpoint="lg">
+            <PageSectionColumn span={showSiteChat ? 8 : 12} overflow>
+              <h6>{site.title}</h6>
+              <SortableContext
+                items={rootIds}
+                strategy={verticalListSortingStrategy}
+              >
+                <GroupList>
+                  {/* g:root never has anything to render — since ADR 0013 every
+                      document reaching this site is already published into a
+                      named group; nothing populates ungroupedArticles anymore. */}
+                  {tree
+                    .filter((group) => group.id !== "g:root")
+                    .map((group) => (
+                      <GroupItem
+                        key={group.id}
+                        id={group.id}
+                        title={group.title}
+                        slug={group.slug}
+                        articleChildren={
+                          group.children.map((c) => ({
+                            id: c.id,
+                            uri: c.uri,
+                            slug: c.slug,
+                            title: c.title,
+                            createdAt: c.createdAt,
+                            bskyPostRef: c.bskyPostRef,
+                          })) as TreeArticle[]
+                        }
+                        articleMode="site-published"
+                        urlAndPrefix={urlAndPrefix}
+                        siteName={site.title}
+                        onDeleteConfirm={handleDeleteGroup}
+                        onShareClick={handleShareClick}
+                        isDeleting={
+                          isDeleting && deletingSlugRef.current === group.slug
+                        }
+                        siteHasAnyArticles={siteHasAnyArticles}
+                        hasUnassignedArticles={hasUnassignedArticles}
+                        readOnly={!isOwner}
+                        currentUserDid={authorDid}
+                      />
+                    ))}
+                </GroupList>
+              </SortableContext>
 
-          <SubmissionsSection submissions={submissions} />
+              <SubmissionsSection submissions={submissions} />
+            </PageSectionColumn>
 
-          <ContributorsSection
-            contributors={contributors}
-            onRemove={handleRemoveContributor}
-            removingDid={
-              isRemovingContributor ? removingContributorDidRef.current : null
-            }
-          />
+            {showSiteChat && (
+              <PageSectionColumn span={4} overflow>
+                <TabSection items={tabConfig} />
+              </PageSectionColumn>
+            )}
+          </PageSectionColumns>
         </PageSection>
 
         <DragOverlay>
@@ -1086,75 +827,36 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         </PageSection>
       )}
 
-      <FooterPortal>
-        <Button
-          type="button"
-          variant="success"
-          onClick={handleSave}
-          disabled={isSaving || !isDirty}
-        >
-          {isSaving ? "Saving…" : "Save Order"}
-        </Button>
-      </FooterPortal>
+      {isOwner && (
+        <FooterPortal>
+          <Button
+            type="button"
+            variant="success"
+            onClick={handleSave}
+            disabled={isSaving || !isDirty}
+          >
+            {isSaving ? "Saving…" : "Save Order"}
+          </Button>
+        </FooterPortal>
+      )}
 
-      <Modal
+      <ShareModal
         isOpen={shareModal.isOpen}
         onClose={() => {
           shareModal.close();
           setSharingArticle(null);
         }}
-        title={
-          sharingArticle?.bskyPostRef
-            ? "Re-share to Bluesky"
-            : "Share to Bluesky"
-        }
-        footer={
-          <div className={styles.modalFooter}>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                shareModal.close();
-                setSharingArticle(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isSharing}
-              onClick={() => {
-                const form = document.getElementById(
-                  "share-article-form",
-                ) as HTMLFormElement | null;
-                if (!form) return;
-                shareFetcher.submit(new FormData(form), { method: "post" });
-              }}
-            >
-              {isSharing
-                ? "Sharing…"
-                : sharingArticle?.bskyPostRef
-                  ? "Re-share"
-                  : "Share"}
-            </Button>
-          </div>
-        }
-      >
-        <ShareModal article={sharingArticle} />
-      </Modal>
+        article={sharingArticle}
+        isSharing={isSharing}
+        onSubmit={(formData) => shareFetcher.submit(formData, { method: "post" })}
+      />
 
-      <Modal
+      <CreateGroupModal
         isOpen={isOpen}
         onClose={handleCloseModal}
-        title="Add new group"
-        footer={null}
-      >
-        <CreateGroupModal
-          onClose={handleCloseModal}
-          siteUrl={site.url}
-          urlPrefix={site.urlPrefix}
-        />
-      </Modal>
+        siteUrl={site.url}
+        urlPrefix={site.urlPrefix}
+      />
 
       <InviteContributorModal
         isOpen={inviteModal.isOpen}
@@ -1162,36 +864,16 @@ export default function SiteListView({ loaderData }: Route.ComponentProps) {
         existingDids={contributors.map((c) => c.did)}
       />
 
-      <Modal
+      <UnsavedChangesModal
         isOpen={blocker.state === "blocked"}
-        onClose={() => blocker.reset?.()}
-        title="Unsaved changes"
-        footer={
-          <div className={styles.modalFooter}>
-            <Button variant="secondary" onClick={() => blocker.reset?.()}>
-              Stay
-            </Button>
-            <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              Discard & Leave
-            </Button>
-            <Button
-              variant="success"
-              disabled={isSaving}
-              onClick={() => {
-                proceedAfterSaveRef.current = true;
-                handleSave();
-              }}
-            >
-              {isSaving ? "Saving…" : "Save & Leave"}
-            </Button>
-          </div>
-        }
-      >
-        <p>
-          You have unsaved changes to the article order. What would you like to
-          do?
-        </p>
-      </Modal>
+        isSaving={isSaving}
+        onStay={() => blocker.reset?.()}
+        onDiscard={() => blocker.proceed?.()}
+        onSaveAndLeave={() => {
+          proceedAfterSaveRef.current = true;
+          handleSave();
+        }}
+      />
     </PageContainer>
   );
 }

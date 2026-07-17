@@ -8,8 +8,9 @@ import {
   reconcileContributorStatuses,
   listPendingInvitations,
   listContributorSites,
+  listContributorSiteCards,
 } from "./contributorRoster.server";
-import { db, contributorMemberships } from "./db.server";
+import { db, contributorMemberships, siteChatConvos } from "./db.server";
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 
 // Mirrors the makeAgent/siteRecord helpers in siteManifest.server.test.ts —
@@ -32,6 +33,9 @@ function makeAgent(
     putRecord?: ReturnType<typeof vi.fn>;
     getConvoForMembers?: ReturnType<typeof vi.fn>;
     sendMessage?: ReturnType<typeof vi.fn>;
+    createGroup?: ReturnType<typeof vi.fn>;
+    addMembers?: ReturnType<typeof vi.fn>;
+    removeMembers?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
   return {
@@ -54,6 +58,14 @@ function makeAgent(
               vi.fn().mockResolvedValue({ data: { convo: { id: "convo-1" } } }),
             sendMessage: overrides.sendMessage ?? vi.fn().mockResolvedValue({}),
           },
+          group: {
+            createGroup:
+              overrides.createGroup ??
+              vi.fn().mockResolvedValue({ data: { convo: { id: "chat-convo-1" } } }),
+            addMembers: overrides.addMembers ?? vi.fn().mockResolvedValue({ data: { convo: {} } }),
+            removeMembers:
+              overrides.removeMembers ?? vi.fn().mockResolvedValue({ data: { convo: {} } }),
+          },
         },
       },
     },
@@ -71,6 +83,7 @@ function siteRecord(scribe: Record<string, unknown>) {
 
 beforeEach(() => {
   db.exec("DELETE FROM contributor_memberships");
+  db.exec("DELETE FROM site_chat_convos");
   vi.mocked(fetchBskyProfile).mockReset().mockResolvedValue({
     did: CONTRIBUTOR_DID,
     handle: "contributor.bsky.social",
@@ -248,6 +261,29 @@ describe("removeContributor", () => {
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)).toBeUndefined();
   });
 
+  it("removes the departing Contributor from the site's chat group, if one exists (ADR 0026)", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    siteChatConvos.create(SITE_URI, "chat-convo-1", "2026-01-01T00:00:00.000Z");
+    const removeMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+          ],
+        }),
+      ),
+      removeMembers,
+    });
+
+    await removeContributor(agent, DID, SITE_SLUG, CONTRIBUTOR_DID);
+
+    expect(removeMembers).toHaveBeenCalledWith(
+      { convoId: "chat-convo-1", members: [CONTRIBUTOR_DID] },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+  });
+
   it("returns ok:false rather than throwing when the write fails", async () => {
     const agent = makeAgent({
       getRecord: vi.fn().mockResolvedValue(siteRecord({ contributors: [] })),
@@ -309,6 +345,81 @@ describe("reconcileContributorStatuses", () => {
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)?.status).toBe("accepted");
   });
 
+  it("creates the site's chat group the moment the first Contributor is accepted (ADR 0026)", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    const createGroup = vi.fn().mockResolvedValue({ data: { convo: { id: "chat-convo-1" } } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          title: "My Site",
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+      createGroup,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(createGroup).toHaveBeenCalledWith(
+      { members: [CONTRIBUTOR_DID], name: "My Site" },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+    expect(siteChatConvos.get(SITE_URI)).toBe("chat-convo-1");
+  });
+
+  it("adds to the existing chat group, rather than re-creating it, once one already exists", async () => {
+    siteChatConvos.create(SITE_URI, "chat-convo-1", "2026-01-01T00:00:00.000Z");
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    const createGroup = vi.fn();
+    const addMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          title: "My Site",
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+      createGroup,
+      addMembers,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(createGroup).not.toHaveBeenCalled();
+    expect(addMembers).toHaveBeenCalledWith(
+      { convoId: "chat-convo-1", members: [CONTRIBUTOR_DID] },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
+  });
+
+  it("does not re-sync the chat group for a contributor who was already accepted on a prior pass", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    const createGroup = vi.fn();
+    const addMembers = vi.fn();
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          title: "My Site",
+          // Already accepted in the public record — not a fresh promotion.
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "accepted" },
+          ],
+        }),
+      ),
+      createGroup,
+      addMembers,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(createGroup).not.toHaveBeenCalled();
+    expect(addMembers).not.toHaveBeenCalled();
+  });
+
   it("strips a rejected row out of scribe.contributors and deletes the local row", async () => {
     contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "rejected");
     const putRecord = vi.fn().mockResolvedValue({ data: { cid: "new-cid" } });
@@ -327,6 +438,29 @@ describe("reconcileContributorStatuses", () => {
 
     expect(putRecord.mock.calls[0][0].record.scribe.contributors).toEqual([]);
     expect(contributorMemberships.get(CONTRIBUTOR_DID, SITE_URI)).toBeUndefined();
+  });
+
+  it("removes a rejected row's DID from the site's chat group, if one exists", async () => {
+    siteChatConvos.create(SITE_URI, "chat-convo-1", "2026-01-01T00:00:00.000Z");
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "rejected");
+    const removeMembers = vi.fn().mockResolvedValue({ data: { convo: {} } });
+    const agent = makeAgent({
+      getRecord: vi.fn().mockResolvedValue(
+        siteRecord({
+          contributors: [
+            { did: CONTRIBUTOR_DID, addedAt: "2026-01-01T00:00:00.000Z", status: "invited" },
+          ],
+        }),
+      ),
+      removeMembers,
+    });
+
+    await reconcileContributorStatuses(agent, DID, SITE_SLUG);
+
+    expect(removeMembers).toHaveBeenCalledWith(
+      { convoId: "chat-convo-1", members: [CONTRIBUTOR_DID] },
+      { headers: { "Atproto-Proxy": "did:web:api.bsky.chat#bsky_chat" } },
+    );
   });
 
   it("handles a mix of accepted and rejected rows for different contributors in one pass", async () => {
@@ -537,6 +671,165 @@ describe("listContributorSites", () => {
     );
 
     const result = await listContributorSites(CONTRIBUTOR_DID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].siteUri).toBe(SITE_URI);
+    vi.unstubAllGlobals();
+  });
+});
+
+// Found live 2026-07-17 — Contributors had no link anywhere to a site they
+// contribute to. A separate resolver from resolveMembershipSites/
+// listContributorSites above (which only ever needed title/domain/
+// ownerDisplayName for the Submit modal) — this one needs the full
+// SiteCard-like shape (rkey/cid/images/counts/per-group breakdown) for the
+// Dashboard/Sites/Groups listings.
+function mockFetchForSiteCards(
+  bySiteRkey: Record<
+    string,
+    { cid: string; value: Record<string, unknown> } | "reject"
+  >,
+) {
+  return vi.fn().mockImplementation((input: string | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.startsWith("https://plc.directory/")) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            service: [{ id: "#atproto_pds", serviceEndpoint: "https://owner-pds.example" }],
+          }),
+      });
+    }
+    const rkey = new URL(url).searchParams.get("rkey")!;
+    const outcome = bySiteRkey[rkey];
+    if (outcome === "reject" || outcome === undefined) {
+      return Promise.resolve({ ok: false, status: 400, statusText: "RecordNotFound" });
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ cid: outcome.cid, value: outcome.value }),
+    });
+  });
+}
+
+describe("listContributorSiteCards", () => {
+  it("returns the full site-card shape for each accepted-status membership", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    vi.mocked(fetchBskyProfile).mockResolvedValue({
+      did: DID,
+      handle: "owner.bsky.social",
+      displayName: "Site Owner",
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSiteCards({
+        "my-site": {
+          cid: "site-cid-1",
+          value: {
+            url: "https://norobots.blog",
+            scribe: {
+              title: "NoRobots Blog",
+              domain: "norobots.blog",
+              basePath: "blog",
+              description: "A blog",
+              splashImageUrl: "https://example.com/splash.png",
+              logoImageUrl: "https://example.com/logo.png",
+              groups: [
+                { slug: "eng", title: "Engineering", articles: [{ uri: "a1" }, { uri: "a2" }] },
+                { slug: "life", title: "Life", articles: [] },
+              ],
+            },
+          },
+        },
+      }),
+    );
+
+    const result = await listContributorSiteCards(CONTRIBUTOR_DID);
+
+    expect(result).toEqual([
+      {
+        siteUri: SITE_URI,
+        ownerDid: DID,
+        rkey: SITE_SLUG,
+        cid: "site-cid-1",
+        title: "NoRobots Blog",
+        domain: "norobots.blog",
+        absoluteUrl: "https://norobots.blog",
+        urlPrefix: "blog",
+        description: "A blog",
+        splashImageUrl: "https://example.com/splash.png",
+        logoImageUrl: "https://example.com/logo.png",
+        groupCount: 2,
+        articleCount: 2,
+        groups: [
+          { slug: "eng", title: "Engineering", articleCount: 2 },
+          { slug: "life", title: "Life", articleCount: 0 },
+        ],
+        ownerDisplayName: "Site Owner",
+      },
+    ]);
+    vi.unstubAllGlobals();
+  });
+
+  it("constructs an absolute URL from the domain when the record has no top-level url", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    vi.mocked(fetchBskyProfile).mockResolvedValue({
+      did: DID,
+      handle: "owner.bsky.social",
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSiteCards({
+        "my-site": {
+          cid: "site-cid-1",
+          value: { scribe: { title: "NoRobots Blog", domain: "norobots.blog" } },
+        },
+      }),
+    );
+
+    const result = await listContributorSiteCards(CONTRIBUTOR_DID);
+
+    expect(result[0].absoluteUrl).toBe("https://norobots.blog");
+    vi.unstubAllGlobals();
+  });
+
+  it("excludes invited and rejected memberships — only accepted counts as real Contributor access", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "invited");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listContributorSiteCards(CONTRIBUTOR_DID);
+
+    expect(result).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("drops a site that fails to resolve instead of failing the whole list", async () => {
+    contributorMemberships.upsert(CONTRIBUTOR_DID, SITE_URI, "2026-01-01T00:00:00.000Z", "accepted");
+    contributorMemberships.upsert(
+      CONTRIBUTOR_DID,
+      "at://did:plc:otherowner/site.standard.publication/other-site",
+      "2026-01-01T00:00:00.000Z",
+      "accepted",
+    );
+    vi.mocked(fetchBskyProfile).mockResolvedValue({
+      did: DID,
+      handle: "owner.bsky.social",
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      mockFetchForSiteCards({
+        "my-site": {
+          cid: "site-cid-1",
+          value: { scribe: { title: "NoRobots Blog", domain: "norobots.blog" } },
+        },
+        "other-site": "reject",
+      }),
+    );
+
+    const result = await listContributorSiteCards(CONTRIBUTOR_DID);
 
     expect(result).toHaveLength(1);
     expect(result[0].siteUri).toBe(SITE_URI);

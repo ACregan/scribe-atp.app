@@ -28,6 +28,21 @@ interface ArticleItemProps {
     bskyPostRef: { uri: string; cid: string } | null | undefined,
   ) => void;
   bskyPostRef?: { uri: string; cid: string } | null;
+  /** Site-management actions (drag, publish, share, unpublish, delete/remove)
+   * hidden — for a Contributor's read-only view of someone else's site
+   * (site-list.tsx). Does not affect View/Edit, which are about the
+   * article's own authorship, a separate concern. */
+  readOnly?: boolean;
+  /** The currently logged-in viewer's own DID — compared against the
+   * article's own repo DID (the first path segment of `uri`) to decide
+   * whether Edit should show at all. Found live 2026-07-19: on a
+   * Contributor's read-only view of someone else's site, Edit was showing
+   * for every article regardless of who actually wrote it — clicking it for
+   * an article you don't own 404s server-side (edit.tsx only ever scans the
+   * caller's own repo), but the button itself shouldn't be offered. Omit
+   * this prop to skip the check entirely (e.g. `/article/list`, where every
+   * article shown is already the caller's own). */
+  currentUserDid?: string;
 }
 
 const ArticleItem: React.FC<ArticleItemProps> = ({
@@ -45,8 +60,13 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   onPublishClick,
   onShareClick,
   bskyPostRef,
+  readOnly = false,
+  currentUserDid,
 }) => {
   const urlKey = slug ?? uri.split("/").pop();
+  // uri is always at://{did}/{collection}/{rkey} — index 2 is the DID.
+  const articleOwnerDid = uri.split("/")[2];
+  const isOwnArticle = !currentUserDid || articleOwnerDid === currentUserDid;
   const deleteModal = useModal();
   const deleteFormRef = useRef<HTMLFormElement>(null);
   const unpublishModal = useModal();
@@ -59,7 +79,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled: readOnly });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -104,31 +124,37 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
   return (
     <>
       <li ref={setNodeRef} style={style} className={styles.articleItem}>
-        <div
-          className={styles.dragHandleContainer}
-          {...attributes}
-          {...listeners}
-        >
-          <SvgIcon name={SvgImageList.DragHandle} />
-        </div>
+        {!readOnly && (
+          <div
+            className={styles.dragHandleContainer}
+            {...attributes}
+            {...listeners}
+          >
+            <SvgIcon name={SvgImageList.DragHandle} />
+          </div>
+        )}
         <div className={styles.titleContainer}>
           <IconBadge icon={SvgImageList.Document} size="small" />
           <strong>{title}</strong>
           {createdAt && <span>{new Date(createdAt).toLocaleDateString()}</span>}
         </div>
         <div className={styles.buttonContainer}>
-          <Link to={`/article/view/${urlKey}`}>
+          <Link
+            to={`/article/view/${urlKey}?ownerDid=${encodeURIComponent(articleOwnerDid)}`}
+          >
             <Button type="button" variant="secondary" tabIndex={-1}>
               View
             </Button>
           </Link>
-          <Link to={`/article/edit/${urlKey}`}>
-            <Button type="button" variant="primary" tabIndex={-1}>
-              Edit
-            </Button>
-          </Link>
+          {isOwnArticle && (
+            <Link to={`/article/edit/${urlKey}`}>
+              <Button type="button" variant="primary" tabIndex={-1}>
+                Edit
+              </Button>
+            </Link>
+          )}
 
-          {isUnpublishedMode && (
+          {isUnpublishedMode && !readOnly && (
             <Button
               type="button"
               variant="success"
@@ -138,7 +164,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </Button>
           )}
 
-          {isPdsMode && (
+          {isPdsMode && !readOnly && (
             <Form
               ref={deleteFormRef}
               method="post"
@@ -154,7 +180,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </Form>
           )}
 
-          {isUnpublishedMode && (
+          {isUnpublishedMode && !readOnly && (
             <>
               <Form
                 ref={deleteFormRef}
@@ -176,7 +202,7 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
             </>
           )}
 
-          {isPublishedMode && (
+          {isPublishedMode && !readOnly && (
             <>
               <Button
                 type="button"
@@ -211,6 +237,13 @@ const ArticleItem: React.FC<ArticleItemProps> = ({
                 </OverflowMenu>
               )}
             </>
+          )}
+          {isPublishedMode && readOnly && liveUrl && (
+            <Link to={liveUrl} target="_blank" rel="noreferrer">
+              <Button type="button" variant="success" tabIndex={-1}>
+                Visit On Site
+              </Button>
+            </Link>
           )}
         </div>
       </li>

@@ -156,6 +156,20 @@ function migrate(db: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS pending_submissions_owner
       ON pending_submissions (owner_did);
+
+    -- Site Chat (ADR 0025/0026) — chat.bsky.group.createGroup is explicitly
+    -- non-idempotent ("will create new groups even if the membership is
+    -- identical to pre-existing groups"), so the resulting convoId must be
+    -- persisted the first time a site's group conversation is created.
+    -- Written once, at first-Contributor-accepted time
+    -- (reconcileContributorStatuses); read on every chat resolve
+    -- (lookupSiteChatConvo) and every subsequent membership sync
+    -- (syncSiteChatGroup/removeSiteChatMember).
+    CREATE TABLE IF NOT EXISTS site_chat_convos (
+      site_uri   TEXT PRIMARY KEY,
+      convo_id   TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
   `);
 }
 
@@ -501,6 +515,24 @@ export const pendingSubmissions = {
       )
       .all(ownerDid);
     return rows.map(fromSubmissionRow);
+  },
+};
+
+export const siteChatConvos = {
+  // First and only write for a given site_uri — a group's convoId never
+  // changes once created, so there's no update path, only get/create.
+  get: (siteUri: string): string | undefined => {
+    const row = db
+      .prepare<[string], { convo_id: string }>(
+        "SELECT convo_id FROM site_chat_convos WHERE site_uri = ?",
+      )
+      .get(siteUri);
+    return row?.convo_id;
+  },
+  create: (siteUri: string, convoId: string, createdAt: string) => {
+    db.prepare(
+      "INSERT INTO site_chat_convos (site_uri, convo_id, created_at) VALUES (?, ?, ?)",
+    ).run(siteUri, convoId, createdAt);
   },
 };
 

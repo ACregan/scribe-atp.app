@@ -11,6 +11,12 @@ export interface SiteCard {
   articleCount: number;
   /** Phase 4 (discovery UX polish) — count of pending Contributor submissions for this site. */
   pendingSubmissionCount?: number;
+  /** Set when this entry is a site the caller *contributes* to rather than
+   * owns (Dashboard/Sites/Groups listings) — gates Delete/Configure actions
+   * off in SiteTile/SiteListItem and renders the Contributor pill. */
+  isContributor?: boolean;
+  /** Only meaningful alongside isContributor — the site's actual Owner. */
+  ownerDisplayName?: string;
 }
 
 export type SiteOption = { rkey: string; title: string; url: string };

@@ -1,0 +1,17 @@
+.formColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.helperText {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.formError {
+  font-size: 1.3rem;
+  color: var(--action-danger);
+  margin: 0;
+}

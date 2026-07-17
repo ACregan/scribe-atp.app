@@ -5,6 +5,7 @@ import { contributorMemberships, type ContributorMembership } from "~/services/d
 import { fetchBskyProfile } from "~/services/blueskyProfile.server";
 import { publicUrl } from "~/services/auth.server";
 import { logger } from "~/services/logger.server";
+import { syncSiteChatGroup, removeSiteChatMember } from "~/services/siteChat.server";
 import { parseSiteUri, resolveDidPdsUrl } from "~/services/pdsResolution.server";
 import type { SiteContributor } from "~/hooks/types";
 import type { SiteRecordValue } from "~/routes/article/site-list/siteTree";
@@ -163,6 +164,9 @@ export async function removeContributor(
     // Image Service access is revoked the instant this row is gone (ADR
     // 0024) — it reads contributor_memberships live, no separate sync step.
     contributorMemberships.remove(contributorDid, siteUri);
+    // Best-effort (ADR 0026) — a failed removeMembers call never turns an
+    // already-successful roster removal into a reported failure.
+    await removeSiteChatMember(agent, siteUri, contributorDid);
   } catch (err) {
     console.error("Failed to remove contributor:", err);
     return { ok: false, error: err };
@@ -289,6 +293,113 @@ export async function listContributorSites(
   return resolveMembershipSites(accepted);
 }
 
+// Found live 2026-07-17: chat was reachable but Contributors had no way to
+// *get* to a site they contribute to — no link anywhere in the CMS pointed
+// at /article/list/:siteSlug for them. This lists every accepted Contributor
+// site for Dashboard/Sites/Groups to render alongside the caller's own
+// sites, tagged isContributor so those pages can gate owner-only actions
+// (Delete/Configure) and show a Contributor pill.
+//
+// Deliberately a separate resolver from resolveMembershipSites above, not a
+// widened version of it — that function's two existing callers
+// (listPendingInvitations, listContributorSites) only need title/domain/
+// ownerDisplayName, and are covered by existing tests asserting that exact
+// shape; this one needs rkey/cid/urlPrefix/images/counts/per-group
+// breakdowns too, pulled from the same fetched record but mapped into the
+// richer shape these 3 pages' own SiteCard-like renderers need.
+export type ContributorSiteCard = {
+  siteUri: string;
+  ownerDid: string;
+  rkey: string;
+  cid: string;
+  title: string;
+  domain: string;
+  absoluteUrl: string;
+  urlPrefix: string;
+  description?: string;
+  splashImageUrl?: string;
+  logoImageUrl?: string;
+  groupCount: number;
+  articleCount: number;
+  groups: Array<{ slug: string; title: string; articleCount: number }>;
+  ownerDisplayName: string;
+};
+
+export async function listContributorSiteCards(
+  contributorDid: string,
+): Promise<ContributorSiteCard[]> {
+  const accepted = contributorMemberships
+    .listForContributor(contributorDid)
+    .filter((m) => m.status === "accepted");
+
+  const results = await Promise.allSettled(
+    accepted.map(async (m): Promise<ContributorSiteCard> => {
+      const { ownerDid, rkey } = parseSiteUri(m.siteUri);
+      const pdsUrl = await resolveDidPdsUrl(ownerDid);
+      const url = new URL(`${pdsUrl}/xrpc/com.atproto.repo.getRecord`);
+      url.searchParams.set("repo", ownerDid);
+      url.searchParams.set("collection", SITE_COLLECTION);
+      url.searchParams.set("rkey", rkey);
+      const [siteRes, ownerProfile] = await Promise.all([
+        fetch(url),
+        fetchBskyProfile(ownerDid),
+      ]);
+      if (!siteRes.ok) throw new Error(`Failed to fetch site record: ${siteRes.status}`);
+      const data = (await siteRes.json()) as {
+        cid: string;
+        value: Record<string, unknown>;
+      };
+      const scribe = (data.value.scribe as Record<string, unknown>) ?? {};
+      const domain = String(scribe.domain ?? "");
+      const groups =
+        (scribe.groups as
+          | Array<{ slug: string; title: string; articles?: unknown[] }>
+          | undefined) ?? [];
+      return {
+        siteUri: m.siteUri,
+        ownerDid,
+        rkey,
+        cid: data.cid,
+        title: String(scribe.title ?? ""),
+        domain,
+        // site.standard.publication's top-level `url` is the full absolute
+        // URL (e.g. "https://norobots.blog") — falls back to constructing
+        // one from domain for older/malformed records missing it.
+        absoluteUrl: String(data.value.url ?? (domain ? `https://${domain}` : "")),
+        urlPrefix: String(scribe.basePath ?? ""),
+        description: scribe.description ? String(scribe.description) : undefined,
+        splashImageUrl: scribe.splashImageUrl ? String(scribe.splashImageUrl) : undefined,
+        logoImageUrl: scribe.logoImageUrl ? String(scribe.logoImageUrl) : undefined,
+        groupCount: groups.length,
+        articleCount: groups.reduce((sum, g) => sum + (g.articles?.length ?? 0), 0),
+        groups: groups.map((g) => ({
+          slug: g.slug,
+          title: g.title,
+          articleCount: g.articles?.length ?? 0,
+        })),
+        ownerDisplayName: ownerProfile?.displayName || ownerProfile?.handle || ownerDid,
+      };
+    }),
+  );
+
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      logger.warn(
+        {
+          event: "contributor.site_card_lookup_failed",
+          siteUri: accepted[i].siteUri,
+          error: String(r.reason),
+        },
+        "failed to resolve a Contributor site's details — dropped from the list",
+      );
+    }
+  });
+
+  return results
+    .filter((r): r is PromiseFulfilledResult<ContributorSiteCard> => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
 // Owner-side reconciliation (ADR 0019) — run globally on every page load
 // (core.tsx) for every site the Owner owns, not tied to a specific route.
 // Promotes locally-accepted rows to status: "accepted" in scribe.contributors
@@ -312,19 +423,36 @@ export async function reconcileContributorStatuses(
 
   const removeDids = new Set(toRemove.map((r) => r.contributorDid));
   const promoteDids = new Set(toPromote.map((r) => r.contributorDid));
+  let siteName = "";
+  const newlyPromotedDids: string[] = [];
 
   await mutateSiteRecord(agent, did, siteSlug, (val) => {
+    siteName = String(val.title ?? "");
     const contributors = ((val.contributors as SiteContributor[]) ?? [])
       .filter((c) => !removeDids.has(c.did))
-      .map((c) =>
-        promoteDids.has(c.did) && c.status !== "accepted"
-          ? { ...c, status: "accepted" as const }
-          : c,
-      );
+      .map((c) => {
+        if (promoteDids.has(c.did) && c.status !== "accepted") {
+          newlyPromotedDids.push(c.did);
+          return { ...c, status: "accepted" as const };
+        }
+        return c;
+      });
     return { ...val, contributors, updatedAt: new Date().toISOString() };
   });
 
   for (const row of toRemove) {
     contributorMemberships.remove(row.contributorDid, siteUri);
+    // Best-effort (ADR 0026) — never turns the roster write above into a
+    // reported failure.
+    await removeSiteChatMember(agent, siteUri, row.contributorDid);
+  }
+
+  // ADR 0026 — the group is created the moment a Contributor is genuinely
+  // newly accepted (not on every reconcile pass — c.status !== "accepted"
+  // above only pushes here the first time), per the explicit decision that
+  // Site Chat has no reason to exist before that. Best-effort: never turns
+  // the roster write above into a reported failure.
+  if (newlyPromotedDids.length > 0) {
+    await syncSiteChatGroup(agent, siteUri, siteName, newlyPromotedDids);
   }
 }

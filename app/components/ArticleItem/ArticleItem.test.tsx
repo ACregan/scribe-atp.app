@@ -164,13 +164,13 @@ describe("ArticleItem", () => {
   });
 
   describe("buttons", () => {
-    it("should render View button linking to view page", () => {
+    it("should render View button linking to view page, with the article's owner DID so a Contributor's read-only view can resolve it cross-repo", () => {
       render(<ArticleItem {...defaultProps} />);
       const viewLink = screen.getByRole("link", { name: /view/i });
       expect(viewLink).toBeInTheDocument();
       expect(viewLink).toHaveAttribute(
         "href",
-        `/article/view/${defaultProps.uri.split("/").pop()}`,
+        `/article/view/${defaultProps.uri.split("/").pop()}?ownerDid=did%3Aplc%3Atest`,
       );
     });
 
@@ -326,6 +326,125 @@ describe("ArticleItem", () => {
       const { container } = render(<ArticleItem {...defaultProps} />);
       const listItem = container.querySelector("li");
       expect(listItem?.style.opacity).toBe("0.4");
+    });
+  });
+
+  // Found live 2026-07-17: a Contributor's read-only view of someone else's
+  // site (site-list.tsx) needs every site-management action hidden.
+  describe("readOnly", () => {
+    it("does not render the drag handle", () => {
+      render(<ArticleItem {...defaultProps} readOnly />);
+      expect(screen.queryByTestId("svg-icon")).not.toBeInTheDocument();
+    });
+
+    it("disables the sortable via useSortable's disabled option", async () => {
+      const { useSortable } = await import("@dnd-kit/sortable");
+      render(<ArticleItem {...defaultProps} readOnly />);
+      expect(useSortable).toHaveBeenCalledWith({ id: "test-id", disabled: true });
+    });
+
+    it("hides the Delete button in pds mode", () => {
+      render(<ArticleItem {...defaultProps} mode="pds" readOnly />);
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    });
+
+    it("hides Share and Unpublish in site-published mode, but keeps Visit On Site", () => {
+      render(
+        <ArticleItem
+          {...defaultProps}
+          mode="site-published"
+          groupSlug="engineering"
+          urlAndPrefix="example.com"
+          readOnly
+        />,
+      );
+      expect(screen.queryByRole("button", { name: /Share/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Unpublish" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Visit On Site" })).toBeInTheDocument();
+    });
+
+    it("still renders View and Edit when currentUserDid is omitted (skips the authorship check entirely)", () => {
+      render(<ArticleItem {...defaultProps} mode="site-published" readOnly />);
+      expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    });
+  });
+
+  // Found live 2026-07-19: a Contributor's read-only view of someone else's
+  // site showed Edit on every article, including ones they never wrote —
+  // clicking it 404s server-side (edit.tsx only scans the caller's own
+  // repo), but the button shouldn't be offered at all. uri's own DID (the
+  // repo the article actually lives in) is compared against currentUserDid.
+  describe("currentUserDid (article authorship)", () => {
+    it("shows Edit when the article's own DID matches currentUserDid", () => {
+      render(
+        <ArticleItem {...defaultProps} readOnly currentUserDid="did:plc:test" />,
+      );
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    });
+
+    it("hides Edit when currentUserDid belongs to someone else", () => {
+      render(
+        <ArticleItem
+          {...defaultProps}
+          readOnly
+          currentUserDid="did:plc:someone-else"
+        />,
+      );
+      expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    });
+
+    it("still shows View even when Edit is hidden", () => {
+      render(
+        <ArticleItem
+          {...defaultProps}
+          readOnly
+          currentUserDid="did:plc:someone-else"
+        />,
+      );
+      expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
+    });
+
+    it("shows Edit for the viewer's own article even when the page overall is readOnly", () => {
+      // A Contributor's own submitted-and-approved article, on the same
+      // read-only site-management page — readOnly is about site-management
+      // actions, not this article's own authorship.
+      render(
+        <ArticleItem {...defaultProps} readOnly currentUserDid="did:plc:test" />,
+      );
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    });
+
+    it("on a Contributor's read-only view of an unowned, published article, only View and Visit On Site remain", () => {
+      render(
+        <ArticleItem
+          {...defaultProps}
+          mode="site-published"
+          groupSlug="engineering"
+          urlAndPrefix="example.com"
+          readOnly
+          currentUserDid="did:plc:someone-else"
+        />,
+      );
+      expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Visit On Site" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button")).toHaveLength(2);
+    });
+
+    it("View still links to the article's own owner DID (not the viewer's), so it resolves cross-repo", () => {
+      render(
+        <ArticleItem
+          {...defaultProps}
+          readOnly
+          currentUserDid="did:plc:someone-else"
+        />,
+      );
+      const viewLink = screen.getByRole("link", { name: /view/i });
+      expect(viewLink).toHaveAttribute(
+        "href",
+        `/article/view/${defaultProps.uri.split("/").pop()}?ownerDid=did%3Aplc%3Atest`,
+      );
     });
   });
 

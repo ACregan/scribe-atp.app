@@ -111,8 +111,23 @@ vi.mock("../Spinner/Spinner", () => ({
 }));
 
 vi.mock("../ArticleItem/ArticleItem", () => ({
-  default: ({ title, uri }: { title: string; uri: string }) => (
-    <li data-testid="article-item" data-uri={uri}>
+  default: ({
+    title,
+    uri,
+    readOnly,
+    currentUserDid,
+  }: {
+    title: string;
+    uri: string;
+    readOnly?: boolean;
+    currentUserDid?: string;
+  }) => (
+    <li
+      data-testid="article-item"
+      data-uri={uri}
+      data-readonly={String(!!readOnly)}
+      data-current-user-did={currentUserDid ?? ""}
+    >
       {title}
     </li>
   ),
@@ -475,6 +490,59 @@ describe("GroupItem", () => {
     it("does not apply opacity when not dragging", () => {
       const { container } = render(<GroupItem {...defaultProps} />);
       expect(container.querySelector("li")?.style.opacity).toBe("");
+    });
+  });
+
+  // Found live 2026-07-17: a Contributor's read-only view of someone else's
+  // site (site-list.tsx) needs every site-management action hidden.
+  describe("readOnly", () => {
+    it("does not render the drag handle", () => {
+      const { container } = render(<GroupItem {...defaultProps} readOnly />);
+      expect(container.querySelector(".handleContainer")).not.toBeInTheDocument();
+    });
+
+    it("disables the sortable via useSortable's disabled option", async () => {
+      const { useSortable } = await import("@dnd-kit/sortable");
+      render(<GroupItem {...defaultProps} readOnly />);
+      expect(useSortable).toHaveBeenCalledWith({
+        id: "g:test-group",
+        disabled: true,
+      });
+    });
+
+    it("hides the Delete Group button", () => {
+      render(<GroupItem {...defaultProps} articleChildren={[]} readOnly />);
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("passes readOnly through to each ArticleItem", () => {
+      render(
+        <GroupItem {...defaultProps} articleChildren={sampleArticles} readOnly />,
+      );
+      const items = screen.getAllByTestId("article-item");
+      expect(items).toHaveLength(2);
+      items.forEach((item) => expect(item).toHaveAttribute("data-readonly", "true"));
+    });
+
+    it("does not disable the sortable or hide the Delete Group button by default", () => {
+      render(<GroupItem {...defaultProps} articleChildren={[]} />);
+      expect(screen.getByRole("button")).toBeInTheDocument();
+    });
+
+    it("passes currentUserDid through to each ArticleItem", () => {
+      render(
+        <GroupItem
+          {...defaultProps}
+          articleChildren={sampleArticles}
+          readOnly
+          currentUserDid="did:plc:viewer"
+        />,
+      );
+      const items = screen.getAllByTestId("article-item");
+      expect(items).toHaveLength(2);
+      items.forEach((item) =>
+        expect(item).toHaveAttribute("data-current-user-did", "did:plc:viewer"),
+      );
     });
   });
 });

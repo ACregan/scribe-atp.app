@@ -87,6 +87,41 @@ export async function getPublicSiteRecord(
   return data.value;
 }
 
+// Found live 2026-07-19: a Contributor's read-only view of someone else's
+// site (site-list.tsx) links View at a human-readable slug, not the rkey —
+// so unlike getPublicDocument above (which needs an already-known rkey),
+// this has to paginate a public listRecords and match by slug, same as
+// view.tsx/edit.tsx's own caller's-own-repo scan. Used when the article's
+// real owner (encoded in its own at:// uri, threaded through as a query
+// param by ArticleItem) differs from the caller — i.e. this is someone
+// else's article, so the caller's own repo can never have it.
+export async function getPublicDocumentBySlug(
+  ownerDid: string,
+  slug: string,
+): Promise<{ uri: string; cid: string; value: Record<string, unknown> } | null> {
+  const pdsUrl = await resolveDidPdsUrl(ownerDid);
+  let cursor: string | undefined;
+  do {
+    const url = new URL(`${pdsUrl}/xrpc/com.atproto.repo.listRecords`);
+    url.searchParams.set("repo", ownerDid);
+    url.searchParams.set("collection", DOCUMENT_COLLECTION);
+    url.searchParams.set("limit", "100");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      records: Array<{ uri: string; cid: string; value: Record<string, unknown> }>;
+      cursor?: string;
+    };
+    const found = data.records.find(
+      (r) => String(r.value.path ?? "").split("/").pop() === slug,
+    );
+    if (found) return found;
+    cursor = data.cursor;
+  } while (cursor);
+  return null;
+}
+
 export type ReviewableSubmission = {
   documentUri: string;
   contributorDid: string;

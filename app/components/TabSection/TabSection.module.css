@@ -1,0 +1,37 @@
+.tabSectionContainer {
+  display: grid;
+  height: 100%;
+  grid-template-columns: 1fr;
+  grid-template-rows: 4rem 1fr;
+  gap: 0px 0px;
+  grid-template-areas:
+    "TabSection_tabs"
+    "TabSection_content";
+}
+.tabList {
+  grid-area: TabSection_tabs;
+  display: flex;
+  padding: 0 1rem;
+}
+.tab {
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  border: 0.2rem solid var(--border-color);
+  border-radius: 0.4rem 0.4rem 0 0;
+  border-bottom: none;
+  user-select: none;
+  cursor: pointer;
+  margin-right: 0.2rem;
+}
+.tab:last-of-type {
+  margin-right: 0;
+}
+.tab_selected {
+  composes: tab;
+  cursor: unset;
+}
+.tabContent {
+  grid-area: TabSection_content;
+  border: 0.2rem solid var(--border-color);
+  border-radius: 1.2rem;
+}

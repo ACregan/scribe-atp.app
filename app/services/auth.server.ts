@@ -37,15 +37,21 @@ const clientId = useRealOAuth
   ? `${publicUrl}/client-metadata.json`
   : "http://localhost";
 
-// ADR 0019 — the two chat.bsky.convo RPC scopes needed to send the
-// Contributor invite DM directly from the Owner's own session (Phase 1),
-// rather than through scribe-atp-social. Bluesky's chat lexicons are
-// service-proxied to did:web:api.bsky.chat#bsky_chat (per
+// ADR 0019/0025/0026 — the chat.bsky RPC scopes this app needs. Bluesky's
+// chat lexicons are service-proxied to did:web:api.bsky.chat#bsky_chat (per
 // atproto.com/specs/permission's rpc: scope syntax — "rpc:<lxm>?aud=<did>"),
-// not covered by any repo:/blob: scope above. getMessages (for reading
-// replies) is deliberately not requested yet — that's Phase 5 (Team chat),
-// which will reuse these two scopes rather than trigger a second
-// re-authentication event.
+// not covered by any repo:/blob: scope above. getConvoForMembers/sendMessage
+// were added in Phase 1 (ADR 0019) for the Contributor invite DM. getMessages
+// is Phase 5's own addition (ADR 0025, Site Chat) — reading a conversation is
+// a genuinely new capability the invite DM never needed. createGroup/
+// addMembers/removeMembers (chat.bsky.group) and getConvo/acceptConvo
+// (chat.bsky.convo) are ADR 0026's group-conversation redesign — found live
+// 2026-07-17: createGroup failed with "Missing required scope" because these
+// five were never added to this list when that redesign was implemented, so
+// group creation/sync silently failed for every session authorized before
+// this fix. Every scope addition here triggers a fresh re-authentication
+// event for existing users, contrary to an earlier assumption in
+// PLANNING.md.
 const CHAT_AUD = "did:web:api.bsky.chat#bsky_chat";
 
 export const OAUTH_SCOPE = [
@@ -61,6 +67,12 @@ export const OAUTH_SCOPE = [
   "blob:image/webp",
   `rpc:chat.bsky.convo.getConvoForMembers?aud=${CHAT_AUD}`,
   `rpc:chat.bsky.convo.sendMessage?aud=${CHAT_AUD}`,
+  `rpc:chat.bsky.convo.getMessages?aud=${CHAT_AUD}`,
+  `rpc:chat.bsky.convo.getConvo?aud=${CHAT_AUD}`,
+  `rpc:chat.bsky.convo.acceptConvo?aud=${CHAT_AUD}`,
+  `rpc:chat.bsky.group.createGroup?aud=${CHAT_AUD}`,
+  `rpc:chat.bsky.group.addMembers?aud=${CHAT_AUD}`,
+  `rpc:chat.bsky.group.removeMembers?aud=${CHAT_AUD}`,
 ].join(" ");
 
 const redirectUri = useRealOAuth

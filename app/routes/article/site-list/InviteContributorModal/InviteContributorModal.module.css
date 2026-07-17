@@ -1,0 +1,42 @@
+.modalFooter {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.formColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.handleInputRow {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-end;
+}
+
+.lookupButton {
+  align-self: center;
+}
+
+.errorText {
+  color: var(--action-danger);
+  margin: 0;
+}
+
+.resolvedProfileRow {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.avatar {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+}
+
+.mutedText {
+  color: var(--text-secondary);
+}

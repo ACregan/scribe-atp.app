@@ -1,0 +1,22 @@
+.modalFooter {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.shareWarning {
+  margin-bottom: 1rem;
+  color: var(--color-warning, #d97706);
+}
+
+.shareTextField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.shareTextarea {
+  resize: vertical;
+  width: 100%;
+  padding: 0.5rem;
+}
