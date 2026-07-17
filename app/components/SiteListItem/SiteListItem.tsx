@@ -54,6 +54,7 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
             <strong className={styles.siteTitle}>{site.title}</strong>
             <span className={styles.siteUrl}>{composedUrl(site)}</span>
             <div className={styles.counts}>
+              {site.isContributor && <Pill variant="secondary">Contributor</Pill>}
               {site.groupCount > 0 && (
                 <Pill>{`${site.groupCount} GROUP${site.groupCount !== 1 ? "S" : ""}`}</Pill>
               )}
@@ -77,15 +78,17 @@ const SiteListItem: React.FC<SiteListItemProps> = ({
         <Link to={`/article/list/${site.rkey}`}>
           <Button type="button">Manage Articles</Button>
         </Link>
-        <Link
-          to={`/site/${site.rkey}/configure`}
-          className={styles.configureSiteLink}
-        >
-          <Button type="button" variant="secondary">
-            <SvgIcon name={SvgImageList.Gear} fill="var(--action-primary)" />
-          </Button>
-        </Link>
-        {onDelete && (
+        {!site.isContributor && (
+          <Link
+            to={`/site/${site.rkey}/configure`}
+            className={styles.configureSiteLink}
+          >
+            <Button type="button" variant="secondary">
+              <SvgIcon name={SvgImageList.Gear} fill="var(--action-primary)" />
+            </Button>
+          </Link>
+        )}
+        {!site.isContributor && onDelete && (
           <Button
             className={styles.actionButton}
             aria-label="Delete site"

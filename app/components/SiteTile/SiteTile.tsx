@@ -10,7 +10,7 @@ export type { SiteCard };
 
 type SiteTileProps = {
   site: SiteCard;
-  onDelete: (site: SiteCard) => void;
+  onDelete?: (site: SiteCard) => void;
   isDeleting?: boolean;
 };
 
@@ -44,6 +44,7 @@ export function SiteTile({
             />
           )}
           <p className={styles.tileTitle}>{site.title}</p>
+          {site.isContributor && <Pill variant="secondary">Contributor</Pill>}
           {!!site.pendingSubmissionCount && (
             <Pill variant="primary">
               {site.pendingSubmissionCount} PENDING SUBMISSION
@@ -71,24 +72,28 @@ export function SiteTile({
           </Button>
         </Link>
         <div className={styles.rightAlignedActionButtons}>
-          <Link to={`/site/${site.rkey}/configure`}>
+          {!site.isContributor && (
+            <Link to={`/site/${site.rkey}/configure`}>
+              <Button
+                className={styles.actionButton}
+                type="button"
+                variant="secondary"
+              >
+                <SvgIcon name={SvgImageList.Gear} fill="var(--action-primary)" />
+              </Button>
+            </Link>
+          )}
+          {!site.isContributor && onDelete && (
             <Button
               className={styles.actionButton}
-              type="button"
-              variant="secondary"
+              aria-label="Delete site"
+              variant="danger"
+              onClick={() => onDelete(site)}
+              disabled={isDeleting}
             >
-              <SvgIcon name={SvgImageList.Gear} fill="var(--action-primary)" />
+              <SvgIcon name={SvgImageList.Trash} fill="white" />
             </Button>
-          </Link>
-          <Button
-            className={styles.actionButton}
-            aria-label="Delete site"
-            variant="danger"
-            onClick={() => onDelete(site)}
-            disabled={isDeleting}
-          >
-            <SvgIcon name={SvgImageList.Trash} fill="white" />
-          </Button>
+          )}
         </div>
       </div>
     </li>

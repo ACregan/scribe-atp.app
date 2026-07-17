@@ -24,6 +24,7 @@ import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { Pill } from "~/components/Pill/Pill";
 import { useToast } from "~/components/Toast/ToastContext";
 import { toSlug } from "~/hooks/utils";
+import { listContributorSiteCards } from "~/services/contributorRoster.server";
 import styles from "./groups.module.css";
 
 type GroupSummary = {
@@ -40,6 +41,7 @@ type SiteWithGroups = {
   splashImageUrl?: string;
   logoImageUrl?: string;
   groups: GroupSummary[];
+  isContributor?: boolean;
 };
 
 type GroupSiteItemProps = {
@@ -56,11 +58,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!useRealOAuth) return devGroupsLoader();
 
   const agent = await getAtpAgent(did, request);
-  const result = await agent.com.atproto.repo.listRecords({
-    repo: did,
-    collection: SITE_COLLECTION,
-    limit: 100,
-  });
+  const [result, contributorSiteCards] = await Promise.all([
+    agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: SITE_COLLECTION,
+      limit: 100,
+    }),
+    listContributorSiteCards(did),
+  ]);
 
   const sites: SiteWithGroups[] = result.data.records
     .filter((record) => (record.value as Record<string, unknown>).scribe != null)
@@ -91,7 +96,22 @@ export async function loader({ request }: Route.LoaderArgs) {
       };
     });
 
-  return { sites };
+  // Found live 2026-07-17: Contributors had no link anywhere to a site they
+  // contribute to. Rendered alongside the caller's own sites below, but kept
+  // out of CreateGroupModal's site picker (passed `sites`, not the combined
+  // list) — a Contributor can't create a group on a site they don't own.
+  const contributorSites: SiteWithGroups[] = contributorSiteCards.map((c) => ({
+    rkey: c.rkey,
+    title: c.title,
+    url: c.domain,
+    urlPrefix: c.urlPrefix,
+    splashImageUrl: c.splashImageUrl,
+    logoImageUrl: c.logoImageUrl,
+    groups: c.groups,
+    isContributor: true,
+  }));
+
+  return { sites, contributorSites };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -275,6 +295,7 @@ const GroupSiteItem: React.FC<GroupSiteItemProps> = ({ site }) => {
           className={styles.iconBadgeSite}
         />
         <strong className={styles.siteTitle}>{site.title}</strong>
+        {site.isContributor && <Pill variant="secondary">Contributor</Pill>}
         <div className={styles.siteActions}>
           <Link to={`/article/list/${site.rkey}`}>
             <Button type="button" variant="primary" tabIndex={-1}>
@@ -302,7 +323,8 @@ const GroupSiteItem: React.FC<GroupSiteItemProps> = ({ site }) => {
 };
 
 export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
-  const { sites } = loaderData;
+  const { sites, contributorSites } = loaderData;
+  const allSites = [...sites, ...contributorSites];
   const { isOpen, open, close } = useModal();
 
   const navigate = useNavigate();
@@ -347,13 +369,13 @@ export default function GroupsIndex({ loaderData }: Route.ComponentProps) {
       }
     >
       <PageSection>
-        {sites.length === 0 ? (
+        {allSites.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No sites yet. Create a site first to manage groups.</p>
           </div>
         ) : (
           <ul className={styles.siteList}>
-            {sites.map((site) => (
+            {allSites.map((site) => (
               <GroupSiteItem key={site.rkey} site={site} />
             ))}
           </ul>

@@ -41,6 +41,7 @@ import { deleteUmamiConfig } from "~/services/umami.server";
 import { registerSocialOrigin } from "~/services/socialOrigin.server";
 import { ensureSiteFolder } from "~/services/imageServiceClient.server";
 import { pendingSubmissions } from "~/services/db.server";
+import { listContributorSiteCards } from "~/services/contributorRoster.server";
 
 type ActionData = { ok: boolean; error?: string; iconWarning?: string };
 
@@ -54,7 +55,10 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!useRealOAuth) return devSitesLoader();
 
   const agent = await getAtpAgent(did, request);
-  const records = await listSites(agent, did);
+  const [records, contributorSiteCards] = await Promise.all([
+    listSites(agent, did),
+    listContributorSiteCards(did),
+  ]);
 
   // Phase 4 (discovery UX polish) — a purely local SQLite read, no
   // network, cheap to do on every /sites visit.
@@ -67,7 +71,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     );
   }
 
-  const sites: SiteCard[] = records
+  const ownedSites: SiteCard[] = records
     .filter((record) => record.value.scribe != null)
     .map((record) => {
       const scribe = (record.value.scribe as Record<string, unknown>) ?? {};
@@ -96,7 +100,27 @@ export async function loader({ request }: Route.LoaderArgs) {
       };
     });
 
-  return { sites };
+  // Found live 2026-07-17: Contributors had no link anywhere to a site they
+  // contribute to — surfaced here (and on the Dashboard/Groups pages)
+  // alongside the caller's own sites, tagged isContributor so SiteTile/
+  // SiteListItem hide the owner-only Delete/Configure actions and show the
+  // Contributor pill instead.
+  const contributorSites: SiteCard[] = contributorSiteCards.map((c) => ({
+    rkey: c.rkey,
+    cid: c.cid,
+    title: c.title,
+    url: c.domain,
+    urlPrefix: c.urlPrefix,
+    description: c.description,
+    splashImageUrl: c.splashImageUrl,
+    logoImageUrl: c.logoImageUrl,
+    groupCount: c.groupCount,
+    articleCount: c.articleCount,
+    isContributor: true,
+    ownerDisplayName: c.ownerDisplayName,
+  }));
+
+  return { sites: [...ownedSites, ...contributorSites] };
 }
 
 export async function action({ request }: Route.ActionArgs) {

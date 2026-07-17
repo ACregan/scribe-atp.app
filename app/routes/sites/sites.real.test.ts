@@ -4,6 +4,7 @@ import { loader, action } from "./sites";
 import { requireAuth, getAtpAgent } from "~/services/auth.server";
 import { ensureSiteFolder } from "~/services/imageServiceClient.server";
 import { db, pendingSubmissions } from "~/services/db.server";
+import { listContributorSiteCards } from "~/services/contributorRoster.server";
 
 // Characterization tests for the sites route's real-OAuth path (useRealOAuth:
 // true), written against the untouched loader/action before extracting onto
@@ -25,6 +26,10 @@ vi.mock("~/services/logger.server", () => ({
 
 vi.mock("~/services/imageServiceClient.server", () => ({
   ensureSiteFolder: vi.fn(),
+}));
+
+vi.mock("~/services/contributorRoster.server", () => ({
+  listContributorSiteCards: vi.fn(),
 }));
 
 const DID = "did:plc:testuser";
@@ -80,6 +85,7 @@ beforeEach(() => {
   vi.mocked(requireAuth).mockResolvedValue({ did: DID, handle: DID });
   vi.mocked(getAtpAgent).mockReset();
   vi.mocked(ensureSiteFolder).mockReset().mockResolvedValue(undefined);
+  vi.mocked(listContributorSiteCards).mockReset().mockResolvedValue([]);
   db.exec("DELETE FROM pending_submissions");
 });
 
@@ -240,6 +246,54 @@ describe("loader", () => {
 
       expect(result.sites[0].pendingSubmissionCount).toBe(0);
     });
+  });
+
+  // Found live 2026-07-17 — Contributors had no link anywhere to a site
+  // they contribute to; wired in alongside the caller's own sites, tagged
+  // isContributor so SiteTile/SiteListItem hide owner-only actions.
+  it("appends Contributor sites after the caller's own, tagged isContributor", async () => {
+    const agent = makeAgent({
+      listRecords: vi.fn().mockResolvedValue({ data: { records: [] } }),
+    });
+    vi.mocked(getAtpAgent).mockResolvedValue(agent);
+    vi.mocked(listContributorSiteCards).mockResolvedValue([
+      {
+        siteUri: "at://did:plc:owner/site.standard.publication/their-site",
+        ownerDid: "did:plc:owner",
+        rkey: "their-site",
+        cid: "cid-contributor",
+        title: "Their Site",
+        domain: "their-site.com",
+        absoluteUrl: "https://their-site.com",
+        urlPrefix: "blog",
+        description: "Someone else's site",
+        splashImageUrl: "https://their-site.com/splash.png",
+        logoImageUrl: "https://their-site.com/logo.png",
+        groupCount: 2,
+        articleCount: 5,
+        groups: [],
+        ownerDisplayName: "Site Owner",
+      },
+    ]);
+
+    const result = await callLoader();
+
+    expect(result.sites).toEqual([
+      {
+        rkey: "their-site",
+        cid: "cid-contributor",
+        title: "Their Site",
+        url: "their-site.com",
+        urlPrefix: "blog",
+        description: "Someone else's site",
+        splashImageUrl: "https://their-site.com/splash.png",
+        logoImageUrl: "https://their-site.com/logo.png",
+        groupCount: 2,
+        articleCount: 5,
+        isContributor: true,
+        ownerDisplayName: "Site Owner",
+      },
+    ]);
   });
 });
 

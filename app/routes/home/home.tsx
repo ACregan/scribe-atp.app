@@ -33,6 +33,7 @@ import {
 } from "./engagementCharts.server";
 import { DashboardCharts } from "./DashboardCharts/DashboardCharts";
 import { SiteWelcome } from "./SiteWelcome/SiteWelcome";
+import { listContributorSiteCards } from "~/services/contributorRoster.server";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -69,6 +70,7 @@ type SiteWithGroups = {
   splashImageUrl?: string;
   logoImageUrl?: string;
   groups: Array<{ slug: string; title: string; articleCount: number }>;
+  isContributor?: boolean;
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -97,7 +99,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const agent = await getAtpAgent(did, request);
-  const [documentsResult, sitesResult] = await Promise.all([
+  const [documentsResult, sitesResult, contributorSiteCards] = await Promise.all([
     agent.com.atproto.repo.listRecords({
       repo: did,
       collection: DOCUMENT_COLLECTION,
@@ -108,9 +110,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       collection: SITE_COLLECTION,
       limit: 100,
     }),
+    listContributorSiteCards(did),
   ]);
 
-  const sites: SiteWithGroups[] = sitesResult.data.records
+  const ownedSites: SiteWithGroups[] = sitesResult.data.records
     .filter(
       (record) => (record.value as Record<string, unknown>).scribe != null,
     )
@@ -182,10 +185,26 @@ export async function loader({ request }: Route.LoaderArgs) {
     (r) => !assignedUris.has(r.uri),
   ).length;
 
+  // Found live 2026-07-17: Contributors had no link anywhere to a site they
+  // contribute to — surfaced here alongside the caller's own sites. Kept out
+  // of buildEngagementCharts below: that builds queries scoped to the
+  // caller's *own* PDS records, which would resolve to the wrong owner's
+  // data (or nothing) for a site the caller doesn't hold the repo for.
+  const contributorSites: SiteWithGroups[] = contributorSiteCards.map((c) => ({
+    rkey: c.rkey,
+    title: c.title,
+    siteUrl: c.absoluteUrl,
+    splashImageUrl: c.splashImageUrl,
+    logoImageUrl: c.logoImageUrl,
+    groups: c.groups,
+    isContributor: true,
+  }));
+  const sites = [...ownedSites, ...contributorSites];
+
   const socialServiceUrl =
     process.env.SOCIAL_SERVICE_URL ?? "https://social.scribe-atp.app";
   const engagementCharts = await buildEngagementCharts(
-    sites,
+    ownedSites,
     socialServiceUrl,
   ).catch(() => null);
 
@@ -394,6 +413,7 @@ function GroupSiteItem({
             />
           </div>
         </Link>
+        {site.isContributor && <Pill variant="secondary">Contributor</Pill>}
         <div className={styles.siteActions}>
           <Link to={`/article/list/${site.rkey}`}>
             <Button type="button" variant="primary" tabIndex={-1}>

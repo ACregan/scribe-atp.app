@@ -49,6 +49,21 @@ export function devSitesLoader(): { sites: SiteCard[] } {
         articleCount: 3,
         pendingSubmissionCount: 0,
       },
+      // Exercises the Contributor pill / hidden Delete+Configure actions.
+      {
+        rkey: "contributor-site",
+        cid: "dev-cid-contributor",
+        title: "Contributor's Site",
+        url: "contributor-site.example",
+        urlPrefix: "",
+        description: "A site this dev user contributes to, not owns.",
+        splashImageUrl: "",
+        logoImageUrl: "",
+        groupCount: 1,
+        articleCount: 1,
+        isContributor: true,
+        ownerDisplayName: "Other Owner",
+      },
     ],
   };
 }
@@ -74,6 +89,18 @@ export function devGroupsLoader() {
         url: "perpetualsummer.ltd",
         urlPrefix: "",
         groups: [] as { slug: string; title: string; articleCount: number }[],
+      },
+    ],
+    // Exercises the Contributor pill and CreateGroupModal's exclusion of
+    // Contributor sites from its own site picker.
+    contributorSites: [
+      {
+        rkey: "contributor-site",
+        title: "Contributor's Site",
+        url: "contributor-site.example",
+        urlPrefix: "",
+        groups: [{ slug: "general", title: "General", articleCount: 1 }],
+        isContributor: true as const,
       },
     ],
   };
@@ -123,6 +150,14 @@ export function devHomeLoader(handle: string | null | undefined) {
         title: "Perpetual Summer LTD",
         siteUrl: "https://perpetualsummer.ltd",
         groups: [] as { slug: string; title: string; articleCount: number }[],
+      },
+      // Exercises the Contributor pill on the dashboard's Sites column.
+      {
+        rkey: "contributor-site",
+        title: "Contributor's Site",
+        siteUrl: "https://contributor-site.example",
+        groups: [{ slug: "general", title: "General", articleCount: 1 }],
+        isContributor: true as const,
       },
     ],
   };

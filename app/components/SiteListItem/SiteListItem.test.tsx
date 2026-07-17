@@ -63,4 +63,43 @@ describe("SiteListItem", () => {
     render(<SiteListItem site={baseSite} />);
     expect(screen.queryByText(/PENDING SUBMISSION/)).not.toBeInTheDocument();
   });
+
+  // Found live 2026-07-17 — Contributors had no link to a site they
+  // contribute to; entries for those sites are now shown alongside the
+  // caller's own, with owner-only actions hidden.
+  describe("isContributor", () => {
+    const contributorSite: SiteCard = { ...baseSite, isContributor: true };
+
+    it("renders a Contributor pill", () => {
+      render(<SiteListItem site={contributorSite} />);
+      expect(screen.getByText("Contributor")).toBeInTheDocument();
+    });
+
+    it("renders no Contributor pill for the caller's own sites", () => {
+      render(<SiteListItem site={baseSite} />);
+      expect(screen.queryByText("Contributor")).not.toBeInTheDocument();
+    });
+
+    it("hides the Configure link", () => {
+      const { container } = render(<SiteListItem site={contributorSite} />);
+      expect(
+        container.querySelector('a[href="/site/my-blog/configure"]'),
+      ).not.toBeInTheDocument();
+    });
+
+    it("hides the Delete button even when onDelete is passed", () => {
+      const onDelete = vi.fn();
+      render(<SiteListItem site={contributorSite} onDelete={onDelete} />);
+      const trashIcons = screen
+        .queryAllByTestId("svg-icon")
+        .filter((el) => el.getAttribute("data-icon") === "Trash");
+      expect(trashIcons).toHaveLength(0);
+    });
+
+    it("still renders the Manage Articles button/link", () => {
+      render(<SiteListItem site={contributorSite} />);
+      const manageLink = screen.getByRole("link", { name: /manage articles/i });
+      expect(manageLink).toHaveAttribute("href", "/article/list/my-blog");
+    });
+  });
 });
