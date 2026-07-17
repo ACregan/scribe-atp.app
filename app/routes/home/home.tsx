@@ -26,7 +26,6 @@ import {
 import SvgIcon, { SvgImageList } from "~/components/SvgIcon/SvgIcon";
 import { IconBadge } from "~/components/IconBadge/IconBadge";
 import { logger } from "~/services/logger.server";
-import OverflowMenu from "~/components/OverflowMenu/OverflowMenu";
 import {
   buildEngagementCharts,
   type EngagementCharts,
@@ -99,19 +98,20 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const agent = await getAtpAgent(did, request);
-  const [documentsResult, sitesResult, contributorSiteCards] = await Promise.all([
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: DOCUMENT_COLLECTION,
-      limit: 100,
-    }),
-    agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: SITE_COLLECTION,
-      limit: 100,
-    }),
-    listContributorSiteCards(did),
-  ]);
+  const [documentsResult, sitesResult, contributorSiteCards] =
+    await Promise.all([
+      agent.com.atproto.repo.listRecords({
+        repo: did,
+        collection: DOCUMENT_COLLECTION,
+        limit: 100,
+      }),
+      agent.com.atproto.repo.listRecords({
+        repo: did,
+        collection: SITE_COLLECTION,
+        limit: 100,
+      }),
+      listContributorSiteCards(did),
+    ]);
 
   const ownedSites: SiteWithGroups[] = sitesResult.data.records
     .filter(
@@ -413,7 +413,11 @@ function GroupSiteItem({
             />
           </div>
         </Link>
-        {site.isContributor && <Pill variant="secondary">Contributor</Pill>}
+        {site.isContributor && (
+          <Pill className={styles.contributorPill} variant="primary">
+            Contributor
+          </Pill>
+        )}
         <div className={styles.siteActions}>
           <Link to={`/article/list/${site.rkey}`}>
             <Button type="button" variant="primary" tabIndex={-1}>
