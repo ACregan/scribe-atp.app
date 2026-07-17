@@ -46,6 +46,8 @@ interface GroupItemProps {
    * action below it) hidden — for a Contributor's read-only view of
    * someone else's site (site-list.tsx). */
   readOnly?: boolean;
+  /** Forwarded to each ArticleItem child — see ArticleItem's own doc comment. */
+  currentUserDid?: string;
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({
@@ -66,6 +68,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
   siteHasAnyArticles = false,
   hasUnassignedArticles = false,
   readOnly = false,
+  currentUserDid,
 }) => {
   const {
     attributes,
@@ -134,6 +137,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
                     onShareClick={onShareClick}
                     bskyPostRef={article.bskyPostRef}
                     readOnly={readOnly}
+                    currentUserDid={currentUserDid}
                   />
                 ))}
                 {articleChildren.length === 0 && (
@@ -260,6 +264,7 @@ const GroupItem: React.FC<GroupItemProps> = ({
                   onShareClick={onShareClick}
                   bskyPostRef={article.bskyPostRef}
                   readOnly={readOnly}
+                  currentUserDid={currentUserDid}
                 />
               ))}
               {articleChildren.length === 0 &&

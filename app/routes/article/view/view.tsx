@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { requireAtpAgent, useRealOAuth } from "~/services/auth.server";
 import { buildLooseSiteUrl } from "~/services/article.server";
 import { devViewLoader } from "~/services/devFixtures.server";
+import { getPublicDocumentBySlug } from "~/services/submissionReview.server";
 import DOMPurify from "isomorphic-dompurify";
 import { Button } from "~/components/Button/Button";
 import { Pill } from "~/components/Pill/Pill";
@@ -67,23 +68,40 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const { agent, did } = await requireAtpAgent(request);
 
   const slug = params.articleUrl;
-  const allRecords: Array<{ uri: string; cid: string; value: unknown }> = [];
-  let cursor: string | undefined;
-  do {
-    const listResult = await agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: DOCUMENT_COLLECTION,
-      limit: 100,
-      cursor,
-    });
-    allRecords.push(...(listResult.data.records as typeof allRecords));
-    cursor = listResult.data.cursor;
-  } while (cursor);
+  // Found live 2026-07-19: a Contributor's read-only view of someone else's
+  // site (site-list.tsx) links View at every article on that site, not just
+  // their own — the caller's own repo never has a record for an article
+  // they didn't write, so the unconditional own-repo scan below 404'd for
+  // every one of them. ArticleItem threads the article's real owner DID
+  // (parsed from its own at:// uri) through as a query param; when it names
+  // someone other than the caller, go straight to the public cross-repo
+  // read instead of scanning a repo that can't have it.
+  const ownerDidParam = new URL(request.url).searchParams.get("ownerDid");
+  const ownerDid = ownerDidParam && ownerDidParam !== did ? ownerDidParam : did;
 
-  const found = allRecords.find((r) => {
-    const path = String((r.value as Record<string, unknown>).path ?? "");
-    return path.split("/").pop() === slug;
-  });
+  let found: { uri: string; cid: string; value: Record<string, unknown> } | null;
+  if (ownerDid !== did) {
+    found = await getPublicDocumentBySlug(ownerDid, slug);
+  } else {
+    const allRecords: Array<{ uri: string; cid: string; value: unknown }> = [];
+    let cursor: string | undefined;
+    do {
+      const listResult = await agent.com.atproto.repo.listRecords({
+        repo: did,
+        collection: DOCUMENT_COLLECTION,
+        limit: 100,
+        cursor,
+      });
+      allRecords.push(...(listResult.data.records as typeof allRecords));
+      cursor = listResult.data.cursor;
+    } while (cursor);
+
+    found =
+      (allRecords.find((r) => {
+        const path = String((r.value as Record<string, unknown>).path ?? "");
+        return path.split("/").pop() === slug;
+      }) as { uri: string; cid: string; value: Record<string, unknown> } | undefined) ?? null;
+  }
 
   if (!found) throw new Response("Article not found", { status: 404 });
 
@@ -123,7 +141,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     bskyPostRef: bskyPostRefRaw ?? null,
     siteDomain: String(scribe.domain ?? ""),
     canonicalUrl: scribe.canonicalUrl ? String(scribe.canonicalUrl) : undefined,
-    readerUrl: buildLooseSiteUrl(did, rkey),
+    readerUrl: buildLooseSiteUrl(ownerDid, rkey),
     slug,
     likes,
     shares,

@@ -115,12 +115,19 @@ vi.mock("../ArticleItem/ArticleItem", () => ({
     title,
     uri,
     readOnly,
+    currentUserDid,
   }: {
     title: string;
     uri: string;
     readOnly?: boolean;
+    currentUserDid?: string;
   }) => (
-    <li data-testid="article-item" data-uri={uri} data-readonly={String(!!readOnly)}>
+    <li
+      data-testid="article-item"
+      data-uri={uri}
+      data-readonly={String(!!readOnly)}
+      data-current-user-did={currentUserDid ?? ""}
+    >
       {title}
     </li>
   ),
@@ -520,6 +527,22 @@ describe("GroupItem", () => {
     it("does not disable the sortable or hide the Delete Group button by default", () => {
       render(<GroupItem {...defaultProps} articleChildren={[]} />);
       expect(screen.getByRole("button")).toBeInTheDocument();
+    });
+
+    it("passes currentUserDid through to each ArticleItem", () => {
+      render(
+        <GroupItem
+          {...defaultProps}
+          articleChildren={sampleArticles}
+          readOnly
+          currentUserDid="did:plc:viewer"
+        />,
+      );
+      const items = screen.getAllByTestId("article-item");
+      expect(items).toHaveLength(2);
+      items.forEach((item) =>
+        expect(item).toHaveAttribute("data-current-user-did", "did:plc:viewer"),
+      );
     });
   });
 });
