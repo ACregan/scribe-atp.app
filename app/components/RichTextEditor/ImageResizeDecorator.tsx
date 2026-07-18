@@ -93,9 +93,28 @@ export function ImageResizeDecorator({ nodeKey, src, altText, width }: Props) {
   }, [width, dragWidth]);
 
   // Click outside to deselect. Does not depend on isSelected so the listener
-  // is stable and not re-attached on every Lexical selection change.
+  // is stable and not re-attached on every Lexical selection change — the
+  // latest isSelected is read via a ref instead.
+  //
+  // Found live 2026-07-19: this used to call setSelected(false) unconditionally,
+  // breaking "Insert Link" (and any other toolbar action needing a text
+  // selection) on any article with an embedded image. useLexicalNodeSelection's
+  // setSelected(false) isn't a safe no-op when this node was never selected —
+  // if the current selection isn't already a NodeSelection (e.g. it's the
+  // user's just-made text RangeSelection), it first creates and commits a new
+  // *empty* NodeSelection before deleting this node's key from it, wiping out
+  // whatever was actually selected. Every mounted image's document-level
+  // mousedown listener fires on any outside click, including clicking the
+  // toolbar's Insert Link button — so with an image on the page, making a
+  // text selection and then clicking Insert Link cleared the selection out
+  // from under it before the link command ever saw it. Skipping the call
+  // entirely when this image isn't the one selected avoids ever touching a
+  // selection that has nothing to do with it.
+  const isSelectedRef = useRef(isSelected);
+  isSelectedRef.current = isSelected;
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
+      if (!isSelectedRef.current) return;
       if (containerRef.current?.contains(e.target as Node)) return;
       clearSelection();
       setSelected(false);
