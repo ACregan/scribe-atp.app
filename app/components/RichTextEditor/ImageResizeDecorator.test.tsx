@@ -100,6 +100,45 @@ describe("ImageResizeDecorator", () => {
       const setIndex = mockSetSelected.mock.invocationCallOrder[0];
       expect(clearIndex).toBeLessThan(setIndex);
     });
+
+    // Found live 2026-07-19: this used to call setSelected(false)
+    // unconditionally on any outside mousedown, which broke "Insert Link"
+    // (and any other toolbar action needing a text selection) on any
+    // article with an embedded image — useLexicalNodeSelection's
+    // setSelected(false) isn't a safe no-op when this node was never
+    // selected; it replaces whatever selection *was* active (e.g. the
+    // user's just-made text selection) with a new empty NodeSelection.
+    // Every mounted image's document-level listener fired on any outside
+    // click, including clicking a toolbar button.
+    describe("click outside", () => {
+      it("does nothing when this image was never selected", () => {
+        mockIsSelected.value = false;
+        render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+        fireEvent.mouseDown(document.body);
+        expect(mockClearSelection).not.toHaveBeenCalled();
+        expect(mockSetSelected).not.toHaveBeenCalled();
+      });
+
+      it("deselects when this image is currently selected", () => {
+        mockIsSelected.value = true;
+        render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+        fireEvent.mouseDown(document.body);
+        expect(mockClearSelection).toHaveBeenCalled();
+        expect(mockSetSelected).toHaveBeenCalledWith(false);
+      });
+
+      it("does not treat a mousedown inside its own container as an outside click", () => {
+        mockIsSelected.value = true;
+        render(<ImageResizeDecorator {...DEFAULT_PROPS} />);
+        const wrapper = screen.getByAltText("test image").parentElement!;
+        // Fired directly on the wrapper (not the <img>, which has its own
+        // separate onMouseDown tested above) — the document-level
+        // outside-click listener must recognise this as "inside" and skip.
+        fireEvent.mouseDown(wrapper);
+        expect(mockClearSelection).not.toHaveBeenCalled();
+        expect(mockSetSelected).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("drag behaviour", () => {
