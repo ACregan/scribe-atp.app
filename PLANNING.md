@@ -266,8 +266,8 @@ images        (id, user_did, folder_id, filename, original_name, width, height, 
 Windows Explorer-style grid of images and folders. Behaviour:
 
 - **User Image Folder** — created automatically on a user's first upload. Each user has one top-level folder; all their images and subfolders live within it.
-- **Browsing** — all authenticated users can browse and use any image in the library, including other users' User Image Folders.
-- **Write restrictions** — upload, delete, move, and create subfolder are only permitted within the current user's own User Image Folder tree.
+- **Browsing** — a user can browse and use only their own User Image Folder, plus the Site Image Folder of any site they own or are an accepted Contributor on (ADR 0028; see also ADR 0017/0020/0024 for Site Image Folders).
+- **Write restrictions** — upload, delete, move, and create subfolder are only permitted within a folder the user can access — same scope as browsing, not a separate rule.
 - **Folder deletion** — only empty folders can be deleted (prevents accidental loss).
 - **Image deletion** — deletes all Variant files from the filesystem and the `images` SQLite row. A single confirmation modal warns that any Articles or Sites referencing the image URL will have broken images. No cross-reference check is performed.
 - **Copy URL** — each image shows per-Variant copy buttons (only Variants that were actually generated for that image are shown). User selects which Variant URL to copy to clipboard.

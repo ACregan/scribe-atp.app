@@ -36,11 +36,12 @@ export async function handleUpload(req: Request, res: Response): Promise<void> {
   const outputDir = path.join(storageRoot, did, uuid);
 
   // targetFolderId (the folder the client was browsing when they clicked
-  // Upload) is honored only if the caller can actually write there —
-  // otherwise falls back to the caller's own root folder rather than reject
-  // the whole upload, e.g. someone browsing another user's openly-readable
-  // personal folder and clicking Upload still gets it, just into their own
-  // library instead of that folder.
+  // Upload) is honored only if the caller can actually access it — otherwise
+  // falls back to the caller's own root folder rather than reject the whole
+  // upload. Read and write share one access gate (ADR 0028), so this now
+  // only bites on a stale/invalid folderId or access revoked between the
+  // client's last browse and this request (e.g. a Contributor removed from
+  // a site mid-upload).
   const folderIdRaw = (req.body as Record<string, string>).folderId;
   let targetFolderId: number | undefined;
   if (folderIdRaw) {

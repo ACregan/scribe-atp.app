@@ -1093,10 +1093,11 @@ images        (id, user_did, folder_id, filename, original_name, width, height, 
 
 ### Access control
 
-- Any authenticated user can browse and copy URLs from any image in the library
-- Write operations (upload, delete, move, create folder) are restricted to the user's own **User Image Folder** tree
-- The Image Service enforces ownership on all write endpoints (403 for violations)
-- User Image Folders are auto-created on first upload
+A user can browse and use only: their own personal **User Image Folder**, plus the **Site Image Folder** of any site they own or are an accepted Contributor on (ADR 0028 — closed the previous gap where personal folders were openly browsable by any authenticated user; see ADR 0017/0020/0024 for the site-folder design history). Read and write access are gated by the same check.
+
+- `image-service/src/access.ts`'s `canAccessFolder(did, folder)` is the single access gate, used by both read (`browse.ts`) and write (`folders.ts`, `deleteImage.ts`, `bulkOperations.ts`, `upload.ts`) endpoints: a personal folder (`user_did` set) is owner-only; a site folder (`site_uri` set) is accessible to the site's Owner or any DID with an `accepted` row in the CMS's `contributor_memberships` table for that site (read live via a second SQLite connection into the main app's `data/oauth.db` — ADR 0024, no sync/propagation delay)
+- A `folderId` fetch for a folder the caller can't access 404s, not 403s — existence isn't confirmed to an unauthorized caller
+- User Image Folders are auto-created on first upload; Site Image Folders are auto-created at site-creation time (`scripts/backfill-site-image-folders.ts` is the one-shot backfill for sites created before that existed)
 
 ### Startup cleanup
 
