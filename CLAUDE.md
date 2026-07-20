@@ -1097,7 +1097,7 @@ A user can browse and use only: their own personal **User Image Folder**, plus t
 
 - `image-service/src/access.ts`'s `canAccessFolder(did, folder)` is the single access gate, used by both read (`browse.ts`) and write (`folders.ts`, `deleteImage.ts`, `bulkOperations.ts`, `upload.ts`) endpoints: a personal folder (`user_did` set) is owner-only; a site folder (`site_uri` set) is accessible to the site's Owner or any DID with an `accepted` row in the CMS's `contributor_memberships` table for that site (read live via a second SQLite connection into the main app's `data/oauth.db` — ADR 0024, no sync/propagation delay)
 - A `folderId` fetch for a folder the caller can't access 404s, not 403s — existence isn't confirmed to an unauthorized caller
-- User Image Folders are auto-created on first upload; Site Image Folders are auto-created at site-creation time (`scripts/backfill-site-image-folders.ts` is the one-shot backfill for sites created before that existed)
+- User Image Folders are auto-created on first upload; Site Image Folders are auto-created at site-creation time. Pre-existing sites (created before that existed) were backfilled 2026-07-20 via a one-shot script, since deleted per this repo's own convention (see ADR 0024/0028) — a new site created going forward needs no backfill
 
 ### Startup cleanup
 
