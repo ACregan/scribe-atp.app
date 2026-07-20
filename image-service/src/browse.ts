@@ -2,15 +2,6 @@ import type { Request, Response } from "express";
 import db from "./db.js";
 import { canAccessFolder, type FolderRow } from "./access.js";
 
-// Read access is asymmetric with write access (ADR 0020 point 1): personal
-// folders stay openly readable by anyone, exactly as before this feature —
-// only site folders get a real read restriction. canAccessFolder alone would
-// wrongly block browsing someone else's personal folder, since it treats
-// user_did-owned folders as owner-only.
-function canReadFolder(did: string, folder: FolderRow): boolean {
-  return folder.user_did !== null || canAccessFolder(did, folder);
-}
-
 type ImageRow = {
   id: number;
   user_did: string;
@@ -64,25 +55,25 @@ export function handleBrowse(req: Request, res: Response): void {
           "SELECT id, user_did, site_uri, name, parent_id, created_at FROM image_folders WHERE id = ?",
         )
         .get(id) as FolderRow | undefined) ?? null;
-    // 404, not 403 — a site folder the caller isn't on the roster for should
-    // not even confirm it exists (ADR 0020 point 1: "no other users should
-    // be able to see or access this folder").
-    if (!folder || !canReadFolder(did, folder)) {
+    // 404, not 403 — a folder the caller has no access to should not even
+    // confirm it exists (ADR 0020 point 1: "no other users should be able to
+    // see or access this folder"). Applies uniformly to personal and site
+    // folders alike — a user only sees their own personal root, plus the
+    // root of any site they own or are an accepted Contributor on.
+    if (!folder || !canAccessFolder(did, folder)) {
       res.status(404).json({ error: "Folder not found" });
       return;
     }
   } else {
-    // No folderId: top-level shared view. Personal root folders stay exactly
-    // as open as before (every user's own root is listed regardless of who's
-    // asking — ADR 0017/0020 deliberately leave that alone). Site root
-    // folders are the one case that needs filtering here: only shown to
-    // their Owner or accepted Contributors.
+    // No folderId: top-level shared view — every root folder (personal or
+    // site) is filtered through the same owner-or-accepted-contributor check
+    // used everywhere else.
     const allRootFolders = db
       .prepare(
         "SELECT id, user_did, site_uri, name, parent_id, created_at FROM image_folders WHERE parent_id IS NULL ORDER BY name",
       )
       .all() as FolderRow[];
-    const visibleRootFolders = allRootFolders.filter((f) => canReadFolder(did, f));
+    const visibleRootFolders = allRootFolders.filter((f) => canAccessFolder(did, f));
     res.json({
       folder: null,
       breadcrumbs: [],

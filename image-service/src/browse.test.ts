@@ -58,7 +58,7 @@ beforeEach(() => {
 });
 
 describe("handleBrowse — no folderId (top-level shared view)", () => {
-  it("returns all users' root folders, no images", () => {
+  it("returns only the caller's own personal root folder, not other users'", () => {
     insertFolder(DID, DID, null);
     insertFolder(OTHER_DID, OTHER_DID, null);
 
@@ -67,7 +67,8 @@ describe("handleBrowse — no folderId (top-level shared view)", () => {
 
     expect(res.body.folder).toBeNull();
     expect(res.body.breadcrumbs).toEqual([]);
-    expect(res.body.subfolders).toHaveLength(2);
+    expect(res.body.subfolders).toHaveLength(1);
+    expect(res.body.subfolders[0].user_did).toBe(DID);
     expect(res.body.images).toEqual([]);
   });
 });
@@ -90,13 +91,6 @@ describe("handleBrowse — with folderId", () => {
     const res = makeRes();
     handleBrowse(makeReq({ query: { folderId: String(root) } }), res);
     expect(res.body.breadcrumbs).toEqual([{ id: root, name: "My Images" }]);
-  });
-
-  it("shows the real folder name for another user's root (browsing someone else's library)", () => {
-    const otherRoot = insertFolder(OTHER_DID, OTHER_DID, null);
-    const res = makeRes();
-    handleBrowse(makeReq({ query: { folderId: String(otherRoot) } }), res);
-    expect(res.body.breadcrumbs).toEqual([{ id: otherRoot, name: OTHER_DID }]);
   });
 
   it("builds a multi-level breadcrumb trail from root to the current folder", () => {
@@ -127,31 +121,29 @@ describe("handleBrowse — with folderId", () => {
     expect(res.body.images[0].sizes).toEqual({ thumb: { width: 300, height: 225 } });
   });
 
-  it("does not restrict browsing to your own folders (read access is shared)", () => {
+  it("404s when fetching another user's personal folder directly — read access is owner-only", () => {
     const otherRoot = insertFolder(OTHER_DID, OTHER_DID, null);
     insertImage(OTHER_DID, otherRoot, "their-photo");
 
     const res = makeRes();
     handleBrowse(makeReq({ query: { folderId: String(otherRoot) } }), res);
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body.images).toHaveLength(1);
+    expect(res.statusCode).toBe(404);
   });
 });
 
-// ADR 0020 — the one place read access is actually restricted.
 describe("handleBrowse — site-owned folders", () => {
   const SITE_URI = `at://${DID}/site.standard.publication/my-site`;
 
   it("top-level listing excludes a site folder for someone with no accepted contributor_memberships row", () => {
-    insertFolder(DID, DID, null);
+    insertFolder(OTHER_DID, OTHER_DID, null);
     insertSiteFolder(SITE_URI, "example.com Images", null);
 
     const res = makeRes();
     handleBrowse(makeReq({ userDid: OTHER_DID }), res);
 
     expect(res.body.subfolders).toHaveLength(1);
-    expect(res.body.subfolders[0].user_did).toBe(DID);
+    expect(res.body.subfolders[0].user_did).toBe(OTHER_DID);
   });
 
   it("top-level listing includes the site folder for its owner", () => {
@@ -210,13 +202,6 @@ describe("handleBrowse — site-owned folders", () => {
     const res = makeRes();
     handleBrowse(makeReq({ userDid: memberDid, query: { folderId: String(siteFolderId) } }), res);
     expect(res.body.folder.canWrite).toBe(true);
-  });
-
-  it("reports canWrite: false for a personal folder someone else owns (openly readable, not writable)", () => {
-    const otherRoot = insertFolder(OTHER_DID, OTHER_DID, null);
-    const res = makeRes();
-    handleBrowse(makeReq({ userDid: DID, query: { folderId: String(otherRoot) } }), res);
-    expect(res.body.folder.canWrite).toBe(false);
   });
 
   it("uses the folder's own name for a site folder's breadcrumb — no 'My Images' override", () => {
