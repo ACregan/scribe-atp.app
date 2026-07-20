@@ -13,6 +13,10 @@ const ACCEPTED_TYPES = new Set([
 ]);
 const MAX_BYTES = 50 * 1024 * 1024;
 const VARIANT_ORDER = ["thumb", "600", "1200", "1800", "max"] as const;
+// Browsers cap concurrent connections per origin (~6 for HTTP/1.1), shared between
+// upload XHRs and SSE progress streams. Firing all files at once starves later
+// EventSource connections of a slot, so they never establish and appear to hang.
+const UPLOAD_CONCURRENCY = 3;
 
 type FileStatus = "pending" | "uploading" | "processing" | "complete" | "error";
 
@@ -106,14 +110,39 @@ export function UploadModal({ isOpen, onClose, folderId }: Props) {
     if (uploadable.length === 0) return;
 
     setPhase("progress");
-
-    for (const entry of uploadable) {
-      openSSE(entry.uploadId);
-      uploadFile(entry);
-    }
+    runUploadQueue(uploadable);
   }
 
-  function openSSE(uploadId: string) {
+  async function runUploadQueue(entries: FileEntry[]) {
+    let nextIndex = 0;
+
+    async function worker() {
+      while (nextIndex < entries.length) {
+        const entry = entries[nextIndex++];
+        await uploadAndProcess(entry);
+      }
+    }
+
+    const workerCount = Math.min(UPLOAD_CONCURRENCY, entries.length);
+    await Promise.all(Array.from({ length: workerCount }, worker));
+  }
+
+  // Resolves once this file has either fully completed processing or errored out,
+  // so the pool above knows when a concurrency slot is free for the next file.
+  function uploadAndProcess(entry: FileEntry): Promise<void> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      openSSE(entry.uploadId, settle);
+      uploadFile(entry, settle);
+    });
+  }
+
+  function openSSE(uploadId: string, onSettle: () => void) {
     const es = new EventSource(progressUrl(uploadId));
 
     es.addEventListener("variant", (e) => {
@@ -131,6 +160,7 @@ export function UploadModal({ isOpen, onClose, folderId }: Props) {
       updateFile(uploadId, { status: "complete" });
       es.close();
       delete sseRefs.current[uploadId];
+      onSettle();
     });
 
     es.addEventListener("error", (e) => {
@@ -143,12 +173,13 @@ export function UploadModal({ isOpen, onClose, folderId }: Props) {
       });
       es.close();
       delete sseRefs.current[uploadId];
+      onSettle();
     });
 
     sseRefs.current[uploadId] = es;
   }
 
-  function uploadFile(entry: FileEntry) {
+  function uploadFile(entry: FileEntry, onSettle: () => void) {
     const { uploadId, file } = entry;
     const xhr = new XMLHttpRequest();
     xhrRefs.current[uploadId] = xhr;
@@ -171,6 +202,14 @@ export function UploadModal({ isOpen, onClose, folderId }: Props) {
         processingError: "Upload failed",
       });
       delete xhrRefs.current[uploadId];
+      // The file never reached the server, so its SSE stream will never emit —
+      // close it now rather than leaving it open until modal unmount.
+      const es = sseRefs.current[uploadId];
+      if (es) {
+        es.close();
+        delete sseRefs.current[uploadId];
+      }
+      onSettle();
     });
 
     const formData = new FormData();
