@@ -52,6 +52,10 @@ export default [
       ),
       route("images", "./routes/images/images.tsx"),
       route("insights", "./routes/insights/insights.tsx"),
+      route(
+        "devtools/update-img-to-srcset",
+        "./routes/devtools/update-img-to-srcset/update-img-to-srcset.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;

@@ -32,7 +32,7 @@ type SerializedImageNode = SerializedLexicalNode & {
 // per-image to an exact pixel value in exportDOM when the author has
 // manually resized the image, which is a more reliable signal than a
 // site-wide guess.
-const GENERIC_SIZES_DEFAULT = "(max-width: 768px) 100vw, 700px";
+export const GENERIC_SIZES_DEFAULT = "(max-width: 768px) 100vw, 700px";
 
 // srcset's own "url Nw" pairs are fully self-describing, so an image's
 // available Variants round-trip straight out of the DOM attribute — no
