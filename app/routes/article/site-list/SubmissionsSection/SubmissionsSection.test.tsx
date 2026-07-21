@@ -29,7 +29,7 @@ describe("SubmissionsSection", () => {
     render(<SubmissionsSection submissions={[submission]} />);
 
     expect(screen.getByText("A Great Article")).toBeInTheDocument();
-    expect(screen.getByText(/from Alice/)).toBeInTheDocument();
+    expect(screen.getByText(/by Alice/)).toBeInTheDocument();
 
     const reviewLink = screen.getByRole("link", { name: "Review" });
     expect(reviewLink).toHaveAttribute(
@@ -41,7 +41,29 @@ describe("SubmissionsSection", () => {
   it("falls back to the contributor's handle when no displayName is present", () => {
     const { contributorDisplayName: _displayName, ...withoutDisplayName } = submission;
     render(<SubmissionsSection submissions={[withoutDisplayName]} />);
-    expect(screen.getByText(/from alice.bsky.social/)).toBeInTheDocument();
+    expect(screen.getByText(/by alice.bsky.social/)).toBeInTheDocument();
+  });
+
+  it("renders the contributor's avatar when present", () => {
+    const { container } = render(
+      <SubmissionsSection
+        submissions={[
+          { ...submission, contributorAvatar: "https://example.com/alice.jpg" },
+        ]}
+      />,
+    );
+    // alt="" (decorative — the name is already shown as text) excludes the
+    // image from the accessibility tree, so query the DOM directly rather
+    // than by role.
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://example.com/alice.jpg",
+    );
+  });
+
+  it("renders no avatar image when contributorAvatar is absent", () => {
+    const { container } = render(<SubmissionsSection submissions={[submission]} />);
+    expect(container.querySelector("img")).not.toBeInTheDocument();
   });
 
   it("renders one row per submission", () => {

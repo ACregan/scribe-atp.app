@@ -361,6 +361,7 @@ export function devSiteListLoader(
             submittedAt: "2026-07-15T00:00:00.000Z",
             contributorHandle: "alice.bsky.social",
             contributorDisplayName: "Alice",
+            contributorAvatar: undefined,
           },
         ],
     site: {

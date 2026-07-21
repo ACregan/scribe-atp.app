@@ -204,6 +204,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       contributorHandle:
         profileByDid.get(s.contributorDid)?.handle ?? s.contributorDid,
       contributorDisplayName: profileByDid.get(s.contributorDid)?.displayName,
+      contributorAvatar: profileByDid.get(s.contributorDid)?.avatar,
     }));
 
     return {

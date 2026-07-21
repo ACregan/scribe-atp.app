@@ -24,6 +24,7 @@ export type SubmissionListEntry = {
   submittedAt: string;
   contributorHandle: string;
   contributorDisplayName?: string;
+  contributorAvatar?: string;
 };
 
 export type SiteManifest = {

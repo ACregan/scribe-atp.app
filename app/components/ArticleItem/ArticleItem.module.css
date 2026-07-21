@@ -10,7 +10,7 @@
   grid-auto-rows: 1fr;
   grid-template-columns: 4rem 1fr auto;
   /* grid-template-rows: 3rem 2rem; */
-  grid-template-rows: 5rem;
+  grid-template-rows: minmax(5rem, auto);
   gap: 0;
   grid-template-areas: "Handle Title Buttons";
   /* "Handle Info Buttons"; */
