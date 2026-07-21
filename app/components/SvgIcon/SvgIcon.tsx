@@ -34,6 +34,7 @@ export const SvgImageList = {
   OpenInNewTab: "OpenInNewTab",
   Tick: "Tick",
   BarChart: "BarChart",
+  Exclamation: "Exclamation",
 } as const;
 
 export type SvgImageListTypes = keyof typeof SvgImageList;
@@ -677,6 +678,18 @@ const SvgIcon: React.FC<SVGiconProp> = ({
           viewBox="0 0 512 512"
         >
           <path d="M128 496H48V304h80Zm224 0h-80V208h80Zm112 0h-80V96h80Zm-224 0h-80V16h80Z"></path>
+        </svg>
+      );
+
+    case SvgImageList.Exclamation:
+      return (
+        <svg
+          fill={fill}
+          className={className}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 16 16"
+        >
+          <path d="M6.371 11.873h3.256V14H6.37ZM6.316 2l.37 8.542h2.628L9.684 2Z" />
         </svg>
       );
 

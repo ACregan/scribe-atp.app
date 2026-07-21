@@ -10,20 +10,63 @@
 
 .plainList {
   list-style: none;
-  margin: 0;
+  margin: 1rem;
   padding: 0;
 }
 
 .listRow {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  padding: 0.8rem 0;
-  border-top: 0.1rem solid var(--border-subtle);
+  width: auto;
+  list-style-type: none;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-rows: 1fr;
+  grid-template-columns: 1fr auto;
+  /* grid-template-rows: 3rem 2rem; */
+  grid-template-rows: minmax(5rem, auto);
+  gap: 0;
+  grid-template-areas: "submission_details submission_buttons";
+  border: 0.2rem solid var(--border-color);
+  border-radius: 0.6rem;
+  box-sizing: border-box;
+  background: var(--article-list-item-background-colour);
 }
 
-.mutedText {
+.detailsContainer {
+  grid-area: submission_details;
+  display: flex;
+  align-items: center;
+}
+.documentTitle {
+  display: flex;
+  padding-left: 1rem;
+}
+.documentTitle strong {
+  font-size: 2.2rem;
+  margin-left: 1rem;
+}
+.documentContributor {
+  font-size: 1.2rem;
   color: var(--text-secondary);
+  display: flex;
+  margin-left: 1rem;
+  align-items: center;
+}
+
+.avatar {
+  width: 1.8rem;
+  height: 1.8rem;
+  margin: 0 0.4rem;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.buttonsContainer {
+  grid-area: submission_buttons;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
 }
 
 .pushRight {
