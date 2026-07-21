@@ -11,6 +11,8 @@ export type BrowseFolder = {
   canWrite?: boolean;
 };
 
+export type ImageSource = { url: string; width: number };
+
 export type BrowseImage = {
   id: number;
   user_did: string;

@@ -127,9 +127,9 @@ function ImagePlugin() {
   useEffect(() => {
     return editor.registerCommand(
       INSERT_IMAGE_COMMAND,
-      ({ src, altText }) => {
+      ({ src, altText, sources }) => {
         editor.update(() => {
-          $insertNodes([$createImageNode(src, altText)]);
+          $insertNodes([$createImageNode(src, altText, null, sources ?? null)]);
         });
         return true;
       },

@@ -7,6 +7,7 @@ import { browseFolders } from "~/services/imageServiceClient";
 import {
   type BrowseImage,
   type BrowseResponse,
+  type ImageSource,
   VARIANT_ORDER,
   VARIANT_LABEL,
   thumbUrl,
@@ -20,7 +21,7 @@ type VariantKey = "thumb" | "600" | "1200" | "1800" | "max";
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onPick: (src: string, altText: string) => void;
+  onPick: (src: string, altText: string, sources?: ImageSource[]) => void;
   forcedVariant?: VariantKey;
 };
 
@@ -78,9 +79,20 @@ export function ImagePickerModal({
   }
 
   function handlePick(image: BrowseImage, variant: string) {
+    // Mirrors every Variant this image actually has (including the one
+    // just picked, and thumb) — once srcset carries width descriptors,
+    // srcset-aware browsers ignore src as a candidate entirely, so there's
+    // no correctness reason to filter anything out here.
+    const sources: ImageSource[] = VARIANT_ORDER.filter(
+      (v) => v in image.sizes,
+    ).map((v) => ({
+      url: `${window.location.origin}${variantUrl(image, v)}`,
+      width: image.sizes[v].width,
+    }));
     onPick(
       `${window.location.origin}${variantUrl(image, variant)}`,
       "",
+      sources,
     );
     onClose();
   }

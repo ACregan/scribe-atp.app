@@ -251,7 +251,27 @@ describe("ImagePickerModal", () => {
   });
 
   describe("image insertion — variant buttons", () => {
-    it("calls onPick with thumb URL when Thumb is clicked", async () => {
+    // IMAGE_1's full sizes map (thumb/1200/max), absolutized — every insertion
+    // path passes this same sources array regardless of which variant was
+    // clicked, so the browser can pick a better-fitting size than whatever
+    // the author manually chose (WHATWG srcset semantics — src is ignored as
+    // a candidate once width descriptors are present).
+    const IMAGE_1_SOURCES = [
+      {
+        url: "http://localhost:3000/image-storage/did:test:user/abc123/thumb.webp",
+        width: 300,
+      },
+      {
+        url: "http://localhost:3000/image-storage/did:test:user/abc123/1200.webp",
+        width: 1200,
+      },
+      {
+        url: "http://localhost:3000/image-storage/did:test:user/abc123/max.webp",
+        width: 1200,
+      },
+    ];
+
+    it("calls onPick with thumb URL and every available source when Thumb is clicked", async () => {
       render(<ImagePickerModal {...DEFAULT_PROPS} />);
       await waitFor(() =>
         expect(screen.getByTitle("Insert Thumb")).toBeInTheDocument(),
@@ -260,6 +280,7 @@ describe("ImagePickerModal", () => {
       expect(DEFAULT_PROPS.onPick).toHaveBeenCalledWith(
         "http://localhost:3000/image-storage/did:test:user/abc123/thumb.webp",
         "",
+        IMAGE_1_SOURCES,
       );
     });
 
@@ -272,7 +293,7 @@ describe("ImagePickerModal", () => {
       expect(DEFAULT_PROPS.onClose).toHaveBeenCalled();
     });
 
-    it("calls onPick with the split variant URL when the main split button is clicked", async () => {
+    it("calls onPick with the split variant URL and every available source when the main split button is clicked", async () => {
       render(<ImagePickerModal {...DEFAULT_PROPS} />);
       await waitFor(() =>
         expect(screen.getByTitle("Insert Max")).toBeInTheDocument(),
@@ -281,12 +302,32 @@ describe("ImagePickerModal", () => {
       expect(DEFAULT_PROPS.onPick).toHaveBeenCalledWith(
         "http://localhost:3000/image-storage/did:test:user/abc123/max.webp",
         "",
+        IMAGE_1_SOURCES,
+      );
+    });
+
+    it("passes a single-entry sources array for a thumb-only image", async () => {
+      mockBrowseFolders.mockResolvedValue(SUBFOLDER_RESPONSE);
+      render(<ImagePickerModal {...DEFAULT_PROPS} />);
+      await waitFor(() =>
+        expect(screen.getByTitle("Insert Thumb")).toBeInTheDocument(),
+      );
+      fireEvent.click(screen.getByTitle("Insert Thumb"));
+      expect(DEFAULT_PROPS.onPick).toHaveBeenCalledWith(
+        "http://localhost:3000/image-storage/did:test:user/def456/thumb.webp",
+        "",
+        [
+          {
+            url: "http://localhost:3000/image-storage/did:test:user/def456/thumb.webp",
+            width: 200,
+          },
+        ],
       );
     });
   });
 
   describe("forcedVariant mode", () => {
-    it("clicking an image tile calls onPick with the forced variant", async () => {
+    it("clicking an image tile calls onPick with the forced variant and every available source", async () => {
       render(<ImagePickerModal {...DEFAULT_PROPS} forcedVariant="max" />);
       await waitFor(() =>
         expect(screen.getByTitle("Insert photo.jpg")).toBeInTheDocument(),
@@ -295,6 +336,20 @@ describe("ImagePickerModal", () => {
       expect(DEFAULT_PROPS.onPick).toHaveBeenCalledWith(
         "http://localhost:3000/image-storage/did:test:user/abc123/max.webp",
         "",
+        [
+          {
+            url: "http://localhost:3000/image-storage/did:test:user/abc123/thumb.webp",
+            width: 300,
+          },
+          {
+            url: "http://localhost:3000/image-storage/did:test:user/abc123/1200.webp",
+            width: 1200,
+          },
+          {
+            url: "http://localhost:3000/image-storage/did:test:user/abc123/max.webp",
+            width: 1200,
+          },
+        ],
       );
     });
 
