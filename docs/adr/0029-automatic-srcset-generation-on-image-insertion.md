@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, implemented 2026-07-21.
+Accepted, implemented 2026-07-21. The `sizes` default was corrected 2026-07-22 after a live production regression on norobots.blog — see the amended paragraph below.
 
 ## Context
 
@@ -18,7 +18,7 @@ The Image Service already generates multiple size Variants (thumb/600/1200/1800/
 
 **`sources` is self-describing — no hidden `data-*` attribute.** `srcset`'s own `"url Nw"` pairs already encode everything needed to reconstruct `__sources` on re-import (`importDOM`'s `convertImageElement` parses the `srcset` attribute directly). This also means an externally-authored `<img srcset>` (e.g. pasted from elsewhere) round-trips correctly, not just Scribe's own output. Backward compatibility is automatic: an old saved article's plain `<img>` has no `srcset` attribute, so `__sources` resolves to `null` and behavior is byte-for-byte identical to before this change.
 
-**`sizes` uses a generic default** (`(max-width: 768px) 100vw, 700px`) rather than a per-site value — the three consumer sites (norobots.blog, anthonycregan.co.uk-2025, perpetual-summer-ltd) don't share one fixed content-column width; their CSS is mostly fluid/viewport-relative. When the author has manually drag-resized the image (`ImageResizeDecorator`'s existing `__width` field), `sizes` uses that exact pixel value instead — a more reliable per-image signal than any site-wide guess, and free to compute since `__width` already exists for the unrelated manual-resize feature.
+**`sizes` defaults to `100vw`** for an image with no manual width (amended 2026-07-22; originally `(max-width: 768px) 100vw, 700px`). This is not a guess at a typical column width — `100vw` is the literal, correct description of "no explicit width constraint," and matches what `sizes` itself defaults to per spec when omitted entirely. The original `700px` fallback was a mistake, not a deliberate approximation: `sizes` is not merely a hint for which `srcset` candidate to download — per spec, when nothing else sets an explicit CSS width on the `<img>`, the browser uses `sizes` as the element's actual rendered layout width, before the image even loads (this exists specifically to avoid layout jank while responsive images load). None of the consumer sites' content columns are a fixed 700px (norobots.blog's is fluid/near-full-bleed; the others are viewport-relative), so that fixed value forcibly shrank every unconstrained image on norobots.blog to 700px regardless of the real container width the moment the first migration ran for real — a live visual regression, not a cosmetic one. Caught and fixed the same day via a follow-up devtools migration pass that repairs any image already carrying the stale value (detected by exact string match) without touching its `srcset`/`src`. When the author has manually drag-resized the image (`ImageResizeDecorator`'s existing `__width` field), `sizes` uses that exact pixel value instead — that case was always correct, since the width genuinely is fixed and author-specified, not asserted by the CMS.
 
 **A single-candidate `srcset` is omitted entirely** (`__sources.length > 1` guard in `exportDOM`) — it gives the browser nothing to choose between, and naturally covers thumb-only images (small originals that never generated any larger Variant, "no upscaling") with no special-casing needed.
 

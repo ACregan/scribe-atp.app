@@ -27,12 +27,20 @@ type SerializedImageNode = SerializedLexicalNode & {
   sources?: ImageSource[] | null;
 };
 
-// Generic fallback for sites whose article-column width isn't known to the
-// editor (each consumer site has its own, mostly fluid, layout) — refined
-// per-image to an exact pixel value in exportDOM when the author has
-// manually resized the image, which is a more reliable signal than a
-// site-wide guess.
-export const GENERIC_SIZES_DEFAULT = "(max-width: 768px) 100vw, 700px";
+// Default for an image with no manual width — it renders at whatever width
+// its container gives it (style="max-width: 100%"), which varies by site
+// and viewport, so there's no fixed pixel value to assert here. "100vw" is
+// not a guess at a typical column width — it's the literal, correct
+// description of "no explicit width constraint," and matches the value
+// `sizes` defaults to per spec when omitted entirely. A previous version of
+// this constant asserted a fixed 700px on desktop, which does NOT merely
+// pick a slightly-less-sharp srcset candidate as intended — sizes becomes
+// the img's actual rendered CSS width when nothing else sets one, so that
+// fixed value forcibly shrank every unconstrained image to 700px regardless
+// of its real container width. Refined per-image to an exact pixel value in
+// exportDOM when the author has manually resized the image — that width is
+// genuinely fixed and known, unlike the unconstrained case.
+export const GENERIC_SIZES_DEFAULT = "100vw";
 
 // srcset's own "url Nw" pairs are fully self-describing, so an image's
 // available Variants round-trip straight out of the DOM attribute — no

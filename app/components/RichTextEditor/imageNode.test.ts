@@ -85,7 +85,7 @@ describe("ImageNode.exportDOM", () => {
       expect(img.getAttribute("srcset")).toBe(
         "https://example.com/600.webp 600w, https://example.com/1200.webp 1200w, https://example.com/max.webp 3000w",
       );
-      expect(img.getAttribute("sizes")).toBe("(max-width: 768px) 100vw, 700px");
+      expect(img.getAttribute("sizes")).toBe("100vw");
     });
   });
 
