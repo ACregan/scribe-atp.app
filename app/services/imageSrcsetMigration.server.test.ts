@@ -144,7 +144,7 @@ describe("buildMigrationPlan", () => {
     expect(change.images[0].afterTag).toContain(
       `srcset="${ORIGIN}/image-storage/${DID}/abc/600.webp 600w, ${ORIGIN}/image-storage/${DID}/abc/1200.webp 1200w, ${ORIGIN}/image-storage/${DID}/abc/max.webp 3000w"`,
     );
-    expect(change.images[0].afterTag).toContain('sizes="(max-width: 768px) 100vw, 700px"');
+    expect(change.images[0].afterTag).toContain('sizes="100vw"');
     expect(change.updatedHtml).toContain("srcset=");
   });
 
@@ -212,6 +212,69 @@ describe("buildMigrationPlan", () => {
     const plan = await buildMigrationPlan(mockAgent, DID);
     expect(plan.changes).toHaveLength(0);
     expect(plan.totalImages).toBe(0);
+  });
+});
+
+describe("buildMigrationPlan — repairing the stale 700px sizes value", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    seedDb.exec("DELETE FROM images");
+  });
+
+  it("repairs sizes to 100vw on an already-migrated image with no manual width, leaving src/srcset untouched", async () => {
+    const srcset = `${ORIGIN}/image-storage/${DID}/abc/600.webp 600w, ${ORIGIN}/image-storage/${DID}/abc/max.webp 3000w`;
+    mockListDocuments.mockResolvedValue([
+      doc(
+        "r1",
+        `<img src="${ORIGIN}/image-storage/${DID}/abc/max.webp" alt="" style="max-width: 100%;" srcset="${srcset}" sizes="(max-width: 768px) 100vw, 700px">`,
+        "My Post",
+      ),
+    ]);
+
+    const plan = await buildMigrationPlan(mockAgent, DID);
+    expect(plan.changes).toHaveLength(1);
+    expect(plan.changes[0].images).toHaveLength(1);
+
+    const { afterTag } = plan.changes[0].images[0];
+    expect(afterTag).toContain('sizes="100vw"');
+    expect(afterTag).toContain(`srcset="${srcset}"`); // untouched
+    expect(afterTag).toContain(`src="${ORIGIN}/image-storage/${DID}/abc/max.webp"`); // untouched
+  });
+
+  it("repairs sizes to the manual width when the image has one, not 100vw", async () => {
+    mockListDocuments.mockResolvedValue([
+      doc(
+        "r1",
+        `<img src="${ORIGIN}/image-storage/${DID}/abc/max.webp" style="width: 400px; max-width: 100%;" srcset="${ORIGIN}/image-storage/${DID}/abc/max.webp 3000w, ${ORIGIN}/image-storage/${DID}/abc/600.webp 600w" sizes="(max-width: 768px) 100vw, 700px">`,
+      ),
+    ]);
+
+    const plan = await buildMigrationPlan(mockAgent, DID);
+    expect(plan.changes[0].images[0].afterTag).toContain('sizes="400px"');
+  });
+
+  it("does not touch an image that already has srcset and a correct (non-stale) sizes value", async () => {
+    mockListDocuments.mockResolvedValue([
+      doc(
+        "r1",
+        `<img src="${ORIGIN}/image-storage/${DID}/abc/max.webp" srcset="${ORIGIN}/image-storage/${DID}/abc/max.webp 3000w, ${ORIGIN}/image-storage/${DID}/abc/600.webp 600w" sizes="100vw">`,
+      ),
+    ]);
+
+    const plan = await buildMigrationPlan(mockAgent, DID);
+    expect(plan.changes).toHaveLength(0);
+  });
+
+  it("does not touch an image with a stale-looking sizes value that isn't Scribe-hosted", async () => {
+    mockListDocuments.mockResolvedValue([
+      doc(
+        "r1",
+        `<img src="https://elsewhere.example/photo.jpg" srcset="https://elsewhere.example/photo.jpg 600w, https://elsewhere.example/photo-big.jpg 1200w" sizes="(max-width: 768px) 100vw, 700px">`,
+      ),
+    ]);
+
+    const plan = await buildMigrationPlan(mockAgent, DID);
+    expect(plan.changes).toHaveLength(0);
   });
 });
 

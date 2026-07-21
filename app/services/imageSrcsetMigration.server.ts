@@ -13,9 +13,13 @@ import { logger } from "./logger.server";
 
 // One-time devtools migration (ADR 0029 only made *new* editor image
 // insertions get a srcset — this backfills every article written before
-// that shipped). Delete alongside its route once both known accounts
-// (norobots.blog, anthonycregan.dev) have been migrated, per this repo's
-// "chore: remove devtools/repair-*" convention.
+// that shipped). Also self-heals any image already migrated with the
+// short-lived broken GENERIC_SIZES_DEFAULT (a fixed 700px that forcibly
+// shrank unconstrained images on norobots.blog — see STALE_SIZES_700PX
+// below) — running this again is always safe and picks up any outstanding
+// fix. Delete alongside its route once both known accounts (norobots.blog,
+// anthonycregan.dev) have been migrated, per this repo's "chore: remove
+// devtools/repair-*" convention.
 
 export type ProposedImageChange = {
   filename: string;
@@ -70,6 +74,26 @@ function lookupSizes(filename: string, userDid: string): ImageSizes | null {
 // /image-storage/{did}/{filename}/{variant}.webp
 const IMAGE_STORAGE_PATH_RE = /^\/image-storage\/([^/]+)\/([^/]+)\/[^/]+\.webp$/;
 
+// GENERIC_SIZES_DEFAULT's old value, before it was corrected from a fixed
+// 700px guess to 100vw (see imageNode.tsx's comment on the constant) — sizes
+// becomes an image's actual rendered CSS width when nothing else sets one,
+// so this fixed value forcibly shrank every unconstrained image on
+// norobots.blog to 700px regardless of its real container width. Used only
+// to detect and repair images already migrated with the broken value; not
+// otherwise meaningful.
+const STALE_SIZES_700PX = "(max-width: 768px) 100vw, 700px";
+
+function parseImageStorageUrl(
+  src: string,
+): { did: string; filename: string; origin: string } | null {
+  const isAbsolute = /^https?:\/\//.test(src);
+  const parsed = new URL(src, "https://placeholder.invalid");
+  const match = parsed.pathname.match(IMAGE_STORAGE_PATH_RE);
+  if (!match) return null;
+  const [, did, filename] = match;
+  return { did, filename, origin: isAbsolute ? parsed.origin : "" };
+}
+
 // Object.entries(sizes) is NOT a safe iteration order here — JS engines
 // enumerate integer-like string keys ("600", "1200", "1800") in ascending
 // numeric order ahead of non-numeric keys ("thumb", "max") regardless of
@@ -122,35 +146,43 @@ function processDocumentHtml(html: string): {
 
   const images: ProposedImageChange[] = [];
   for (const img of Array.from(document.body.querySelectorAll("img"))) {
-    if (img.hasAttribute("srcset")) continue;
-
     const src = img.getAttribute("src");
     if (!src) continue;
 
-    const isAbsolute = /^https?:\/\//.test(src);
-    const parsed = new URL(src, "https://placeholder.invalid");
-    const match = parsed.pathname.match(IMAGE_STORAGE_PATH_RE);
-    if (!match) continue; // external/pasted image, not Scribe-hosted
+    if (img.hasAttribute("srcset")) {
+      // Already migrated. The only thing worth revisiting is a sizes value
+      // still carrying the old broken constant — srcset/src are otherwise
+      // left completely untouched. A manual per-image width (e.g. "400px")
+      // was always correct and is left alone.
+      if (img.getAttribute("sizes") !== STALE_SIZES_700PX) continue;
+      const parsed = parseImageStorageUrl(src);
+      if (!parsed) continue;
+      const beforeTag = img.outerHTML;
+      const styleWidth = parseInt(img.style.width);
+      img.setAttribute(
+        "sizes",
+        !isNaN(styleWidth) ? `${styleWidth}px` : GENERIC_SIZES_DEFAULT,
+      );
+      images.push({ filename: parsed.filename, beforeTag, afterTag: img.outerHTML });
+      continue;
+    }
+
+    const parsed = parseImageStorageUrl(src);
+    if (!parsed) continue; // external/pasted image, not Scribe-hosted
 
     // The did embedded in the URL is whoever originally uploaded this
     // specific image (variantUrl always builds from image.user_did) — not
     // necessarily this document's own author, since a site-owned folder's
     // images may have been uploaded by any accepted Contributor. Look up
     // and rebuild sibling URLs using that did, not the document owner's.
-    const [, imageDid, filename] = match;
-    const sizes = lookupSizes(filename, imageDid);
+    const sizes = lookupSizes(parsed.filename, parsed.did);
     if (!sizes) continue; // deleted from the library since publish
 
-    // Every Scribe-inserted image's src is already absolute (handlePick
-    // always absolutizes at insert time) — reuse that same origin for
-    // sibling URLs rather than assuming scribe-cms.app. Fall back to
-    // relative in the unexpected case of a hand-edited/malformed record.
-    const origin = isAbsolute ? parsed.origin : "";
-    const sources = buildSources(sizes, origin, imageDid, filename);
+    const sources = buildSources(sizes, parsed.origin, parsed.did, parsed.filename);
 
     const beforeTag = img.outerHTML;
     if (!applySrcset(img, sources)) continue;
-    images.push({ filename, beforeTag, afterTag: img.outerHTML });
+    images.push({ filename: parsed.filename, beforeTag, afterTag: img.outerHTML });
   }
 
   return { images, updatedHtml: document.body.innerHTML };
