@@ -148,6 +148,27 @@ describe("buildMigrationPlan", () => {
     expect(change.updatedHtml).toContain("srcset=");
   });
 
+  it("orders srcset entries by VARIANT_ORDER (thumb, 600, 1200, 1800, max), not raw object key order", async () => {
+    // Object.entries() on this exact key set would numeric-sort "600" and
+    // "1200" ahead of "thumb", producing 600,1200,thumb,max instead of the
+    // canonical thumb,600,1200,max — this fixture reproduces that real
+    // production case (a portrait image, hence the non-round widths).
+    seedImage(DID, "portrait", {
+      "600": { width: 237, height: 600 },
+      "1200": { width: 474, height: 1200 },
+      thumb: { width: 118, height: 300 },
+      max: { width: 1185, height: 3000 },
+    });
+    mockListDocuments.mockResolvedValue([
+      doc("r1", `<img src="${ORIGIN}/image-storage/${DID}/portrait/max.webp">`),
+    ]);
+
+    const plan = await buildMigrationPlan(mockAgent, DID);
+    expect(plan.changes[0].images[0].afterTag).toContain(
+      `srcset="${ORIGIN}/image-storage/${DID}/portrait/thumb.webp 118w, ${ORIGIN}/image-storage/${DID}/portrait/600.webp 237w, ${ORIGIN}/image-storage/${DID}/portrait/1200.webp 474w, ${ORIGIN}/image-storage/${DID}/portrait/max.webp 1185w"`,
+    );
+  });
+
   it("uses the image's own inline width as the sizes value when one is set", async () => {
     seedImage(DID, "abc", {
       "600": { width: 600, height: 400 },

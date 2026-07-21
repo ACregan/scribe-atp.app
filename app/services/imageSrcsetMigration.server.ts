@@ -5,7 +5,10 @@ import { JSDOM } from "jsdom";
 import { listDocuments, putDocument } from "./documentRepository.server";
 import { sanitizeArticleHtml } from "./article.server";
 import { GENERIC_SIZES_DEFAULT } from "~/components/RichTextEditor/imageNode";
-import type { ImageSource } from "~/components/ImagePickerModal/imageBrowserTypes";
+import {
+  VARIANT_ORDER,
+  type ImageSource,
+} from "~/components/ImagePickerModal/imageBrowserTypes";
 import { logger } from "./logger.server";
 
 // One-time devtools migration (ADR 0029 only made *new* editor image
@@ -67,15 +70,23 @@ function lookupSizes(filename: string, userDid: string): ImageSizes | null {
 // /image-storage/{did}/{filename}/{variant}.webp
 const IMAGE_STORAGE_PATH_RE = /^\/image-storage\/([^/]+)\/([^/]+)\/[^/]+\.webp$/;
 
+// Object.entries(sizes) is NOT a safe iteration order here — JS engines
+// enumerate integer-like string keys ("600", "1200", "1800") in ascending
+// numeric order ahead of non-numeric keys ("thumb", "max") regardless of
+// original insertion order, producing e.g. 600,1200,1800,thumb,max instead
+// of the canonical thumb,600,1200,1800,max. Not a functional bug (srcset
+// resolution doesn't depend on list order) but it broke byte-identical
+// output with ImagePickerModal.handlePick, which iterates VARIANT_ORDER —
+// iterate the same fixed order here for consistency.
 function buildSources(
   sizes: ImageSizes,
   origin: string,
   did: string,
   filename: string,
 ): ImageSource[] {
-  return Object.entries(sizes).map(([variant, { width }]) => ({
+  return VARIANT_ORDER.filter((variant) => variant in sizes).map((variant) => ({
     url: `${origin}/image-storage/${did}/${filename}/${variant}.webp`,
-    width,
+    width: sizes[variant].width,
   }));
 }
 
