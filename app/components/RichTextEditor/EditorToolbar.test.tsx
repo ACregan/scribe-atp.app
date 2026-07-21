@@ -96,11 +96,21 @@ vi.mock("~/components/ImagePickerModal/ImagePickerModal", () => ({
   }: {
     isOpen: boolean;
     onClose: () => void;
-    onPick: (src: string, altText: string) => void;
+    onPick: (
+      src: string,
+      altText: string,
+      sources?: { url: string; width: number }[],
+    ) => void;
   }) =>
     isOpen ? (
       <div data-testid="image-picker-modal">
-        <button onClick={() => onPick("https://example.com/img.webp", "img")}>
+        <button
+          onClick={() =>
+            onPick("https://example.com/img.webp", "img", [
+              { url: "https://example.com/img.webp", width: 600 },
+            ])
+          }
+        >
           Pick Image
         </button>
         <button onClick={onClose}>Close</button>
@@ -226,7 +236,11 @@ describe("EditorToolbar", () => {
       fireEvent.click(screen.getByText("Pick Image"));
       expect(mockEditor.dispatchCommand).toHaveBeenCalledWith(
         { type: "INSERT_IMAGE_COMMAND" },
-        { src: "https://example.com/img.webp", altText: "img" },
+        {
+          src: "https://example.com/img.webp",
+          altText: "img",
+          sources: [{ url: "https://example.com/img.webp", width: 600 }],
+        },
       );
     });
   });

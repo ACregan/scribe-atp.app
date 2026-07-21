@@ -1277,8 +1277,8 @@ export function EditorToolbar({
       <ImagePickerModal
         isOpen={isImagePickerOpen}
         onClose={closeImagePicker}
-        onPick={(src, altText) => {
-          editor.dispatchCommand(INSERT_IMAGE_COMMAND, { src, altText });
+        onPick={(src, altText, sources) => {
+          editor.dispatchCommand(INSERT_IMAGE_COMMAND, { src, altText, sources });
         }}
       />
     </>

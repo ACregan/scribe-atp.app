@@ -42,6 +42,64 @@ describe("ImageNode.exportDOM", () => {
       expect(img.style.maxWidth).toBe("100%");
     });
   });
+
+  it("omits srcset/sizes when sources is null", async () => {
+    await withEditor((editor) => {
+      const node = $createImageNode("https://example.com/img.webp", "alt");
+      const { element } = node.exportDOM(editor);
+      const img = element as HTMLImageElement;
+      expect(img.hasAttribute("srcset")).toBe(false);
+      expect(img.hasAttribute("sizes")).toBe(false);
+    });
+  });
+
+  it("omits srcset/sizes when sources has only one entry", async () => {
+    await withEditor((editor) => {
+      const node = $createImageNode(
+        "https://example.com/thumb.webp",
+        "alt",
+        null,
+        [{ url: "https://example.com/thumb.webp", width: 300 }],
+      );
+      const { element } = node.exportDOM(editor);
+      const img = element as HTMLImageElement;
+      expect(img.hasAttribute("srcset")).toBe(false);
+      expect(img.hasAttribute("sizes")).toBe(false);
+    });
+  });
+
+  it("emits srcset and the generic sizes default when sources has multiple entries and no manual width", async () => {
+    await withEditor((editor) => {
+      const node = $createImageNode(
+        "https://example.com/1200.webp",
+        "alt",
+        null,
+        [
+          { url: "https://example.com/600.webp", width: 600 },
+          { url: "https://example.com/1200.webp", width: 1200 },
+          { url: "https://example.com/max.webp", width: 3000 },
+        ],
+      );
+      const { element } = node.exportDOM(editor);
+      const img = element as HTMLImageElement;
+      expect(img.getAttribute("srcset")).toBe(
+        "https://example.com/600.webp 600w, https://example.com/1200.webp 1200w, https://example.com/max.webp 3000w",
+      );
+      expect(img.getAttribute("sizes")).toBe("(max-width: 768px) 100vw, 700px");
+    });
+  });
+
+  it("uses the manual width in pixels for sizes when the author has resized the image", async () => {
+    await withEditor((editor) => {
+      const node = $createImageNode("https://example.com/1200.webp", "alt", 400, [
+        { url: "https://example.com/600.webp", width: 600 },
+        { url: "https://example.com/1200.webp", width: 1200 },
+      ]);
+      const { element } = node.exportDOM(editor);
+      const img = element as HTMLImageElement;
+      expect(img.getAttribute("sizes")).toBe("400px");
+    });
+  });
 });
 
 // ─── exportJSON / importJSON ──────────────────────────────────────────────────
@@ -76,6 +134,34 @@ describe("ImageNode JSON round-trip", () => {
         jsonWithoutWidth as typeof json & { width?: number | null },
       );
       expect(restored.__width).toBeNull();
+    });
+  });
+
+  it("preserves sources through exportJSON / importJSON", async () => {
+    await withEditor(() => {
+      const sources = [{ url: "https://example.com/600.webp", width: 600 }];
+      const node = $createImageNode(
+        "https://example.com/600.webp",
+        "alt",
+        null,
+        sources,
+      );
+      const json = node.exportJSON();
+      expect(json.sources).toEqual(sources);
+      const restored = ImageNode.importJSON(json);
+      expect(restored.__sources).toEqual(sources);
+    });
+  });
+
+  it("defaults sources to null when field is absent (backwards compat)", async () => {
+    await withEditor(() => {
+      const node = $createImageNode("https://example.com/img.webp", "alt");
+      const json = node.exportJSON();
+      const { sources: _omitted, ...jsonWithoutSources } = json;
+      const restored = ImageNode.importJSON(
+        jsonWithoutSources as typeof json & { sources?: typeof json.sources },
+      );
+      expect(restored.__sources).toBeNull();
     });
   });
 });
@@ -140,6 +226,58 @@ describe("convertImageElement", () => {
       );
     });
   });
+
+  it("parses a srcset attribute into sources", async () => {
+    const img = document.createElement("img");
+    img.setAttribute("src", "https://example.com/1200.webp");
+    img.setAttribute(
+      "srcset",
+      "https://example.com/600.webp 600w, https://example.com/1200.webp 1200w",
+    );
+
+    await withEditor(() => {
+      const result = ImageNode.importDOM()!.img(img).conversion(img);
+      expect((result as { node: ImageNode }).node.__sources).toEqual([
+        { url: "https://example.com/600.webp", width: 600 },
+        { url: "https://example.com/1200.webp", width: 1200 },
+      ]);
+    });
+  });
+
+  it("leaves sources as null when no srcset attribute is present (old saved articles)", async () => {
+    const img = document.createElement("img");
+    img.setAttribute("src", "https://example.com/max.webp");
+
+    await withEditor(() => {
+      const result = ImageNode.importDOM()!.img(img).conversion(img);
+      expect((result as { node: ImageNode }).node.__sources).toBeNull();
+    });
+  });
+
+  it("ignores density (x) descriptors from foreign/pasted HTML", async () => {
+    const img = document.createElement("img");
+    img.setAttribute("src", "https://example.com/1200.webp");
+    img.setAttribute(
+      "srcset",
+      "https://example.com/1200.webp 1x, https://example.com/2400.webp 2x",
+    );
+
+    await withEditor(() => {
+      const result = ImageNode.importDOM()!.img(img).conversion(img);
+      expect((result as { node: ImageNode }).node.__sources).toBeNull();
+    });
+  });
+
+  it("leaves sources as null for an empty srcset attribute", async () => {
+    const img = document.createElement("img");
+    img.setAttribute("src", "https://example.com/max.webp");
+    img.setAttribute("srcset", "");
+
+    await withEditor(() => {
+      const result = ImageNode.importDOM()!.img(img).conversion(img);
+      expect((result as { node: ImageNode }).node.__sources).toBeNull();
+    });
+  });
 });
 
 // ─── setAltText ───────────────────────────────────────────────────────────────
@@ -184,6 +322,28 @@ describe("ImageNode.clone", () => {
       const node = $createImageNode("https://example.com/img.webp", "alt");
       const cloned = ImageNode.clone(node);
       expect(cloned.__width).toBeNull();
+    });
+  });
+
+  it("preserves sources in the cloned node", async () => {
+    await withEditor(() => {
+      const sources = [{ url: "https://example.com/600.webp", width: 600 }];
+      const node = $createImageNode(
+        "https://example.com/600.webp",
+        "alt",
+        null,
+        sources,
+      );
+      const cloned = ImageNode.clone(node);
+      expect(cloned.__sources).toEqual(sources);
+    });
+  });
+
+  it("clones null sources correctly", async () => {
+    await withEditor(() => {
+      const node = $createImageNode("https://example.com/img.webp", "alt");
+      const cloned = ImageNode.clone(node);
+      expect(cloned.__sources).toBeNull();
     });
   });
 });
