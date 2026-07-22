@@ -110,7 +110,7 @@ export function useImageLibrary({
     if (sub.user_did === currentUserDid) return "My Images";
     const displayName = sub.user_did ? profiles[sub.user_did]?.displayName : undefined;
     if (displayName) return `${displayName} Images`;
-    return sub.name.length > 20 ? `${sub.name.slice(0, 20)}…` : sub.name;
+    return sub.name;
   }
 
   function allItemIds(): string[] {
