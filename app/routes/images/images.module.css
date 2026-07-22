@@ -50,6 +50,7 @@
   gap: 0.8rem;
   padding: 1.2rem;
   height: 22rem;
+  overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 0.8rem;
   background: var(--surface-page);
@@ -70,9 +71,10 @@
 /* ── Folder tile ─────────────────────────────────────────────────────────── */
 
 .folderTile {
-  /* Extra bottom padding aligns folder name with image names by compensating
-     for the absent variant-buttons row (gap + buttons ≈ 0.8rem + 2rem). */
-  padding-bottom: calc(1.2rem + 0.8rem + 2rem);
+  /* Used to carry extra bottom padding to align the name with image names
+     (which have a variant-buttons row below them). That space now goes to
+     the name itself, which can run up to 3 lines — see .folderTileName. */
+  padding-bottom: 1.2rem;
 }
 
 .folderTileOwn {
@@ -81,12 +83,18 @@
 
 .folderIcon {
   position: relative;
-  flex: 1;
+  /* Fixed height matching its old flex: 1 result for a single-line name
+     (tile height minus padding/gap/one text line) — not flex: 1 itself,
+     which re-centers into whatever space is left as the name below grows
+     to 2-3 lines, visibly shifting the icon upward. Fixed here keeps it
+     anchored in place; the reclaimed padding-bottom on .folderTile (see
+     above) is what gives the name room to grow into instead. */
+  height: 14.2rem;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 0;
+  flex-shrink: 0;
 }
 
 .folderIcon > svg {
