@@ -44,22 +44,28 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 ## Routes
 
 ```
-/                              home            — public landing page for unauthenticated visitors; dashboard for authenticated users (quick actions, unassigned-article alert, recently updated list with Edit links)
-/login                         login           — Bluesky OAuth entry point (or dev bypass); centred card UI with sign-up link to bsky.app
-/logout                        logout          — destroys session cookie, redirects to /login
-/auth/callback                 callback        — OAuth redirect handler, sets session cookie
-/article/create                create          — write a new article to the PDS; every new article starts loose (unassigned) — no site picker here (ADR 0013)
-/article/list                  list            — global article list: Site-Assigned Articles + Unassigned Drafts, with the consolidated Publish action (site → group, with create-group)
-/article/list/:siteSlug        site-list       — site-scoped group management; reads/writes site.standard.publication; Unpublish returns an article to loose
-/article/list/:siteSlug/new    site-list-new   — same component as site-list; auto-opens Add New Group modal on mount
-/article/view/:articleUrl      view            — read-only display of a single article
-/article/edit/:articleUrl      edit            — edit an existing article; site/group assignment is exclusively the Publish/Unpublish actions' job, not editing
-/groups                        groups          — all sites with their groups; splash/logo imagery, folder icons, article count pills; Add New Group modal
-/groups/new                    groups-new      — same component as groups; auto-opens Add New Group modal on mount
-/sites                         sites           — list, create and delete site.standard.publication records
-/sites/new                     sites-new       — same component as sites; auto-opens Add New Site modal on mount
-/site/:siteName/configure      configure       — edit site metadata (title, description, images, url, urlPrefix)
-/images                        image-library   — Image Library: browse, upload, organise, and copy URLs for images; shared across all users
+/                                        home                  — public landing page for unauthenticated visitors; dashboard for authenticated users (quick actions, unassigned-article alert, recently updated list with Edit links)
+/login                                   login                 — Bluesky OAuth entry point (or dev bypass); centred card UI with sign-up link to bsky.app
+/logout                                  logout                — destroys session cookie, redirects to /login
+/auth/callback                           callback              — OAuth redirect handler, sets session cookie
+/contributor-invitations/respond         respond-invite        — resource route, no page — Accept/Reject fetcher target for the global Contributor-invitation modal
+/article/create                          create                — write a new article to the PDS; every new article starts loose (unassigned) — no site picker here (ADR 0013)
+/article/resolve-contributor             resolve-contributor   — resource route — resolves a Bluesky handle/DID to a profile for adding a Contributor
+/article/list                            list                  — global article list: Site-Assigned Articles + Unassigned Drafts, with the consolidated Publish action (site → group, with create-group)
+/article/list/:siteSlug                  site-list             — site-scoped group management; reads/writes site.standard.publication; Unpublish returns an article to loose
+/article/list/:siteSlug/new              site-list-new         — same component as site-list; auto-opens Add New Group modal on mount
+/article/view/:articleUrl                view                  — read-only display of a single article
+/article/edit/:articleUrl                edit                  — edit an existing article; site/group assignment is exclusively the Publish/Unpublish actions' job, not editing
+/article/review/:contributorDid/:rkey    review                — review screen for a Contributor's submitted article — Approve/Reject
+/article/site-chat/:siteSlug             site-chat             — resource route, no page — polling/resolve endpoint backing the Site Chat panel (Bluesky DM-based group chat, ADR 0016/0025/0026)
+/groups                                  groups                — all sites with their groups; splash/logo imagery, folder icons, article count pills; Add New Group modal
+/groups/new                              groups-new            — same component as groups; auto-opens Add New Group modal on mount
+/sites                                   sites                 — list, create and delete site.standard.publication records
+/sites/new                               sites-new             — same component as sites; auto-opens Add New Site modal on mount
+/site/:siteName/configure                configure             — edit site metadata (title, description, images, url, urlPrefix)
+/images                                  image-library         — Image Library: browse, upload, organise, and copy URLs for images; shared across all users
+/insights                                insights              — analytics dashboard: Umami-backed pageviews/visitors plus in-house Like/Subscribe/Share engagement charts
+/devtools/update-img-to-srcset           update-img-to-srcset  — one-off, self-scoped devtools migration tool — backfills srcset onto pre-existing articles' embedded images; slated for deletion once all accounts are migrated
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header. It also hosts:
