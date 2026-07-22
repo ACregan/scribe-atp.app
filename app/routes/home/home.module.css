@@ -109,7 +109,7 @@
   left: 50%;
   transform: translateX(-50%);
   height: 4rem;
-  width: 16rem;
+  width: 12rem;
 }
 .psLogoContainer > svg {
   fill: var(--home-pslogo-fill);
