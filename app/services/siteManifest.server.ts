@@ -182,6 +182,9 @@ export async function unpublishArticle(
       String(doc.path ?? ""),
       (doc.scribe as Record<string, unknown>) ?? {},
     );
+    // publishedAt is a mandatory datetime per the lexicon — an unpublished
+    // article keeps its original publish date rather than losing it.
+    // Draft vs. published state is signalled exclusively by `site`.
     const updatedDoc: Record<string, unknown> = {
       ...doc,
       site,
@@ -189,7 +192,6 @@ export async function unpublishArticle(
       scribe,
       updatedAt: now,
     };
-    delete updatedDoc.publishedAt;
     await agent.com.atproto.repo.putRecord({
       repo: did,
       collection: DOCUMENT_COLLECTION,

@@ -83,6 +83,13 @@ export async function action({ request }: Route.ActionArgs) {
       tags: tags.length ? tags : undefined,
       contributors: contributors.length ? contributors : undefined,
       path: `/${slug}`,
+      // publishedAt is a mandatory datetime per the site.standard.document
+      // lexicon — it must never be omitted or empty, even for a loose
+      // article that hasn't actually been published anywhere. Draft vs.
+      // published state is signalled exclusively by `site` (ADR 0013);
+      // this just needs to be *some* valid datetime until a real publish
+      // overwrites it.
+      publishedAt: now,
       updatedAt: now,
       scribe: {
         coverImageUrl: splashImageUrl?.trim() || undefined,

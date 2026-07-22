@@ -297,7 +297,9 @@ export function devEditLoader(articleUrl: string): {
     createdAt: new Date().toISOString(),
     cid: "dev-cid",
     publishedSite: "",
-    publishedAt: "",
+    // Mandatory datetime per the lexicon, even while loose — mirrors
+    // edit.tsx's real loader, which falls back to createdAt.
+    publishedAt: new Date().toISOString(),
     publishedPath: `/${articleUrl}`,
   };
 }
@@ -409,6 +411,7 @@ export function devViewLoader(articleUrl: string) {
     description: "A short description of the article shown as a lead paragraph.",
     createdAt: new Date(Date.now() - 7 * 86400 * 1000).toISOString(),
     publishedAt: new Date(Date.now() - 5 * 86400 * 1000).toISOString(),
+    isPublished: true,
     updatedAt: new Date().toISOString(),
     tags: ["dev", "example"],
     readMinutes: 2,
