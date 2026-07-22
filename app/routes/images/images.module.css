@@ -137,6 +137,20 @@
   text-overflow: ellipsis;
 }
 
+/* Folder names run longer than image filenames and the tile has the height
+   to spare — clamp to 3 lines instead of truncating to one. */
+.folderTileName {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  text-align: center;
+  width: 100%;
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
 /* ── Top buttons ─────────────────────────────────────────────────────────── */
 
 .topButtons {
