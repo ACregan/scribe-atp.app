@@ -218,7 +218,7 @@ export function ImageGrid({
                                 />
                               )}
                             </span>
-                            <span className={styles.tileName}>
+                            <span className={styles.folderTileName}>
                               {folderLabel(subfolder)}
                             </span>
                           </Link>
