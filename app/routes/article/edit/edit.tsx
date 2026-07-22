@@ -76,6 +76,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       : String(rawContent ?? "");
 
   const scribe = (value.scribe as Record<string, unknown>) ?? {};
+  const createdAt = String(scribe.createdAt ?? new Date().toISOString());
 
   return {
     rkey,
@@ -88,10 +89,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     contributors: Array.isArray(value.contributors)
       ? (value.contributors as Contributor[])
       : [],
-    createdAt: String(scribe.createdAt ?? new Date().toISOString()),
+    createdAt,
     cid: found.cid ?? null,
     publishedSite: String(value.site ?? ""),
-    publishedAt: String(value.publishedAt ?? ""),
+    // publishedAt is a mandatory datetime per the lexicon — never persist
+    // it blank. Falls back to createdAt, which also self-heals any
+    // already-corrupted "" value on the next save of this article.
+    publishedAt: String(value.publishedAt || createdAt),
     publishedPath: String(value.path ?? ""),
   };
 }
@@ -109,7 +113,8 @@ export async function action({ request }: Route.ActionArgs) {
     (formData.get("createdAt") as string) || new Date().toISOString();
   const oldRkey = formData.get("rkey") as string; // TID — immutable
   const publishedSite = (formData.get("publishedSite") as string) || "";
-  const publishedAt = (formData.get("publishedAt") as string) || "";
+  // Mandatory datetime per the lexicon — never let this fall back to "".
+  const publishedAt = (formData.get("publishedAt") as string) || createdAt;
   const publishedPath = (formData.get("publishedPath") as string) || "";
 
   const validationError = validateArticleFields(title, newSlug, splashImageUrl);

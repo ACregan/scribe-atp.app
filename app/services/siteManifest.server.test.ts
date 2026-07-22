@@ -856,7 +856,7 @@ describe("unpublishArticle", () => {
     expect(siteCall[0].record.scribe.ungroupedArticles).toEqual([]);
   });
 
-  it("resets the document's site to the loose reader URL, path to /{slug}, and clears publishedAt", async () => {
+  it("resets the document's site to the loose reader URL and path to /{slug}, keeping publishedAt (mandatory per the lexicon — site alone signals draft vs. published)", async () => {
     const { agent, putRecord } = makeUnpublishAgent({
       docValue: {
         path: "/blog/g1/a1",
@@ -880,7 +880,7 @@ describe("unpublishArticle", () => {
       `https://reader.scribe-atp.app/${DID}/site.standard.document/a1`,
     );
     expect(docCall[0].record.path).toBe("/a1");
-    expect(docCall[0].record.publishedAt).toBeUndefined();
+    expect(docCall[0].record.publishedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(docCall[0].record.scribe.canonicalUrl).toBeUndefined();
     // domain is a site-assignment field too — buildLooseDocumentFields strips
     // it along with canonicalUrl, since a loose document has no site domain.

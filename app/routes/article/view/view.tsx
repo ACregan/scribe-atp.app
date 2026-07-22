@@ -135,6 +135,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     description: String(value.description ?? ""),
     createdAt: String(scribe.createdAt ?? ""),
     publishedAt: String(value.publishedAt ?? ""),
+    // ADR 0013: `site` is the sole draft/published signal — publishedAt is
+    // a mandatory datetime on every document regardless of state, so it
+    // can't be used to tell the two apart.
+    isPublished: String(value.site ?? "").startsWith("at://"),
     updatedAt: String(value.updatedAt ?? ""),
     tags: Array.isArray(value.tags) ? (value.tags as string[]) : [],
     readMinutes: textContent ? computeReadMinutes(textContent) : null,
@@ -164,6 +168,7 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
     description,
     createdAt,
     publishedAt,
+    isPublished,
     updatedAt,
     tags,
     readMinutes,
@@ -176,7 +181,7 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
     shares,
   } = loaderData;
 
-  const displayDate = publishedAt || createdAt;
+  const displayDate = isPublished ? publishedAt || createdAt : createdAt;
   const showUpdated =
     updatedAt && updatedAt !== publishedAt && updatedAt !== createdAt;
 
@@ -188,7 +193,7 @@ export default function ViewArticle({ loaderData }: Route.ComponentProps) {
           {displayDate && (
             <>
               <span>
-                {publishedAt ? "Published" : "Created"}{" "}
+                {isPublished ? "Published" : "Created"}{" "}
                 {formatDate(displayDate)}
               </span>
             </>

@@ -56,6 +56,10 @@ export default [
         "devtools/update-img-to-srcset",
         "./routes/devtools/update-img-to-srcset/update-img-to-srcset.tsx",
       ),
+      route(
+        "devtools/repair-empty-published-at",
+        "./routes/devtools/repair-empty-published-at/repair-empty-published-at.tsx",
+      ),
     ]),
   ]),
 ] satisfies RouteConfig;
