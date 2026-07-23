@@ -66,6 +66,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /images                                  image-library         — Image Library: browse, upload, organise, and copy URLs for images; shared across all users
 /insights                                insights              — analytics dashboard: Umami-backed pageviews/visitors plus in-house Like/Subscribe/Share engagement charts
 /devtools/update-img-to-srcset           update-img-to-srcset  — one-off, self-scoped devtools migration tool — backfills srcset onto pre-existing articles' embedded images; slated for deletion once all accounts are migrated
+/devtools/repair-empty-published-at      repair-empty-published-at — one-off, self-scoped devtools repair tool — fixes documents whose publishedAt was persisted as "" instead of a valid datetime; slated for deletion once all accounts are repaired
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header. It also hosts:
@@ -220,7 +221,12 @@ This breaks any existing AT URIs pointing to the old rkey.
                                               // publish/unpublish time — see buildLooseSiteUrl/buildLooseDocumentFields
                                               // in article.server.ts, the single source of truth for the loose shape.
   title: string,
-  publishedAt?: string,                      // ISO 8601 — omitted if blank
+  publishedAt: string,                       // ISO 8601 — MANDATORY per the lexicon, never omitted/blank, even
+                                              // while loose. Defaults to createdAt until a real publish
+                                              // overwrites it (create.tsx/edit.tsx). Draft vs. published is
+                                              // signalled exclusively by `site` above, never by this field —
+                                              // see /devtools/repair-empty-published-at for the one-off fix
+                                              // this replaced (publishedAt was previously "" while loose).
   path?: string,                             // e.g. "/engineering/my-article" or "/my-article"
   description?: string,
   coverImage?: blob,                         // <1MB thumbnail
