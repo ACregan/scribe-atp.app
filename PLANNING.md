@@ -1355,3 +1355,33 @@ Shipped in two phases on branch `feat/repair-loose-documents-devtool`, merged vi
 Also fixed as a direct consequence (both were dormant bugs the ADR's Consequences section predicted): `site/configure.tsx`'s domain-change cascade was comparing `doc.site` against a `https://{domain}` shape no document's `site` field can ever hold; `repairDocumentPaths.server.ts` was guarded against misreading a loose document's reader-URL `site` field as an at:// site rkey.
 
 **Not done as part of this migration:** a live-data audit (2026-07-08) found zero multi-assigned Articles and zero data-quality issues remaining — the ADR's anticipated "fewer than 20 cross-posted articles needing manual reassignment" cleanup step turned out to be unnecessary; the loose-document repair (Phase 1) had already resolved it. The only remaining task is republishing existing loose Articles through the new Publish flow, at the site owner's discretion — a content decision, not an engineering one.
+
+## FEATURE: Hosted Multi-Tenant Sites (paid product idea)
+
+### Status: Idea — discussed 2026-07-23, not started, revisit after more thought
+
+### The pitch
+
+Monetize the Scribe ecosystem by letting a subscriber "buy a site" without needing their own repo/deploy/hosting — sign up as e.g. "Alice's Tools" and get `alices-tools.scribe.com` (or similar) provisioned automatically, backed by their own Bluesky PDS content same as today's three hand-built consumer sites. Referenced [leaflet.pub](https://leaflet.pub) as an existing example of this model, but leaflet.pub's sites are all visually identical apart from a colour scheme — the goal here is to offer more differentiation than that while still being provisionable on signup, not by a developer.
+
+### Two separate problems, very different difficulty
+
+**Subdomain provisioning (DNS/TLS/routing) — genuinely easy.** A wildcard DNS record (`*.scribe.com`) handles routing with no per-customer DNS work. TLS via Let's Encrypt wildcard cert (DNS-01 challenge, needs the DNS provider's API wired into certbot once, then automatic). nginx routes by subdomain with a single `server_name ~^(?<tenant>.+)\.scribe\.com$;` block. Not the hard part.
+
+**Multi-tenant architecture — the actual work.** Today, every site (norobots, perpetual-summer-ltd, anthonycregan.co.uk-2025) is a *separate git repo* with `SITE_AUTHOR`/`SITE_URL` hardcoded in `app/config/blog.ts`, its own GitLab CI pipeline, its own PM2 process, its own manually-deployed nginx vhost. A new site today means a human writing code and deploying it — the opposite of "subscribe and a site appears." Provisioning on signup means collapsing this into *one* app that resolves tenant config (author, branding/template choice) from a database lookup keyed on the incoming subdomain, at request time, rather than N separately-deployed codebases. The content-fetching layer is already parameterized for this — `fetchSite(author, siteUrl)` already takes both as arguments — so this is "stop hardcoding config, look it up per-request" rather than a rewrite of the fetch layer itself.
+
+### How much customization to offer
+
+Core tension: leaflet.pub-style (one template, colour-only) is cheap to build and maintain but low differentiation; today's fully-bespoke-code-per-site model gives maximum control but doesn't scale to self-serve at all (that's agency/consulting work, not a subscription product someone can sign up for).
+
+**Recommended middle ground:** a small curated set of templates (2-3 to start, not one, not infinite) with config-driven customization — colours/fonts/logo plus structural choices (layout variant, section toggles like tags/reading-time/hero style). Config-driven (a DB row per tenant selecting template + options) is the only approach that keeps the multi-tenant architecture above workable — arbitrary custom code/layout per tenant would put you back to needing a separate deployable per customer. `@scribe-atp/styles`' existing CSS-custom-property theming (`--scribe-*` vars) is a small head start for the "pick a template, tweak the variables" mechanism.
+
+Tradeoff to keep in mind: every template offered is an ongoing maintenance cost (design once, then keep working as the SDK evolves) — start with fewer templates and add more only once the model is proven people will pay for it, rather than trying to out-differentiate leaflet.pub on day one.
+
+### Open questions for next time
+
+- Pricing/tiers — is there a free tier, or paid-only from the start?
+- Does "buy a site" include a custom domain option (bring-your-own-domain, not just `*.scribe.com`), and if so that reopens the TLS-automation question per-domain instead of one wildcard cert
+- Where does tenant config actually live — a new table in the CMS's existing data model, or something separate
+- Whether the CMS itself becomes the "pick your template + config" UI, or a new dedicated onboarding flow
+- Not discussed at all yet: billing/subscription mechanics, cancellation/data-export story (what happens to a tenant's site when they stop paying — presumably content still lives safely in their own PDS regardless, but the hosted site itself would need to go)

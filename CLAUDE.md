@@ -67,6 +67,7 @@ The app will throw on startup if `SESSION_SECRET` is missing.
 /insights                                insights              — analytics dashboard: Umami-backed pageviews/visitors plus in-house Like/Subscribe/Share engagement charts
 /devtools/update-img-to-srcset           update-img-to-srcset  — one-off, self-scoped devtools migration tool — backfills srcset onto pre-existing articles' embedded images; slated for deletion once all accounts are migrated
 /devtools/repair-empty-published-at      repair-empty-published-at — one-off, self-scoped devtools repair tool — fixes documents whose publishedAt was persisted as "" instead of a valid datetime; slated for deletion once all accounts are repaired
+robots.txt                               (static, public/robots.txt) — Disallow on /login, /auth/callback, /logout (see SEO note below)
 ```
 
 All routes sit under a shared layout at `app/layout/core/core.tsx`. The core layout fetches the authenticated user's Bluesky profile (displayName, avatar) server-side and renders it in the header. It also hosts:
@@ -88,6 +89,10 @@ export function HydrateFallback() {
   return <Spinner size="large" />;
 }
 ```
+
+## SEO
+
+No sitemap — almost the entire app sits behind Bluesky OAuth (the `protected` layout wraps all `/article/*` routes; everything else under the core layout still requires auth to do anything useful), so there's only one genuinely public page (`/`) worth indexing. `public/robots.txt` explicitly `Disallow`s `/login`, `/auth/callback`, and `/logout` so they can't end up in search results if ever linked externally — `/auth/callback` in particular carries OAuth params that shouldn't be crawled or cached anywhere.
 
 ## Auth architecture
 
